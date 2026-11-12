@@ -452,7 +452,7 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
                   <button
                     aria-pressed={entry.id === projectId}
                     className={cn(
-                      'flex w-full min-w-0 items-center gap-2.5 rounded-control border px-3 py-2 text-left transition-colors duration-150 disabled:opacity-50',
+                      'flex w-full min-w-0 items-center gap-2.5 rounded-control border px-3 py-2 text-left transition-colors duration-base disabled:opacity-50',
                       entry.id === projectId
                         ? 'border-line-strong bg-hover-2'
                         : 'border-line hover:bg-hover',

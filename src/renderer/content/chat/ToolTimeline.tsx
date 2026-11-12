@@ -96,12 +96,12 @@ function Disclosure({
         // data-trace-toggle：ChatThread 据此在用户展开过程时暂停贴底跟随。
         data-trace-toggle
         onClick={() => setOpen(!open)}
-        className="group/row flex h-7 w-full min-w-0 items-center gap-1 text-left text-13 text-ink-3 transition-colors duration-150 hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
+        className="group/row flex h-7 w-full min-w-0 items-center gap-1 text-left text-13 text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
       >
         <ChevronRight
           aria-hidden
           className={cn(
-            'size-3.5 shrink-0 opacity-60 transition-transform duration-150 group-hover/row:opacity-100 motion-reduce:transition-none',
+            'size-3.5 shrink-0 opacity-60 transition-transform duration-base group-hover/row:opacity-100 motion-reduce:transition-none',
             open && 'rotate-90',
           )}
         />
@@ -303,12 +303,12 @@ export function ReplyTrace({
           aria-expanded={expanded}
           data-trace-toggle
           onClick={() => setExpanded(!expanded)}
-          className="group/row mb-1 flex h-7 w-full min-w-0 items-center gap-1 text-left text-13 text-ink-3 transition-colors duration-150 hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
+          className="group/row mb-1 flex h-7 w-full min-w-0 items-center gap-1 text-left text-13 text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
         >
           <ChevronRight
             aria-hidden
             className={cn(
-              'size-3.5 shrink-0 opacity-60 transition-transform duration-150 group-hover/row:opacity-100 motion-reduce:transition-none',
+              'size-3.5 shrink-0 opacity-60 transition-transform duration-base group-hover/row:opacity-100 motion-reduce:transition-none',
               expanded && 'rotate-90',
             )}
           />

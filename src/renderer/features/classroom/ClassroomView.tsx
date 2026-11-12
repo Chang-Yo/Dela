@@ -95,7 +95,7 @@ function DesktopClassroomView() {
           <aside
             aria-label="课程与录像"
             className={cn(
-              'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-150 ease-out motion-reduce:transition-none',
+              'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-base ease-out motion-reduce:transition-none',
               resizing && 'transition-none',
               collapsed && 'w-0',
             )}
@@ -104,7 +104,7 @@ function DesktopClassroomView() {
             <div
               className={cn(
                 // 壳动内容不动：折叠动画中内容保持展开宽度、被外壳裁切并淡出。
-                'flex min-h-0 flex-1 flex-col transition-opacity duration-150 motion-reduce:transition-none',
+                'flex min-h-0 flex-1 flex-col transition-opacity duration-base motion-reduce:transition-none',
                 collapsed && 'pointer-events-none opacity-0',
               )}
               style={collapsed ? undefined : { width: effectiveWidth }}

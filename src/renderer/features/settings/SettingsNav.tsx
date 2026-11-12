@@ -85,7 +85,7 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
               <button
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-8 shrink-0 items-center gap-2.5 rounded-control px-2.5 text-13 transition-colors duration-150',
+                  'flex h-8 shrink-0 items-center gap-2.5 rounded-control px-2.5 text-13 transition-colors duration-base',
                   active
                     ? 'bg-surface font-medium text-ink shadow-hairline'
                     : 'text-ink-2 hover:bg-hover hover:text-ink',

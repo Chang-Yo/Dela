@@ -100,7 +100,7 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
                   </label>
                   {group.courses.map((course) => (
                     <label
-                      className="flex items-center gap-2 rounded-control px-2 py-1 text-13 transition-colors duration-150 hover:bg-hover"
+                      className="flex items-center gap-2 rounded-control px-2 py-1 text-13 transition-colors duration-base hover:bg-hover"
                       key={course.id}
                     >
                       <input

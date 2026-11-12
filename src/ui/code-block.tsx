@@ -252,7 +252,7 @@ export default function CodeBlock({
             onClick={copy}
             // Dela 适配：长路径下保留按钮宽度，避免继承聊天区换行规则后拆开 Copy / Copied。
             className={`-mr-1 ml-auto flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-1.5 text-xs
-              font-medium transition-colors duration-100 hover:bg-hover
+              font-medium transition-colors duration-fast hover:bg-hover
               ${copied ? 'text-green' : 'text-ink-3 hover:text-ink'}`}
           >
             {copied ? (

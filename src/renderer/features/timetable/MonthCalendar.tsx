@@ -124,7 +124,7 @@ export function MonthCalendar({
               aria-label={`${date.getMonth() + 1}月${date.getDate()}日`}
               className={cn(
                 // 用 div + role 是为了能嵌套「更多」按钮，button 里不能再放交互元素。
-                'flex min-h-28 flex-col border-b border-line p-2 text-left transition-colors duration-150 hover:bg-hover @max-[320px]:min-h-16 @max-[320px]:p-1',
+                'flex min-h-28 flex-col border-b border-line p-2 text-left transition-colors duration-base hover:bg-hover @max-[320px]:min-h-16 @max-[320px]:p-1',
                 selected && 'bg-bui-accent-tint',
                 !currentMonth && 'bg-inset text-ink-3',
               )}
@@ -184,7 +184,7 @@ export function MonthCalendar({
                 {items.length > 3 ? (
                   <Popover.Root>
                     <Popover.Trigger
-                      className="flex h-5 items-center rounded-chip px-1.5 text-left text-2xs text-ink-3 outline-none transition-colors duration-100 hover:bg-hover-2 hover:text-ink focus-visible:ring-3 focus-visible:ring-bui-accent-tint"
+                      className="flex h-5 items-center rounded-chip px-1.5 text-left text-2xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-2 hover:text-ink focus-visible:ring-3 focus-visible:ring-bui-accent-tint"
                       // 不让「更多」上的按下冒泡成日格拖拽的起点。
                       onMouseDown={(event) => event.stopPropagation()}
                     >

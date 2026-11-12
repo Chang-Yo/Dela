@@ -189,7 +189,7 @@ export const TabBar = memo(function TabBar({
                   {!isPinned && (
                     <button
                       aria-hidden
-                      className="relative grid size-5 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink after:absolute after:-inset-1 after:content-['']"
+                      className="relative grid size-5 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink after:absolute after:-inset-1 after:content-['']"
                       tabIndex={-1}
                       onClick={(event) => {
                         event.stopPropagation();

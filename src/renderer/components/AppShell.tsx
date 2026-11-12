@@ -53,7 +53,7 @@ import { UpdateBadge } from '../features/settings/UpdateBadge';
 import { useVisibleNavEntries } from '../navigation/entries';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
-const labelFade = 'transition-opacity duration-200 ease-out';
+const labelFade = 'transition-opacity duration-slow ease-out';
 
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
   return (
@@ -111,7 +111,7 @@ function WindowControls() {
     <div className="[-webkit-app-region:no-drag] flex h-full">
       <button
         aria-label="最小化"
-        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-hover-2 hover:text-ink"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-base hover:bg-hover-2 hover:text-ink"
         onClick={() => window.dela?.window.minimize()}
         type="button"
       >
@@ -119,7 +119,7 @@ function WindowControls() {
       </button>
       <button
         aria-label={maximized ? '还原' : '最大化'}
-        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-hover-2 hover:text-ink"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-base hover:bg-hover-2 hover:text-ink"
         onClick={() => window.dela?.window.toggleMaximize()}
         type="button"
       >
@@ -131,7 +131,7 @@ function WindowControls() {
       </button>
       <button
         aria-label="关闭"
-        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-150 hover:bg-window-close hover:text-on-accent"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-base hover:bg-window-close hover:text-on-accent"
         onClick={() => window.dela?.window.close()}
         type="button"
       >
@@ -381,7 +381,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[env(titlebar-area-height,2.5rem)_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-200 ease-(--ease-out-strong)',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[env(titlebar-area-height,2.5rem)_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-slow ease-(--ease-out-strong)',
         sidebarResizing && 'transition-none',
       )}
       style={
@@ -545,7 +545,7 @@ export function AppShell({
                       ? vscodeOpenLabel
                       : `在 ${fileManagerName} 中打开项目`
                   }
-                  className="grid size-7 place-items-center rounded-l-control text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
+                  className="grid size-7 place-items-center rounded-l-control text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink"
                   onClick={() => openProjectDirectory(effectiveOpenTarget)}
                   title={
                     effectiveOpenTarget === 'vscode'
@@ -564,7 +564,7 @@ export function AppShell({
                   <DropdownMenuTrigger asChild>
                     <button
                       aria-label="选择项目打开方式"
-                      className="grid h-full w-6 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink data-[state=open]:bg-hover-2"
+                      className="grid h-full w-6 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink data-[state=open]:bg-hover-2"
                       title="选择项目打开方式"
                       type="button"
                     >
@@ -666,7 +666,7 @@ export function AppShell({
       {narrow && drawer !== null && (
         <div
           aria-hidden="true"
-          className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-30 bg-scrim')}
+          className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-drawer bg-scrim')}
           onMouseDown={() => onMobileDrawerChange?.(null)}
         />
       )}
@@ -678,7 +678,7 @@ export function AppShell({
           narrow
             ? cn(
                 drawerFromLeft,
-                'absolute bottom-0 left-0 top-10 z-40 w-[17.5rem] max-w-[85vw] px-2 shadow-overlay',
+                'absolute bottom-0 left-0 top-10 z-scrim w-[17.5rem] max-w-[85vw] px-2 shadow-overlay',
                 drawer === null && 'hidden',
               )
             : cn(

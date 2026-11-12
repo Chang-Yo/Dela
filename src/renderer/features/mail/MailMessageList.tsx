@@ -92,7 +92,7 @@ export function MailMessageList({
             <button
               className={cn(
                 // 行间不画分隔线：选中/悬停是圆角底色块，未读靠 accent 点与字重区分。
-                'flex w-full gap-2.5 rounded-card px-2.5 py-2 text-left transition-colors duration-150',
+                'flex w-full gap-2.5 rounded-card px-2.5 py-2 text-left transition-colors duration-base',
                 selected ? 'bg-hover-2' : 'hover:bg-hover',
               )}
               key={message.id}

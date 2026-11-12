@@ -98,7 +98,7 @@ export function RemotePortsDialog({
                 const tunnel = tunnelOf(entry.port);
                 return (
                   <div
-                    className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-13 transition-colors duration-150 hover:bg-hover"
+                    className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-13 transition-colors duration-base hover:bg-hover"
                     key={entry.port}
                   >
                     <Globe className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
@@ -153,7 +153,7 @@ export function RemotePortsDialog({
               .filter((tunnel) => !state.ports.some((entry) => entry.port === tunnel.remotePort))
               .map((tunnel) => (
                 <div
-                  className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-13 transition-colors duration-150 hover:bg-hover"
+                  className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-13 transition-colors duration-base hover:bg-hover"
                   key={`t-${tunnel.remotePort}`}
                 >
                   <Globe className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />

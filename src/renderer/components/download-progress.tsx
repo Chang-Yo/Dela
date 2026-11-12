@@ -31,7 +31,7 @@ export function DownloadProgressRow({
         role="progressbar"
       >
         <div
-          className="h-full rounded-full bg-ink-2 transition-[width] duration-300 ease-out"
+          className="h-full rounded-full bg-ink-2 transition-[width] duration-slower ease-out"
           style={{ width: `${percent}%` }}
         />
       </div>

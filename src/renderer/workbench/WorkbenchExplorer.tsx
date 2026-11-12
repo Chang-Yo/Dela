@@ -296,7 +296,7 @@ export function WorkbenchExplorer({
   const chevron = (open: boolean) => (
     <ChevronRight
       className={cn(
-        'size-3 transition-transform duration-150 motion-reduce:transition-none',
+        'size-3 transition-transform duration-base motion-reduce:transition-none',
         open && 'rotate-90',
       )}
     />
@@ -321,7 +321,7 @@ export function WorkbenchExplorer({
         className={cn(
           // 三级背景层次（用户裁决，勿压平）：侧栏画布 --page → 目录树 --inset
           // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
-          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-150 ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:!w-[17.5rem] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-overlay max-md:animate-drawer-left',
+          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-base ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-drawer max-md:!w-[17.5rem] max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-overlay max-md:animate-drawer-left',
           resizing && 'transition-none',
           !visible && 'w-0 max-md:hidden',
         )}
@@ -330,7 +330,7 @@ export function WorkbenchExplorer({
         <div
           className={cn(
             // 壳动内容不动：折叠动画中内容保持展开宽度、被外壳裁切并淡出。
-            'flex min-h-0 flex-1 flex-col transition-opacity duration-150 motion-reduce:transition-none max-md:!w-full',
+            'flex min-h-0 flex-1 flex-col transition-opacity duration-base motion-reduce:transition-none max-md:!w-full',
             collapsed && !narrow && 'pointer-events-none opacity-0',
           )}
           style={narrow ? undefined : { width: effectiveWidth }}
@@ -340,7 +340,7 @@ export function WorkbenchExplorer({
               aria-controls="workspace-explorer"
               aria-expanded={visible}
               aria-label={visible ? '收起目录' : '展开目录'}
-              className="grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-150 hover:bg-hover-2 hover:text-ink"
+              className="grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-base hover:bg-hover-2 hover:text-ink"
               onClick={() => {
                 if (narrow) useExplorerState.getState().setMobileOpen(false);
                 else useExplorerState.getState().setCollapsed(!collapsed);
@@ -353,7 +353,7 @@ export function WorkbenchExplorer({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="min-w-0 flex-1 truncate text-left text-xs font-medium text-ink-2 transition-colors duration-150 hover:text-ink"
+                  className="min-w-0 flex-1 truncate text-left text-xs font-medium text-ink-2 transition-colors duration-base hover:text-ink"
                   onClick={() => useTreeState.getState().select(rootId)}
                   title={
                     remoteRoot ? undefined : projectId ? (root?.name ?? '项目与文件夹') : '资料'
@@ -514,7 +514,7 @@ export function WorkbenchExplorer({
                   <div className={sectionClass}>
                     <button
                       aria-expanded={sourcesOpen}
-                      className="flex min-w-0 flex-1 items-center gap-1 text-left transition-colors duration-150 hover:text-ink"
+                      className="flex min-w-0 flex-1 items-center gap-1 text-left transition-colors duration-base hover:text-ink"
                       onClick={() => setCoursesOpen((value) => !value)}
                       type="button"
                     >
@@ -626,7 +626,7 @@ export function WorkbenchExplorer({
                 aria-expanded={archiveOpen || Boolean(query.trim())}
                 className={cn(
                   sectionClass,
-                  'w-full transition-colors duration-150 hover:text-ink-2',
+                  'w-full transition-colors duration-base hover:text-ink-2',
                 )}
                 onClick={() => setArchiveOpen((value) => !value)}
                 type="button"

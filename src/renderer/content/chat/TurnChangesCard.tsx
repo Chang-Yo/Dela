@@ -88,7 +88,7 @@ const TurnFileRow = memo(function TurnFileRow({
       )}
       <div className="flex h-7 shrink-0 items-center rounded-control shadow-hairline">
         <button
-          className="grid h-full place-items-center rounded-l-control px-2.5 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-50"
+          className="grid h-full place-items-center rounded-l-control px-2.5 text-xs font-medium text-ink-2 transition-colors duration-base hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-50"
           disabled={deleted}
           onClick={openInDela}
           title={deleted ? '文件已删除' : '在 Dela 中打开'}
@@ -100,7 +100,7 @@ const TurnFileRow = memo(function TurnFileRow({
           <DropdownMenuTrigger asChild>
             <button
               aria-label="选择打开方式"
-              className="grid h-full w-5 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-50"
+              className="grid h-full w-5 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-50"
               disabled={deleted}
               title="选择打开方式"
               type="button"
@@ -171,13 +171,13 @@ export const TurnChangesCard = memo(function TurnChangesCard({
     >
       <button
         aria-expanded={open}
-        className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-hover"
+        className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors duration-base hover:bg-hover"
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
         <ChevronDown
           aria-hidden
-          className={`size-3.5 shrink-0 text-ink-3 transition-transform duration-150 ${open ? '' : '-rotate-90'}`}
+          className={`size-3.5 shrink-0 text-ink-3 transition-transform duration-base ${open ? '' : '-rotate-90'}`}
         />
         <span className="shrink-0 text-xs text-ink-3">本轮改动 · {record.files.length} 个文件</span>
         <span className="flex min-w-0 gap-1.5 font-mono text-2xs">

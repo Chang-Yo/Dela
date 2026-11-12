@@ -118,7 +118,7 @@ export function ConnectionForm({
   return (
     <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
       <button
-        className="flex w-fit items-center gap-1.5 text-13 font-medium text-ink-2 transition-colors duration-150 hover:text-ink"
+        className="flex w-fit items-center gap-1.5 text-13 font-medium text-ink-2 transition-colors duration-base hover:text-ink"
         onClick={onBack}
         type="button"
       >

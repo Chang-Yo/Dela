@@ -522,7 +522,7 @@ export function Explorer({
               >
                 <ChevronRight
                   className={cn(
-                    'size-3 transition-transform duration-150 motion-reduce:transition-none',
+                    'size-3 transition-transform duration-base motion-reduce:transition-none',
                     open.has(item.id) && 'rotate-90',
                   )}
                 />

@@ -102,7 +102,7 @@ function LikeGroupRow({
   const unreadCount = items.filter((item) => !item.readAt).length;
   const unread = unreadCount > 0;
   return (
-    <article className="relative rounded-card transition-colors duration-150 hover:bg-hover">
+    <article className="relative rounded-card transition-colors duration-base hover:bg-hover">
       <button
         className={cn(
           'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
@@ -365,7 +365,7 @@ export function NotificationsView({
           const item = entry.item;
           return (
             <article
-              className="relative rounded-card transition-colors duration-150 hover:bg-hover"
+              className="relative rounded-card transition-colors duration-base hover:bg-hover"
               key={item.id}
             >
               <button

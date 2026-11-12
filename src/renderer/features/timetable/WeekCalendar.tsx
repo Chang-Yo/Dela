@@ -74,7 +74,7 @@ export function WeekCalendar({
       {/* 容器查询按内容区实际宽度切换桌面网格/按日堆叠：窗口断点会被主导航侧栏（200–360px）顶掉，
           窗口 768–1050px 时内容区不足 860px 仍渲染桌面网格，必然出现横向滚动。 */}
       <div className="hidden min-w-[53.75rem] @min-[860px]:block">
-        <div className="sticky top-0 z-30 grid grid-cols-[3.625rem_repeat(7,minmax(6.875rem,1fr))] border-b border-line bg-surface/95 backdrop-blur">
+        <div className="sticky top-0 z-drawer grid grid-cols-[3.625rem_repeat(7,minmax(6.875rem,1fr))] border-b border-line bg-surface/95 backdrop-blur">
           {/* 防御：滚动条占宽等边缘情况引发横向滚动时，时刻度列常驻左缘。 */}
           <div className="sticky left-0 bg-surface" />
           {weekDays.map((day, index) => {

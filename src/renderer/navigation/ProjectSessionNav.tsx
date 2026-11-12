@@ -57,7 +57,7 @@ export type BusinessNavId = Exclude<NavEntryId, 'sources'>;
 export const RECENT_SESSIONS = 3;
 
 /** 侧栏文字随折叠状态淡入/淡出（与 AppShell 壳的宽度过渡同步）。 */
-const labelFade = 'transition-opacity duration-200 ease-out';
+const labelFade = 'transition-opacity duration-slow ease-out';
 
 export function ProjectSessionNav({
   /** 按项目 id 注入的近期会话（近期优先排序），来自 sessions/ 镜像。 */
@@ -205,7 +205,7 @@ export function ProjectSessionNav({
           >
             <ChevronRight
               className={cn(
-                'size-3 transition-transform duration-150 motion-reduce:transition-none',
+                'size-3 transition-transform duration-base motion-reduce:transition-none',
                 expanded && 'rotate-90',
               )}
             />
@@ -361,7 +361,7 @@ export function ProjectSessionNav({
           <div className="grid grid-cols-1 gap-px pb-1">
             {sessions.length === 0 && onNewChat && (
               <button
-                className="flex h-7 items-center gap-2 rounded-control pl-8 pr-2 text-left text-13 text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
+                className="flex h-7 items-center gap-2 rounded-control pl-8 pr-2 text-left text-13 text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink-2"
                 onClick={() => onNewChat(key)}
                 type="button"
               >
@@ -383,7 +383,7 @@ export function ProjectSessionNav({
             ))}
             {unpinned.length > RECENT_SESSIONS && (
               <button
-                className="flex h-7 items-center rounded-control pl-8 pr-2 text-left text-xs text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
+                className="flex h-7 items-center rounded-control pl-8 pr-2 text-left text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink-2"
                 onClick={() => toggleFullSessionList(key)}
                 type="button"
               >

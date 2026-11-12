@@ -51,7 +51,7 @@ export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogPro
           aria-describedby={undefined}
           className={cn(
             dialogIn,
-            'fixed inset-4 z-50 flex flex-col overflow-hidden rounded-window bg-surface shadow-overlay',
+            'fixed inset-4 z-overlay flex flex-col overflow-hidden rounded-window bg-surface shadow-overlay',
           )}
         >
           <Dialog.Title className="sr-only">检查邮件草稿</Dialog.Title>

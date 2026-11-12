@@ -185,7 +185,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
         {files.map((file) => (
           <button
             aria-current={selected === file.path ? 'true' : undefined}
-            className={`flex w-full min-w-0 items-center gap-2 px-3 py-1.5 text-left text-13 transition-colors duration-100 hover:bg-hover ${
+            className={`flex w-full min-w-0 items-center gap-2 px-3 py-1.5 text-left text-13 transition-colors duration-fast hover:bg-hover ${
               selected === file.path ? 'bg-hover' : ''
             }`}
             key={file.path}

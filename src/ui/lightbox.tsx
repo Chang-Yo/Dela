@@ -16,7 +16,7 @@ function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onClose: (
     <div
       aria-label="图片查看"
       aria-modal="true"
-      className={`fixed inset-0 z-50 grid cursor-zoom-out place-items-center bg-media/80 p-6 ${overlayFade}`}
+      className={`fixed inset-0 z-overlay grid cursor-zoom-out place-items-center bg-media/80 p-6 ${overlayFade}`}
       onClick={() => onClose()}
       role="dialog"
     >

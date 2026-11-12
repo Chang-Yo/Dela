@@ -186,14 +186,14 @@ export function ChatSessions({
     <>
       <div
         aria-hidden="true"
-        className="absolute inset-0 z-30"
+        className="absolute inset-0 z-drawer"
         onMouseDown={() => onOpenChange(false)}
       />
       <aside
         aria-label="历史对话"
         className={cn(
           drawerFromRight,
-          'absolute inset-y-0 right-0 z-40 flex w-72 max-w-[85vw] flex-col border-l border-line bg-surface shadow-raised',
+          'absolute inset-y-0 right-0 z-scrim flex w-72 max-w-[85vw] flex-col border-l border-line bg-surface shadow-raised',
         )}
         role="dialog"
       >

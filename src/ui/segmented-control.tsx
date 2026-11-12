@@ -25,7 +25,7 @@ export function SegmentedControl<T extends string>({
       <span
         aria-hidden
         className="absolute inset-y-0.5 rounded-control bg-surface shadow-hairline
-          transition-transform duration-200"
+          transition-transform duration-slow"
         style={{
           width: `calc((100% - 0.25rem) / ${options.length})`,
           left: '0.125rem',
@@ -41,7 +41,7 @@ export function SegmentedControl<T extends string>({
           // Dela 适配：分段控件现在也用在表单里（邮箱连接），无 type 会默认提交表单。
           type="button"
           className={`relative z-10 rounded-control px-2.5 py-1 text-xs
-            transition-colors duration-150
+            transition-colors duration-base
             ${opt === value ? 'text-ink' : 'text-ink-3 hover:text-ink'}`}
         >
           {labels?.[opt] ?? opt}

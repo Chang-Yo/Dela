@@ -310,7 +310,7 @@ export function ProjectFileTree({
     <DropdownMenuTrigger asChild>
       <button
         type="button"
-        className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
+        className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink"
         aria-label={`${name} 的操作`}
       >
         <Ellipsis className="size-4" />

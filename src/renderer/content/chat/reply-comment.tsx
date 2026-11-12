@@ -147,7 +147,7 @@ function CommentInput({
       />
       <button
         aria-label="确认"
-        className="flex size-7 shrink-0 items-center justify-center rounded-control bg-ink text-surface transition-transform duration-150 active:scale-[0.94]"
+        className="flex size-7 shrink-0 items-center justify-center rounded-control bg-ink text-surface transition-transform duration-base active:scale-[0.94]"
         onClick={submit}
         title="确认"
         type="button"
@@ -301,7 +301,7 @@ export function ReplyCommentLayer({
       ) : (
         <div className="flex">
           <button
-            className="flex h-7 select-none items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-xs font-medium text-ink-2 transition-colors duration-100 hover:bg-hover hover:text-ink [&_svg]:size-3.5"
+            className="flex h-7 select-none items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-xs font-medium text-ink-2 transition-colors duration-fast hover:bg-hover hover:text-ink [&_svg]:size-3.5"
             onClick={() => setTarget({ ...target, editing: true })}
             // 不抢焦点、不清选区：点下去之前选中的文字保持原样。
             onPointerDown={(event) => event.preventDefault()}
@@ -312,7 +312,7 @@ export function ReplyCommentLayer({
           </button>
           {onSidechat && (
             <button
-              className="flex h-7 select-none items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-xs font-medium text-ink-2 transition-colors duration-100 hover:bg-hover hover:text-ink [&_svg]:size-3.5"
+              className="flex h-7 select-none items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-xs font-medium text-ink-2 transition-colors duration-fast hover:bg-hover hover:text-ink [&_svg]:size-3.5"
               onClick={() => {
                 onSidechat(target.quote);
                 setTarget(null);
@@ -394,7 +394,7 @@ function CommentChip({
               </button>
               <button
                 aria-label="移除评论"
-                className="flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
+                className="flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink"
                 onClick={onRemove}
                 type="button"
               >

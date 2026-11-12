@@ -84,7 +84,7 @@ export function ExplorerRevealButton({ className }: { className?: string }) {
     <button
       aria-label="展开目录"
       className={cn(
-        'grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-150 hover:bg-hover-2 hover:text-ink',
+        'grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-base hover:bg-hover-2 hover:text-ink',
         className,
       )}
       onClick={() => {

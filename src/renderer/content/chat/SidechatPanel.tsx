@@ -176,7 +176,7 @@ export function SidechatPanel({
       aria-hidden={!collapsed || undefined}
       aria-label="展开旁问"
       className={cn(
-        'absolute right-3 top-12 z-30 flex h-8 origin-top-right items-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface px-3 shadow-raised transition-colors hover:bg-hover',
+        'absolute right-3 top-12 z-drawer flex h-8 origin-top-right items-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface px-3 shadow-raised transition-colors hover:bg-hover',
         motion === 'collapse' && 'animate-pill-in',
         motion === 'expand' && 'pointer-events-none animate-pill-out',
       )}
@@ -208,7 +208,7 @@ export function SidechatPanel({
         aria-label="旁问"
         // 固定高度：消息区是 flex-1 的滚动容器，只有 max-h 时它撑开而不滚动，长回复被裁掉。
         className={cn(
-          'absolute right-3 top-12 z-30 flex h-[min(36rem,calc(100%-4rem))] w-[min(26rem,calc(100%-1.5rem))] origin-top-right flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised',
+          'absolute right-3 top-12 z-drawer flex h-[min(36rem,calc(100%-4rem))] w-[min(26rem,calc(100%-1.5rem))] origin-top-right flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised',
           motion === 'collapse' && 'pointer-events-none',
         )}
         onAnimationEnd={(event) => {

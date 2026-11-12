@@ -103,7 +103,7 @@ export function cacheHitRateText(usage: ContextUsageView): string {
 
 // beautiful-ui PromptBar 的控件样式：选择器触发钮与弹层容器（图标钮用 IconButton atom）。
 const triggerButton =
-  'flex h-7 min-w-0 shrink items-center gap-1 rounded-control px-1.5 text-xs font-medium text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink';
+  'flex h-7 min-w-0 shrink items-center gap-1 rounded-control px-1.5 text-xs font-medium text-ink-2 transition-colors duration-base hover:bg-hover hover:text-ink';
 const menuPanel = 'rounded-card bg-surface p-1 shadow-raised';
 
 export function ChatComposer({
@@ -468,7 +468,7 @@ export function ChatComposer({
       )}
       <div
         className={cn(
-          '@container relative rounded-window border border-line bg-surface shadow-card transition-colors duration-150 focus-within:border-line-strong',
+          '@container relative rounded-window border border-line bg-surface shadow-card transition-colors duration-base focus-within:border-line-strong',
           dragging && 'border-transparent',
         )}
         onDragOver={(event) => {
@@ -563,7 +563,7 @@ export function ChatComposer({
               <Popover.Portal>
                 <Popover.Content
                   align="start"
-                  className={cn('z-50 w-64', menuPanel)}
+                  className={cn('z-overlay w-64', menuPanel)}
                   side="bottom"
                   sideOffset={6}
                   style={{
@@ -673,7 +673,7 @@ export function ChatComposer({
               <Popover.Portal>
                 <Popover.Content
                   align="end"
-                  className={cn('z-50 w-80', menuPanel)}
+                  className={cn('z-overlay w-80', menuPanel)}
                   side="bottom"
                   sideOffset={6}
                   style={{
@@ -786,7 +786,7 @@ export function ChatComposer({
               <Popover.Portal>
                 <Popover.Content
                   align="end"
-                  className={cn('z-50', effortLevels.length ? 'w-32' : 'w-80', menuPanel)}
+                  className={cn('z-overlay', effortLevels.length ? 'w-32' : 'w-80', menuPanel)}
                   side="bottom"
                   sideOffset={6}
                   style={{
@@ -848,7 +848,7 @@ export function ChatComposer({
           {stoppable ? (
             <button
               aria-label="停止执行"
-              className="flex size-7 shrink-0 items-center justify-center rounded-control bg-ink text-surface transition-opacity duration-150 hover:opacity-90 active:scale-[0.94]"
+              className="flex size-7 shrink-0 items-center justify-center rounded-control bg-ink text-surface transition-opacity duration-base hover:opacity-90 active:scale-[0.94]"
               onClick={onStop}
               title="停止执行"
               type="button"
@@ -858,7 +858,7 @@ export function ChatComposer({
           ) : (
             <button
               aria-label="发送"
-              className="flex size-7 shrink-0 items-center justify-center rounded-control transition-[background-color,color,transform] duration-200 enabled:active:scale-[0.94]"
+              className="flex size-7 shrink-0 items-center justify-center rounded-control transition-[background-color,color,transform] duration-slow enabled:active:scale-[0.94]"
               disabled={!sendable}
               onClick={onSend}
               style={{
@@ -980,7 +980,7 @@ function ComposerChip({
       {detail && <span className="shrink-0 text-ink-3">{detail}</span>}
       <button
         aria-label={removeLabel}
-        className="flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors duration-100 hover:bg-hover-2 hover:text-ink"
+        className="flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink"
         onClick={onRemove}
         type="button"
       >
@@ -1066,7 +1066,7 @@ function BackgroundTasks({
       <Popover.Trigger asChild>
         <button
           aria-label={`后台任务（${tasks.length} 个运行中）`}
-          className="flex h-7 shrink-0 items-center gap-1 rounded-control px-1.5 text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink"
+          className="flex h-7 shrink-0 items-center gap-1 rounded-control px-1.5 text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink"
           title="后台任务"
           type="button"
         >
@@ -1078,7 +1078,7 @@ function BackgroundTasks({
         <Popover.Content
           align="end"
           aria-label="后台任务"
-          className={cn('z-50 w-72', menuPanel)}
+          className={cn('z-overlay w-72', menuPanel)}
           side="top"
           sideOffset={6}
           style={{
@@ -1160,7 +1160,7 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
       <Popover.Trigger asChild>
         <button
           aria-label="上下文占用"
-          className="flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-150 hover:bg-hover"
+          className="flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-base hover:bg-hover"
           title="上下文占用"
           type="button"
         >
@@ -1171,7 +1171,7 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
         <Popover.Content
           align="center"
           aria-label="上下文占用"
-          className="z-50 w-60 rounded-card bg-surface px-3 py-2.5 shadow-raised"
+          className="z-overlay w-60 rounded-card bg-surface px-3 py-2.5 shadow-raised"
           side="top"
           sideOffset={6}
           style={{

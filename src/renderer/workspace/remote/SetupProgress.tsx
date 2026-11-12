@@ -180,7 +180,7 @@ export function SetupProgress({
             role="progressbar"
           >
             <div
-              className="h-full rounded-full bg-ink-2 transition-[width] duration-200"
+              className="h-full rounded-full bg-ink-2 transition-[width] duration-slow"
               style={{ width: `${(upload.bytes.sent / upload.bytes.total) * 100}%` }}
             />
           </div>
@@ -193,13 +193,13 @@ export function SetupProgress({
       <div className="grid gap-1.5">
         <button
           aria-expanded={expanded}
-          className="flex w-fit items-center gap-1 text-xs text-ink-3 transition-colors duration-150 hover:text-ink-2"
+          className="flex w-fit items-center gap-1 text-xs text-ink-3 transition-colors duration-base hover:text-ink-2"
           onClick={() => setExpanded((value) => !value)}
           type="button"
         >
           <ChevronDown
             className={cn(
-              'size-3.5 transition-transform duration-150 motion-reduce:transition-none',
+              'size-3.5 transition-transform duration-base motion-reduce:transition-none',
               !expanded && '-rotate-90',
             )}
           />

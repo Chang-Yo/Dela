@@ -58,7 +58,7 @@ export function StepButton({
 }
 
 const fieldClasses =
-  'w-full rounded-card bg-field text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 hover:shadow-hairline-strong focus:bg-surface focus:shadow-focus aria-invalid:shadow-invalid';
+  'w-full rounded-card bg-field text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 hover:shadow-hairline-strong focus:bg-surface focus:shadow-focus aria-invalid:shadow-invalid';
 
 export function StepInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;

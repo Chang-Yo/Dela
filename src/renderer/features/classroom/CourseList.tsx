@@ -80,7 +80,7 @@ function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVide
   return (
     <div
       className={cn(
-        'flex items-center rounded-chip px-2 transition-colors duration-150',
+        'flex items-center rounded-chip px-2 transition-colors duration-base',
         selected ? 'bg-hover-2' : 'hover:bg-hover-2',
       )}
     >

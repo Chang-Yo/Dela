@@ -11,7 +11,7 @@ export function IconButton({ className, ...props }: ButtonHTMLAttributes<HTMLBut
       type="button"
       className={cn(
         `flex size-7 shrink-0 items-center justify-center rounded-control text-ink-3
-         transition-[background-color,color,transform] duration-150
+         transition-[background-color,color,transform] duration-base
          hover:bg-hover hover:text-ink active:scale-[0.94]
          disabled:pointer-events-none disabled:opacity-50
          [&_svg]:size-4`,

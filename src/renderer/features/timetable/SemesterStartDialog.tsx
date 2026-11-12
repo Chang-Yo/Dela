@@ -39,7 +39,7 @@ export function SemesterStartDialog({
   return (
     <div
       aria-modal="true"
-      className={cn(overlayFade, 'fixed inset-0 z-50 grid place-items-center bg-scrim p-4')}
+      className={cn(overlayFade, 'fixed inset-0 z-overlay grid place-items-center bg-scrim p-4')}
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}
@@ -68,7 +68,7 @@ export function SemesterStartDialog({
           </Button>
         </div>
         <div className="grid gap-2">
-          <div className="flex h-8 w-full items-center rounded-control bg-field px-2.5 text-13 text-ink shadow-hairline transition-[background-color,box-shadow] duration-150 focus-within:bg-surface focus-within:shadow-focus">
+          <div className="flex h-8 w-full items-center rounded-control bg-field px-2.5 text-13 text-ink shadow-hairline transition-[background-color,box-shadow] duration-base focus-within:bg-surface focus-within:shadow-focus">
             {/* 原生 date input：日历弹层跟随全局 color-scheme，值即 YYYY-MM-DD，选不满不会产出非法日期。 */}
             <input
               aria-label="开学日期"

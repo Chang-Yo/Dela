@@ -72,13 +72,13 @@ function RowLabel({ collapsed, children }: { collapsed: boolean; children: React
   return (
     <span
       className={cn(
-        'grid min-w-0 flex-1 transition-[grid-template-columns,padding-left] duration-150 ease-out',
+        'grid min-w-0 flex-1 transition-[grid-template-columns,padding-left] duration-base ease-out',
         collapsed ? 'grid-cols-[0fr]' : 'grid-cols-[1fr] pl-2.5',
       )}
     >
       <span
         className={cn(
-          'truncate whitespace-nowrap transition-opacity duration-150 ease-out',
+          'truncate whitespace-nowrap transition-opacity duration-base ease-out',
           collapsed && 'opacity-0',
         )}
       >
@@ -114,7 +114,7 @@ function SidebarRow({
         aria-current={selected ? 'page' : undefined}
         aria-label={hasCount ? `${label}，${countLabel}` : label}
         className={cn(
-          'relative flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-150',
+          'relative flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-base',
           selected ? 'bg-hover-2 font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
         )}
         onClick={onSelect}
@@ -220,7 +220,7 @@ export function MailFolders({
           <p
             className={cn(
               'whitespace-nowrap p-2 text-xs text-ink-3',
-              'transition-opacity duration-150 ease-out',
+              'transition-opacity duration-base ease-out',
               foldersCollapsed && 'opacity-0',
             )}
           >
@@ -280,7 +280,7 @@ export function MailFolders({
             aria-current={composing ? 'page' : undefined}
             aria-label="发送邮件"
             className={cn(
-              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-150',
+              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-base',
               composing
                 ? 'bg-hover-2 font-medium text-ink'
                 : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -316,7 +316,7 @@ export function MailFolders({
           <button
             aria-label={confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
             className={cn(
-              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-150',
+              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-base',
               confirmingDisconnect
                 ? 'bg-hover-2 font-medium text-red'
                 : 'text-ink-2 hover:bg-hover hover:text-red',

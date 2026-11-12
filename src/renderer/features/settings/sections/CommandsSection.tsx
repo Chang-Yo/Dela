@@ -90,7 +90,7 @@ export function CommandsSection() {
             />
             <textarea
               aria-label="全局指令"
-              className="min-h-24 rounded-control bg-field px-2.5 py-1.5 text-13 leading-relaxed text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
+              className="min-h-24 rounded-control bg-field px-2.5 py-1.5 text-13 leading-relaxed text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
               disabled={instruction === null || instructionBusy}
               maxLength={2000}
               onChange={(event) => {
@@ -271,7 +271,7 @@ function CommandFormDialog({
             <label className="grid gap-2 text-13">
               指令内容
               <textarea
-                className="min-h-28 rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
+                className="min-h-28 rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
                 maxLength={2000}
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder="每周帮我汇总本周的日程、作业与未读邮件"

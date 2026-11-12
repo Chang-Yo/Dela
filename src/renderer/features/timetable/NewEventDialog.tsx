@@ -67,7 +67,7 @@ export function NewEventDialog({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-50"
+      className="fixed inset-0 z-overlay"
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}

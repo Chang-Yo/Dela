@@ -174,7 +174,7 @@ export const TabGroup = memo(function TabGroup({
         <div
           aria-hidden
           className={cn(
-            'pointer-events-none absolute z-10 rounded-card bg-bui-accent-tint ring-1 ring-inset ring-bui-accent/30 transition-[top,left,width,height,opacity] duration-150 ease-out motion-reduce:transition-none',
+            'pointer-events-none absolute z-10 rounded-card bg-bui-accent-tint ring-1 ring-inset ring-bui-accent/30 transition-[top,left,width,height,opacity] duration-base ease-out motion-reduce:transition-none',
             dropPreviewClass[dropPreview.zone],
             dropPreview.visible ? 'opacity-100' : 'opacity-0',
           )}

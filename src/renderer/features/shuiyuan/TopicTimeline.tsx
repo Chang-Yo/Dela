@@ -34,7 +34,7 @@ function ReplyButton({
 }
 
 const edgeButton =
-  'flex h-7 items-center gap-2 rounded-control text-xs text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink';
+  'flex h-7 items-center gap-2 rounded-control text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink';
 /** 负边距让悬停底色外扩，而图标仍落在轴线栏中线上。 */
 const wideEdge = '-ml-1.5 pr-2 pl-1.5';
 
@@ -71,7 +71,7 @@ function FloorField({
   }
   return (
     <button
-      className="flex h-7 items-center gap-1 whitespace-nowrap rounded-control px-1.5 text-xs tabular-nums transition-colors duration-150 hover:bg-hover"
+      className="flex h-7 items-center gap-1 whitespace-nowrap rounded-control px-1.5 text-xs tabular-nums transition-colors duration-base hover:bg-hover"
       onClick={() => setEditing(true)}
       title="跳到楼层"
       type="button"

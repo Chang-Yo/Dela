@@ -8,13 +8,13 @@ import { errorText, useWorkspaceStore } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 
 const pill =
-  'flex h-7 min-w-0 max-w-[15rem] items-center gap-1.5 rounded-control border border-line bg-surface px-2 text-xs text-ink-3 transition-colors duration-150 hover:bg-hover hover:text-ink';
-const panel = 'z-50 w-64 rounded-card bg-surface p-1 shadow-raised';
+  'flex h-7 min-w-0 max-w-[15rem] items-center gap-1.5 rounded-control border border-line bg-surface px-2 text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink';
+const panel = 'z-overlay w-64 rounded-card bg-surface p-1 shadow-raised';
 const searchRow = 'mb-1 flex items-center gap-2 rounded-control px-2 py-1.5 text-ink-3';
 const searchInput =
   'min-w-0 flex-1 bg-transparent text-13 text-ink outline-none placeholder:text-ink-3';
 const option =
-  'flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-13 text-ink transition-colors duration-100 hover:bg-hover';
+  'flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-13 text-ink transition-colors duration-fast hover:bg-hover';
 const empty = 'px-2 py-2 text-xs text-ink-3';
 const contentStyle = {
   animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',

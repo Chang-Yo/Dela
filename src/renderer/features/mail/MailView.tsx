@@ -710,7 +710,7 @@ function DesktopMailView({
       <div
         ref={setGridElement}
         className={cn(
-          'grid min-h-0 flex-1 transition-[grid-template-columns] duration-150 ease-out',
+          'grid min-h-0 flex-1 transition-[grid-template-columns] duration-base ease-out',
           // narrow 维持单列 + AppShell 抽屉;非 narrow 单栏保留 48px 图标栏;宽布局维持可拖四列。
           narrow
             ? 'grid-cols-1 grid-rows-[auto_minmax(0,1fr)]'

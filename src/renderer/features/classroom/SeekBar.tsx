@@ -106,7 +106,7 @@ export function SeekBar({
       <div
         aria-hidden
         className={cn(
-          'pointer-events-none absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-on-media shadow-thumb transition-transform duration-150',
+          'pointer-events-none absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-on-media shadow-thumb transition-transform duration-base',
           dragTime !== null || hoverTime !== null ? 'scale-110' : 'scale-100',
         )}
         style={{ left: `${ratio * 100}%` }}

@@ -31,7 +31,7 @@ export function TodoSheet({
   }, []);
   return (
     <div
-      className="absolute inset-0 z-40"
+      className="absolute inset-0 z-scrim"
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose();
       }}

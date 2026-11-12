@@ -69,7 +69,7 @@ export function ToastHost() {
     <MotionConfig reducedMotion="user">
       <div
         data-toast-host=""
-        className="pointer-events-none absolute inset-x-0 top-0 z-[70] flex flex-col items-center gap-2 px-4 pt-3"
+        className="pointer-events-none absolute inset-x-0 top-0 z-toast flex flex-col items-center gap-2 px-4 pt-3"
       >
         <AnimatePresence initial={false}>
           {toasts.map((toast) => (

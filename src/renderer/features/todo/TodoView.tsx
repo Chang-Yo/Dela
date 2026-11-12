@@ -33,7 +33,7 @@ import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 
 const inputClass =
-  'w-full rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-150 placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
+  'w-full rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
 
 const showCompletedStorageKey = 'dela.todo.show-completed';
 
@@ -432,7 +432,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
               return (
                 <li
                   key={item.id}
-                  className="group flex items-start gap-3 rounded-card px-3 py-2.5 transition-colors duration-150 hover:bg-hover"
+                  className="group flex items-start gap-3 rounded-card px-3 py-2.5 transition-colors duration-base hover:bg-hover"
                 >
                   {personal ? (
                     <button

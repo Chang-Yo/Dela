@@ -5,10 +5,10 @@
 export const overlayFade = 'animate-overlay-in';
 export const dialogIn = 'animate-dialog-in';
 
-export const dialogOverlay = `fixed inset-0 z-50 bg-scrim ${overlayFade}`;
+export const dialogOverlay = `fixed inset-0 z-overlay bg-scrim ${overlayFade}`;
 
 /** 对话框面板外观（定位与尺寸由调用方给出，如 max-w-md、max-h-[85vh]）。 */
-export const dialogPanel = `fixed left-1/2 top-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 rounded-window bg-surface p-6 text-ink shadow-overlay outline-none ${dialogIn} max-md:w-[calc(100%-2rem)]`;
+export const dialogPanel = `fixed left-1/2 top-1/2 z-overlay w-full -translate-x-1/2 -translate-y-1/2 rounded-window bg-surface p-6 text-ink shadow-overlay outline-none ${dialogIn} max-md:w-[calc(100%-2rem)]`;
 
 /** 抽屉/底部面板入场。 */
 export const drawerFromLeft = 'animate-drawer-left';
