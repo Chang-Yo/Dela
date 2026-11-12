@@ -7,7 +7,7 @@ import type {
   ShuiyuanTopicSummary,
 } from '../../../../../shared/shuiyuan';
 import type { WorkspaceEntry } from '../../../../../shared/workspace';
-import { shuiyuanTools } from '../index';
+import { shuiyuanDomain } from '../index';
 
 vi.mock('../../../../shuiyuan/api', () => ({
   getShuiyuanState: vi.fn(),
@@ -93,7 +93,9 @@ describe('search_shuiyuan_topics', () => {
       topics: [summary(1, '选课攻略'), summary(2, '宿舍网络')],
       moreUrl: '/search.json?q=%E9%80%89%E8%AF%BE&page=2',
     });
-    const result = (await shuiyuanTools.search_shuiyuan_topics.execute({ query: '选课' })) as {
+    const result = (await shuiyuanDomain.commands.search_shuiyuan_topics.execute({
+      query: '选课',
+    })) as {
       items: { ref: unknown }[];
       nextCursor: string | null;
       freshness: unknown;
@@ -109,7 +111,7 @@ describe('search_shuiyuan_topics', () => {
 
   it('passes the opaque nextCursor back for the next page', async () => {
     listTopics.mockResolvedValue({ topics: [], moreUrl: null });
-    await shuiyuanTools.search_shuiyuan_topics.execute({
+    await shuiyuanDomain.commands.search_shuiyuan_topics.execute({
       query: '选课',
       nextCursor: '/search.json?q=x&page=3',
     });
@@ -122,7 +124,7 @@ describe('search_shuiyuan_topics', () => {
   it('maps unbound and rate limited failures to contract error codes', async () => {
     state.mockReturnValue({ connected: false, username: null, boundAt: null });
     await expect(
-      shuiyuanTools.search_shuiyuan_topics.execute({ query: 'x' }),
+      shuiyuanDomain.commands.search_shuiyuan_topics.execute({ query: 'x' }),
     ).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
 
     state.mockReturnValue({
@@ -132,7 +134,7 @@ describe('search_shuiyuan_topics', () => {
     });
     listTopics.mockRejectedValue(new Error('请求过于频繁，已触发水源限流，请稍后再试'));
     await expect(
-      shuiyuanTools.search_shuiyuan_topics.execute({ query: 'x' }),
+      shuiyuanDomain.commands.search_shuiyuan_topics.execute({ query: 'x' }),
     ).rejects.toMatchObject({ code: 'RATE_LIMITED' });
   });
 });
@@ -143,14 +145,14 @@ describe('list_shuiyuan_topics', () => {
       topics: [summary(9, '分类帖')],
       moreUrl: '/c/dev/4.json?page=2',
     });
-    const result = (await shuiyuanTools.list_shuiyuan_topics.execute({
+    const result = (await shuiyuanDomain.commands.list_shuiyuan_topics.execute({
       kind: 'category',
       categoryId: 4,
     })) as { nextCursor: string | null };
     expect(listTopics).toHaveBeenCalledWith({ kind: 'category', categoryId: 4 }, undefined);
     expect(result.nextCursor).toBe('/c/dev/4.json?page=2');
 
-    await shuiyuanTools.list_shuiyuan_topics.execute({
+    await shuiyuanDomain.commands.list_shuiyuan_topics.execute({
       kind: 'tag',
       tag: '精品',
       nextCursor: '/tag/x.json?page=2',
@@ -160,13 +162,15 @@ describe('list_shuiyuan_topics', () => {
 
   it('rejects feed inputs missing their required discriminator fields', () => {
     // 校验失败在 schema.parse 阶段同步抛出（registry 映射为 INVALID_INPUT）。
-    expect(() => shuiyuanTools.list_shuiyuan_topics.execute({ kind: 'category' })).toThrow(
-      'categoryId',
+    expect(() =>
+      shuiyuanDomain.commands.list_shuiyuan_topics.execute({ kind: 'category' }),
+    ).toThrow('categoryId');
+    expect(() => shuiyuanDomain.commands.list_shuiyuan_topics.execute({ kind: 'tag' })).toThrow(
+      'tag',
     );
-    expect(() => shuiyuanTools.list_shuiyuan_topics.execute({ kind: 'tag' })).toThrow('tag');
-    expect(() => shuiyuanTools.list_shuiyuan_topics.execute({ kind: 'latest', tag: 'x' })).toThrow(
-      '仅在 kind=tag',
-    );
+    expect(() =>
+      shuiyuanDomain.commands.list_shuiyuan_topics.execute({ kind: 'latest', tag: 'x' }),
+    ).toThrow('仅在 kind=tag');
   });
 });
 
@@ -188,7 +192,7 @@ describe('list_shuiyuan_categories', () => {
       customEmoji: [{ name: 'sjtu', url: 'https://x/1.png' }],
     };
     siteStructure.mockResolvedValue(structure);
-    const result = (await shuiyuanTools.list_shuiyuan_categories.execute({})) as {
+    const result = (await shuiyuanDomain.commands.list_shuiyuan_categories.execute({})) as {
       categories: unknown[];
       tags: unknown[];
     };
@@ -220,7 +224,7 @@ describe('read_shuiyuan_topic → read_shuiyuan_posts continuation chain', () =>
       posts: Array.from({ length: 20 }, (_, index) => post(100 + index, index + 1)),
     };
     getTopic.mockResolvedValue(detail);
-    const result = (await shuiyuanTools.read_shuiyuan_topic.execute({ topicId: 42 })) as {
+    const result = (await shuiyuanDomain.commands.read_shuiyuan_topic.execute({ topicId: 42 })) as {
       stream: number[];
       posts: { id: number; cooked: string }[];
       continuation: { nextPostIds: number[]; remainingCount: number };
@@ -237,7 +241,7 @@ describe('read_shuiyuan_topic → read_shuiyuan_posts continuation chain', () =>
 
   it('reads the next posts by id and reports ids the server dropped', async () => {
     loadPosts.mockResolvedValue([post(120, 21)]);
-    const result = (await shuiyuanTools.read_shuiyuan_posts.execute({
+    const result = (await shuiyuanDomain.commands.read_shuiyuan_posts.execute({
       topicId: 42,
       postIds: [120, 999],
     })) as { posts: { id: number }[]; missingPostIds: number[] };
@@ -264,7 +268,7 @@ describe('read_shuiyuan_topic → read_shuiyuan_posts continuation chain', () =>
       stream: [7, 8],
       posts: [post(7, 1), post(8, 2)],
     });
-    const result = (await shuiyuanTools.read_shuiyuan_topic.execute({ topicId: 43 })) as {
+    const result = (await shuiyuanDomain.commands.read_shuiyuan_topic.execute({ topicId: 43 })) as {
       continuation: null;
     };
     expect(result.continuation).toBeNull();
@@ -296,7 +300,7 @@ describe('link_shuiyuan_topic', () => {
       updatedAt: '2026-09-29T00:00:00.000Z',
     } as WorkspaceEntry;
     createEntry.mockReturnValue(entry);
-    const result = await shuiyuanTools.link_shuiyuan_topic.execute({
+    const result = await shuiyuanDomain.commands.link_shuiyuan_topic.execute({
       topicId: 42,
       parentId: '0e2f6f5e-1234-4abc-8ef0-1234567890ab',
     });
@@ -319,7 +323,7 @@ describe('link_shuiyuan_topic', () => {
       throw new Error('目标不是文件夹或项目');
     });
     await expect(
-      shuiyuanTools.link_shuiyuan_topic.execute({
+      shuiyuanDomain.commands.link_shuiyuan_topic.execute({
         topicId: 42,
         parentId: '0e2f6f5e-1234-4abc-8ef0-1234567890ab',
       }),

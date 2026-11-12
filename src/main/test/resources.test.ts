@@ -4,12 +4,17 @@ import { workspaceFilePath } from '../workspace/api';
 import { copyResourceToProject, openResourceFile } from '../resources';
 import { provideTestHostPorts } from './host-mock';
 import { hostPorts } from '../host';
+import { builtinResourceResolvers } from '../agent/domain/read-resource';
+import { registerResourceResolver, type ResourceResolver } from '../../core/capabilities/resources';
 
 vi.mock('node:fs/promises', () => ({ mkdtemp: vi.fn(), rm: vi.fn() }));
 vi.mock('../canvas/api', () => ({ canvasFilePath: vi.fn() }));
 vi.mock('../mail/api', () => ({ readMailMessage: vi.fn(), saveMailAttachment: vi.fn() }));
 vi.mock('../workspace/api', () => ({ importWorkspaceFiles: vi.fn(), workspaceFilePath: vi.fn() }));
 vi.mock('../storage', () => ({ diskName: (name: string) => name.replace(/[/\\]/g, '_') }));
+
+for (const [type, resolver] of Object.entries(builtinResourceResolvers))
+  registerResourceResolver(type, resolver as ResourceResolver);
 
 const parentId = 'a03d4e01-ae55-4168-8572-ef88cb9f2e10';
 afterEach(() => vi.resetAllMocks());

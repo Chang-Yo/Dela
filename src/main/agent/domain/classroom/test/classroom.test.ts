@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { classroomTools } from '../index';
+import { classroomDomain } from '../index';
 import { getTranscript, listCourses, listVideos } from '../../../../vsjtu/api';
 
 vi.mock('../../../../vsjtu/api', async () => ({
@@ -30,25 +30,25 @@ afterEach(async () => {
 
 it('bounds output, paginates within the same time range and does not write files', async () => {
   const input = { videoId: 11, startSeconds: 60, endSeconds: 120, limit: 100 };
-  const first = (await classroomTools.read_classroom_transcript.execute(input)) as {
+  const first = (await classroomDomain.commands.read_classroom_transcript.execute(input)) as {
     text: string;
     nextOffset: number;
   };
   expect(first).toMatchObject({ available: true, nextOffset: 100, nextStartSeconds: 120 });
   expect(first.text).toHaveLength(100);
   expect(first.text).not.toContain('前段');
-  const second = (await classroomTools.read_classroom_transcript.execute({
+  const second = (await classroomDomain.commands.read_classroom_transcript.execute({
     ...input,
     offset: first.nextOffset,
   })) as { text: string };
-  const combined = (await classroomTools.read_classroom_transcript.execute({
+  const combined = (await classroomDomain.commands.read_classroom_transcript.execute({
     ...input,
     limit: 200,
   })) as { text: string };
   expect(first.text + second.text).toBe(combined.text);
   expect(await readdir(directory)).toEqual([]);
   await expect(
-    classroomTools.read_classroom_transcript.execute({
+    classroomDomain.commands.read_classroom_transcript.execute({
       videoId: 11,
       startSeconds: 100,
       endSeconds: 50,
@@ -57,16 +57,23 @@ it('bounds output, paginates within the same time range and does not write files
 });
 
 it('defaults to five minutes and distinguishes unavailable text from an empty interval', async () => {
-  const result = (await classroomTools.read_classroom_transcript.execute({ videoId: 11 })) as {
+  const result = (await classroomDomain.commands.read_classroom_transcript.execute({
+    videoId: 11,
+  })) as {
     text: string;
   };
   expect(result).toMatchObject({ startSeconds: 0, endSeconds: 300, nextStartSeconds: 300 });
   expect(result.text).not.toContain('后段');
   expect(
-    await classroomTools.read_classroom_transcript.execute({ videoId: 11, startSeconds: 400 }),
+    await classroomDomain.commands.read_classroom_transcript.execute({
+      videoId: 11,
+      startSeconds: 400,
+    }),
   ).toMatchObject({ available: true, text: '' });
   vi.mocked(getTranscript).mockResolvedValue(null);
-  expect(await classroomTools.read_classroom_transcript.execute({ videoId: 11 })).toMatchObject({
+  expect(
+    await classroomDomain.commands.read_classroom_transcript.execute({ videoId: 11 }),
+  ).toMatchObject({
     available: false,
     text: '',
   });
@@ -90,7 +97,7 @@ it('downloads selected complete lectures, reports partial failure and protects e
     return transcript;
   });
   const input = { courseId: 1, videoIds: [11, 12, 13, 11], directory };
-  const result = (await classroomTools.download_classroom_transcripts.execute(input)) as {
+  const result = (await classroomDomain.commands.download_classroom_transcripts.execute(input)) as {
     results: Array<{ status: string; path?: string }>;
   };
   expect(result.results.map((item) => item.status)).toEqual(['saved', 'unavailable', 'failed']);
@@ -98,10 +105,13 @@ it('downloads selected complete lectures, reports partial failure and protects e
   const text = await readFile(path, 'utf8');
   expect(text).toContain('后段');
   expect(
-    await classroomTools.download_classroom_transcripts.execute({ ...input, videoIds: [11] }),
+    await classroomDomain.commands.download_classroom_transcripts.execute({
+      ...input,
+      videoIds: [11],
+    }),
   ).toMatchObject({ results: [{ status: 'failed' }] });
   expect(await readFile(path, 'utf8')).toBe(text);
   await expect(
-    classroomTools.download_classroom_transcripts.execute({ ...input, videoIds: [99] }),
+    classroomDomain.commands.download_classroom_transcripts.execute({ ...input, videoIds: [99] }),
   ).rejects.toThrow('不在指定课程');
 });

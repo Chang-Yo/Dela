@@ -49,6 +49,7 @@ import * as changes from './changes';
 import { taskTool } from './subagent';
 import { backgroundTools, runningTasks, stopAllTasks, stopSessionTasks } from './tasks';
 import { hostPorts } from '../host';
+import { sessionScope, sessionScopes, type SessionScope } from '../../core/agent/scopes';
 
 type ChatMessage = WorkspaceChat['messages'][number];
 
@@ -108,9 +109,6 @@ export function row(id: string): SessionRow {
   return found;
 }
 
-/** 资料页会话的工作目录：课件根目录，与 workspace 平级（Canvas 下载落在这里）。 */
-const coursesDirectory = () => join(storageDirectory(), 'courses');
-
 /** 通用会话的私有工作目录：与 workspace 平级的 chat-sessions/<会话 id>，建会话时建好。 */
 function chatSessionDirectory(id: string) {
   const dir = join(storageDirectory(), 'chat-sessions', id);
@@ -118,9 +116,9 @@ function chatSessionDirectory(id: string) {
   return dir;
 }
 
-/** 资料页会话的工作目录：课程目录缺失时建好，会话因此直接看到全部课件。 */
-function libraryDirectory() {
-  const dir = coursesDirectory();
+/** 作用域会话共用的工作目录：缺失时建好，会话因此直接看到其中的全部文件。 */
+function scopeDirectory(scope: SessionScope) {
+  const dir = scope.directory();
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -825,16 +823,20 @@ export function archivedSessions(): ChatSessionSummary[] {
     .map((row) => toSummary(row as SummaryRow));
 }
 
-/** 通用池的空会话入口：cwd 是课件根目录的是资料页会话，其余非 NULL 的是随聊，两档互不复用；
- *  cwd 为 NULL 的旧会话两边都不认，免得新会话落在别人的工作目录里。 */
+/** 通用池的空会话入口：cwd 是某个作用域目录的归该作用域，其余非 NULL 的是随聊，互不复用；
+ *  cwd 为 NULL 的旧会话哪边都不认，免得新会话落在别人的工作目录里。 */
 function emptyGeneralSessionId(scope: ChatScope): string | undefined {
+  const scoped = sessionScope(scope);
+  const directories = scoped
+    ? [scoped.directory()]
+    : sessionScopes().map((item) => item.directory());
   const row = getDatabase()
     .prepare(
       `SELECT id FROM sessions WHERE project_id IS NULL AND archived = 0 AND message_count = 0
-       AND parent_id IS NULL AND cwd IS NOT NULL AND cwd IS ${scope === 'library' ? '?' : 'NOT ?'}
+       AND parent_id IS NULL AND cwd IS NOT NULL AND cwd ${scoped ? '' : 'NOT '}IN (${directories.map(() => '?').join(', ')})
        ORDER BY updated_at DESC LIMIT 1`,
     )
-    .get(coursesDirectory()) as { id: string } | undefined;
+    .get(...directories) as { id: string } | undefined;
   return row?.id;
 }
 
@@ -855,8 +857,9 @@ export function newSession(projectId: string | null, scope: ChatScope): Workspac
         )?.id;
   if (empty && !live.get(empty)?.run) return snapshot(empty);
   const id = randomUUID();
+  const scoped = sessionScope(scope);
   const cwd =
-    projectId !== null ? null : scope === 'library' ? libraryDirectory() : chatSessionDirectory(id);
+    projectId !== null ? null : scoped ? scopeDirectory(scoped) : chatSessionDirectory(id);
   const now = new Date().toISOString();
   getDatabase()
     .prepare(

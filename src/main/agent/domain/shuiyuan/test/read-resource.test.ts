@@ -2,7 +2,9 @@ import { beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../mail/api', () => ({ readMailMessage: vi.fn() }));
 vi.mock('../../../../settings/prefs', () => ({ assertShuiyuanEnabled: vi.fn() }));
-vi.mock('../../../../resources', () => ({ readResourceContent: vi.fn() }));
+vi.mock('../../../../resources', () => ({ readWorkspaceResource: vi.fn() }));
+vi.mock('../../../../canvas/api', () => ({ canvasFilePath: vi.fn() }));
+vi.mock('../../../../workspace/api', () => ({ workspaceFilePath: vi.fn() }));
 vi.mock('../../../../shuiyuan/api', () => ({
   getShuiyuanTopic: vi.fn(),
   getShuiyuanState: () => ({ connected: true }),
@@ -14,11 +16,18 @@ vi.mock('../../../../shuiyuan/sources', () => ({
   shuiyuanPostsHtml: (posts: { cooked: string }[]) => posts.map((post) => post.cooked).join(''),
 }));
 
-import { readResourceTool } from '../../read-resource';
+import { builtinResourceResolvers, readResourceTool } from '../../read-resource';
+import {
+  registerResourceResolver,
+  type ResourceResolver,
+} from '../../../../../core/capabilities/resources';
 import { getShuiyuanTopic } from '../../../../shuiyuan/api';
 import { readShuiyuanSnapshot } from '../../../../shuiyuan/snapshot-files';
 import { getShuiyuanSourceRef } from '../../../../shuiyuan/sources';
-import { readResourceContent } from '../../../../resources';
+import { readWorkspaceResource } from '../../../../resources';
+
+for (const [type, resolver] of Object.entries(builtinResourceResolvers))
+  registerResourceResolver(type, resolver as ResourceResolver);
 
 const ref = { type: 'shuiyuan-online', id: 42 };
 beforeEach(() => vi.resetAllMocks());
@@ -54,12 +63,12 @@ it('rejects the ambiguous old resource type', () => {
 
 it('keeps workspace references on the local document read path', async () => {
   const workspaceRef = { type: 'workspace', id: '00000000-0000-4000-8000-000000000042' };
-  vi.mocked(readResourceContent).mockResolvedValue({
+  vi.mocked(readWorkspaceResource).mockResolvedValue({
     title: '项目来源',
     format: 'html',
     text: '本地正文',
   });
   expect(await readResourceTool.execute({ ref: workspaceRef })).toMatchObject({ text: '本地正文' });
-  expect(readResourceContent).toHaveBeenCalledExactlyOnceWith(workspaceRef);
+  expect(readWorkspaceResource).toHaveBeenCalledExactlyOnceWith(workspaceRef.id);
   expect(getShuiyuanTopic).not.toHaveBeenCalled();
 });

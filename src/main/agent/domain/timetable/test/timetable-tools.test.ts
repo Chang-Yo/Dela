@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarEvent } from '../../../../../shared/timetable';
-import { timetableTools } from '../index';
+import { timetableDomain } from '../index';
 
 vi.mock('../../../../timetable/api', async () => {
   const { z } = await import('zod');
@@ -37,7 +37,7 @@ describe('query_schedule', () => {
       items: [],
       coverage: { courseSyncedAt: '2026-09-20T00:00:00.000Z', complete: true, warnings: [] },
     });
-    const result = (await timetableTools.query_schedule.execute({
+    const result = (await timetableDomain.commands.query_schedule.execute({
       startDate: '2026-09-28',
       endDate: '2026-09-28',
     })) as {
@@ -67,7 +67,7 @@ describe('query_schedule', () => {
         warnings: ['该学期课表尚未同步'],
       },
     });
-    const result = (await timetableTools.query_schedule.execute({
+    const result = (await timetableDomain.commands.query_schedule.execute({
       semester: '2025-2026-2',
       startAt: '2026-03-01T16:00:00.000Z',
       endAt: '2026-03-08T16:00:00.000Z',
@@ -84,22 +84,28 @@ describe('query_schedule', () => {
   it('rejects mixed, missing or unordered time inputs at the schema layer', () => {
     // schema 校验失败同步抛出（registry 映射为 INVALID_INPUT）。
     expect(() =>
-      timetableTools.query_schedule.execute({
+      timetableDomain.commands.query_schedule.execute({
         startDate: '2026-09-28',
         endDate: '2026-09-29',
         startAt: '2026-09-27T16:00:00.000Z',
         endAt: '2026-09-28T16:00:00.000Z',
       }),
     ).toThrow('不能混用');
-    expect(() => timetableTools.query_schedule.execute({})).toThrow('startDate/endDate');
-    expect(() => timetableTools.query_schedule.execute({ startDate: '2026-09-28' })).toThrow(
-      '成对提供',
-    );
+    expect(() => timetableDomain.commands.query_schedule.execute({})).toThrow('startDate/endDate');
     expect(() =>
-      timetableTools.query_schedule.execute({ startDate: '2026-09-30', endDate: '2026-09-28' }),
+      timetableDomain.commands.query_schedule.execute({ startDate: '2026-09-28' }),
+    ).toThrow('成对提供');
+    expect(() =>
+      timetableDomain.commands.query_schedule.execute({
+        startDate: '2026-09-30',
+        endDate: '2026-09-28',
+      }),
     ).toThrow('不能早于');
     expect(() =>
-      timetableTools.query_schedule.execute({ startDate: '2026-02-30', endDate: '2026-03-01' }),
+      timetableDomain.commands.query_schedule.execute({
+        startDate: '2026-02-30',
+        endDate: '2026-03-01',
+      }),
     ).toThrow('日期不存在');
   });
 });
@@ -121,7 +127,7 @@ describe('create_event', () => {
       endAt: '2026-09-30T03:00:00.000Z',
       color: 'teal' as const,
     };
-    expect(timetableTools.create_event.execute(input)).toEqual(event);
+    expect(timetableDomain.commands.create_event.execute(input)).toEqual(event);
     expect(createEvent).toHaveBeenCalledWith(input);
   });
 });
@@ -137,7 +143,7 @@ describe('delete_event', () => {
       color: null,
     };
     getEvent.mockReturnValue(event);
-    expect(timetableTools.delete_event.execute({ id: 7 })).toEqual({ deleted: event });
+    expect(timetableDomain.commands.delete_event.execute({ id: 7 })).toEqual({ deleted: event });
     expect(deleteEvent).toHaveBeenCalledWith(7);
   });
 
@@ -145,7 +151,7 @@ describe('delete_event', () => {
     getEvent.mockReturnValue(null);
     let caught: unknown;
     try {
-      timetableTools.delete_event.execute({ id: 404 });
+      timetableDomain.commands.delete_event.execute({ id: 404 });
     } catch (error) {
       caught = error;
     }

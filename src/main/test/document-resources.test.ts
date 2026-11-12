@@ -40,14 +40,18 @@ vi.mock('../mail/api', () => ({
 }));
 import {
   prepareDocumentResource,
-  readResourceContent,
+  readWorkspaceResource,
   releaseDocumentResource,
 } from '../resources';
 import { entry, readWorkspaceEntry, workspaceFilePath } from '../workspace/api';
 import { cachedFile, getSource, readCanvasPage, readCanvasSource } from '../canvas/api';
 import { readShuiyuanSource } from '../shuiyuan/sources';
-import { readResourceTool } from '../agent/domain/read-resource';
+import { builtinResourceResolvers, readResourceTool } from '../agent/domain/read-resource';
+import { registerResourceResolver, type ResourceResolver } from '../../core/capabilities/resources';
 import { assertDocumentDependency } from '../documents/runtime';
+
+for (const [type, resolver] of Object.entries(builtinResourceResolvers))
+  registerResourceResolver(type, resolver as ResourceResolver);
 
 beforeEach(() => vi.clearAllMocks());
 afterAll(() => rm(profile.root, { recursive: true, force: true }));
@@ -224,7 +228,7 @@ it('reads linked Canvas pages and Shuiyuan sources through their body APIs', asy
     dueAt: undefined,
     updatedAt: undefined,
   });
-  expect(await readResourceContent({ type: 'workspace', id })).toMatchObject({
+  expect(await readWorkspaceResource(id)).toMatchObject({
     title: '课程页面',
     text: '<p>正文</p>',
   });
@@ -234,7 +238,7 @@ it('reads linked Canvas pages and Shuiyuan sources through their body APIs', asy
     format: 'text',
     text: '缓存摘要',
   });
-  expect(await readResourceContent({ type: 'workspace', id })).toMatchObject({
+  expect(await readWorkspaceResource(id)).toMatchObject({
     title: '帖子',
     format: 'text',
     text: '缓存摘要',

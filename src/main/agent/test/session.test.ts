@@ -132,6 +132,9 @@ import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
 import { removeWorkspaceEntry } from '../../workspace/api';
 import { provideTestHostPorts } from '../../test/host-mock';
+import { registerSessionScope } from '../../../core/agent/scopes';
+
+registerSessionScope({ id: 'library', directory: () => join(state.root, 'Dela', 'courses') });
 
 beforeEach(() => {
   state.configured = false;

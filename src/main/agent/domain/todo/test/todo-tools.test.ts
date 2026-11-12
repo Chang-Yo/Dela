@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TodoItem, TodoState } from '../../../../../shared/api';
-import { todoTools } from '../index';
+import { todoDomain } from '../index';
 
 vi.mock('../../../../todo', async () => {
   const { z } = await import('zod');
@@ -77,7 +77,7 @@ beforeEach(() => {
 
 describe('query_todos', () => {
   it('returns the unified list without assignment descriptions', () => {
-    const result = todoTools.query_todos.execute({}) as {
+    const result = todoDomain.commands.query_todos.execute({}) as {
       items: { id: string; description?: unknown }[];
       total: number;
       freshness: unknown;
@@ -93,13 +93,13 @@ describe('query_todos', () => {
   });
 
   it('filters by keyword and completion status across both sources', () => {
-    const result = todoTools.query_todos.execute({ query: '作业' }) as { total: number };
+    const result = todoDomain.commands.query_todos.execute({ query: '作业' }) as { total: number };
     expect(result.total).toBe(1);
-    const completed = todoTools.query_todos.execute({ query: '', completed: true }) as {
+    const completed = todoDomain.commands.query_todos.execute({ query: '', completed: true }) as {
       total: number;
     };
     expect(completed.total).toBe(1); // submitted 算已完成
-    const open = todoTools.query_todos.execute({ query: '', completed: false }) as {
+    const open = todoDomain.commands.query_todos.execute({ query: '', completed: false }) as {
       total: number;
     };
     expect(open.total).toBe(1); // pending；unknown/offline 两不算
@@ -107,7 +107,7 @@ describe('query_todos', () => {
 
   it('keeps personal todos visible with a coverage warning when Canvas is not connected', () => {
     state.mockReturnValue(todoState({ connected: false, items: [todoState().items[0]!] }));
-    const result = todoTools.query_todos.execute({}) as {
+    const result = todoDomain.commands.query_todos.execute({}) as {
       items: unknown[];
       coverage: { complete: boolean; warnings: string[] };
     };
@@ -119,14 +119,14 @@ describe('query_todos', () => {
 
 describe('query_assignments', () => {
   it('filters canvas assignments by course and due range', () => {
-    const result = todoTools.query_assignments.execute({
+    const result = todoDomain.commands.query_assignments.execute({
       courseId: 1,
       startAt: '2026-10-01T00:00:00.000Z',
       endAt: '2026-10-02T00:00:00.000Z',
     }) as { items: { id: string }[]; coverage: unknown; freshness: unknown };
     expect(result.items.map((item) => item.id)).toEqual(['canvas:owner:1:2']);
     expect(result.coverage).toEqual({ scope: 'cached_assignments', complete: true });
-    const missed = todoTools.query_assignments.execute({
+    const missed = todoDomain.commands.query_assignments.execute({
       startAt: '2026-11-01T00:00:00.000Z',
       endAt: '2026-11-02T00:00:00.000Z',
     }) as { total: number };
@@ -138,7 +138,7 @@ describe('save_todo', () => {
   it('passes color and completion through and returns the slimmed state', () => {
     save.mockReturnValue(todoState());
     const input = { title: '复习', completed: true, color: 'sage' };
-    const result = todoTools.save_todo.execute(input) as {
+    const result = todoDomain.commands.save_todo.execute(input) as {
       items: { description?: unknown }[];
     };
     expect(save).toHaveBeenCalledWith(input);
@@ -151,7 +151,7 @@ describe('save_todo', () => {
     });
     let caught: unknown;
     try {
-      todoTools.save_todo.execute({ id: 'missing', title: 'x' });
+      todoDomain.commands.save_todo.execute({ id: 'missing', title: 'x' });
     } catch (error) {
       caught = error;
     }
@@ -162,7 +162,7 @@ describe('save_todo', () => {
 describe('remove_todo', () => {
   it('removes a personal todo after the existence precheck', () => {
     remove.mockReturnValue(todoState({ items: [] }));
-    const result = todoTools.remove_todo.execute({
+    const result = todoDomain.commands.remove_todo.execute({
       id: '0d7d21f5-8d5a-4f97-9c7f-2f5dfc1a1b2a',
     }) as {
       removedId: string;
@@ -174,7 +174,7 @@ describe('remove_todo', () => {
   it('refuses canvas assignments and unknown ids', () => {
     let caught: unknown;
     try {
-      todoTools.remove_todo.execute({ id: 'canvas:owner:1:2' });
+      todoDomain.commands.remove_todo.execute({ id: 'canvas:owner:1:2' });
     } catch (error) {
       caught = error;
     }
@@ -183,7 +183,7 @@ describe('remove_todo', () => {
 
     caught = undefined;
     try {
-      todoTools.remove_todo.execute({ id: 'nope' });
+      todoDomain.commands.remove_todo.execute({ id: 'nope' });
     } catch (error) {
       caught = error;
     }
@@ -195,7 +195,7 @@ describe('remove_todo', () => {
 describe('refresh_todos', () => {
   it('refreshes the assignment cache and surfaces per-course errors', async () => {
     refresh.mockResolvedValue(todoState({ error: '数据结构：无法连接 Canvas，请检查网络后重试' }));
-    const result = (await todoTools.refresh_todos.execute({})) as {
+    const result = (await todoDomain.commands.refresh_todos.execute({})) as {
       coverage: { complete: boolean; warnings: string[] };
     };
     expect(refresh).toHaveBeenCalledTimes(1);
@@ -205,7 +205,7 @@ describe('refresh_todos', () => {
 
   it('reports NOT_CONFIGURED without a canvas connection', async () => {
     state.mockReturnValue(todoState({ connected: false }));
-    await expect(todoTools.refresh_todos.execute({})).rejects.toMatchObject({
+    await expect(todoDomain.commands.refresh_todos.execute({})).rejects.toMatchObject({
       code: 'NOT_CONFIGURED',
     });
     expect(refresh).not.toHaveBeenCalled();

@@ -23,6 +23,7 @@ vi.mock('../../settings/prefs', () => ({
 }));
 
 import { provideTestHostPorts } from '../../test/host-mock';
+import { registerCommandDomain } from '../../../core/capabilities/commands';
 import {
   effectiveDisabledSkills,
   listSkills,
@@ -30,6 +31,23 @@ import {
   readDisabledSkills,
   setSkillEnabled,
 } from '../skills';
+
+function registerBuiltins(register: typeof registerCommandDomain) {
+  for (const name of ['canvas', 'document-reading']) {
+    const content = `---
+name: ${name}
+description: ${name} skill
+---
+`;
+    register({
+      name,
+      description: name,
+      skill: { name, files: [{ path: 'SKILL.md', content }] },
+      commands: {},
+    });
+  }
+}
+registerBuiltins(registerCommandDomain);
 
 function writeSkill(dir: string, name: string) {
   const path = join(dir, name, 'SKILL.md');
@@ -135,6 +153,7 @@ it('restores user-edited builtin skills to the bundled version', async () => {
   vi.resetModules();
   const { provideTestHostPorts: provideAfterReset } = await import('../../test/host-mock');
   provideAfterReset({ paths: { userData: () => home, home: () => home } });
+  registerBuiltins((await import('../../../core/capabilities/commands')).registerCommandDomain);
   (await import('../skills')).ensureBuiltinSkills();
   expect(readFileSync(path, 'utf8')).toBe(bundled);
 });

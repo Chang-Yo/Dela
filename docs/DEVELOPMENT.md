@@ -64,6 +64,8 @@
 
 领域能力的 CLI 门面。应用生命周期内一个本机 HTTP 桥（`127.0.0.1` 随机端口 + Bearer token），经 Pi 的 `shellCommandPrefix` 注入 Agent 的 bash，终端不注入；`dela help` 列命令与 JSON Schema。
 
+命令域连同对应的内置 Skill 注册进 `core/capabilities` 的注册表，core 不认识具体业务（见 [ADR 0014](adr/0014-core-registries.md)）。系统提示按已启用的命令域生成，停用 Skill 后命令与说明一并消失。资源读取（`ResourceResolver`）与资料库这类共用工作目录的会话作用域（`SessionScope`）也按同样方式注册。
+
 ### 2.3 skills
 
 领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。七个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi。

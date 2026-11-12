@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CanvasState } from '../../../../../shared/canvas';
-import { canvasTools } from '../index';
+import { canvasDomain } from '../index';
 
 vi.mock('../../../../canvas/api', () => ({
   getCanvasState: vi.fn(),
@@ -60,7 +60,7 @@ function expectSyncToolError(run: () => unknown, code: string) {
 
 describe('get_canvas_status', () => {
   it('separates credential presence from verification and per-course sync state', () => {
-    const result = canvasTools.get_canvas_status.execute({});
+    const result = canvasDomain.commands.get_canvas_status.execute({});
     expect(result).toEqual({
       credentialSaved: true,
       courseListSyncedAt: '2026-09-01T00:00:00.000Z',
@@ -90,7 +90,7 @@ describe('get_canvas_status', () => {
 
   it('guides the model when no token is saved or the list was never synced', () => {
     state.mockReturnValue(canvasState({ connected: false, syncedAt: null }));
-    const missing = canvasTools.get_canvas_status.execute({}) as {
+    const missing = canvasDomain.commands.get_canvas_status.execute({}) as {
       credentialSaved: boolean;
       warnings: string[];
     };
@@ -99,14 +99,14 @@ describe('get_canvas_status', () => {
     expect(missing.warnings[0]).toContain('未保存 Canvas 访问令牌');
 
     state.mockReturnValue(canvasState({ syncedAt: null }));
-    const unsynced = canvasTools.get_canvas_status.execute({}) as { warnings: string[] };
+    const unsynced = canvasDomain.commands.get_canvas_status.execute({}) as { warnings: string[] };
     expect(unsynced.warnings[0]).toContain('课程列表尚未同步');
   });
 });
 
 describe('list_canvas_courses', () => {
   it('filters archived courses out by default and keeps them on request', async () => {
-    const result = (await canvasTools.list_canvas_courses.execute({ query: '' })) as {
+    const result = (await canvasDomain.commands.list_canvas_courses.execute({ query: '' })) as {
       items: { id: number; archived: boolean }[];
       total: number;
       freshness: unknown;
@@ -114,7 +114,7 @@ describe('list_canvas_courses', () => {
     expect(result.items.map((item) => item.id)).toEqual([1]);
     expect(result.freshness).toEqual({ kind: 'cached', syncedAt: '2026-09-01T00:00:00.000Z' });
 
-    const all = (await canvasTools.list_canvas_courses.execute({
+    const all = (await canvasDomain.commands.list_canvas_courses.execute({
       query: '',
       includeArchived: true,
     })) as { items: { id: number }[]; total: number };
@@ -123,7 +123,9 @@ describe('list_canvas_courses', () => {
   });
 
   it('applies the weak query filter across name, code and term', async () => {
-    const result = (await canvasTools.list_canvas_courses.execute({ query: 'cs260' })) as {
+    const result = (await canvasDomain.commands.list_canvas_courses.execute({
+      query: 'cs260',
+    })) as {
       items: { id: number }[];
     };
     expect(result.items.map((item) => item.id)).toEqual([1]);
@@ -132,12 +134,15 @@ describe('list_canvas_courses', () => {
   it('returns NOT_CONFIGURED without a token and NOT_FOUND before the first list sync', () => {
     state.mockReturnValue(canvasState({ connected: false }));
     expectSyncToolError(
-      () => canvasTools.list_canvas_courses.execute({ query: '' }),
+      () => canvasDomain.commands.list_canvas_courses.execute({ query: '' }),
       'NOT_CONFIGURED',
     );
 
     state.mockReturnValue(canvasState({ syncedAt: null }));
-    expectSyncToolError(() => canvasTools.list_canvas_courses.execute({ query: '' }), 'NOT_FOUND');
+    expectSyncToolError(
+      () => canvasDomain.commands.list_canvas_courses.execute({ query: '' }),
+      'NOT_FOUND',
+    );
   });
 });
 
@@ -152,7 +157,9 @@ describe('search_canvas_sources', () => {
       kind: 'file' as const,
     };
     state.mockReturnValue(canvasState({ items: [source, { ...source, id: 'node2' }] }));
-    const result = (await canvasTools.search_canvas_sources.execute({ query: 'slides' })) as {
+    const result = (await canvasDomain.commands.search_canvas_sources.execute({
+      query: 'slides',
+    })) as {
       items: { ref: unknown; title: string }[];
       total: number;
       coverage: unknown;
@@ -176,7 +183,7 @@ describe('search_canvas_sources', () => {
 describe('refresh_canvas_courses', () => {
   it('refreshes only the course list and reports the synced time', async () => {
     syncCourses.mockResolvedValue(canvasState());
-    const result = (await canvasTools.refresh_canvas_courses.execute({})) as {
+    const result = (await canvasDomain.commands.refresh_canvas_courses.execute({})) as {
       courseListSyncedAt: string;
       courses: unknown[];
     };
@@ -187,18 +194,18 @@ describe('refresh_canvas_courses', () => {
 
   it('maps upstream failures to contract error codes', async () => {
     state.mockReturnValue(canvasState({ connected: false }));
-    await expect(canvasTools.refresh_canvas_courses.execute({})).rejects.toMatchObject({
+    await expect(canvasDomain.commands.refresh_canvas_courses.execute({})).rejects.toMatchObject({
       code: 'NOT_CONFIGURED',
     });
 
     state.mockReturnValue(canvasState());
     syncCourses.mockRejectedValue(new Error('Canvas HTTP 401：令牌失效或无权访问此内容'));
-    await expect(canvasTools.refresh_canvas_courses.execute({})).rejects.toMatchObject({
+    await expect(canvasDomain.commands.refresh_canvas_courses.execute({})).rejects.toMatchObject({
       code: 'AUTH_EXPIRED',
     });
 
     syncCourses.mockRejectedValue(new Error('无法连接 Canvas，请检查网络后重试'));
-    await expect(canvasTools.refresh_canvas_courses.execute({})).rejects.toMatchObject({
+    await expect(canvasDomain.commands.refresh_canvas_courses.execute({})).rejects.toMatchObject({
       code: 'NETWORK_ERROR',
     });
   });
@@ -220,7 +227,7 @@ describe('refresh_canvas_course', () => {
       ],
     });
     syncCourse.mockResolvedValue(partialState);
-    const result = (await canvasTools.refresh_canvas_course.execute({ courseId: 1 })) as {
+    const result = (await canvasDomain.commands.refresh_canvas_course.execute({ courseId: 1 })) as {
       branches: { key: string; ok: boolean; error: string | null }[];
       complete: boolean;
       warnings: string[];
@@ -251,7 +258,7 @@ describe('refresh_canvas_course', () => {
       }),
     );
     syncCourse.mockResolvedValue(canvasState());
-    const result = (await canvasTools.refresh_canvas_course.execute({ courseId: 1 })) as {
+    const result = (await canvasDomain.commands.refresh_canvas_course.execute({ courseId: 1 })) as {
       branches: { ok: boolean }[];
       complete: boolean;
       warnings?: string[];
@@ -264,8 +271,8 @@ describe('refresh_canvas_course', () => {
   it('maps unknown courses to NOT_FOUND', async () => {
     state.mockReturnValue(canvasState());
     syncCourse.mockRejectedValue(new Error('课程不存在，请刷新课程列表'));
-    await expect(canvasTools.refresh_canvas_course.execute({ courseId: 99 })).rejects.toMatchObject(
-      { code: 'NOT_FOUND' },
-    );
+    await expect(
+      canvasDomain.commands.refresh_canvas_course.execute({ courseId: 99 }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });
