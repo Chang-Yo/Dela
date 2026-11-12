@@ -39,6 +39,12 @@ extraResources:
     to: dela-helper
     filter:
       - 'dela-helper-*'
+  # helper 优先使用的 Linux rg：打包前由 pnpm fetch:remote-rg 下载到 .build，仓库不提交
+  - from: .build/remote-rg
+    to: remote-rg
+    filter:
+      - 'rg-linux-*'
+      - '!*.version'
   # 两端共用搜索工具的来源与许可证；可执行文件按平台选择。
   - from: vendor/bin
     to: bin

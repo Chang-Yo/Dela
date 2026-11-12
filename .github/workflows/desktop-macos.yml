@@ -64,6 +64,8 @@ jobs:
           node scripts/ci-smoke.ts "Agent runtime" pnpm smoke:runtime
           node scripts/ci-smoke.ts "Desktop behavior" pnpm smoke:desktop
           node scripts/ci-smoke.ts "Terminal behavior" pnpm exec electron scripts/terminal-smoke.cjs
+      - name: Fetch remote rg
+        run: pnpm fetch:remote-rg
       - name: Package application directory
         if: ${{ !inputs.archives }}
         run: pnpm exec electron-builder --dir --mac --arm64 --publish never -c.electronDist=node_modules/electron/dist

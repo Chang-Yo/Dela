@@ -54,7 +54,9 @@ jobs:
           name: windows-build
           path: out
       - name: Prepare bundled runtime
-        run: pnpm prepare:runtime
+        run: |
+          pnpm prepare:runtime
+          pnpm fetch:remote-rg
       - name: Smoke test runtime
         run: pnpm smoke:runtime
       - name: Package application directory
@@ -67,6 +69,8 @@ jobs:
         run: |
           cmp vendor/dela-helper/dela-helper-linux-amd64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-amd64
           cmp vendor/dela-helper/dela-helper-linux-arm64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-arm64
+          cmp .build/remote-rg/rg-linux-amd64 dist/win-unpacked/resources/remote-rg/rg-linux-amd64
+          cmp .build/remote-rg/rg-linux-arm64 dist/win-unpacked/resources/remote-rg/rg-linux-arm64
       - name: Smoke test packaged app
         env:
           PACKAGED_EXECUTABLE: dist/win-unpacked/Dela.exe
