@@ -14,8 +14,7 @@ vi.mock('../todo', () => ({ getTodoState: () => ({ items: [] }) }));
 import { closeDatabase, getDatabase } from '../database';
 import type { SearchGroup } from '../../modules/search/contract';
 import { registerSearchProvider, searchModule } from '../../modules/search';
-import { projectSearch } from '../workspace/search';
-import { chatSearch } from '../agent/search';
+import { chatSearch, projectSearch } from '../workspace/search';
 import { mailSearch } from '../mail/search';
 import { courseFileSearch } from '../canvas/search';
 
