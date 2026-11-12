@@ -197,7 +197,7 @@ export async function askSidechat(parentId: string, input: ChatAskInput): Promis
   if (side.run) throw new Error('请等待旁问回答完成');
   if (!usableLlmProviders().some(({ id }) => id === side.providerId))
     throw new Error('模型提供商已停用或不可用，请重新启用');
-  const { prompt, images } = composePrompt(input, side.session.sessionManager.getCwd());
+  const { prompt, images } = composePrompt(input, row(parentId).project_id);
   let finish!: () => void;
   const run = { cancelled: false, done: new Promise<void>((resolve) => (finish = resolve)) };
   side.run = run;

@@ -334,6 +334,33 @@ it('sends document-only messages as file references instead of decoding binary b
   expect(() => readChatAttachment(document.id)).toThrow('不存在');
 });
 
+it('文档附件按会话归属判断远程：本地路径落在远程项目根下也照常发送', async () => {
+  state.configured = true;
+  state
+    .db!.prepare(
+      "INSERT INTO remotes VALUES ('remote-id', 'gpu', 'root@10.0.0.5', NULL, NULL, 'x')",
+    )
+    .run();
+  // 远端根恰好盖住本机随聊目录：按路径判断会把本地会话误认成远程。
+  state
+    .db!.prepare(
+      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('remote-project', NULL, '远程', 'project', NULL, ?, 'remote-id', 'x')",
+    )
+    .run(state.root.replace(/\\/g, '/'));
+  const ask = (sessionId: string) =>
+    askSession(sessionId, {
+      text: '',
+      attachments: [stageChatMedia('汇报.pptx', Buffer.from([80, 75, 3, 4])).id],
+      context: [],
+      comments: [],
+    });
+  await ask(newSession(null, 'chat').sessionId!);
+  expect(state.prompts[0]).toContain('document-reading skill');
+  await expect(ask(newSession('remote-project', 'chat').sessionId!)).rejects.toThrow(
+    '文档附件目前只支持本机会话',
+  );
+});
+
 it('continues to inline ordinary text attachment contents', async () => {
   state.configured = true;
   const attachment = stageChatMedia('notes.txt', Buffer.from('普通文本附件'));
