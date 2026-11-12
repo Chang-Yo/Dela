@@ -5,49 +5,6 @@
 @source '../../modules';
 @source '../../ui';
 
-/* 待迁移的 shadcn 语义名：调用处改用 ui/tokens.css 的名字后删除。
-   在 .bui-light 与 .dark 内重新求值，作用域里才取得到对应主题的值。 */
-:root,
-.bui-light,
-.dark {
-  --radius: 0.625rem;
-  --background: var(--surface);
-  --foreground: var(--ink);
-  --card: var(--surface);
-  --card-foreground: var(--ink);
-  --popover: var(--surface);
-  --popover-foreground: var(--ink);
-  --primary: var(--ink);
-  --primary-foreground: var(--surface);
-  --secondary: var(--field);
-  --secondary-foreground: var(--ink);
-  --muted: var(--inset);
-  --muted-foreground: var(--ink-3);
-  --accent: var(--hover);
-  --accent-foreground: var(--ink);
-  --destructive: var(--red);
-  --destructive-foreground: oklch(0.985 0 0);
-  --success: var(--green);
-  --warning: var(--orange);
-  --border: var(--line);
-  --input: var(--line-strong);
-  --ring: var(--bui-accent);
-  --sidebar: var(--page);
-  --sidebar-foreground: var(--ink);
-  --sidebar-primary: var(--ink);
-  --sidebar-primary-foreground: var(--surface);
-  --sidebar-accent: var(--hover-2);
-  --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: var(--line);
-  --sidebar-ring: var(--bui-accent);
-}
-
-:root {
-  /* 首启引导专用固定色：引导画布恒为白色，不随明暗主题翻转（取亮色 cal-teal 值）。 */
-  --onboarding-accent: oklch(0.41 0.062 205);
-  --onboarding-accent-soft: oklch(0.937 0.022 200);
-}
-
 /* 品牌图随明暗主题切换：浅色用白底、深色用黑底。 */
 .dela-brand-dark {
   display: none;
@@ -67,41 +24,19 @@
   src: url('../../../assets/fonts/Italianno.woff2') format('woff2');
 }
 
+/* 只为 streamdown 保留，Dela 代码不使用，换掉 Markdown 渲染器时删除。 */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 0.25rem);
-  --radius-md: calc(var(--radius) - 0.125rem);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 0.25rem);
-  --radius-2xl: calc(var(--radius) + 0.5rem);
+  --color-background: var(--surface);
+  --color-foreground: var(--ink);
+  --color-muted: var(--inset);
+  --color-muted-foreground: var(--ink-3);
+  --color-border: var(--line);
+  --color-sidebar: var(--page);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--surface);
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
 }
 
 @layer base {
