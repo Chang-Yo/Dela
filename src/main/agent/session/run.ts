@@ -370,7 +370,7 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
   if (entry.session.isCompacting) throw new Error('正在压缩上下文，请稍候');
   const { prompt, userText, images, attachments, comments, turnId } = composePrompt(
     input,
-    entry.cwd,
+    row(id).project_id,
   );
   if (input.replaceLastUser) {
     // 编辑重发：从最后一条用户消息之前分支（Pi 会话树保留旧分支）。
@@ -498,7 +498,7 @@ async function runTurn(
 }
 
 async function steerRun(id: string, entry: Live, run: Run, input: ChatAskInput) {
-  const { prompt, images } = composePrompt(input, entry.cwd, run.id);
+  const { prompt, images } = composePrompt(input, row(id).project_id, run.id);
   await entry.session.steer(prompt, images.length ? images : undefined);
   run.steers.push({ prompt, input });
   return snapshot(id);

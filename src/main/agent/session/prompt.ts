@@ -25,7 +25,11 @@ export const COMMENTS_HEADER = '用户选中了你之前回复中的片段并留
 
 /** meta 前缀、@ 引用、附件、回复评论与正文依次拼接。
  *  插队消息沿用所在 run 的 turnId，改动记录按 run 归属。 */
-export function composePrompt(input: ChatAskInput, cwd: string, turnId: string = randomUUID()) {
+export function composePrompt(
+  input: ChatAskInput,
+  projectId: string | null,
+  turnId: string = randomUUID(),
+) {
   const blocks = parseChatBlocks(input.text);
   const userText = stripChatImageTokens(input.text);
   const images: ImageContent[] = [];
@@ -44,7 +48,11 @@ export function composePrompt(input: ChatAskInput, cwd: string, turnId: string =
   const { comments } = input;
   if (!userText && !images.length && !attachments.length && !comments.length)
     throw new Error('请输入内容或添加文件');
-  if (attachments.some((attachment) => 'path' in attachment) && remoteProjectOf(cwd))
+  if (
+    attachments.some((attachment) => 'path' in attachment) &&
+    projectId &&
+    remoteProjectOf(projectId)
+  )
     throw new Error('文档附件目前只支持本机会话，请切换到随聊或本地项目');
   // @ 引用即路径：只告诉模型路径，读取由模型用 read 自主完成（pull 模型）。
   const sources = input.context.map((key) => ({ key, title: key }));
