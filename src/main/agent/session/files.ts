@@ -1,7 +1,6 @@
 // 会话内文件的定位、打开与改动审阅入口。
 import type { UncommittedChanges } from '../../../shared/api';
 import { hostPorts } from '../../host';
-import { openInVsCode } from '../../workspace/project';
 import * as changes from '../changes';
 import { resolveSessionFile } from '../session-path';
 import { isRemoteSession, row, sessionCwd } from './store';
@@ -24,10 +23,6 @@ export async function openSessionFile(sessionId: string, path: string): Promise<
 /** 解析会话内文件的本机绝对路径（须真实存在）：应用内预览标签以它作为标签键。 */
 export function locateSessionFile(sessionId: string, path: string): string {
   return sessionFilePath(sessionId, path);
-}
-
-export async function openSessionFileInVsCode(sessionId: string, path: string): Promise<void> {
-  await openInVsCode(sessionFilePath(sessionId, path));
 }
 
 export function listSessionTurnChanges(id: string) {

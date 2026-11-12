@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { ImageContent } from '@earendil-works/pi-ai';
 import type { ChatAskInput } from '../../../shared/api';
 import { parseChatBlocks, stripChatImageTokens } from '../../../shared/chat-input';
-import { remoteProjectOf } from '../../workspace/api';
+import { hostPorts } from '../../host';
 import { readChatAttachment, readChatMediaBytes } from '../media';
 import { encodeMeta } from './projection';
 
@@ -51,7 +51,7 @@ export function composePrompt(
   if (
     attachments.some((attachment) => 'path' in attachment) &&
     projectId &&
-    remoteProjectOf(projectId)
+    hostPorts().projects.remoteOf(projectId)
   )
     throw new Error('文档附件目前只支持本机会话，请切换到随聊或本地项目');
   // @ 引用即路径：只告诉模型路径，读取由模型用 read 自主完成（pull 模型）。

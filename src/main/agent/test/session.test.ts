@@ -124,7 +124,7 @@ import { projectMessages, contextUsageView } from '../session/projection';
 import { askSession, invalidateSessions, cancelRun } from '../session/run';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
-import { removeWorkspaceEntry } from '../../workspace/api';
+import { removeWorkspaceEntry, workspaceProjects } from '../../workspace/api';
 import { provideTestHostPorts } from '../../test/host-mock';
 import { registerSessionScope } from '../../../core/agent/scopes';
 
@@ -153,7 +153,15 @@ beforeEach(() => {
   ];
   state.modelSwitches = [];
   state.root = mkdtempSync(join(tmpdir(), 'dela-session-'));
-  provideTestHostPorts({ paths: { userData: () => state.root, documents: () => state.root } });
+  provideTestHostPorts({
+    paths: {
+      userData: () => state.root,
+      documents: () => state.root,
+      storage: () => join(state.root, 'Dela'),
+    },
+    database: () => state.db!,
+    projects: workspaceProjects,
+  });
   state.db = new Database(':memory:');
   state.db.pragma('foreign_keys = ON');
   state.db.exec(`
@@ -184,6 +192,10 @@ it.each([false, true])('移除项目会删除名下全部会话与条目行 (rem
   const directory = remote ? '/remote/course' : join(state.root, 'project');
   if (!remote) mkdirSync(directory);
   const remoteId = remote ? crypto.randomUUID() : null;
+  if (remoteId)
+    state
+      .db!.prepare("INSERT INTO remotes VALUES (?, 'gpu', 'root@10.0.0.5', NULL, NULL, 'x')")
+      .run(remoteId);
   state
     .db!.prepare(
       'INSERT INTO workspace_entries (id, name, kind, local_path, remote_id, updated_at) VALUES (?, ?, ?, ?, ?, ?)',

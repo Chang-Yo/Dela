@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { getDatabase } from '../database';
+import { hostPorts } from '../host';
 import { loadLlmConfig } from '../credentials';
 import type {
   WebSearchEntry,
@@ -133,7 +133,8 @@ interface Registry {
 }
 
 function readRegistry(): Registry {
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare('SELECT value FROM workspace_settings WHERE key=?')
     .get(CONFIG_KEY) as { value: string } | undefined;
   if (!row) return { providers: [], selectedId: null };
@@ -148,7 +149,8 @@ function readRegistry(): Registry {
 }
 
 function writeRegistry(registry: Registry): void {
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
     .run(CONFIG_KEY, JSON.stringify(registrySchema.parse(registry)));
 }

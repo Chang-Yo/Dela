@@ -12,9 +12,7 @@ import type {
 } from '../../../shared/api';
 import { TASK_NOTICE } from '../../../shared/api';
 import { hostPorts } from '../../host';
-import { remoteById, targetOf } from '../../remotes/api';
 import { remoteBackend } from '../../remotes/operations';
-import { remoteProjectOf } from '../../workspace/api';
 import * as changes from '../changes';
 import { agentEnvironment } from '../environment';
 import { chatAttachmentView, releaseChatAttachments } from '../media';
@@ -56,7 +54,7 @@ export async function ensureLive(id: string): Promise<Live> {
   const options = await agentEnvironment().sessionOptions(meta.project_id, cwd);
   // 子 Agent 不再派子 Agent，也不开后台任务。
   const delegates = !meta.parent_id;
-  const remote = meta.project_id ? remoteProjectOf(meta.project_id) : null;
+  const remote = meta.project_id ? hostPorts().projects.remoteOf(meta.project_id) : null;
   const parent: TaskParent = {
     id,
     publish: () => publish(id),
@@ -76,7 +74,7 @@ export async function ensureLive(id: string): Promise<Live> {
               cwd,
               options.shellPath,
               options.commandPrefix,
-              remote && remoteBackend(targetOf(remoteById(remote.remoteId))),
+              remote && remoteBackend(remote.target),
             )),
             taskTool(parent, cwd, runSubagent),
           ],

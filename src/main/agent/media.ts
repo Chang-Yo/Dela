@@ -20,7 +20,6 @@ import {
   chatFileKind,
 } from '../../shared/chat-input';
 import { SNIFF_BYTES } from '../../shared/files';
-import { getDatabase } from '../database';
 import { DOCUMENT_SKILL, assertDocumentDependency } from '../documents/runtime';
 import { readDisabledSkills } from './skills';
 import { hostPorts } from '../host';
@@ -172,7 +171,10 @@ export function releaseChatAttachments(ids: readonly string[]): void {
 /** 删除没有被任何会话引用的图片/文档文件；引用记在 Pi 会话用户消息元数据里。 */
 export function gcChatMedia(): void {
   const referenced = new Set<string>();
-  const rows = getDatabase().prepare("SELECT file FROM sessions WHERE file != ''").all() as {
+  const rows = hostPorts()
+    .database()
+    .prepare("SELECT file FROM sessions WHERE file != ''")
+    .all() as {
     file: string;
   }[];
   for (const { file } of rows) {

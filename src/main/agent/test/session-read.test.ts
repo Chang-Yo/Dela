@@ -11,13 +11,15 @@ import type { SessionManager as Manager } from '@earendil-works/pi-coding-agent'
 const root = mkdtempSync(join(tmpdir(), 'dela-session-read-'));
 const state = vi.hoisted(() => ({ db: null as Database.Database | null }));
 vi.mock('electron', () => ({ app: { getPath: () => root }, shell: {} }));
-vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({ llmProviders: () => [], usableLlmProviders: () => [] }));
 vi.mock('../environment', () => ({ agentEnvironment: () => ({}) }));
 
 import { loadPi } from '../pi';
 import { preloadPi } from '../session/store';
 import { pageTurns, sessionTools, sessionTurns, type SessionTurn } from '../session-read';
+import { provideTestHostPorts } from '../../test/host-mock';
+
+provideTestHostPorts({ database: () => state.db! });
 
 let SessionManager: typeof Manager;
 let clock = 1_000;

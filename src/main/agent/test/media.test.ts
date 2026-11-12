@@ -24,9 +24,6 @@ vi.mock('../../documents/runtime', () => ({
 vi.mock('../skills', () => ({
   readDisabledSkills: () => new Set(state.disabled ? ['document-reading'] : []),
 }));
-vi.mock('../../database', () => ({
-  getDatabase: () => ({ prepare: () => ({ all: () => state.sessions }) }),
-}));
 import { provideTestHostPorts } from '../../test/host-mock';
 import {
   gcChatMedia,
@@ -37,7 +34,10 @@ import {
 } from '../media';
 
 beforeEach(() => {
-  provideTestHostPorts({ paths: { userData: () => state.root } });
+  provideTestHostPorts({
+    paths: { userData: () => state.root },
+    database: () => ({ prepare: () => ({ all: () => state.sessions }) }) as never,
+  });
   state.missing = false;
   state.disabled = false;
   state.sessions = [];

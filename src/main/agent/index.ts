@@ -17,7 +17,6 @@ import { agentProtocol } from './protocol';
 import { archiveProjectSessions, deleteSession, updateSessionVisibility } from './session/commands';
 import {
   openSessionFile,
-  openSessionFileInVsCode,
   readSessionUncommittedChanges,
   readSessionUncommittedFileChange,
   uncommittedAvailability,
@@ -51,6 +50,7 @@ import {
 import { remoteById, targetOf } from '../remotes/api';
 import { uploadSkillToRemote } from '../remotes/context';
 import { remoteProjectOf } from '../workspace/api';
+import { openInVsCode } from '../workspace/project';
 import {
   addMcpServer,
   listMcpServers,
@@ -172,7 +172,7 @@ export function registerAgentIpc() {
     locateSessionFile(uuid.parse(sessionId), chatFilePath(path)),
   );
   chatHandle('open-in-vscode', (_event, sessionId, path) =>
-    openSessionFileInVsCode(uuid.parse(sessionId), chatFilePath(path)),
+    openInVsCode(locateSessionFile(uuid.parse(sessionId), chatFilePath(path))),
   );
   chatHandle('reveal-file', (_event, sessionId, path) =>
     revealSessionFile(uuid.parse(sessionId), chatFilePath(path)),

@@ -13,7 +13,6 @@ const state = vi.hoisted(() => ({
   provider: null as unknown,
 }));
 vi.mock('electron', () => ({ app: { getPath: () => root }, shell: {} }));
-vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
   llmProviders: () => [state.provider],
   usableLlmProviders: () => [state.provider],
@@ -48,7 +47,7 @@ const ask = (id: string, text: string) =>
 let server: MockOpenAiServer;
 
 beforeAll(async () => {
-  provideTestHostPorts({ paths: { userData: () => root } });
+  provideTestHostPorts({ paths: { userData: () => root }, database: () => state.db! });
   server = await MockOpenAiServer.start();
   state.provider = {
     id: 'p1',

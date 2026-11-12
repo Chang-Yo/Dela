@@ -9,27 +9,6 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('electron', () => ({ app: { getPath: () => 'C:\\data' } }));
-vi.mock('../../database', () => ({
-  getDatabase: () => ({
-    prepare: () => ({ get: () => ({ name: '课题' }), all: () => [] }),
-  }),
-}));
-vi.mock('../../storage', () => ({ storageDirectory: () => 'C:\\data' }));
-vi.mock('../../settings/prefs', () => ({ getAgentInstruction: () => '' }));
-vi.mock('../../workspace/api', () => ({
-  remoteProjectOf: (id: string) => (state.remote && id === 'p-remote' ? { remoteId: 'r1' } : null),
-}));
-vi.mock('../api', () => ({
-  remoteById: () => ({
-    id: 'r1',
-    label: 'gpu',
-    host: 'root@10.0.0.5',
-    port: null,
-    keyPath: null,
-    createdAt: '',
-  }),
-  targetOf: () => ({ host: 'root@10.0.0.5', keyPath: null }),
-}));
 // 真实实现要动态加载 Pi（纯 ESM）：这里只关心名字与组合，工具体换成空壳。
 vi.mock('../operations', () => ({ remoteBackend: () => ({}) }));
 vi.mock('../../agent/remote-tools', () => ({
@@ -56,7 +35,6 @@ vi.mock('../../agent/commands', () => ({
   COMMAND_BRIDGE: 'dela() { :; }',
   startDomainBridge: () => ({ url: 'http://127.0.0.1:1', token: 'token' }),
 }));
-vi.mock('../../terminal/mingit', () => ({ locateBash: () => 'C:\\Git\\bash.exe' }));
 vi.mock('../../agent/skills', () => ({
   builtinSkillsDirectory: () => 'C:\\skills',
   ensureBuiltinSkills: () => {},
@@ -68,6 +46,26 @@ vi.mock('../../agent/mcp', () => ({ mcpToolDefinitions: () => [], executeMcpTool
 vi.mock('../../agent/tools', () => ({ readDisabledTools: () => state.disabled }));
 
 import { agentEnvironment } from '../../agent/environment';
+import { provideTestHostPorts } from '../../test/host-mock';
+
+provideTestHostPorts({
+  paths: { bash: () => 'C:\\Git\\bash.exe' },
+  database: () => ({ prepare: () => ({ get: () => undefined, all: () => [] }) }) as never,
+  projects: {
+    find: () => ({ name: '课题', path: null }),
+    local: () => [],
+    remoteOf: (id) =>
+      state.remote && id === 'p-remote'
+        ? {
+            id,
+            path: '/root/proj',
+            remoteId: 'r1',
+            label: 'gpu',
+            target: { host: 'root@10.0.0.5', keyPath: null },
+          }
+        : null,
+  },
+});
 
 const names = (tools: ToolDefinition[]) => tools.map((tool) => tool.name).sort();
 

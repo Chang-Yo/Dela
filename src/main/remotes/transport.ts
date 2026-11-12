@@ -7,7 +7,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { app } from 'electron';
+import { hostPorts } from '../host';
 
 export interface RemoteTarget {
   /** ssh 的第一个位置参数：`~/.ssh/config` 里的别名，或 `user@host`。 */
@@ -54,9 +54,7 @@ const KEEPALIVE_COUNT_MAX = 3;
 function binaryCandidates(binary: 'ssh' | 'sftp'): string[] {
   if (process.platform === 'darwin') return [join('/usr/bin', binary)];
   const name = `${binary}.exe`;
-  const bundledRoot = app.isPackaged
-    ? join(process.resourcesPath, 'openssh')
-    : join(app.getAppPath(), 'vendor', 'openssh');
+  const bundledRoot = hostPorts().paths.bundled('openssh');
   return [
     join(process.env.WINDIR ?? 'C:\\Windows', 'System32', 'OpenSSH', name),
     join(process.env.ProgramFiles ?? 'C:\\Program Files', 'OpenSSH', name),

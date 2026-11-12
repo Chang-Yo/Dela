@@ -12,17 +12,9 @@ const projects = mkdtempSync(join(tmpdir(), 'dela-skill-projects-'));
 let database: DatabaseSync;
 vi.mock('electron', () => ({ app: { getPath: () => home }, shell: {} }));
 vi.mock('../../database', () => ({ getDatabase: () => database }));
-vi.mock('../../settings/prefs', () => ({
-  readSetting: (key: string) =>
-    (
-      database.prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
-        { value: string } | undefined
-    )?.value,
-  writeSetting: (key: string, value: string) =>
-    database.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value),
-}));
 
 import { provideTestHostPorts } from '../../test/host-mock';
+import { workspaceProjects } from '../../workspace/api';
 import { registerCommandDomain } from '../../../core/capabilities/commands';
 import {
   effectiveDisabledSkills,
@@ -70,7 +62,11 @@ function addProject(id: string, name: string) {
 const byName = async (name: string) => (await listSkills()).filter((skill) => skill.name === name);
 
 beforeEach(() => {
-  provideTestHostPorts({ paths: { userData: () => home, home: () => home } });
+  provideTestHostPorts({
+    paths: { userData: () => home, home: () => home },
+    database: () => database,
+    projects: workspaceProjects,
+  });
   database = new DatabaseSync(':memory:');
   database.exec(`
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -152,7 +148,11 @@ it('restores user-edited builtin skills to the bundled version', async () => {
   writeFileSync(path, `${bundled}\n用户补充的指引\n`);
   vi.resetModules();
   const { provideTestHostPorts: provideAfterReset } = await import('../../test/host-mock');
-  provideAfterReset({ paths: { userData: () => home, home: () => home } });
+  provideAfterReset({
+    paths: { userData: () => home, home: () => home },
+    database: () => database,
+    projects: workspaceProjects,
+  });
   registerBuiltins((await import('../../../core/capabilities/commands')).registerCommandDomain);
   (await import('../skills')).ensureBuiltinSkills();
   expect(readFileSync(path, 'utf8')).toBe(bundled);

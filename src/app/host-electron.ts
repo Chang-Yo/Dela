@@ -20,12 +20,17 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   CredentialDecryptionError,
+  type BundledResource,
   type ClientHandle,
   type Desktop,
   type HostPorts,
   type SecretNamespace,
 } from '../main/host';
+import { getDatabase } from '../main/database';
 import { notifyRunFinished } from '../main/settings/task-notify';
+import { storageDirectory } from '../main/storage';
+import { locateBash } from '../main/terminal/mingit';
+import { workspaceProjects } from '../main/workspace/api';
 
 const secretPath = (namespace: SecretNamespace) =>
   join(app.getPath('userData'), `${namespace}.bin`);
@@ -61,6 +66,13 @@ function readSealed(namespace: SecretNamespace): string | null {
     throw new CredentialDecryptionError(namespace, cause);
   }
 }
+
+/** 开发时的位置：helper 与 OpenSSH 入库在 vendor/，rg 由 fetch:remote-rg 下载到 .build/。 */
+const bundledInRepo: Record<BundledResource, string> = {
+  'dela-helper': join('vendor', 'dela-helper'),
+  'remote-rg': join('.build', 'remote-rg'),
+  openssh: join('vendor', 'openssh'),
+};
 
 const clients = new Set<WebContents>();
 
@@ -105,6 +117,12 @@ export const electronPorts: HostPorts = {
     home: () => app.getPath('home'),
     documents: () => app.getPath('documents'),
     temp: () => app.getPath('temp'),
+    storage: storageDirectory,
+    bundled: (name) =>
+      app.isPackaged
+        ? join(process.resourcesPath, name)
+        : join(app.getAppPath(), bundledInRepo[name]),
+    bash: locateBash,
   },
   secrets: {
     write: writeSealed,
@@ -139,4 +157,6 @@ export const electronPorts: HostPorts = {
   },
   desktop,
   network: { fetch: (url, init) => net.fetch(url, init) },
+  database: getDatabase,
+  projects: workspaceProjects,
 };

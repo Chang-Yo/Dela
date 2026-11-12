@@ -5,7 +5,7 @@
 import type { AgentSessionEvent, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { z } from 'zod';
 import type { SubagentDetails, TaskStatus } from '../../shared/api';
-import { getDatabase } from '../database';
+import { hostPorts } from '../host';
 import { sessionRunning } from './session/live';
 import { insertSubagentSession, row } from './session/store';
 import { taskRunning, trackTask, type TaskParent } from './tasks';
@@ -15,7 +15,8 @@ export const SUBAGENT_LIMIT = { min: 1, max: 16, default: 4 };
 const limitSchema = z.number().int().min(SUBAGENT_LIMIT.min).max(SUBAGENT_LIMIT.max);
 
 export function readSubagentLimit(): number {
-  const found = getDatabase()
+  const found = hostPorts()
+    .database()
     .prepare('SELECT value FROM workspace_settings WHERE key=?')
     .get(LIMIT_KEY) as { value: string } | undefined;
   const parsed = limitSchema.safeParse(found ? Number(found.value) : undefined);
@@ -24,7 +25,8 @@ export function readSubagentLimit(): number {
 
 export function setSubagentLimit(value: unknown): number {
   const limit = limitSchema.parse(value);
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
     .run(LIMIT_KEY, String(limit));
   return limit;

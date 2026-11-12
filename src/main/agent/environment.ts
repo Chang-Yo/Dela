@@ -1,15 +1,12 @@
 /** Dela 对 Pi 会话的全部附加物（系统提示、命令桥、skills、MCP 与工具开关）都在这里组装。 */
 import { join } from 'node:path';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
-import { getDatabase } from '../database';
-import { getAgentInstruction } from '../settings/prefs';
-import { remoteProjectOf } from '../workspace/api';
-import { remoteById, targetOf } from '../remotes/api';
+import { hostPorts } from '../host';
 import { remoteBackend } from '../remotes/operations';
 import { syncRemoteContext } from '../remotes/context';
 import { COMMAND_BRIDGE, startDomainBridge } from './commands';
 import { commandPrompt } from '../../core/capabilities/commands';
-import { locateBash } from '../terminal/mingit';
+import { getAgentInstruction } from './instruction';
 import {
   builtinSkillsDirectory,
   effectiveDisabledSkills,
@@ -39,10 +36,8 @@ export function closeDomainBridge() {
 
 function projectContext(projectId: string | null, cwd: string): string | null {
   if (projectId === null) return null;
-  const row = getDatabase()
-    .prepare('SELECT name FROM workspace_entries WHERE id=?')
-    .get(projectId) as { name: string } | undefined;
-  return `当前项目：${row?.name ?? ''}\n项目目录：${cwd}\n相对路径与 bash 都以项目目录为准；在项目里新建或修改文件时保持在这个目录下。`;
+  const project = hostPorts().projects.find(projectId);
+  return `当前项目：${project?.name ?? ''}\n项目目录：${cwd}\n相对路径与 bash 都以项目目录为准；在项目里新建或修改文件时保持在这个目录下。`;
 }
 
 const delaPrompt = () =>
@@ -72,15 +67,14 @@ export function agentEnvironment() {
       const instruction = getAgentInstruction();
       const project = projectContext(projectId, cwd);
       ensureBuiltinSkills();
-      const remote = projectId ? remoteProjectOf(projectId) : null;
+      const remote = projectId ? hostPorts().projects.remoteOf(projectId) : null;
       // 两个分支共用项目上下文与附加指令：远端多一条连接信息、换掉提示词，其余一样。
       const shared = [project, instruction && `用户附加指令：\n${instruction}`].filter(
         (part): part is string => Boolean(part),
       );
       const disabledSkillPaths = readDisabledSkillPaths();
       if (remote && projectId) {
-        const connection = remoteById(remote.remoteId);
-        const target = targetOf(connection);
+        const { target } = remote;
         // 远端 skills 与 AGENTS.md 在本机不存在：镜像一份给 Pi 读，路径再由 remotePath 翻回远端。
         const context = await syncRemoteContext({
           target,
@@ -92,10 +86,10 @@ export function agentEnvironment() {
         return {
           appendSystemPrompt: [
             DELA_REMOTE_PROMPT,
-            `远端连接：${connection.label}（${connection.host}）\n远端项目目录：${cwd}`,
+            `远端连接：${remote.label}（${target.host}）\n远端项目目录：${cwd}`,
             ...shared,
           ],
-          shellPath: locateBash(),
+          shellPath: hostPorts().paths.bash(),
           // 远端会话不挂内置 skills（正文教 dela 命令，远端没有），只加载镜像里的远端技能。
           skillPaths: context.skillPaths,
           // 远端镜像里的 Skill 与本机全局 Skill 一样按名称开关。
@@ -124,7 +118,7 @@ export function agentEnvironment() {
       const handle = await domainBridge();
       return {
         appendSystemPrompt: [delaPrompt(), ...shared],
-        shellPath: locateBash(),
+        shellPath: hostPorts().paths.bash(),
         commandPrefix: `export DELA_COMMAND_URL='${handle.url}' DELA_COMMAND_TOKEN='${handle.token}'\n${COMMAND_BRIDGE}`,
         skillPaths: [builtinSkillsDirectory()],
         globalSkillDirs: [...globalSkillDirectories(), join(piAgentDir(), 'skills')],

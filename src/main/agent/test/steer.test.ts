@@ -16,7 +16,6 @@ const state = vi.hoisted(() => ({
   freezing: false,
 }));
 vi.mock('electron', () => ({ app: { getPath: () => root }, shell: {} }));
-vi.mock('../../database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
   llmProviders: () => (state.provider ? [state.provider] : []),
   usableLlmProviders: () => (state.provider ? [state.provider] : []),
@@ -51,6 +50,9 @@ import { newSession, openSession } from '../session/commands';
 import { askSession, cancelRun, shutdownSessions, withdrawQueued } from '../session/run';
 import { preloadPi } from '../session/store';
 import { readChatAttachment, stageChatMedia } from '../media';
+import { provideTestHostPorts } from '../../test/host-mock';
+
+provideTestHostPorts({ database: () => state.db! });
 
 const reply = (text: string, delayMs = 0) => ({
   kind: 'sse' as const,

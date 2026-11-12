@@ -4,7 +4,7 @@
 // 读取网页默认开启：它不依赖任何注册，只受 web_fetch 自身的安全边界约束。
 import { z } from 'zod';
 import type { AgentCapabilityView } from '../../shared/capabilities';
-import { getDatabase } from '../database';
+import { hostPorts } from '../host';
 
 const KEY = 'tools-disabled';
 const DEFAULT_DISABLED = ['web_search'];
@@ -90,15 +90,18 @@ const tools: Omit<AgentCapabilityView, 'enabled'>[] = [
 );
 
 export function readDisabledTools(): Set<string> {
-  const row = getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(KEY) as
-    { value: string } | undefined;
+  const row = hostPorts()
+    .database()
+    .prepare('SELECT value FROM workspace_settings WHERE key=?')
+    .get(KEY) as { value: string } | undefined;
   const parsed = z.array(z.string()).safeParse(row ? JSON.parse(row.value) : DEFAULT_DISABLED);
   const names = new Set(tools.filter((tool) => !tool.lockedReason).map((tool) => tool.name));
   return new Set((parsed.success ? parsed.data : []).filter((name) => names.has(name)));
 }
 
 function writeDisabledTools(names: Set<string>) {
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
     .run(KEY, JSON.stringify([...names]));
 }

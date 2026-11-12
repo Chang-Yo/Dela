@@ -5,7 +5,7 @@
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 import type { SessionEntry, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { TASK_NOTICE, type TaskNoticeDetails } from '../../shared/api';
-import { getDatabase } from '../database';
+import { hostPorts } from '../host';
 import { sessionBranch, sessionRunning } from './session/live';
 import { splitMeta, textOf } from './session/projection';
 import { listSessions } from './session/store';
@@ -140,7 +140,8 @@ export function pageTurns(
 
 /** 只能读当前项目内、未归档的会话。 */
 function readableSession(id: string, projectId: string | null) {
-  const found = getDatabase()
+  const found = hostPorts()
+    .database()
     .prepare('SELECT title FROM sessions WHERE id=? AND project_id IS ? AND archived = 0')
     .get(id, projectId) as { title: string } | undefined;
   if (!found) throw new Error('当前项目里没有这个会话，或它已归档；先用 session_search 查找');
