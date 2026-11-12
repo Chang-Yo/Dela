@@ -3,12 +3,12 @@
 import { useMemo, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Loader2 } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { dialogOverlay, dialogPanel } from '../components/ui/motion';
+import { Button } from '../../ui/button';
+import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { groupCanvasCoursesByTerm } from '../../shared/canvas';
-import { cn } from '../lib/utils';
+import { cn } from '../../ui/cn';
 
 const checkboxClass = 'size-3.5 accent-[var(--ink-2)]';
 

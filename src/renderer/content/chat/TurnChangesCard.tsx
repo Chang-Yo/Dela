@@ -4,13 +4,13 @@ import { memo, useEffect, useState } from 'react';
 import { ChevronDown, CodeXml, FolderOpen } from 'lucide-react';
 import type { FileChangeSummary, TurnChanges } from '../../../shared/api';
 import type { DiffStat } from '../../../core/protocol/diff';
-import { Button } from '@/components/ui/button';
+import { Button } from '../../../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '../../../ui/dropdown-menu';
 import { openTarget } from '../../workbench/open-target';
 import { reviewTabId } from '../review/tab-id';
 import { FileIcon, basenameOf, dirnameOf } from '../review/view-utils';

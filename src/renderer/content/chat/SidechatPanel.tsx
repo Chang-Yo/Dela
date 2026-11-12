@@ -16,9 +16,9 @@ import {
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
   chatFileKindOfFile,
 } from '../../../core/protocol/chat-input';
-import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
+import { IconButton } from '../../../ui/icon-button';
 import { showToast } from '../../app/toasts';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { errorText } from '../../workspace/store';

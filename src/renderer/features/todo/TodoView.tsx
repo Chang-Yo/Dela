@@ -17,10 +17,10 @@ import {
 } from 'lucide-react';
 import type { CalendarEventColor, TodoItem, TodoSaveInput, TodoState } from '../../../shared/api';
 import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Switch } from '@/components/ui/beautifului/atoms/Switch';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { Switch } from '../../../ui/switch';
+import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import { EventColorRow } from '../timetable/EventColorRow';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
+import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { connectAndSyncTimetable } from '../../timetable/timetable-connect';
 import { StepButton, type StepButtonState } from './step-controls';
 

@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson, TimetableState, TodoItem } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
-import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
+import { Button } from '../../../ui/button';
+import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { MonthCalendar } from './MonthCalendar';
 import { NewEventDialog } from './NewEventDialog';
 import { SemesterStartDialog } from './SemesterStartDialog';
@@ -30,7 +24,7 @@ import {
   weekForDate,
   weekStartFor,
 } from './timetable-format';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 

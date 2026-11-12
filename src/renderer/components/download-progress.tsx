@@ -1,5 +1,5 @@
 import { formatBytes } from '../features/classroom/player-format';
-import { cn } from '../lib/utils';
+import { cn } from '../../ui/cn';
 
 /** 下载进度一行式（「软件更新」「Skills 组件」「能力拓展」共用）：左「已接收 / 总量」、
  *  中间进度条、右百分比。百分比向下取整，传输未完成时不提前显示 100%；总量未知显示

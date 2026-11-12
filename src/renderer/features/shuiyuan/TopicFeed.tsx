@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Bookmark, Loader2, Lock, Mail, MessageSquare, Pin } from 'lucide-react';
 import type { ShuiyuanTopicSummary } from '../../../shared/api';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { categoryOf, isTopicUnread, useShuiyuan } from './store';
 import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Folder } from 'lucide-react';
 import type { WorkbenchLayout } from '../../../../shared/layout';
-import { Button } from '../../../components/ui/button';
+import { Button } from '../../../../ui/button';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';

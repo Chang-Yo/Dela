@@ -9,7 +9,7 @@ import {
 import { EventBus, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { ChevronLeft, ChevronRight, Minus, MoveHorizontal, Plus } from 'lucide-react';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { errorText } from '../../workspace/store';
 import 'pdfjs-dist/web/pdf_viewer.css';
 

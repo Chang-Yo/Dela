@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cn } from './utils';
+import { cn } from './cn';
 
 describe('cn', () => {
   it('自定义字号与文字颜色共存，同类 token 后者覆盖前者', () => {

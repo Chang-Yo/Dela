@@ -19,16 +19,16 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { errorText } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
 import { ReplyCommentRail } from './reply-comment';
 import { formatDuration } from './ToolTimeline';
 import { openSubagent } from './tool-views';
-import { Button } from '@/components/ui/button';
-import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
-import { ProgressRing } from '@/components/ui/beautifului/atoms/ProgressRing';
+import { Button } from '../../../ui/button';
+import { IconButton } from '../../../ui/icon-button';
+import { ProgressRing } from '../../../ui/progress-ring';
 import { useNavigationStore } from '../../navigation/view';
 import type {
   BackgroundTaskView,

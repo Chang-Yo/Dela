@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
-import { cn } from '../../../lib/utils';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
+import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
+import { cn } from '../../../../ui/cn';
 import { LLM_MODEL_LIMIT } from '../../../../core/protocol/llm-models';
 import { capModels, selectedModels } from './model-import';
 

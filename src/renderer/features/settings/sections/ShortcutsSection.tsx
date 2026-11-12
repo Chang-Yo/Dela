@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
+import { Button } from '../../../../ui/button';
 import {
   acceleratorFromEvent,
   acceleratorKeys,

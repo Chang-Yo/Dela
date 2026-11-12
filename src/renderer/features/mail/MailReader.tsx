@@ -1,11 +1,11 @@
 import { Paperclip, Reply, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import type { MailMessageDetail, MailAttachmentInfo, MailAddress } from '../../../shared/api';
 import { formatMailAddress, formatFullDate, formatSize } from './mail-format';
 import { MailHtmlBody } from './MailHtmlBody';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
-import { cn } from '../../lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
+import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 

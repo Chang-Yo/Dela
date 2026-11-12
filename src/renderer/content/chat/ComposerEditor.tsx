@@ -25,9 +25,9 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
-import { openLightbox } from '../../components/ui/lightbox';
+import { openLightbox } from '../../../ui/lightbox';
 import { matchChatImageTokens } from '../../../core/protocol/chat-input';
 import { getChatMediaPreview } from './media';
 import type { ChatReference } from './drafts';

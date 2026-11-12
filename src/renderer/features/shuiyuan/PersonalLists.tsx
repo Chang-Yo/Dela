@@ -1,6 +1,6 @@
 import { ArrowLeft, CheckCheck, Heart } from 'lucide-react';
 import { showToast } from '../../app/toasts';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { errorText } from '../../workspace/store';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { useShuiyuan } from './store';

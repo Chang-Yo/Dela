@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CircleCheck, CircleX, Eye, EyeOff, ListPlus, Loader2, PlugZap } from 'lucide-react';
-import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
-import { SelectItem } from '../../../components/ui/select';
+import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
+import { SelectItem } from '../../../../ui/select';
 import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, StepSelect, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';

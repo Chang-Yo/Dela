@@ -6,8 +6,8 @@
 // 失败是瞬时结果，走 toast，输入框保留原名方便改了再试。
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ChevronRight, Clock, Folder, FolderPlus, House, Search } from 'lucide-react';
-import { Input } from '../../components/ui/input';
-import { cn } from '../../lib/utils';
+import { Input } from '../../../ui/input';
+import { cn } from '../../../ui/cn';
 import type { RemoteBrowseResult, RemoteDraft } from '../../../shared/api';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../store';

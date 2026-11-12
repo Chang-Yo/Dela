@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { SettingsSectionId } from '../../../shared/settings';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { useHorizontalWheel } from '../../lib/use-horizontal-wheel';
 import { settingsSectionLabels } from '../../../shared/settings-search';
 

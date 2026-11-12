@@ -2,8 +2,8 @@
 // Dela 只存目的地、端口与私钥路径；密码与密钥内容都交给 ssh 自己读取。
 import { useState, type FormEvent } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
 import type { RemoteConnection, RemoteDraft } from '../../../shared/api';
 import { errorText, useWorkspaceStore } from '../store';
 import { useNavigationStore } from '../../navigation/view';

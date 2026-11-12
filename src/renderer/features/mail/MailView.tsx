@@ -25,9 +25,9 @@ import { MailReader } from './MailReader';
 import { MailComposer } from './MailComposer';
 import { MailTrashList } from './MailTrashList';
 import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
-import { Resizer } from '../../components/ui/resizer';
-import { Button } from '../../components/ui/button';
-import { cn } from '../../lib/utils';
+import { Resizer } from '../../../ui/resizer';
+import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 

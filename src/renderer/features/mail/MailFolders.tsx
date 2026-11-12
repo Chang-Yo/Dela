@@ -16,10 +16,10 @@ import {
 } from 'lucide-react';
 
 import type { MailFolderInfo, MailAccountInfo, MailSyncStatus } from '../../../shared/api';
-import { PanelToggleButton } from '../../components/ui/panel-toggle';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
-import { cn } from '../../lib/utils';
-import { fadeIn } from '../../components/ui/motion';
+import { PanelToggleButton } from '../../../ui/panel-toggle';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
+import { cn } from '../../../ui/cn';
+import { fadeIn } from '../../../ui/motion';
 
 const FOLDER_ICONS: Record<string, LucideIcon> = {
   '\\Inbox': Inbox,

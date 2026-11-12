@@ -4,17 +4,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Loader2, Plus, Settings2 } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
-import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
+import { cn } from '../../../ui/cn';
 import type {
   RemoteConnection,
   RemoteDraft,

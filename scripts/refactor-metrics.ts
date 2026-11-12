@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const tracked = execFileSync('git', ['ls-files', 'src'], { encoding: 'utf8' })
   .split('\n')
-  .filter((file) => /\.tsx?$/.test(file) && !file.includes('/beautifului/'));
+  .filter((file) => /\.tsx?$/.test(file));
 const isTest = (file: string) => /(^|\/)test\/|\.test\.tsx?$/.test(file);
 const source = tracked.filter((file) => !isTest(file));
 const tests = tracked.filter(isTest);

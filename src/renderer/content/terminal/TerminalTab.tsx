@@ -5,9 +5,9 @@ import { ClipboardPaste, Copy, Plus, SquareTerminal, X } from 'lucide-react';
 import type { TerminalEvent, TerminalSession } from '../../../shared/terminal';
 import type { TabComponentProps } from '../../workbench/registry';
 import { showToast } from '../../app/toasts';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { errorText } from '../../workspace/store';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { platform } from '../../lib/platform';
 import '@xterm/xterm/css/xterm.css';
 

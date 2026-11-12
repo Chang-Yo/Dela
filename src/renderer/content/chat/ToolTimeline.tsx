@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { AgentToolResult, SubagentDetails, WorkspaceChat } from '../../../shared/api';
-import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
-import { cn } from '../../lib/utils';
+import { Shimmer } from '../../../ui/shimmer';
+import { cn } from '../../../ui/cn';
 import { ChatMarkdown } from './markdown';
 import { ToolBody } from './tool-views';
-import { fadeIn } from '../../components/ui/motion';
+import { fadeIn } from '../../../ui/motion';
 
 // 回复的行内轨迹（Codex / Claude 式）：思考与工具步骤按发生顺序夹在正文之间，每步一行「动词 + 对象」。
 // 整轮折叠行只报用时：失败标在步骤行尾，整轮失败由错误卡说明。

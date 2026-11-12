@@ -1,4 +1,4 @@
-import { StepperControl } from '../../components/ui/stepper';
+import { StepperControl } from '../../../ui/stepper';
 
 type StepperField = 'year' | 'month' | 'day' | 'hour' | 'minute';
 

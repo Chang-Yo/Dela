@@ -9,8 +9,8 @@ import {
   Quote,
   Reply,
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { Button } from '../../components/ui/button';
+import { cn } from '../../../ui/cn';
+import { Button } from '../../../ui/button';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { categoryOf, loadedSpan, useShuiyuan } from './store';
 import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';

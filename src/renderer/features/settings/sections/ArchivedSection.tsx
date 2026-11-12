@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, Folder, Search, Trash2 } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../../shared/api';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
+} from '../../../../ui/select';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';

@@ -1,9 +1,9 @@
 // 更新后首次启动的「更新内容」弹窗：内容取自 CHANGELOG 每个版本的条目，条数本身就是上限。
 import { useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { Button } from '../../components/ui/button';
-import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
+import { cn } from '../../../ui/cn';
 import { isSmokeTest } from '../onboarding/onboarding-state';
 import { takePendingReleaseNotes } from './notes';
 

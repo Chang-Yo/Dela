@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { INTRO_LETTERING } from './intro-lettering';
 
 export type LetteringKey = keyof typeof INTRO_LETTERING;

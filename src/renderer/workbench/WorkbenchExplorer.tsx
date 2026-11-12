@@ -22,17 +22,17 @@ import {
 } from 'lucide-react';
 import { workspaceArchiveId } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Resizer } from '../components/ui/resizer';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Resizer } from '../../ui/resizer';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   useAfterMenuClose,
-} from '../components/ui/dropdown-menu';
+} from '../../ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
 import { CanvasExportDialog } from './CanvasExportDialog';
 import type { ExplorerPending } from '../components/explorer';
@@ -57,8 +57,8 @@ import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState, useViewportWidth } from './explorer-state';
-import { cn } from '../lib/utils';
-import { overlayFade } from '../components/ui/motion';
+import { cn } from '../../ui/cn';
+import { overlayFade } from '../../ui/motion';
 
 const SIDEBAR_DEFAULT_WIDTH = 300;
 const SIDEBAR_MIN_WIDTH = 160;

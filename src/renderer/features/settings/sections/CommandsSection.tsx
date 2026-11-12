@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
 import type { ChatCommandView } from '../../../../shared/api';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
-import { cn } from '../../../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
+import { cn } from '../../../../ui/cn';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 

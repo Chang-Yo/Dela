@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { ExternalLink, FileDown, Loader2, Presentation, RefreshCw } from 'lucide-react';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import type {

@@ -3,23 +3,17 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import { Cloud, FolderOpen } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { useNoteDrafts } from '../content/note/drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
 import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';
-import { dialogOverlay, dialogPanel } from '../components/ui/motion';
-import { cn } from '../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../ui/motion';
+import { cn } from '../../ui/cn';
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';

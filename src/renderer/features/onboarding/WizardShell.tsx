@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 
 type WizardShellProps = {

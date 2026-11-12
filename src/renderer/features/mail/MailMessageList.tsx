@@ -2,9 +2,9 @@ import { Paperclip, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { MailFolderInfo, MailMessageSummary } from '../../../shared/api';
 import { senderLabel, formatMailDate } from './mail-format';
-import { cn } from '../../lib/utils';
-import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
-import { Input } from '../../components/ui/input';
+import { cn } from '../../../ui/cn';
+import { Shimmer } from '../../../ui/shimmer';
+import { Input } from '../../../ui/input';
 import { chromeIconButton } from '../../navigation/nav-styles';
 
 type Props = {

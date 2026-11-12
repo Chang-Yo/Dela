@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { cn } from '../../lib/utils';
+import { cn } from './cn';
 
 // default 保持标准输入框外观；ghost 无边框透明、无阴影，聚焦只保留 ring 不加边框，
 // 供面板内的裸输入（如标题行）使用。

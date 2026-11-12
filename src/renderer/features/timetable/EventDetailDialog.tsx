@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import type { CalendarEvent } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import {
   calendarToneKey,
   colorFor,
@@ -22,10 +22,10 @@ import {
   weekdayName,
 } from './timetable-format';
 import type { CalendarItemDetail } from './WeekCalendar';
-import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 
 // 点击周视图条目后的详情弹窗：排版参考 Google Calendar 的事件卡
 // （色点标题 + 小图标信息行）。课程只读；自建事件的删除需二次确认；

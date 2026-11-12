@@ -23,12 +23,12 @@ import {
   SquareTerminal,
   X,
 } from 'lucide-react';
-import { Resizer } from './ui/resizer';
+import { Resizer } from '../../ui/resizer';
 import { useEditorSettings } from '../content/editor-settings';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast, ToastHost } from '../app/toasts';
 import { DelaBrand } from './dela-brand';
-import { cn } from '../lib/utils';
+import { cn } from '../../ui/cn';
 import { fileManagerName, platform } from '../lib/platform';
 import { useNavigationStore, type AppView, type MobileDrawer } from '../navigation/view';
 import { useShortcuts } from '../app/shortcuts';
@@ -46,8 +46,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu';
-import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from './ui/motion';
+} from '../../ui/dropdown-menu';
+import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from '../../ui/motion';
 import { chromeIconButton, navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../features/settings/UpdateBadge';
 import { useVisibleNavEntries } from '../navigation/entries';

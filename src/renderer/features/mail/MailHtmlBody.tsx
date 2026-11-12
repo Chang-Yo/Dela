@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { frameHeightFromEvent, injectFrameHeightReport } from '../../lib/frame-height';
 import { useRootFontSize } from '../../lib/root-font-size';
 

@@ -1,7 +1,7 @@
 import { Select as SelectPrimitive } from 'radix-ui';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import type * as React from 'react';
-import { cn } from '../../lib/utils';
+import { cn } from './cn';
 import { menuItem, menuPanel } from './menu-styles';
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {

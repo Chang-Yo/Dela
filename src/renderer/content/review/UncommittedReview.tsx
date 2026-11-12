@@ -5,7 +5,7 @@ import { GitCompare, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { FileChangeDetail, UncommittedChanges } from '../../../shared/api';
 import { DiffView } from './DiffView';
 import { Centered, STATUS_TEXT, FileIcon, basenameOf, dirnameOf } from './view-utils';
-import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
+import { IconButton } from '../../../ui/icon-button';
 import { errorText } from '../../workspace/store';
 
 const REASON_TEXT = {

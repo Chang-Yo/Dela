@@ -8,8 +8,8 @@ import { MailComposer } from '../features/mail/MailComposer';
 import { leaveComposer } from '../features/mail/compose-close';
 import { errorText } from '../workspace/store';
 import type { MailDraftDialogProps } from '../content/chat';
-import { dialogIn, dialogOverlay } from '../components/ui/motion';
-import { cn } from '../lib/utils';
+import { dialogIn, dialogOverlay } from '../../ui/motion';
+import { cn } from '../../ui/cn';
 
 export function MailDraftDialog({ draftId, onClose, onSent }: MailDraftDialogProps) {
   const [state, setState] = useState<{ draft: PreparedEmail; address: string } | null>(null);

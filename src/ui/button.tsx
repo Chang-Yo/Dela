@@ -1,7 +1,7 @@
 import { Slot } from 'radix-ui';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
-import { cn } from '../../lib/utils';
+import { cn } from './cn';
 
 // API 沿用 shadcn（variant/size 名不变），外观对齐 beautiful-ui：冷灰 token、8px 圆角、
 // 150ms 颜色过渡与按压微缩；聚焦环统一 bui-accent。

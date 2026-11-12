@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { MailConfigureInput } from '../../../shared/mail';
-import { SegmentedControl } from '../../components/ui/beautifului/atoms/SegmentedControl';
-import { Input } from '../../components/ui/input';
-import { cn } from '../../lib/utils';
+import { SegmentedControl } from '../../../ui/segmented-control';
+import { Input } from '../../../ui/input';
+import { cn } from '../../../ui/cn';
 
 const modes = ['交大邮箱', '第三方 IMAP'] as const;
 

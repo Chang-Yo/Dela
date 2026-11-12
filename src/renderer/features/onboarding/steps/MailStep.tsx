@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { MailConfigureInput } from '../../../../shared/mail';
-import { DesktopOnlyNotice } from '../../../components/ui/desktop-only-notice';
+import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { MailAccountForm } from '../../mail/MailAccountForm';
 import { errorText } from '../../../workspace/store';
 import { StepButton, type StepButtonState } from './step-controls';

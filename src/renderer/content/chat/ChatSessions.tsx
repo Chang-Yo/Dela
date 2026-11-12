@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Archive, MessageSquare, Search, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../shared/api';
-import { Button } from '@/components/ui/button';
-import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { IconButton } from '../../../ui/icon-button';
+import { cn } from '../../../ui/cn';
 import { poolKey, querySessions } from '../../sessions/store';
 import { errorText } from '../../workspace/store';
-import { drawerFromRight } from '../../components/ui/motion';
+import { drawerFromRight } from '../../../ui/motion';
 
 function SessionList({
   sessions,

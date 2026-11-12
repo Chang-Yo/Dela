@@ -1,4 +1,4 @@
-// 全局动效规范（缓动与 pop-in 观感取自 beautiful-ui，见 beautifului.css）：
+// 全局动效规范（缓动与 pop-in 观感取自 beautiful-ui，见 tokens.css）：
 // - 浮层/对话框出现：dialog-in 160ms ease-out-strong（scale .96→1 + 淡入）；
 // - 遮罩出现：fade-in 160ms；
 // - 悬停/选中颜色：150ms（工具类 duration-150）；

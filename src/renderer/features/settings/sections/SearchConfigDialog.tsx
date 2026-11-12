@@ -1,25 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
-import { Textarea } from '../../../components/ui/textarea';
+} from '../../../../ui/select';
+import { Textarea } from '../../../../ui/textarea';
 import type {
   WebSearchEntry,
   WebSearchEntryInput,
   WebSearchKeySource,
 } from '../../../../shared/api';
 import { errorText } from '../../../workspace/store';
-import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
-import { Switch } from '../../../components/ui/beautifului/atoms/Switch';
-import { cn } from '../../../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
+import { Switch } from '../../../../ui/switch';
+import { cn } from '../../../../ui/cn';
 
 /** 各类型展示名（键序即表单类型按钮的排列顺序，DeepSeek 置首）。 */
 const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {

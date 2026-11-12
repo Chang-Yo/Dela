@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Feather, Globe, Heart, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Button } from '../../../components/ui/button';
+import { Button } from '../../../../ui/button';
 import { DelaBrand } from '../../../components/dela-brand';
 import {
   creditSections,
@@ -12,8 +12,8 @@ import {
   type SponsorChannelKind,
 } from '../credits';
 import { SectionHeader } from '../SectionHeader';
-import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
-import { cn } from '../../../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
+import { cn } from '../../../../ui/cn';
 
 // lucide 不再提供品牌图标，GitHub/知乎/B 站标记内联自 simple-icons。
 function GithubMark() {

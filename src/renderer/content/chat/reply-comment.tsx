@@ -4,8 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 're
 import { HoverCard, Popover } from 'radix-ui';
 import { Check, MessageCircleQuestion, MessageSquarePlus, TextQuote, X } from 'lucide-react';
 import type { ChatComment } from '../../../shared/api';
-import { menuPanel } from '@/components/ui/menu-styles';
-import { cn } from '../../lib/utils';
+import { menuPanel } from '../../../ui/menu-styles';
+import { cn } from '../../../ui/cn';
 import { useChatDrafts } from './drafts';
 
 /** 浮层与视口边缘、与选区之间的留白（rem）。 */

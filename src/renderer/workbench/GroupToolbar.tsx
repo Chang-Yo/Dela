@@ -2,13 +2,13 @@
 import { memo } from 'react';
 import { Columns2, Ellipsis, Maximize2, Minimize2, Rows2, X } from 'lucide-react';
 import type { GroupNode } from '../../shared/layout';
-import { Button } from '../components/ui/button';
+import { Button } from '../../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
+} from '../../ui/dropdown-menu';
 import { useWorkbenchLayout } from './layout-store';
 
 export const GroupToolbar = memo(function GroupToolbar({ group }: { group: GroupNode }) {

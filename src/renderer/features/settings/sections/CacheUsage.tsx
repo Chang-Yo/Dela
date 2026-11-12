@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
+import { Button } from '../../../../ui/button';
 import { formatBytes } from '../../classroom/player-format';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';

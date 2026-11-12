@@ -2,12 +2,12 @@ import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { ArrowLeft, Download, ExternalLink, LoaderCircle, Paperclip } from 'lucide-react';
 import type { JwcNotice, NotificationItem } from '../../../shared/notifications';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { sanitizeHtml } from '../../lib/sanitize-html';
 import { useRootFontSize } from '../../lib/root-font-size';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { errorText } from '../../workspace/store';
 import { showToast } from '../../app/toasts';
 

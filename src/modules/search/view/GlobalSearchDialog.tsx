@@ -15,9 +15,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '../../../core/protocol/contract';
-import { cn } from '../../../renderer/lib/utils';
-import { Button } from '../../../renderer/components/ui/button';
-import { dialogOverlay, dialogPanel } from '../../../renderer/components/ui/motion';
+import { cn } from '../../../ui/cn';
+import { Button } from '../../../ui/button';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { SEARCH_LIMIT, searchContract, type SearchHit, type SearchIcon } from '../contract';
 
 const search = createClient(searchContract, window.dela?.bridge);

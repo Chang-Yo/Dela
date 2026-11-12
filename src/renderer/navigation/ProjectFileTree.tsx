@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   useAfterMenuClose,
-} from '../components/ui/dropdown-menu';
+} from '../../ui/dropdown-menu';
 import type { EntryAction } from '../workspace/entry-actions';
 import { remoteAccent } from './remote-color';
 import { remoteTitle, useRemoteTree } from './remote-tree';

@@ -1,5 +1,5 @@
 import { LayoutGrid, SquarePen } from 'lucide-react';
-import { Button } from '../components/ui/button';
+import { Button } from '../../ui/button';
 
 /** 组空态：中央提示可拖入标签，并提供「新建对话」（与侧栏同一入口，回调由装配层注入）。
  *  窄组按容器查询降级（容器标记在 TabGroup 根 section）：≤280px 收起副文案；≤180px 再缩

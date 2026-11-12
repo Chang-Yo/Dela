@@ -19,13 +19,13 @@ import {
   SquareTerminal,
   X,
 } from 'lucide-react';
-import { Shimmer } from '@/components/ui/beautifului/atoms/Shimmer';
+import { Shimmer } from '../../../ui/shimmer';
 import { useReducedMotion } from 'framer-motion';
 import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../core/protocol/chat-input';
-import { Button } from '@/components/ui/button';
-import { openLightbox } from '@/components/ui/lightbox';
-import { IconButton } from '@/components/ui/beautifului/atoms/IconButton';
+import { Button } from '../../../ui/button';
+import { openLightbox } from '../../../ui/lightbox';
+import { IconButton } from '../../../ui/icon-button';
 import type { MailDraftDialog } from './chat-source';
 import { formatDuration, ReplyTrace } from './ToolTimeline';
 import { openSubagent } from './tool-views';

@@ -2,7 +2,7 @@
 // 持久状态（工作区镜像加载失败、表单校验）不经过这里，仍内联展示。
 import { create } from 'zustand';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
-import { ToastCard, type ToastVariant } from '../components/ui/beautifului/atoms/Toast';
+import { ToastCard, type ToastVariant } from '../../ui/toast';
 
 export interface ToastItem {
   id: number;

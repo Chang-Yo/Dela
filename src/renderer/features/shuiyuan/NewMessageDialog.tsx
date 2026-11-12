@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import { Send, X } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
 import { MarkdownEditor } from '../../content/note/MarkdownEditor';
 import { errorText } from '../../workspace/store';
 import { showToast } from '../../app/toasts';
 import { useShuiyuan } from './store';
-import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
-import { cn } from '../../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
+import { cn } from '../../../ui/cn';
 
 /** 发起新私信：收件人用户名（逗号分隔）+ 标题 + Markdown 正文。 */
 export function NewMessageDialog({

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Button } from '../components/ui/button';
+import { Button } from '../../ui/button';
 import { HoverCard } from 'radix-ui';
 import { Archive, Cloud, Folder, Pin, PinOff } from 'lucide-react';
 import type { RunStatus } from '../../shared/api';
-import { cn } from '../lib/utils';
-import { menuPanel } from '../components/ui/menu-styles';
+import { cn } from '../../ui/cn';
+import { menuPanel } from '../../ui/menu-styles';
 import { useSessionRunStatus } from '../sessions/runs';
 import { updateSession } from '../sessions/store';
 import { errorText } from '../workspace/store';

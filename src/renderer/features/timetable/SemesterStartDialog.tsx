@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { formatMonthDay, dayMilliseconds, weekStartFor } from './timetable-format';
-import { dialogIn, overlayFade } from '../../components/ui/motion';
+import { dialogIn, overlayFade } from '../../../ui/motion';
 import { errorText } from '../../workspace/store';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 
 export function SemesterStartDialog({
   semester,

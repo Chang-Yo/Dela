@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Check, Download, FolderOpen, X } from 'lucide-react';
-import { ProgressRing } from '../../components/ui/beautifului/atoms/ProgressRing';
-import { Button } from '../../components/ui/button';
-import { menuPanel } from '../../components/ui/menu-styles';
-import { cn } from '../../lib/utils';
+import { ProgressRing } from '../../../ui/progress-ring';
+import { Button } from '../../../ui/button';
+import { menuPanel } from '../../../ui/menu-styles';
+import { cn } from '../../../ui/cn';
 import type { VideoDownload } from '../../../shared/vsjtu';
 import { formatBytes } from './player-format';
 import { useClassroom } from './store';

@@ -1,9 +1,9 @@
 import { diffLines, diffWords } from 'diff';
 import type { AgentToolResult, SubagentDetails } from '../../../shared/api';
-import type { CodePiece, DiffRow } from '@/components/ui/beautifului/primitives/CodeBlock';
-import CodeBlock from '@/components/ui/beautifului/primitives/CodeBlock';
-import { openLightbox } from '@/components/ui/lightbox';
-import { Button } from '@/components/ui/button';
+import type { CodePiece, DiffRow } from '../../../ui/code-block';
+import CodeBlock from '../../../ui/code-block';
+import { openLightbox } from '../../../ui/lightbox';
+import { Button } from '../../../ui/button';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { ChatMarkdown } from './markdown';

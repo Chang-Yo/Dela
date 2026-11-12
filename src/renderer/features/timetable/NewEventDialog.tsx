@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import type { CalendarEventColor } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
 import { DateTimeStepper } from '../todo/DateTimeStepper';
 import { EventColorRow } from './EventColorRow';
 import { roundToMinute } from './timetable-format';
-import { sheetUp } from '../../components/ui/motion';
+import { sheetUp } from '../../../ui/motion';
 import { errorText } from '../../workspace/store';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 
 const HOUR_MS = 3_600_000;
 

@@ -16,19 +16,19 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { IconButton } from '../../components/ui/beautifului/atoms/IconButton';
-import { SegmentedControl } from '../../components/ui/beautifului/atoms/SegmentedControl';
-import { Slider } from '../../components/ui/beautifului/atoms/Slider';
-import { Button } from '../../components/ui/button';
+import { IconButton } from '../../../ui/icon-button';
+import { SegmentedControl } from '../../../ui/segmented-control';
+import { Slider } from '../../../ui/slider';
+import { Button } from '../../../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
-import { menuPanel } from '../../components/ui/menu-styles';
-import { PanelToggleButton } from '../../components/ui/panel-toggle';
-import { cn } from '../../lib/utils';
+} from '../../../ui/dropdown-menu';
+import { menuPanel } from '../../../ui/menu-styles';
+import { PanelToggleButton } from '../../../ui/panel-toggle';
+import { cn } from '../../../ui/cn';
 import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
 import { formatTime, lectureMeta, lectureTitle } from './player-format';
 import {

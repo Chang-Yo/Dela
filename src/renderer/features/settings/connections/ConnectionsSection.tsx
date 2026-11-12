@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import { CalendarDays, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
+import { Button } from '../../../../ui/button';
 import { ShuiyuanIcon } from '../../shuiyuan/shuiyuan-icon';
 import {
   Select,
@@ -9,15 +9,15 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
-import { cn } from '../../../lib/utils';
+} from '../../../../ui/select';
+import { cn } from '../../../../ui/cn';
 import type { MailTrashRetention } from '../../../../shared/api';
 import { CanvasTokenForm } from './CanvasTokenForm';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
+import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
 
 type ConnectionsSectionProps = {
   onOpenMail: () => void;

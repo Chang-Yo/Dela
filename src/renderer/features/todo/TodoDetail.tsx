@@ -10,10 +10,10 @@ import {
 } from 'lucide-react';
 import type { TodoItem } from '../../../shared/api';
 import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { useRootFontSize } from '../../lib/root-font-size';
 import { sanitizeHtml } from '../../lib/sanitize-html';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 

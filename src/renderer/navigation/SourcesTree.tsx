@@ -3,19 +3,19 @@
 import { useState } from 'react';
 import { AlertDialog } from 'radix-ui';
 import { Archive, Columns2, Ellipsis, Download, FileText, FolderOpen, Link2 } from 'lucide-react';
-import { Button } from '../components/ui/button';
+import { Button } from '../../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
+} from '../../ui/dropdown-menu';
 import { Explorer, type ExplorerItem } from '../components/explorer';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';
-import { dialogOverlay, dialogPanel } from '../components/ui/motion';
-import { cn } from '../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../ui/motion';
+import { cn } from '../../ui/cn';
 import { fileManagerName } from '../lib/platform';
 
 export function SourcesTree({

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, FileText } from 'lucide-react';
 import type { SkillView } from '../../../shared/capabilities';
-import { ToastCard } from '@/components/ui/beautifului/atoms/Toast';
-import { Button } from '../../components/ui/button';
+import { ToastCard } from '../../../ui/toast';
+import { Button } from '../../../ui/button';
 import { DownloadProgressRow } from '../../components/download-progress';
 import { errorText } from '../../workspace/store';
 import { StepButton } from './steps/step-controls';

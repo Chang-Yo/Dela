@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { FileOutput, Loader2, Play, RotateCcw, Search } from 'lucide-react';
 import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../../shared/vsjtu';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { IconButton } from '../../components/ui/beautifului/atoms/IconButton';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { IconButton } from '../../../ui/icon-button';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { formatTime, lectureFileName, lectureTitle } from './player-format';
 import { useClassroom } from './store';
 

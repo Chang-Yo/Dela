@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
   addDays,
   blockHeights,
@@ -26,7 +26,7 @@ import {
   weekDays,
   type DayColumnLayout,
 } from './timetable-format';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 
 // 当前时间线与「今天」高亮的刷新间隔：now 仅在渲染时取值，需定期重渲染保持新鲜。
 const NOW_REFRESH_INTERVAL_MS = 60_000;

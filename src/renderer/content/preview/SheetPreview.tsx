@@ -1,7 +1,7 @@
 import { Minus, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { errorText } from '../../workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
 

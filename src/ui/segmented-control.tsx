@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /** Segmented control — equal-width segments, sliding thumb；外观对齐设置 › Skills 的来源页签。 */
 export function SegmentedControl<T extends string>({
@@ -6,7 +6,7 @@ export function SegmentedControl<T extends string>({
   labels,
   value,
   onChange,
-  className = "",
+  className = '',
 }: {
   options: readonly T[];
   /** 选项的显示文案；缺省直接用选项值本身。 */
@@ -30,7 +30,7 @@ export function SegmentedControl<T extends string>({
           width: `calc((100% - 0.25rem) / ${options.length})`,
           left: '0.125rem',
           transform: `translateX(${index * 100}%)`,
-          transitionTimingFunction: "cubic-bezier(0.23, 1, 0.32, 1)",
+          transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
         }}
       />
       {options.map((opt) => (
@@ -42,7 +42,7 @@ export function SegmentedControl<T extends string>({
           type="button"
           className={`relative z-10 rounded-control px-2.5 py-1 text-xs
             transition-colors duration-150
-            ${opt === value ? "text-ink" : "text-ink-3 hover:text-ink"}`}
+            ${opt === value ? 'text-ink' : 'text-ink-3 hover:text-ink'}`}
         >
           {labels?.[opt] ?? opt}
         </button>

@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 import { notificationSources } from '../../../shared/api';
 import type { NotificationItem, NotificationSource, NotificationState } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/cn';
 import { ShuiyuanIcon } from '../shuiyuan/shuiyuan-icon';
 import { JwcNoticeView } from './JwcNoticeView';
 import { groupNotifications, likeGroupSummary } from './group-notifications';
@@ -26,7 +26,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
+} from '../../../ui/dropdown-menu';
 
 type NotificationsViewProps = {
   jwcNotice: NotificationItem | null;

@@ -5,8 +5,8 @@ import type {
   TextareaHTMLAttributes,
 } from 'react';
 import { Check, Loader2 } from 'lucide-react';
-import { Select, SelectContent, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { cn } from '../../../lib/utils';
+import { Select, SelectContent, SelectTrigger, SelectValue } from '../../../../ui/select';
+import { cn } from '../../../../ui/cn';
 
 // 向导步骤的统一控件：纯白画布上使用固定中性配色，不随明暗主题变化。
 // 所有主按钮全宽、同一高度与圆角，保证五个步骤的排版节奏一致。

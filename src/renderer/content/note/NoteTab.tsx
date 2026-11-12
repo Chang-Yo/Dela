@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { LoaderCircle } from 'lucide-react';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import type { TabId } from '../../../shared/layout';
@@ -10,8 +10,8 @@ import { DocumentToolbar, type NoteMode } from './document-toolbar';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
 import { markdownImageInsert } from './live-preview';
-import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
-import { cn } from '../../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
+import { cn } from '../../../ui/cn';
 
 /** Markdown 文件的图片粘贴/拖入：落盘到同目录 assets/，插入相对路径引用。 */
 const imageInsert = (entryId: string) =>

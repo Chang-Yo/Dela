@@ -16,8 +16,8 @@ import {
   weekDays,
   weekForDate,
 } from './timetable-format';
-import { menuPanel } from '../../components/ui/menu-styles';
-import { cn } from '../../lib/utils';
+import { menuPanel } from '../../../ui/menu-styles';
+import { cn } from '../../../ui/cn';
 
 export function MonthCalendar({
   events,

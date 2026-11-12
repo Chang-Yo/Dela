@@ -1,13 +1,14 @@
 @import 'tailwindcss';
 @import 'streamdown/styles.css';
-@import '../components/ui/beautifului/beautifului.css';
+@import '../../ui/tokens.css';
 @source '../../../node_modules/streamdown/dist/*.js';
 @source '../../modules';
+@source '../../ui';
 
 :root {
   /* 原生控件（日期/时间弹层、select 下拉）跟随主题亮暗渲染。 */
   color-scheme: light;
-  /* shadcn 语义变量统一映射到 beautiful-ui token（beautifului.css）：两套组件共享同一组
+  /* shadcn 语义变量统一映射到 beautiful-ui token（ui/tokens.css）：两套组件共享同一组
      冷灰阶、描边、圆角与明暗主题，这里不再另定颜色值。 */
   --radius: 0.625rem;
   --background: var(--surface);
@@ -124,7 +125,7 @@
   --syntax-caret: #e6b450;
 }
 
-/* 固定浅色作用域（beautifului.css 的 .bui-light）：语义变量在 :root 已解析成深色值，
+/* 固定浅色作用域（ui/tokens.css 的 .bui-light）：语义变量在 :root 已解析成深色值，
    作用域内重新声明一次，才能取到浅色 token。 */
 .bui-light {
   --background: var(--surface);
@@ -158,7 +159,7 @@
   --sidebar-ring: var(--bui-accent);
 }
 
-/* 对话框入场（components/ui/motion.ts）：只动独立的 scale 属性，不与居中用的
+/* 对话框入场（ui/motion.ts）：只动独立的 scale 属性，不与居中用的
    translate 冲突；观感对齐 beautiful-ui 的 pop-in。 */
 @keyframes dialog-in {
   from {

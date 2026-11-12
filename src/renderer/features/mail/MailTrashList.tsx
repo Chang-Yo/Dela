@@ -1,7 +1,7 @@
 import { Paperclip, RotateCcw, Trash2 } from 'lucide-react';
 import type { MailTrashItem } from '../../../shared/api';
 import { senderLabel, formatMailDate } from './mail-format';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 
 type Props = {
   className?: string;

@@ -1,14 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bell, Bookmark, Mail, RefreshCw, Search } from 'lucide-react';
-import { Input } from '../../components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
-import { cn } from '../../lib/utils';
+import { Input } from '../../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
+import { cn } from '../../../ui/cn';
 import { useShuiyuan, type ListSelection } from './store';
 
 const SEARCH_DEBOUNCE_MS = 400;

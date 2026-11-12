@@ -1,18 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Dialog } from 'radix-ui';
 import { X } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
-import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
-import { cn } from '../../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
+import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
 
 const LARGE_TOPIC_POSTS = 1000;

@@ -1,7 +1,7 @@
 import { Folder } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '../../../components/ui/button';
-import { Switch } from '@/components/ui/beautifului/atoms/Switch';
+import { Button } from '../../../../ui/button';
+import { Switch } from '../../../../ui/switch';
 import { navEntries, useNavEntryPrefs } from '../../../navigation/entries';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';

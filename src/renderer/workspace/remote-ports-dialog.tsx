@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { ExternalLink, Globe, Loader2, RefreshCw, Square } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { dialogOverlay, dialogPanel } from '../components/ui/motion';
-import { cn } from '../lib/utils';
+import { Button } from '../../ui/button';
+import { dialogOverlay, dialogPanel } from '../../ui/motion';
+import { cn } from '../../ui/cn';
 import type { RemotePortsState } from '../../shared/api';
 import { errorText } from './store';
 

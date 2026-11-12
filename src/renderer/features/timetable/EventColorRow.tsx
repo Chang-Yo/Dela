@@ -1,5 +1,5 @@
 import type { CalendarEventColor } from '../../../shared/api';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { eventPalette } from './timetable-format';
 
 /** 事件颜色选择行：日历新建事件与待办表单共用同一套候选色圆点。 */

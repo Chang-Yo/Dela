@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ExternalLink, MessageSquare, RefreshCw, RotateCw } from 'lucide-react';
 import type { DocumentContent } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { ShuiyuanIcon } from './shuiyuan-icon';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ShuiyuanSnapshotBody } from './ShuiyuanSnapshotBody';
@@ -10,7 +10,7 @@ import { formatListDate } from './shuiyuan-format';
 import { useShuiyuanSnapshots, useShuiyuanSourceRef } from './snapshot-store';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 
 function SnapshotStatus({
   topicId,

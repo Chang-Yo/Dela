@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { LoaderCircle, Lock, SlidersHorizontal } from 'lucide-react';
 import type { AgentCapabilityView } from '../../../../shared/api';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Switch } from '@/components/ui/beautifului/atoms/Switch';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
+import { Switch } from '../../../../ui/switch';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';

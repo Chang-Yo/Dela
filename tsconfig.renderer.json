@@ -10,6 +10,8 @@
   "include": [
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
+    "src/ui/**/*.ts",
+    "src/ui/**/*.tsx",
     "src/shared/**/*.ts",
     "src/core/protocol/**/*.ts",
     "src/modules/*/contract.ts",

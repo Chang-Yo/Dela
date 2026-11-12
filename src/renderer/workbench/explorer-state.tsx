@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { useEffect, useState } from 'react';
 import { PanelLeft } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '../../ui/cn';
 
 const NARROW_QUERY = '(max-width: 767px)';
 const collapsedStorageKey = 'dela.workspace.collapsed';

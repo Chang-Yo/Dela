@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Popover } from 'radix-ui';
 import type { TodoItem } from '../../../shared/api';
 import { todoCompleted } from '../../../shared/todo';
-import { menuPanel } from '../../components/ui/menu-styles';
-import { cn } from '../../lib/utils';
+import { menuPanel } from '../../../ui/menu-styles';
+import { cn } from '../../../ui/cn';
 import {
   dateKey,
   eventColorStyle,

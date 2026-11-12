@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Slider as SliderPrimitive } from 'radix-ui';
 import { ArrowDownToLine, ArrowUpToLine, Lock, Reply } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/cn';
 
 type TopicTimelineProps = {
   current: number;

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PencilLine } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
+import { Button } from '../../../ui/button';
+import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { BindCard } from './BindCard';
 import { NewMessageDialog } from './NewMessageDialog';
 import { BookmarkList, ListBackButton, NotificationList } from './PersonalLists';

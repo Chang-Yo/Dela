@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { Button } from '../../../../components/ui/button';
-import { Input } from '../../../../components/ui/input';
-import { Textarea } from '../../../../components/ui/textarea';
-import { SegmentedControl } from '../../../../components/ui/beautifului/atoms/SegmentedControl';
+import { Button } from '../../../../../ui/button';
+import { Input } from '../../../../../ui/input';
+import { Textarea } from '../../../../../ui/textarea';
+import { SegmentedControl } from '../../../../../ui/segmented-control';
 import type { McpServerView } from '../../../../../shared/api';
 import type { McpTransportConfig } from '../../../../../shared/capabilities';
 import { errorText } from '../../../../workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
-import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
-import { cn } from '../../../../lib/utils';
+import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
+import { cn } from '../../../../../ui/cn';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 

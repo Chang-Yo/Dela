@@ -3,7 +3,7 @@ import { MotionConfig, motion, useReducedMotion } from 'framer-motion';
 import logo from '../../../../assets/Dela_Logo.png';
 import { HandwritingLine } from './intro-handwriting';
 import { OnboardingWindowBar } from './onboarding-window-bar';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 
 // 氛围视频（854×474、静音、9.5s）：铺满整窗裁切不拉伸；品牌层出现后用高斯模糊退为背景，
 // 不叠白色蒙版。

@@ -8,8 +8,8 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from '../components/ui/context-menu';
-import { cn } from '../lib/utils';
+} from '../../ui/context-menu';
+import { cn } from '../../ui/cn';
 import { useHorizontalWheel } from '../lib/use-horizontal-wheel';
 import { useWorkbenchLayout } from './layout-store';
 import { iconOf, titleOf } from './registry';

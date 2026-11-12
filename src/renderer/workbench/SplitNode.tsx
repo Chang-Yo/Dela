@@ -2,8 +2,8 @@
 // （三屏经嵌套），渲染兼容 ≥2 子节点。
 import { memo, useLayoutEffect, useRef, useState } from 'react';
 import type { LayoutNode } from '../../shared/layout';
-import { Resizer } from '../components/ui/resizer';
-import { cn } from '../lib/utils';
+import { Resizer } from '../../ui/resizer';
+import { cn } from '../../ui/cn';
 import { useWorkbenchLayout } from './layout-store';
 import { TabGroup } from './TabGroup';
 

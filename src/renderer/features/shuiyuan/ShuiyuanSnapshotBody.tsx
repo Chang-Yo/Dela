@@ -1,6 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { errorText } from '../../workspace/store';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 

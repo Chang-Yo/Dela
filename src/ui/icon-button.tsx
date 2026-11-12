@@ -1,14 +1,11 @@
-"use client";
+'use client';
 
-import { type ButtonHTMLAttributes } from "react";
-import { cn } from "@/lib/utils";
+import { type ButtonHTMLAttributes } from 'react';
+import { cn } from './cn';
 
 /* Dela 适配新增（上游无此文件）：从 PromptBar 控件按钮提炼的静默图标钮。
  * 常态无边无底，悬浮显 bg-hover，按压微缩；用于工具栏与消息操作行。 */
-export function IconButton({
-  className,
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function IconButton({ className, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"

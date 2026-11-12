@@ -1,7 +1,4 @@
-/* beautiful-ui foundation — 由上游 app/globals.css 的库部分组装。
- * 来源 https://github.com/slev12397/beautiful-ui （MIT）。适配见同目录 README.md：
- * bui-accent 命名空间、字体 token 未引入、阴影值内联、@custom-variant dark。
- * 站点专属块（gallery/harness 壳、条纹背景、移动演示手势）未包含。 */
+/* beautiful-ui foundation，已 fork 进 src/ui（MIT，见 LICENSES/beautiful-ui.txt）。 */
 @custom-variant dark (&:where(.dark, .dark *));
 :root {
   /* surfaces — cool, blue-tinted neutrals */
@@ -50,9 +47,18 @@
    * consistently across the app. */
   --shadow-hairline: 0 0 0 1px var(--line);
   --shadow-btn: 0 0 0 1px var(--line-strong), 0 0 4px 0 rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 0 0 1px var(--line), 0 18px 47px 0 rgba(0, 0, 0, 0.03), 0 7.5px 19px 0 rgba(0, 0, 0, 0.02), 0 4px 10.5px 0 rgba(0, 0, 0, 0.02), 0 2.3px 5.8px 0 rgba(0, 0, 0, 0.01), 0 1.2px 3.1px 0 rgba(0, 0, 0, 0.01), 0 0.5px 1.3px 0 rgba(0, 0, 0, 0.01);
-  --shadow-raised: 0 0 0 1px var(--line), 0 17.54px 23.39px 0 rgba(0, 0, 0, 0.04), 0 9.4px 12.5px 0 rgba(0, 0, 0, 0.03), 0 5.25px 7px 0 rgba(0, 0, 0, 0.02), 0 2.79px 3.72px -2px rgba(0, 0, 0, 0.01), 0 1.16px 1.5px 0 rgba(0, 0, 0, 0.01);
-  --shadow-overlay: 0 0 0 1px var(--line), 0 25px 50px 0 rgba(0, 0, 0, 0.05), 0 12px 24px 0 rgba(0, 0, 0, 0.04), 0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02), 0 1.5px 3px 0 rgba(0, 0, 0, 0.02);
+  --shadow-card:
+    0 0 0 1px var(--line), 0 18px 47px 0 rgba(0, 0, 0, 0.03), 0 7.5px 19px 0 rgba(0, 0, 0, 0.02),
+    0 4px 10.5px 0 rgba(0, 0, 0, 0.02), 0 2.3px 5.8px 0 rgba(0, 0, 0, 0.01),
+    0 1.2px 3.1px 0 rgba(0, 0, 0, 0.01), 0 0.5px 1.3px 0 rgba(0, 0, 0, 0.01);
+  --shadow-raised:
+    0 0 0 1px var(--line), 0 17.54px 23.39px 0 rgba(0, 0, 0, 0.04),
+    0 9.4px 12.5px 0 rgba(0, 0, 0, 0.03), 0 5.25px 7px 0 rgba(0, 0, 0, 0.02),
+    0 2.79px 3.72px -2px rgba(0, 0, 0, 0.01), 0 1.16px 1.5px 0 rgba(0, 0, 0, 0.01);
+  --shadow-overlay:
+    0 0 0 1px var(--line), 0 25px 50px 0 rgba(0, 0, 0, 0.05), 0 12px 24px 0 rgba(0, 0, 0, 0.04),
+    0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02),
+    0 1.5px 3px 0 rgba(0, 0, 0, 0.02);
   --shadow-inset-field: inset 0 1px 2px oklch(0 0 0 / 0.12);
 }
 
@@ -98,12 +104,9 @@
    * graduated by how far the surface floats. */
   --shadow-btn: 0 0 0 1px oklch(1 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.3);
   --shadow-card:
-    0 0 0 1px oklch(1 0 0 / 0.11), 0 1px 2px oklch(0 0 0 / 0.2),
-    0 2px 6px oklch(0 0 0 / 0.2);
-  --shadow-raised:
-    0 0 0 1px oklch(1 0 0 / 0.13), 0 2px 10px oklch(0 0 0 / 0.22);
-  --shadow-overlay:
-    0 0 0 1px oklch(1 0 0 / 0.15), 0 8px 28px oklch(0 0 0 / 0.34);
+    0 0 0 1px oklch(1 0 0 / 0.11), 0 1px 2px oklch(0 0 0 / 0.2), 0 2px 6px oklch(0 0 0 / 0.2);
+  --shadow-raised: 0 0 0 1px oklch(1 0 0 / 0.13), 0 2px 10px oklch(0 0 0 / 0.22);
+  --shadow-overlay: 0 0 0 1px oklch(1 0 0 / 0.15), 0 8px 28px oklch(0 0 0 / 0.34);
   --shadow-inset-field: inset 0 1px 2px oklch(0 0 0 / 0.4);
 }
 
@@ -156,9 +159,18 @@
    * consistently across the app. */
   --shadow-hairline: 0 0 0 1px var(--line);
   --shadow-btn: 0 0 0 1px var(--line-strong), 0 0 4px 0 rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 0 0 1px var(--line), 0 18px 47px 0 rgba(0, 0, 0, 0.03), 0 7.5px 19px 0 rgba(0, 0, 0, 0.02), 0 4px 10.5px 0 rgba(0, 0, 0, 0.02), 0 2.3px 5.8px 0 rgba(0, 0, 0, 0.01), 0 1.2px 3.1px 0 rgba(0, 0, 0, 0.01), 0 0.5px 1.3px 0 rgba(0, 0, 0, 0.01);
-  --shadow-raised: 0 0 0 1px var(--line), 0 17.54px 23.39px 0 rgba(0, 0, 0, 0.04), 0 9.4px 12.5px 0 rgba(0, 0, 0, 0.03), 0 5.25px 7px 0 rgba(0, 0, 0, 0.02), 0 2.79px 3.72px -2px rgba(0, 0, 0, 0.01), 0 1.16px 1.5px 0 rgba(0, 0, 0, 0.01);
-  --shadow-overlay: 0 0 0 1px var(--line), 0 25px 50px 0 rgba(0, 0, 0, 0.05), 0 12px 24px 0 rgba(0, 0, 0, 0.04), 0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02), 0 1.5px 3px 0 rgba(0, 0, 0, 0.02);
+  --shadow-card:
+    0 0 0 1px var(--line), 0 18px 47px 0 rgba(0, 0, 0, 0.03), 0 7.5px 19px 0 rgba(0, 0, 0, 0.02),
+    0 4px 10.5px 0 rgba(0, 0, 0, 0.02), 0 2.3px 5.8px 0 rgba(0, 0, 0, 0.01),
+    0 1.2px 3.1px 0 rgba(0, 0, 0, 0.01), 0 0.5px 1.3px 0 rgba(0, 0, 0, 0.01);
+  --shadow-raised:
+    0 0 0 1px var(--line), 0 17.54px 23.39px 0 rgba(0, 0, 0, 0.04),
+    0 9.4px 12.5px 0 rgba(0, 0, 0, 0.03), 0 5.25px 7px 0 rgba(0, 0, 0, 0.02),
+    0 2.79px 3.72px -2px rgba(0, 0, 0, 0.01), 0 1.16px 1.5px 0 rgba(0, 0, 0, 0.01);
+  --shadow-overlay:
+    0 0 0 1px var(--line), 0 25px 50px 0 rgba(0, 0, 0, 0.05), 0 12px 24px 0 rgba(0, 0, 0, 0.04),
+    0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02),
+    0 1.5px 3px 0 rgba(0, 0, 0, 0.02);
   --shadow-inset-field: inset 0 1px 2px oklch(0 0 0 / 0.12);
   color-scheme: light;
   color: var(--ink);
@@ -249,4 +261,3 @@
     transform: rotate(360deg);
   }
 }
-

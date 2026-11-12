@@ -3,7 +3,7 @@ import hljs from 'highlight.js/lib/common';
 import { LoaderCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { ShuiyuanSourceDoc } from '../../features/shuiyuan/SourceRefCard';
 import { useRootFontSize } from '../../lib/root-font-size';
 import { sanitizeHtml } from '../../lib/sanitize-html';

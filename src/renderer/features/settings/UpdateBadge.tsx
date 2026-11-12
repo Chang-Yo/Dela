@@ -1,6 +1,6 @@
 import { CircleArrowUp } from 'lucide-react';
 import { useNavigationStore } from '../../navigation/view';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { chromeIconButton } from '../../navigation/nav-styles';
 import { useUpdateState, pendingUpdate } from './update';
 

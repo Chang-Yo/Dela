@@ -1,12 +1,6 @@
-import { Button } from '../../components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
+import { cn } from '../../../ui/cn';
 import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
 import { lectureMeta, lectureTitle } from './player-format';
 import { useClassroom } from './store';

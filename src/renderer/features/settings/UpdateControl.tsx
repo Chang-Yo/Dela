@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../../ui/button';
 import { DownloadProgressRow } from '../../components/download-progress';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';

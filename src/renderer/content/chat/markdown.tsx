@@ -13,7 +13,7 @@ import {
   type LinkSafetyConfig,
 } from 'streamdown';
 import { shuiyuanTopicFromUrl } from '../../../shared/shuiyuan';
-import { cn } from '../../lib/utils';
+import { cn } from '../../../ui/cn';
 import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
 
 // mermaid 本体体积大，这里只注册插件对象，首次渲染图表时才动态加载真正的库。

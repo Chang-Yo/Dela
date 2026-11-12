@@ -1,6 +1,6 @@
 import { ChevronRight, Clock, Code, FolderOpen, LoaderCircle, RefreshCw } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/cn';
 
 /** Markdown 编辑模式（本次会话内按文档记忆）：即时渲染或纯源码，两者编辑的都是同一份原文。 */
 export type NoteMode = 'live' | 'source';

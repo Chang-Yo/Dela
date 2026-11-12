@@ -4,8 +4,8 @@
 import { useEffect, useState } from 'react';
 import { Cloud, Plus } from 'lucide-react';
 import type { RemoteConnection } from '../../../../shared/api';
-import { Button } from '../../../components/ui/button';
-import { cn } from '../../../lib/utils';
+import { Button } from '../../../../ui/button';
+import { cn } from '../../../../ui/cn';
 import { remoteAccent } from '../../../navigation/remote-color';
 import { ConnectionForm } from '../../../workspace/remote/ConnectionForm';
 import { NewRemoteProjectDialog } from '../../../workspace/remote/NewRemoteProjectDialog';

@@ -3,7 +3,7 @@
 import { memo, Suspense, useEffect, useRef, useState, type DragEvent } from 'react';
 import type { GroupNode, TabId } from '../../shared/layout';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { cn } from '../lib/utils';
+import { cn } from '../../ui/cn';
 import { EmptyState } from './EmptyState';
 import { ExplorerRevealButton } from './explorer-state';
 import { walkGroups } from './layout-schema';

@@ -1,12 +1,12 @@
 /** Small progress ring with content in the center — the task-badge from the refs. */
 export function ProgressRing({
   progress,
-  tone = "orange",
+  tone = 'orange',
   children,
   size = 28,
 }: {
   progress: number; // 0..1
-  tone?: "orange" | "green" | "red" | "accent" | "ink";
+  tone?: 'orange' | 'green' | 'red' | 'accent' | 'ink';
   children?: React.ReactNode;
   /** Dela 适配：默认根字号（16px）下的边长，按 rem 派生，随设置 › 外观 › 字号缩放。 */
   size?: number;
@@ -15,12 +15,12 @@ export function ProgressRing({
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const tones = {
-    orange: "var(--orange)",
-    green: "var(--green)",
-    red: "var(--red)",
-    accent: "var(--bui-accent)",
+    orange: 'var(--orange)',
+    green: 'var(--green)',
+    red: 'var(--red)',
+    accent: 'var(--bui-accent)',
     // Dela 适配：中性墨色档。
-    ink: "var(--ink-2)",
+    ink: 'var(--ink-2)',
   };
   return (
     <span
@@ -46,12 +46,10 @@ export function ProgressRing({
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - Math.min(1, Math.max(0, progress)))}
-          style={{ transition: "stroke-dashoffset 400ms cubic-bezier(0.23,1,0.32,1)" }}
+          style={{ transition: 'stroke-dashoffset 400ms cubic-bezier(0.23,1,0.32,1)' }}
         />
       </svg>
-      <span className="relative text-xs font-semibold tabular-nums">
-        {children}
-      </span>
+      <span className="relative text-xs font-semibold tabular-nums">{children}</span>
     </span>
   );
 }

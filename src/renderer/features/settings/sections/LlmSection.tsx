@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { Check, LoaderCircle, Lock, Pencil, PlugZap, Plus, Search, Trash2, X } from 'lucide-react';
-import { StatusPill } from '@/components/ui/beautifului/atoms/StatusPill';
-import { Switch } from '@/components/ui/beautifului/atoms/Switch';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import { StatusPill } from '../../../../ui/status-pill';
+import { Switch } from '../../../../ui/switch';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
-import { cn } from '../../../lib/utils';
+} from '../../../../ui/select';
+import { cn } from '../../../../ui/cn';
 import type {
   LlmCatalogModel,
   LlmCatalogProvider,
@@ -31,7 +31,7 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-import { dialogOverlay, dialogPanel } from '../../../components/ui/motion';
+import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 

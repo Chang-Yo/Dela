@@ -1,8 +1,8 @@
 // 项目会话导航：顶部功能入口，中部按项目分组的会话历史（前 3 条 + 「显示更多」）。
 // 会话数据与运行徽标由接入方注入（本组件不 import sessions/）；通用池会话不入项目树。
 import { useEffect, useState } from 'react';
-import { Button } from '../components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
+import { Button } from '../../ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
 import { Dialog, DropdownMenu as Menu } from 'radix-ui';
 import {
   ChevronRight,
@@ -27,9 +27,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
+} from '../../ui/dropdown-menu';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
-import { cn } from '../lib/utils';
+import { cn } from '../../ui/cn';
 import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../shared/api';
 import { remoteAccent } from './remote-color';
@@ -39,10 +39,10 @@ import { showToast } from '../app/toasts';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { useNavigationStore, useProjectNavPrefs } from './store';
 import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
-import { dialogOverlay, dialogPanel } from '../components/ui/motion';
-import { Input } from '../components/ui/input';
+import { dialogOverlay, dialogPanel } from '../../ui/motion';
+import { Input } from '../../ui/input';
 import { purgeRemovedEntries } from '../workbench/removed-cleanup';
-import { menuItem, menuPanel } from '../components/ui/menu-styles';
+import { menuItem, menuPanel } from '../../ui/menu-styles';
 import { navIcon, navRow, navSectionTitle, rowActions, rowIconButton } from './nav-styles';
 import { useRemoteActivity } from './remote-activity';
 import { RemoteConnectionTip } from './remote-connection-tip';

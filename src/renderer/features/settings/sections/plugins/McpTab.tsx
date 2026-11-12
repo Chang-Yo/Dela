@@ -2,16 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertDialog } from 'radix-ui';
 import { LoaderCircle, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { McpServerView } from '../../../../../shared/api';
-import { Button } from '../../../../components/ui/button';
-import { Switch } from '@/components/ui/beautifului/atoms/Switch';
-import { cn } from '../../../../lib/utils';
+import { Button } from '../../../../../ui/button';
+import { Switch } from '../../../../../ui/switch';
+import { cn } from '../../../../../ui/cn';
 import { errorText } from '../../../../workspace/store';
 import { showToast } from '../../../../app/toasts';
 import { SectionHeader } from '../../SectionHeader';
 import { SettingsGroup } from '../../SettingsGroup';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
-import { dialogOverlay, dialogPanel } from '../../../../components/ui/motion';
+import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
 
 /** 设置 › MCP Server：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {

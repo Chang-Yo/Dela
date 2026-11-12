@@ -20,8 +20,8 @@ import {
   type KeyboardEvent,
 } from 'react';
 import type { MailComposeFile, PreparedEmail } from '../../../shared/api';
-import { Button } from '../../components/ui/button';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/cn';
 import { formatSize } from './mail-format';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';

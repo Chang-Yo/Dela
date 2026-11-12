@@ -1,9 +1,9 @@
 // 下载完成后的确认弹窗：安装会关掉并重启 Dela，必须让用户自己挑时机。
 // 挂在应用层——下载可能持续几分钟，用户早就离开设置页了。
 import { Dialog } from 'radix-ui';
-import { Button } from '../../components/ui/button';
-import { dialogOverlay, dialogPanel } from '../../components/ui/motion';
-import { cn } from '../../lib/utils';
+import { Button } from '../../../ui/button';
+import { dialogOverlay, dialogPanel } from '../../../ui/motion';
+import { cn } from '../../../ui/cn';
 import { useUpdateState, deferInstall, runUpdateAction } from './update';
 
 export function UpdatePrompt() {
