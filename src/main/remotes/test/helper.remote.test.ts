@@ -154,6 +154,19 @@ describe('helper 通道（真机）', () => {
     await exec(target, `rm -rf ${dir}`);
   }, 60_000);
 
+  it('随包上传的 rg 生效：远端没装 rg 也按 .gitignore 跳过文件', async () => {
+    const session = helperSession(target);
+    const dir = '/tmp/dela-rg-test';
+    await exec(target, `rm -rf ${dir} && mkdir -p ${dir}/.git`);
+    await session.writeFile(`${dir}/.gitignore`, 'dist/\n');
+    await session.writeFile(`${dir}/src/kept.ts`, 'const alpha = 1;\n');
+    await session.writeFile(`${dir}/dist/built.ts`, 'const alpha = 1;\n');
+    expect((await session.glob(dir, '*.ts', 100)).files).toEqual(['src/kept.ts']);
+    const found = await session.search({ path: dir, pattern: 'alpha', limit: 10 });
+    expect(found.matches.map((match) => match.path)).toEqual(['src/kept.ts']);
+    await exec(target, `rm -rf ${dir}`);
+  }, 60_000);
+
   it('watch：远端自己改的目录会推事件，撤销后不再推', async () => {
     const session = helperSession(target);
     const dir = '/tmp/dela-watch-test';

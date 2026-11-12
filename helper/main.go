@@ -25,7 +25,7 @@ import (
 
 const (
 	protocolVersion = 2
-	helperVersion   = "0.3.1"
+	helperVersion   = "0.3.2"
 	idleTick        = 10 * time.Second
 	minTokenLength  = 16
 )
@@ -141,6 +141,7 @@ func main() {
 	runFile := flag.String("run-file", "", "把端口、pid 与版本写到这个文件：Dela 重连时据此复用这个实例")
 	lockFile := flag.String("lock-file", "", "启动时独占加锁的文件：同一目录只允许一个实例")
 	idle := flag.Duration("idle-timeout", time.Hour, "这么久收不到任何请求就退出，并终止在跑的任务")
+	flag.StringVar(&bundledRg, "rg", "", "优先使用的 rg 可执行文件；不可用时退回 PATH 里的 rg")
 	showVersion := flag.Bool("version", false, "打印版本后退出")
 	flag.Parse()
 

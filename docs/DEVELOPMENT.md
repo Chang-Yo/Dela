@@ -138,7 +138,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 
 把远端 Linux 主机上的目录登记为项目。**本地内核 + 远程执行**：内核、模型密钥、会话 JSONL、skills 与系统提示都在本地，只有工具执行、终端、目录读取与文件预览落到 SSH 远端。
 
-- **helper 是唯一通道**：工具调用、目录树、预览、上下文镜像、@ 候选与端口发现全部经远端 helper（`ssh -L` 隧道 + 远端 `127.0.0.1` 上的 HTTP），没有一次性 ssh 的退路。helper 是 Go 静态二进制，放在 `~/.dela/helper/<版本>-<sha8>/`，在远端常驻。端点、任务与生命周期规则见 [helper/README.md](../helper/README.md)。只支持 Linux amd64/arm64；`$HOME` 禁止执行（noexec、只读挂载、SELinux）的服务器不支持，向导会给出分类过的原因并停在「连接」。
+- **helper 是唯一通道**：工具调用、目录树、预览、上下文镜像、@ 候选与端口发现全部经远端 helper（`ssh -L` 隧道 + 远端 `127.0.0.1` 上的 HTTP），没有一次性 ssh 的退路。helper 是 Go 静态二进制，放在 `~/.dela/helper/<版本>-<sha8>/`，在远端常驻；随包的 Linux rg 一并上传到 `~/.dela/rg/<sha8>/`，远端没装 rg 也按 `.gitignore` 搜索。端点、任务与生命周期规则见 [helper/README.md](../helper/README.md)。只支持 Linux amd64/arm64；`$HOME` 禁止执行（noexec、只读挂载、SELinux）的服务器不支持，向导会给出分类过的原因并停在「连接」。
 - **依赖方向**：`remotes` 只暴露 `RemoteBackend`（文件操作、命令、搜索、后台命令），不认识 Pi 与 Agent；七个远程工具的 Pi 适配在 `agent/remote-tools`，由 lint 守住。
 - **ssh 的职责**收窄到引导 helper、连接自检、目录选择器首页的主目录解析与终端 `ssh -tt`。**System32 那份 OpenSSH 可能是旧版本**（Windows 本机实测 System32 为 9.5p2、Program Files 为 10.0p2），排障时先确认实际生效的是哪一个。
 - **任务接回**：命令以任务运行，按客户端生成的 id 去重，断线后按字节偏移续读输出并拿到真实退出码。断线期间超出缓冲的部分接不回来，工具输出里会补一行说明。取消必须显式调用——断开连接已经不会终止任务。
@@ -282,6 +282,7 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 | `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                  |
 | `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
 | `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                |
+| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）     |
 | `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                         |
 
 `pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`smoke:documents`）外不发送真实请求。
@@ -295,7 +296,7 @@ pnpm build
 pnpm test
 ```
 
-- 改动远端（`src/main/remotes/`、`helper/`）时另用 `pnpm test:remote` 对真机跑一遍，那批用例默认套件与 CI 都会跳过。
+- 改动远端（`src/main/remotes/`、`helper/`）时另用 `pnpm test:remote` 对真机跑一遍（先 `pnpm fetch:remote-rg`），那批用例默认套件与 CI 都会跳过。
 - 涉及构建、原生依赖或打包时另验证 `pnpm smoke` 与打包目录启动。
 - 用户能感知的变化写进 [CHANGELOG.md](../CHANGELOG.md)；面向使用者的功能概览更新 [README.md](../README.md)；架构、取舍与平台状态变化更新本文。
 - 单元测试只保留能挡住回归的用例：优先行为契约、边界与错误、安全、持久化/迁移、平台差异。不为字面默认值、setter/getter 往返、第三方库行为或纯 DOM 结构写用例；同一行为只留一处覆盖。
@@ -333,7 +334,7 @@ Rulesets 无法限制 PR 发起人或来源分支，维护者需确认指向 `ma
 
 `pnpm version:patch` / `version:minor` / `version:major` / `version:bump <版本>` 只改 `package.json` 的版本，不建 commit / tag，也不推送。preload 在构建时内联版本号，升版后需重新构建。
 
-安装包会带几类 `extraResources`，升级它们时各自按对应 README 的步骤做，并在打包目录里实跑一次验证：`vendor/openssh`（`ssh.exe -V` 与一次真实连接）、helper（发布与 CI 都从本次源码重建，避免发布旧产物）、`vendor/bin`（`rg.exe --version`、`fd.exe --version`）、MinGit（换版本只改 `prepare-runtime.ts` 里那对成对常量）。
+安装包会带几类 `extraResources`，升级它们时各自按对应 README 的步骤做，并在打包目录里实跑一次验证：`vendor/openssh`（`ssh.exe -V` 与一次真实连接）、helper（发布与 CI 都从本次源码重建，避免发布旧产物）、`vendor/bin`（`rg.exe --version`、`fd.exe --version`）、MinGit（换版本只改 `prepare-runtime.ts` 里那对成对常量）、远端 rg（版本与 SHA256 只在 `scripts/fetch-remote-rg.ts`，打包前下载，不入库）。
 
 ### 发布
 

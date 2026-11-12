@@ -36,13 +36,20 @@ const (
 
 var skippedDirs = map[string]bool{".git": true, "node_modules": true}
 
-// rgPath 在每次请求时查：远端用户可能中途装上 rg，helper 又会常驻一小时。
+// bundledRg 是 Dela 随 helper 上传的 rg（--rg）：远端没装 rg 也能按 .gitignore 搜索。
+var bundledRg string
+
+// rgPath 在每次请求时查：随包的 rg 被删了就退回 PATH，远端用户也可能中途装上 rg，helper 又会常驻一小时。
 func rgPath() string {
-	found, err := exec.LookPath("rg")
-	if err != nil {
-		return ""
+	for _, name := range []string{bundledRg, "rg"} {
+		if name == "" {
+			continue
+		}
+		if found, err := exec.LookPath(name); err == nil {
+			return found
+		}
 	}
-	return found
+	return ""
 }
 
 // globPattern 与 Pi 的 find 语义一致：不含 `/` 的模式匹配任意深度的文件名。

@@ -25,7 +25,7 @@ import {
 } from './transport';
 
 /** 必须与 helper/main.go 的 helperVersion 一致：不匹配说明远端跑的不是这一版产物。 */
-export const HELPER_VERSION = '0.3.1';
+export const HELPER_VERSION = '0.3.2';
 const PROTOCOL_VERSION = 2;
 /** 客户端每 30 秒发一次心跳；helper 连续 1 小时收不到任何请求才退出。 */
 const HEARTBEAT_MS = 30_000;
@@ -67,9 +67,27 @@ export function helperArtifact(arch: string): string | null {
   return existsSync(path) ? path : null;
 }
 
+/** 随包的 Linux rg（打包时下载，仓库不提交）：开发时没准备就返回 null，helper 退回远端 PATH 里的 rg。 */
+function rgArtifact(arch: string): string | null {
+  const root = app.isPackaged
+    ? join(process.resourcesPath, 'remote-rg')
+    : join(app.getAppPath(), '.build', 'remote-rg');
+  const path = join(root, `rg-linux-${arch}`);
+  return existsSync(path) ? path : null;
+}
+
 /** 远端目录按「版本-sha8」分家：换版本换目录，旧目录留着（每版一个，便于回退，不自动清理）。 */
 function helperRemoteDir(digest: string): string {
   return `$HOME/.dela/helper/${HELPER_VERSION}-${digest.slice(0, 8)}`;
+}
+
+/** 一份要在远端就位的产物：远端目录与文件名、本地来源、sha256。 */
+interface Artifact {
+  label: string;
+  dir: string;
+  file: string;
+  local: string;
+  digest: string;
 }
 
 /**
@@ -531,34 +549,52 @@ function openSse(
   });
 }
 
-/** 远端有没有这一版产物：sha256 一致就跳过上传，否则整份重传并复核。 */
-async function ensureArtifact(
+/** 远端有没有这一版产物：一次 ssh 比对全部 sha256，一致的跳过，其余整份重传并复核。 */
+async function ensureArtifacts(
   target: RemoteTarget,
-  dir: string,
-  artifact: string,
-  digest: string,
+  artifacts: Artifact[],
   onProgress?: (progress: RemoteSetupProgress) => void,
 ): Promise<void> {
   const probe = await exec(
     target,
-    [
-      `dir=${dir}`,
-      'mkdir -p "$dir"',
-      'chmod 700 "$dir"',
-      `if [ -x "$dir/dela-helper" ] && [ "$(sha256sum "$dir/dela-helper" 2>/dev/null | cut -d" " -f1)" = "${digest}" ]; then printf READY; else printf NEED; fi`,
-    ].join('\n'),
+    artifacts
+      .flatMap(({ dir, file, digest }, index) => [
+        `dir=${dir}`,
+        'mkdir -p "$dir"',
+        'chmod 700 "$dir"',
+        `[ -x "$dir/${file}" ] && [ "$(sha256sum "$dir/${file}" 2>/dev/null | cut -d" " -f1)" = "${digest}" ] || printf '%s ' ${index}`,
+      ])
+      .join('\n'),
     { timeoutMs: BOOTSTRAP_TIMEOUT_MS },
   );
   if (probe.code !== 0) throw new Error(sshErrorMessage(probe));
-  if (probe.stdout.toString().trim() === 'READY') {
+  const missing = probe.stdout
+    .toString()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((index) => artifacts[Number(index)]!);
+  if (!missing.length) {
     onProgress?.({ step: 'verify', ok: true, detail: '远端已有这一版产物，跳过上传' });
     return;
   }
+  for (const artifact of missing) await uploadArtifact(target, artifact, onProgress);
+  onProgress?.({ step: 'verify', ok: true, detail: 'sha256 校验通过' });
+}
 
+async function uploadArtifact(
+  target: RemoteTarget,
+  { label, dir, file, local, digest }: Artifact,
+  onProgress?: (progress: RemoteSetupProgress) => void,
+): Promise<void> {
   // base64 走 ssh 的 stdin：二进制内容不经过 shell 解析，落盘后再核一次 sha256。
   // 进度按 base64 字节折回原始字节报：界面显示的是产物大小，不是编码后的大小。
-  const body = readFileSync(artifact);
-  onProgress?.({ step: 'upload', detail: '开始上传', bytes: { sent: 0, total: body.length } });
+  const body = readFileSync(local);
+  onProgress?.({
+    step: 'upload',
+    detail: `开始上传 ${label}`,
+    bytes: { sent: 0, total: body.length },
+  });
   let reported = 0;
   const upload = await exec(
     target,
@@ -568,8 +604,8 @@ async function ensureArtifact(
       'tmp="$dir/.upload-$$"',
       'base64 -d > "$tmp"',
       'chmod 700 "$tmp"',
-      'mv -f "$tmp" "$dir/dela-helper"',
-      'sha256sum "$dir/dela-helper" | cut -d" " -f1',
+      `mv -f "$tmp" "$dir/${file}"`,
+      `sha256sum "$dir/${file}" | cut -d" " -f1`,
     ].join('\n'),
     {
       stdin: `${body.toString('base64')}\n`,
@@ -587,16 +623,15 @@ async function ensureArtifact(
   if (upload.code !== 0 || uploaded !== digest) {
     onProgress?.({ step: 'upload', ok: false });
     throw new Error(
-      `helper 上传校验失败：期望 ${digest.slice(0, 12)}，远端 ${uploaded.slice(0, 12) || upload.stderr.trim()}`,
+      `${label} 上传校验失败：期望 ${digest.slice(0, 12)}，远端 ${uploaded.slice(0, 12) || upload.stderr.trim()}`,
     );
   }
   onProgress?.({
     step: 'upload',
     ok: true,
-    detail: '上传完成',
+    detail: `${label} 上传完成`,
     bytes: { sent: body.length, total: body.length },
   });
-  onProgress?.({ step: 'verify', ok: true, detail: 'sha256 校验通过' });
 }
 
 /**
@@ -607,6 +642,7 @@ async function ensureArtifact(
 async function findOrStart(
   target: RemoteTarget,
   dir: string,
+  rg: string | null,
 ): Promise<Endpoint & { reused: boolean }> {
   const token = randomBytes(24).toString('hex');
   const script = [
@@ -619,7 +655,7 @@ async function findOrStart(
     `printf '%s' ${shellQuote(token)} > "$dir/token.new"`,
     'mv -f "$dir/token.new" "$dir/token"',
     'rm -f "$dir/run.json"',
-    `setsid nohup "$dir/dela-helper" --port 0 --token-file "$dir/token" --run-file "$dir/run.json" --lock-file "$dir/lock" --idle-timeout ${IDLE_TIMEOUT} >> "$dir/helper.log" 2>&1 < /dev/null &`,
+    `setsid nohup "$dir/dela-helper" --port 0 --token-file "$dir/token" --run-file "$dir/run.json" --lock-file "$dir/lock" --idle-timeout ${IDLE_TIMEOUT}${rg ? ` --rg "${rg}"` : ''} >> "$dir/helper.log" 2>&1 < /dev/null &`,
     'for i in $(seq 1 40); do alive && break; sleep 0.25; done',
     'if alive; then printf START; cat "$dir/run.json"; printf "\\n"; cat "$dir/token"; else printf START-FAILED; tail -n 3 "$dir/helper.log" 2>/dev/null; exit 4; fi',
   ].join('\n');
@@ -652,23 +688,34 @@ async function bootstrap(
       throw error;
     }
   };
-  const artifact = await step('probe', async () => {
+  const { helper, rg } = await step('probe', async () => {
     const probe = await exec(target, 'uname -s; uname -m', { timeoutMs: BOOTSTRAP_TIMEOUT_MS });
     if (probe.code !== 0) throw new Error(sshErrorMessage(probe));
     const [system = '', machine = ''] = probe.stdout.toString().trim().split('\n');
     if (system.trim() !== 'Linux') throw new Error(`远程项目只支持 Linux，远端是 ${system.trim()}`);
     const arch = helperArch(machine.trim());
     if (!arch) throw new Error(`没有 ${machine.trim()} 架构的 helper`);
-    const artifact = helperArtifact(arch);
-    if (!artifact) throw new Error(`缺少 helper 产物：linux/${arch}`);
-    return artifact;
+    const helper = helperArtifact(arch);
+    if (!helper) throw new Error(`缺少 helper 产物：linux/${arch}`);
+    return { helper, rg: rgArtifact(arch) };
   });
-  const digest = sha256Of(readFileSync(artifact));
+  const digest = sha256Of(readFileSync(helper));
   const dir = helperRemoteDir(digest);
-  await step('verify', () => ensureArtifact(target, dir, artifact, digest, onProgress));
+  const artifacts: Artifact[] = [
+    { label: 'helper', dir, file: 'dela-helper', local: helper, digest },
+  ];
+  // rg 单独按 sha8 存：helper 换版本时不必重传这约 5MB。
+  let remoteRg: string | null = null;
+  if (rg) {
+    const rgDigest = sha256Of(readFileSync(rg));
+    const rgDir = `$HOME/.dela/rg/${rgDigest.slice(0, 8)}`;
+    artifacts.push({ label: 'rg', dir: rgDir, file: 'rg', local: rg, digest: rgDigest });
+    remoteRg = `${rgDir}/rg`;
+  }
+  await step('verify', () => ensureArtifacts(target, artifacts, onProgress));
   const remote = await step('start', async () => {
     try {
-      return await findOrStart(target, dir);
+      return await findOrStart(target, dir, remoteRg);
     } catch (error) {
       // 起不来的最常见原因是受限环境：先问一次远端把原因分类出来。
       const message = error instanceof Error ? error.message : String(error);

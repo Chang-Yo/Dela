@@ -80,6 +80,8 @@ nvm、conda），stdout 与 stderr 进同一根管道，交织顺序与终端里
 ## glob 与 search
 
 有 ripgrep 就交给它（`rg --files`、`rg --json`），没有就在 Go 里遍历，两条路返回同一种结构。
+Dela 把随包的 rg（Linux musl 静态版）上传到 `~/.dela/rg/<sha8>/rg`，以 `--rg` 传给 helper 优先使用；
+它不可用时退回远端 PATH 里的 rg。rg 与 helper 分目录放，helper 升版不必重传 rg。
 差异：rg 额外遵守 `.gitignore`；Go 遍历只跳过 `.git` 与 `node_modules`，正则按 RE2 解析，
 不支持反向引用与环视，写了会报错，不会静默返回空结果。单行文本截到 500 字节。
 
