@@ -146,6 +146,7 @@ Dela/
 ├─ src/
 │  ├─ core/protocol/          v3：模块契约工具（defineContract、implement、createClient）
 │  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册
+│  ├─ ui/                     v3：Design System（fork 自 beautiful-ui）
 │  ├─ modules/                v3：已迁移的通用模块（search）
 │  ├─ main/                   Electron 主进程，按业务域分目录
 │  │  ├─ agent/               Pi 会话、工具、MCP、Skills 与模型接入
@@ -171,7 +172,7 @@ Dela/
 │  │  ├─ sessions/            会话
 │  │  ├─ workspace/           工作区浏览
 │  │  ├─ features/            业务功能页（邮箱、设置、课表、水源等）
-│  │  ├─ components/          通用组件与 beautifului
+│  │  ├─ components/          应用外壳与跨功能组件
 │  │  ├─ lib/                 渲染层工具
 │  │  └─ styles/              全局样式与设计 token
 │  └─ shared/                 进程间 IPC 契约与纯函数
@@ -194,7 +195,7 @@ Dela/
 - 保持精确依赖与锁文件（`saveExact` 与 `engineStrict` 已开启），不要在 `package.json` 中写入范围版本。新增依赖应连同锁文件一起提交，并说明必要性。
 - 优先复用现有函数或文件；仅在出现真实重复与多个调用方后提取抽象。
 - 不为一次性代码做抽象，不保留死代码。改动导致某段自研 UI 或样式不再使用时，应一并清理。
-- 前端 UI 优先复用 `src/renderer/components/ui/beautifului/`。如现有组件不满足需求，应在该库内微调或增补，以 `Dela 适配` 注释标注并记录到该库 README，不应另写自研样式。
+- 前端 UI 优先复用 `src/ui`。如现有组件不满足需求，应在该目录内微调或增补，不应另写自研样式。
 - 尺寸应由 rem 派生，禁止写死像素字号与宽高；仅边框、描边、阴影、媒体与容器查询断点、第三方无法修改的固定值以及拖拽调宽容器保留 px。换算基准与字号 token 见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) §2.5。
 
 ## 代码规范

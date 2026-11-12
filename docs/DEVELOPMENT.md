@@ -84,7 +84,7 @@
 
 ### 2.4 GUI
 
-标签工作台（聊天 / 笔记 / 预览 / 审阅 / 终端），经 IPC 消费同一套领域实现。UI 组件以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。
+标签工作台（聊天 / 笔记 / 预览 / 审阅 / 终端），经 IPC 消费同一套领域实现。UI 组件集中在 `src/ui`（fork 自 beautiful-ui，不再跟随上游），被替代的自研 UI 必须清理。
 
 **标签规则**：所有「打开某样东西」的入口只决定打开什么、是否放到旁边；落在哪个组、是否预览只由 `workbench/open-target.ts` 决定，规则表写在该文件顶部并被测试逐条覆盖。要点：
 
@@ -114,7 +114,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 - 这两份文档**同时是官网 `/privacy`、`/terms` 的正文来源**（`../Dela_Web` 手抄一份，两仓库互不 import）。改这里就要同步改那边，包括顶部的「最后更新」日期。
 - 搜索服务配置只保留脱敏条目给选择器与列表，完整密钥仅编辑弹窗可取；密钥是导入时的静态副本，供应商换 Key 不跟随。
 
-**尺寸一律由 rem 派生**（字号设置会整体缩放文字、间距、图标与圆角）：禁止写死像素字号与宽高，换算基准固定 16。字号用 token，圆角用 beautifului 的 `rounded-*`。保留 px 的只有三类——边框/描边/阴影、媒体与容器查询断点、第三方 dist 内改不到的固定值；拖拽调宽的容器尺寸也是 px，因为它是用户用鼠标量出的画布尺寸。沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层，由 `lib/root-font-size.ts` 把根字号注进内层。
+**尺寸一律由 rem 派生**（字号设置会整体缩放文字、间距、图标与圆角）：禁止写死像素字号与宽高，换算基准固定 16。字号用 token，圆角用 `src/ui` 的 `rounded-*`。保留 px 的只有三类——边框/描边/阴影、媒体与容器查询断点、第三方 dist 内改不到的固定值；拖拽调宽的容器尺寸也是 px，因为它是用户用鼠标量出的画布尺寸。沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层，由 `lib/root-font-size.ts` 把根字号注进内层。
 
 ## 3. 会话与上下文
 
@@ -231,7 +231,7 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 
 Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导，`shared` 只做转出。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
 
-依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。过渡期 `view/` 可以引用 `renderer/components/ui` 和 `renderer/lib/utils`，`src/ui` 建好后收紧。renderer 的 Vite root 是 `src/renderer`，`src/` 下新增界面目录时要在 `globals.css` 加 `@source`，否则只在那里出现的类名不会生成。
+依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。`view/` 只能引用 `core/protocol`、模块契约与 `src/ui`。renderer 的 Vite root 是 `src/renderer`，`src/` 下新增界面目录时要在 `globals.css` 加 `@source`，否则只在那里出现的类名不会生成。
 
 ## 11. 工具链与启动
 

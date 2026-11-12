@@ -159,6 +159,7 @@ Dela/
 │  │  └─ ports.ts             宿主端口（HostPorts）
 │  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册、宿主端口实现
 │  ├─ modules/                v3：已迁移的通用模块（search）
+│  ├─ ui/                     v3：Design System（fork 自 beautiful-ui）
 │  ├─ main/                   Electron 主进程
 │  │  ├─ agent/               dela 命令域与内置 Skills 的注册清单（P5 随各模块迁出）
 │  │  ├─ canvas/              Canvas 课程资料
@@ -184,7 +185,7 @@ Dela/
 │  │  ├─ sessions/            会话管理
 │  │  ├─ workspace/           工作区浏览
 │  │  ├─ features/            业务功能页（mail、settings、timetable…）
-│  │  ├─ components/          通用组件与 beautifului
+│  │  ├─ components/          应用外壳与跨功能组件
 │  │  ├─ lib/                 渲染层工具
 │  │  └─ styles/              全局样式与设计 token
 │  └─ shared/                 进程间 IPC 契约与纯函数
