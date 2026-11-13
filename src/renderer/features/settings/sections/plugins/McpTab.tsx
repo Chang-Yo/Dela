@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertDialog } from 'radix-ui';
 import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { McpServerView } from '../../../../../shared/api';
 import { Button } from '../../../../../ui/button';
@@ -11,7 +10,7 @@ import { SectionHeader } from '../../SectionHeader';
 import { SettingsGroup } from '../../SettingsGroup';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
-import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
+import { ConfirmDialog } from '../../../../../ui/dialog';
 import { ErrorText } from '../../../../../ui/alert';
 import { Spinner } from '../../../../../ui/spinner';
 
@@ -197,38 +196,16 @@ export function McpTab() {
                       <Trash2 />
                     </Button>
                   </div>
-                  <AlertDialog.Root
+                  <ConfirmDialog
+                    confirmLabel={busy ? '删除中…' : '删除'}
+                    description="将移除该服务器配置并断开连接，Agent 不再能使用它的工具。此操作不可撤销。"
+                    destructive
+                    busy={busy}
+                    onConfirm={() => void remove(server.id)}
                     onOpenChange={(open) => !open && !busy && setConfirmId(null)}
                     open={confirmId === server.id}
-                  >
-                    <AlertDialog.Portal>
-                      <AlertDialog.Overlay className={dialogOverlay} />
-                      <AlertDialog.Content className={cn(dialogPanel, 'max-w-sm')}>
-                        <AlertDialog.Title className="text-base font-semibold">
-                          删除 {server.name}？
-                        </AlertDialog.Title>
-                        <AlertDialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
-                          将移除该服务器配置并断开连接，Agent 不再能使用它的工具。此操作不可撤销。
-                        </AlertDialog.Description>
-                        <div className="mt-4 flex items-center justify-end gap-2">
-                          <Button
-                            disabled={busy}
-                            onClick={() => setConfirmId(null)}
-                            variant="ghost"
-                          >
-                            取消
-                          </Button>
-                          <Button
-                            disabled={busy}
-                            onClick={() => void remove(server.id)}
-                            variant="destructive"
-                          >
-                            {busy ? '删除中…' : '删除'}
-                          </Button>
-                        </div>
-                      </AlertDialog.Content>
-                    </AlertDialog.Portal>
-                  </AlertDialog.Root>
+                    title={`删除 ${server.name}？`}
+                  />
                 </li>
               );
             })}

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dialog } from 'radix-ui';
 
 import { Button } from '../../../ui/button';
 import { showToast } from '../../app/toasts';
@@ -10,9 +9,8 @@ import { DocumentToolbar, type NoteMode } from './document-toolbar';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
 import { markdownImageInsert } from './live-preview';
-import { dialogOverlay, dialogPanel } from '../../../ui/motion';
-import { cn } from '../../../ui/cn';
 import { Spinner } from '../../../ui/spinner';
+import { ConfirmDialog } from '../../../ui/dialog';
 
 /** Markdown 文件的图片粘贴/拖入：落盘到同目录 assets/，插入相对路径引用。 */
 const imageInsert = (entryId: string) =>
@@ -221,31 +219,18 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         onSave={() => void source.save(entryId)}
         onScroll={(top) => scrollMemory.set(scrollKey, top)}
       />
-      <Dialog.Root onOpenChange={setConfirmReload} open={confirmReload}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogOverlay} />
-          <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
-            <Dialog.Title className="text-base font-semibold">重新载入</Dialog.Title>
-            <Dialog.Description className="mt-2 text-xs text-ink-3">
-              重新载入会抛弃当前未保存的草稿，是否继续？
-            </Dialog.Description>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button onClick={() => setConfirmReload(false)} variant="ghost">
-                取消
-              </Button>
-              <Button
-                onClick={() => {
-                  setConfirmReload(false);
-                  runReload();
-                }}
-                variant="destructive"
-              >
-                重新载入
-              </Button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <ConfirmDialog
+        confirmLabel="重新载入"
+        description="重新载入会抛弃当前未保存的草稿，是否继续？"
+        destructive
+        onConfirm={() => {
+          setConfirmReload(false);
+          runReload();
+        }}
+        onOpenChange={setConfirmReload}
+        open={confirmReload}
+        title="重新载入"
+      />
     </section>
   );
 }

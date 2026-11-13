@@ -1,15 +1,13 @@
 // 批量导出课件：按学期分组勾选课程，导出每门课「文件」目录下的全部课件到用户选择的文件夹；
 // 最低粒度为课程，目录树数据来自 workspace/store 的 Canvas 镜像。
 import { useMemo, useState } from 'react';
-import { Dialog } from 'radix-ui';
 
 import { Button } from '../../ui/button';
-import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { groupCanvasCoursesByTerm } from '../../shared/canvas';
-import { cn } from '../../ui/cn';
 import { Spinner } from '../../ui/spinner';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../ui/dialog';
 
 const checkboxClass = 'size-3.5 accent-[var(--ink-2)]';
 
@@ -61,86 +59,81 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
   };
 
   return (
-    <Dialog.Root
+    <Dialog
       open={open}
       onOpenChange={(value) => {
         if (!value && !exporting) onClose();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'flex max-h-[85vh] max-w-md flex-col p-5')}>
-          <div className="grid gap-1">
-            <Dialog.Title className="text-sm font-semibold">批量导出课件</Dialog.Title>
-            <Dialog.Description className="text-xs leading-relaxed text-ink-3">
-              勾选要导出的课程，导出每门课「文件」目录下的全部课件；课程模块等处的重复文件不包含。
-            </Dialog.Description>
-          </div>
-          <div className="mt-3 grid min-h-0 flex-1 content-start gap-3 overflow-y-auto pr-1">
-            {groups.length === 0 && (
-              <p className="px-2 py-4 text-xs text-ink-3">还没有同步到任何课程。</p>
-            )}
-            {groups.map((group) => {
-              const all = group.courses.every((course) => selected.has(course.id));
-              return (
-                <div className="grid gap-0.5" key={group.term}>
-                  <label className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-ink-2">
+      <DialogContent className="flex max-h-[85vh] flex-col p-5">
+        <div className="grid gap-1">
+          <DialogTitle className="text-sm">批量导出课件</DialogTitle>
+          <DialogDescription>
+            勾选要导出的课程，导出每门课「文件」目录下的全部课件；课程模块等处的重复文件不包含。
+          </DialogDescription>
+        </div>
+        <div className="mt-3 grid min-h-0 flex-1 content-start gap-3 overflow-y-auto pr-1">
+          {groups.length === 0 && (
+            <p className="px-2 py-4 text-xs text-ink-3">还没有同步到任何课程。</p>
+          )}
+          {groups.map((group) => {
+            const all = group.courses.every((course) => selected.has(course.id));
+            return (
+              <div className="grid gap-0.5" key={group.term}>
+                <label className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-ink-2">
+                  <input
+                    checked={all}
+                    className={checkboxClass}
+                    disabled={exporting}
+                    onChange={(event) =>
+                      toggleGroup(
+                        group.courses.map((course) => course.id),
+                        event.target.checked,
+                      )
+                    }
+                    type="checkbox"
+                  />
+                  {group.term}
+                </label>
+                {group.courses.map((course) => (
+                  <label
+                    className="flex items-center gap-2 rounded-control px-2 py-1 text-sm transition-colors duration-base hover:bg-hover"
+                    key={course.id}
+                  >
                     <input
-                      checked={all}
+                      checked={selected.has(course.id)}
                       className={checkboxClass}
                       disabled={exporting}
-                      onChange={(event) =>
-                        toggleGroup(
-                          group.courses.map((course) => course.id),
-                          event.target.checked,
-                        )
-                      }
+                      onChange={(event) => toggleCourse(course.id, event.target.checked)}
                       type="checkbox"
                     />
-                    {group.term}
+                    <span className="min-w-0 flex-1 truncate" title={course.name}>
+                      {course.name}
+                    </span>
+                    {course.archived && <span className="shrink-0 text-xs text-ink-3">已归档</span>}
                   </label>
-                  {group.courses.map((course) => (
-                    <label
-                      className="flex items-center gap-2 rounded-control px-2 py-1 text-sm transition-colors duration-base hover:bg-hover"
-                      key={course.id}
-                    >
-                      <input
-                        checked={selected.has(course.id)}
-                        className={checkboxClass}
-                        disabled={exporting}
-                        onChange={(event) => toggleCourse(course.id, event.target.checked)}
-                        type="checkbox"
-                      />
-                      <span className="min-w-0 flex-1 truncate" title={course.name}>
-                        {course.name}
-                      </span>
-                      {course.archived && (
-                        <span className="shrink-0 text-xs text-ink-3">已归档</span>
-                      )}
-                    </label>
-                  ))}
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex shrink-0 items-center justify-between gap-2">
+          <span className="text-xs text-ink-3">已选 {selected.size} 门课程</span>
+          <div className="flex items-center gap-2">
+            <Button disabled={exporting} onClick={onClose} size="sm" variant="ghost">
+              取消
+            </Button>
+            <Button
+              disabled={exporting || selected.size === 0}
+              onClick={() => void exportSelected()}
+              size="sm"
+            >
+              {exporting && <Spinner />}
+              导出课件
+            </Button>
           </div>
-          <div className="mt-4 flex shrink-0 items-center justify-between gap-2">
-            <span className="text-xs text-ink-3">已选 {selected.size} 门课程</span>
-            <div className="flex items-center gap-2">
-              <Button disabled={exporting} onClick={onClose} size="sm" variant="ghost">
-                取消
-              </Button>
-              <Button
-                disabled={exporting || selected.size === 0}
-                onClick={() => void exportSelected()}
-                size="sm"
-              >
-                {exporting && <Spinner />}
-                导出课件
-              </Button>
-            </div>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

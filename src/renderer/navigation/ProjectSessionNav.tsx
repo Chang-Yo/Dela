@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
-import { Dialog, DropdownMenu as Menu } from 'radix-ui';
+import { DropdownMenu as Menu } from 'radix-ui';
 import {
   ChevronRight,
   Cloud,
@@ -40,7 +40,6 @@ import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './Sess
 import { usePreferences } from '../app/preferences';
 import { useNavigationStore } from './store';
 import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
-import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { Input } from '../../ui/input';
 import { purgeRemovedEntries } from '../workbench/removed-cleanup';
 import { menuItem, menuPanel } from '../../ui/menu-styles';
@@ -49,6 +48,13 @@ import { useRemoteActivity } from './remote-activity';
 import { RemoteConnectionTip } from './remote-connection-tip';
 import { useRemoteConnections } from './remote-connections';
 import { IconButton } from '../../ui/icon-button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from '../../ui/dialog';
 
 export type { NavSessionSummary, SessionRunBadge };
 
@@ -511,49 +517,44 @@ export function ProjectSessionNav({
         onClose={() => setEntryRequest(null)}
         onRemoved={purgeRemovedEntries}
       />
-      <Dialog.Root
+      <Dialog
         open={sectionProjectId !== null}
         onOpenChange={(open) => {
           if (!open) setSectionProjectId(null);
         }}
       >
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogOverlay} />
-          <Dialog.Content className={cn(dialogPanel, 'max-w-sm')}>
-            <Dialog.Title className="text-base font-semibold">新建项目分组</Dialog.Title>
-            <Dialog.Description className="mt-1 text-sm text-ink-3">
-              将当前项目放入此分组。
-            </Dialog.Description>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                const name = sectionName.trim();
-                if (sectionProjectId && name) {
-                  setProjectPreference(sectionProjectId, { section: name });
-                  setSectionProjectId(null);
-                }
-              }}
-            >
-              <Input
-                aria-label="分组名称"
-                className="my-4"
-                value={sectionName}
-                maxLength={80}
-                onChange={(event) => setSectionName(event.target.value)}
-                autoFocus
-              />
-              <div className="flex justify-end gap-2">
-                <Dialog.Close asChild>
-                  <Button variant="ghost">取消</Button>
-                </Dialog.Close>
-                <Button type="submit" disabled={!sectionName.trim()}>
-                  创建
-                </Button>
-              </div>
-            </form>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+        <DialogContent size="sm">
+          <DialogTitle>新建项目分组</DialogTitle>
+          <DialogDescription>将当前项目放入此分组。</DialogDescription>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const name = sectionName.trim();
+              if (sectionProjectId && name) {
+                setProjectPreference(sectionProjectId, { section: name });
+                setSectionProjectId(null);
+              }
+            }}
+          >
+            <Input
+              aria-label="分组名称"
+              className="my-4"
+              value={sectionName}
+              maxLength={80}
+              onChange={(event) => setSectionName(event.target.value)}
+              autoFocus
+            />
+            <DialogFooter className="mt-0">
+              <Button onClick={() => setSectionProjectId(null)} variant="ghost">
+                取消
+              </Button>
+              <Button type="submit" disabled={!sectionName.trim()}>
+                创建
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

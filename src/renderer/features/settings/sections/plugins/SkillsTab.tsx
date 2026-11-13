@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dialog } from 'radix-ui';
 import { Cloud, CloudUpload, FileText, FolderOpen, RefreshCw } from 'lucide-react';
 import type { SkillOrigin, SkillView, WorkspaceEntry } from '../../../../../shared/api';
 import type { RemoteSkillUpload } from '../../../../../shared/capabilities';
@@ -10,11 +9,17 @@ import { SegmentedControl } from '../../../../../ui/segmented-control';
 import { errorText, useWorkspaceStore } from '../../../../workspace/store';
 import { showToast } from '../../../../app/toasts';
 import { cn } from '../../../../../ui/cn';
-import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
 import { SectionHeader } from '../../SectionHeader';
 import { SettingsGroup } from '../../SettingsGroup';
 import { ErrorText } from '../../../../../ui/alert';
 import { Spinner } from '../../../../../ui/spinner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from '../../../../../ui/dialog';
 
 const ORIGINS = ['builtin', 'user', 'project'] as const;
 const ORIGIN_LABELS: Record<SkillOrigin, string> = {
@@ -347,52 +352,41 @@ function SkillContentView({
   }, [skill.id]);
 
   return (
-    <Dialog.Root
+    <Dialog
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
       open
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content
-          className={cn(
-            dialogPanel,
-            'grid max-h-[85vh] max-w-2xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-y-auto',
+      <DialogContent size="xl" scroll className="grid grid-rows-[auto_auto_minmax(0,1fr)_auto]">
+        <DialogTitle>{skill.name}</DialogTitle>
+        <DialogDescription className="truncate font-mono" title={skill.path}>
+          {skill.path}
+        </DialogDescription>
+        <div className="mt-3 min-h-32 overflow-y-auto rounded-card bg-inset p-3">
+          {content === null && !error ? (
+            <p className="flex items-center gap-2 text-xs text-ink-3" role="status">
+              <Spinner />
+              正在读取…
+            </p>
+          ) : (
+            <pre className="font-mono text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-ink-2">
+              {content}
+            </pre>
           )}
-        >
-          <Dialog.Title className="text-base font-semibold">{skill.name}</Dialog.Title>
-          <Dialog.Description
-            className="mt-1 truncate font-mono text-xs text-ink-3"
-            title={skill.path}
-          >
-            {skill.path}
-          </Dialog.Description>
-          <div className="mt-3 min-h-32 overflow-y-auto rounded-card bg-inset p-3">
-            {content === null && !error ? (
-              <p className="flex items-center gap-2 text-xs text-ink-3" role="status">
-                <Spinner />
-                正在读取…
-              </p>
-            ) : (
-              <pre className="font-mono text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-ink-2">
-                {content}
-              </pre>
-            )}
-            {error && <ErrorText>{error}</ErrorText>}
-          </div>
-          <div className="mt-3 flex items-center justify-end gap-2">
-            <Button onClick={onReveal} size="sm" variant="ghost">
-              <FolderOpen />
-              打开所在位置
-            </Button>
-            <Button onClick={onClose} size="sm" variant="secondary">
-              关闭
-            </Button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          {error && <ErrorText>{error}</ErrorText>}
+        </div>
+        <div className="mt-3 flex items-center justify-end gap-2">
+          <Button onClick={onReveal} size="sm" variant="ghost">
+            <FolderOpen />
+            打开所在位置
+          </Button>
+          <Button onClick={onClose} size="sm" variant="secondary">
+            关闭
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -424,78 +418,75 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
   };
 
   return (
-    <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
-          <Dialog.Title className="text-base font-semibold">上传到远端项目</Dialog.Title>
-          <Dialog.Description className="mt-1 text-xs leading-relaxed text-ink-3">
-            把技能 {skill.name} 的目录（含附属文件）上传到远端项目的 .agents/skills/{skill.name}
-            /，远端会话即可使用。
-          </Dialog.Description>
-          {uploaded ? (
-            <p className="mt-4 text-xs [overflow-wrap:anywhere] text-ink-2" role="status">
-              已上传 {uploaded.files} 个文件到 {uploaded.path}
-            </p>
-          ) : projects.length === 0 ? (
-            <p className="mt-4 text-xs text-ink-3">还没有远端项目。</p>
-          ) : (
-            <ul className="mt-4 grid gap-1">
-              {projects.map((entry) => (
-                <li key={entry.id}>
-                  <button
-                    aria-pressed={entry.id === projectId}
-                    className={cn(
-                      'flex w-full min-w-0 items-center gap-2.5 rounded-control border px-3 py-2 text-left transition-colors duration-base disabled:opacity-50',
-                      entry.id === projectId
-                        ? 'border-line-strong bg-hover-2'
-                        : 'border-line hover:bg-hover',
-                    )}
-                    disabled={busy}
-                    onClick={() => {
-                      setProjectId(entry.id);
-                      setConflict(false);
-                    }}
-                    type="button"
-                  >
-                    <Cloud className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
-                    <span className="grid min-w-0">
-                      <span className="truncate text-sm text-ink">{entry.name}</span>
-                      <span className="truncate font-mono text-xs text-ink-3" title={entry.path}>
-                        {entry.path}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="mt-4 flex items-center justify-end gap-2">
-            {conflict && !uploaded && (
-              <span className="mr-auto text-xs text-ink-2">远端已有同名技能，覆盖吗？</span>
-            )}
-            {!uploaded &&
-              (conflict ? (
-                <Button
+    <Dialog onOpenChange={(open) => !open && !busy && onClose()} open>
+      <DialogContent scroll>
+        <DialogTitle>上传到远端项目</DialogTitle>
+        <DialogDescription>
+          把技能 {skill.name} 的目录（含附属文件）上传到远端项目的 .agents/skills/{skill.name}
+          /，远端会话即可使用。
+        </DialogDescription>
+        {uploaded ? (
+          <p className="mt-4 text-xs [overflow-wrap:anywhere] text-ink-2" role="status">
+            已上传 {uploaded.files} 个文件到 {uploaded.path}
+          </p>
+        ) : projects.length === 0 ? (
+          <p className="mt-4 text-xs text-ink-3">还没有远端项目。</p>
+        ) : (
+          <ul className="mt-4 grid gap-1">
+            {projects.map((entry) => (
+              <li key={entry.id}>
+                <button
+                  aria-pressed={entry.id === projectId}
+                  className={cn(
+                    'flex w-full min-w-0 items-center gap-2.5 rounded-control border px-3 py-2 text-left transition-colors duration-base disabled:opacity-50',
+                    entry.id === projectId
+                      ? 'border-line-strong bg-hover-2'
+                      : 'border-line hover:bg-hover',
+                  )}
                   disabled={busy}
-                  onClick={() => void upload(true)}
-                  size="sm"
-                  variant="destructive"
+                  onClick={() => {
+                    setProjectId(entry.id);
+                    setConflict(false);
+                  }}
+                  type="button"
                 >
-                  覆盖
-                </Button>
-              ) : (
-                <Button disabled={busy || !project} onClick={() => void upload(false)} size="sm">
-                  {busy && <Spinner />}
-                  {busy ? '上传中…' : '上传'}
-                </Button>
-              ))}
-            <Button disabled={busy} onClick={onClose} size="sm" variant="ghost">
-              关闭
-            </Button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+                  <Cloud className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
+                  <span className="grid min-w-0">
+                    <span className="truncate text-sm text-ink">{entry.name}</span>
+                    <span className="truncate font-mono text-xs text-ink-3" title={entry.path}>
+                      {entry.path}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <DialogFooter>
+          {conflict && !uploaded && (
+            <span className="mr-auto text-xs text-ink-2">远端已有同名技能，覆盖吗？</span>
+          )}
+          {!uploaded &&
+            (conflict ? (
+              <Button
+                disabled={busy}
+                onClick={() => void upload(true)}
+                size="sm"
+                variant="destructive"
+              >
+                覆盖
+              </Button>
+            ) : (
+              <Button disabled={busy || !project} onClick={() => void upload(false)} size="sm">
+                {busy && <Spinner />}
+                {busy ? '上传中…' : '上传'}
+              </Button>
+            ))}
+          <Button disabled={busy} onClick={onClose} size="sm" variant="ghost">
+            关闭
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

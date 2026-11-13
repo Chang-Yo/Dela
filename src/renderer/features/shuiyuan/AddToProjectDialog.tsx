@@ -1,14 +1,16 @@
 import { useState, type FormEvent } from 'react';
-import { Dialog } from 'radix-ui';
-import { X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
-import { dialogOverlay, dialogPanel } from '../../../ui/motion';
-import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
-import { IconButton } from '../../../ui/icon-button';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '../../../ui/dialog';
 
 const LARGE_TOPIC_POSTS = 1000;
 
@@ -86,65 +88,58 @@ export function AddToProjectDialog({
   const containers = entries.filter((entry) => entry.kind === 'folder' || entry.kind === 'project');
 
   return (
-    <Dialog.Root onOpenChange={(next) => (next ? undefined : onClose())} open={open}>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <Dialog.Title className="text-base font-semibold">添加到项目</Dialog.Title>
-              <Dialog.Description className="mt-2 text-xs text-ink-3">
-                引用「{topicTitle || '该帖子'}」并在本地保存全帖快照（含原图），原帖保持在水源不变。
-              </Dialog.Description>
-            </div>
-            <Dialog.Close asChild>
-              <IconButton size="lg" aria-label="关闭">
-                <X />
-              </IconButton>
-            </Dialog.Close>
+    <Dialog onOpenChange={(next) => (next ? undefined : onClose())} open={open}>
+      <DialogContent scroll>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <DialogTitle>添加到项目</DialogTitle>
+            <DialogDescription>
+              引用「{topicTitle || '该帖子'}」并在本地保存全帖快照（含原图），原帖保持在水源不变。
+            </DialogDescription>
           </div>
-          <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
+          <DialogClose />
+        </div>
+        <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
+          <label className="grid gap-2 text-sm">
+            位置
+            <Select
+              onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
+              value={target === '' ? ROOT_SELECT_VALUE : target}
+            >
+              <SelectTrigger aria-label="目标文件夹" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
+                {containers.map((entry) => (
+                  <SelectItem key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__new__">新建项目…</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
+          {target === '__new__' ? (
             <label className="grid gap-2 text-sm">
-              位置
-              <Select
-                onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
-                value={target === '' ? ROOT_SELECT_VALUE : target}
-              >
-                <SelectTrigger aria-label="目标文件夹" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
-                  {containers.map((entry) => (
-                    <SelectItem key={entry.id} value={entry.id}>
-                      {entry.name}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="__new__">新建项目…</SelectItem>
-                </SelectContent>
-              </Select>
+              名称
+              <Input
+                aria-label="新项目名称"
+                autoComplete="off"
+                onChange={(event) => setName(event.target.value)}
+                required
+                value={name}
+              />
             </label>
-            {target === '__new__' ? (
-              <label className="grid gap-2 text-sm">
-                名称
-                <Input
-                  aria-label="新项目名称"
-                  autoComplete="off"
-                  onChange={(event) => setName(event.target.value)}
-                  required
-                  value={name}
-                />
-              </label>
-            ) : null}
-            {error ? <p className="text-xs text-red">{error}</p> : null}
-            <div className="flex justify-end">
-              <Button disabled={busy} type="submit">
-                {busy ? '添加中…' : '添加'}
-              </Button>
-            </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          ) : null}
+          {error ? <p className="text-xs text-red">{error}</p> : null}
+          <div className="flex justify-end">
+            <Button disabled={busy} type="submit">
+              {busy ? '添加中…' : '添加'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

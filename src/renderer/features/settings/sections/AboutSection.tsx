@@ -1,5 +1,4 @@
-import { Dialog as DialogPrimitive } from 'radix-ui';
-import { Feather, Globe, Heart, X } from 'lucide-react';
+import { Feather, Globe, Heart } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '../../../../ui/button';
 import { DelaBrand } from '../../../components/dela-brand';
@@ -12,8 +11,14 @@ import {
   type SponsorChannelKind,
 } from '../credits';
 import { SectionHeader } from '../SectionHeader';
-import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
-import { cn } from '../../../../ui/cn';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '../../../../ui/dialog';
 
 // lucide 不再提供品牌图标，GitHub/知乎/B 站标记内联自 simple-icons。
 function GithubMark() {
@@ -79,54 +84,34 @@ function SponsorDialog({ person, trigger }: { person: CreditPerson; trigger: Rea
   const sponsor = person.sponsor;
   if (!sponsor) return null;
   return (
-    <DialogPrimitive.Root>
-      <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className={dialogOverlay} />
-        <DialogPrimitive.Content
-          className={cn(dialogPanel, 'w-[23.75rem] max-w-[calc(100vw-2rem)]')}
-        >
-          <DialogPrimitive.Title className="text-base font-semibold tracking-tight">
-            赞赏
-          </DialogPrimitive.Title>
-          {sponsor.note ? (
-            <DialogPrimitive.Description className="mt-1 text-xs text-ink-3">
-              {sponsor.note}
-            </DialogPrimitive.Description>
-          ) : null}
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            {sponsor.channels.map(({ kind, label, qr }) => {
-              const meta = sponsorChannelMeta[kind];
-              return (
-                <figure className="grid justify-items-center gap-2" key={kind}>
-                  <div className="rounded-card bg-paper p-2.5">
-                    <img
-                      alt={`${label ?? meta.label}收款二维码`}
-                      className="w-full rounded-card"
-                      src={qr}
-                    />
-                  </div>
-                  <figcaption className="flex items-center gap-1.5 text-xs text-ink-3">
-                    <span aria-hidden="true" className={`size-2 rounded-full ${meta.dotClass}`} />
-                    {label ?? meta.label}
-                  </figcaption>
-                </figure>
-              );
-            })}
-          </div>
-          <DialogPrimitive.Close asChild>
-            <Button
-              aria-label="关闭"
-              className="absolute right-3 top-3 text-ink-3"
-              size="icon-sm"
-              variant="ghost"
-            >
-              <X />
-            </Button>
-          </DialogPrimitive.Close>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    <Dialog>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="w-[23.75rem] max-w-[calc(100vw-2rem)]">
+        <DialogTitle className="tracking-tight">赞赏</DialogTitle>
+        {sponsor.note ? <DialogDescription>{sponsor.note}</DialogDescription> : null}
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {sponsor.channels.map(({ kind, label, qr }) => {
+            const meta = sponsorChannelMeta[kind];
+            return (
+              <figure className="grid justify-items-center gap-2" key={kind}>
+                <div className="rounded-card bg-paper p-2.5">
+                  <img
+                    alt={`${label ?? meta.label}收款二维码`}
+                    className="w-full rounded-card"
+                    src={qr}
+                  />
+                </div>
+                <figcaption className="flex items-center gap-1.5 text-xs text-ink-3">
+                  <span aria-hidden="true" className={`size-2 rounded-full ${meta.dotClass}`} />
+                  {label ?? meta.label}
+                </figcaption>
+              </figure>
+            );
+          })}
+        </div>
+        <DialogClose />
+      </DialogContent>
+    </Dialog>
   );
 }
 

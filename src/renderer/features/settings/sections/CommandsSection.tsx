@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Dialog } from 'radix-ui';
 import { Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
@@ -8,9 +7,8 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
-import { cn } from '../../../../ui/cn';
 import { ErrorText } from '../../../../ui/alert';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
@@ -231,60 +229,57 @@ function CommandFormDialog({
   };
 
   return (
-    <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
-          <Dialog.Title className="text-base font-semibold">
-            {editing.mode === 'create' ? '新建指令' : `编辑 /${editing.command.name}`}
-          </Dialog.Title>
-          <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
-            指令是可复用的提问模板。保存后在助手输入框输入 /{name || '名称'} 触发。
-          </Dialog.Description>
-          <form
-            className="mt-4 grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void save();
-            }}
-          >
-            <label className="grid gap-2 text-sm">
-              名称
-              <div className="flex items-center gap-1">
-                <span className="text-ink-3">/</span>
-                <Input
-                  autoComplete="off"
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="周报"
-                  required
-                  value={name}
-                />
-              </div>
-            </label>
-            <label className="grid gap-2 text-sm">
-              指令内容
-              <textarea
-                className="min-h-28 rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
-                maxLength={2000}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder="每周帮我汇总本周的日程、作业与未读邮件"
+    <Dialog onOpenChange={(open) => !open && !busy && onClose()} open>
+      <DialogContent scroll>
+        <DialogTitle>
+          {editing.mode === 'create' ? '新建指令' : `编辑 /${editing.command.name}`}
+        </DialogTitle>
+        <DialogDescription>
+          指令是可复用的提问模板。保存后在助手输入框输入 /{name || '名称'} 触发。
+        </DialogDescription>
+        <form
+          className="mt-4 grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <label className="grid gap-2 text-sm">
+            名称
+            <div className="flex items-center gap-1">
+              <span className="text-ink-3">/</span>
+              <Input
+                autoComplete="off"
+                onChange={(event) => setName(event.target.value)}
+                placeholder="周报"
                 required
-                rows={4}
-                value={prompt}
+                value={name}
               />
-            </label>
-            {error && <ErrorText>{error}</ErrorText>}
-            <div className="flex items-center justify-end gap-2">
-              <Button disabled={busy} onClick={onClose} variant="ghost">
-                取消
-              </Button>
-              <Button disabled={busy} type="submit">
-                {busy ? '处理中…' : '保存'}
-              </Button>
             </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          </label>
+          <label className="grid gap-2 text-sm">
+            指令内容
+            <textarea
+              className="min-h-28 rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
+              maxLength={2000}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder="每周帮我汇总本周的日程、作业与未读邮件"
+              required
+              rows={4}
+              value={prompt}
+            />
+          </label>
+          {error && <ErrorText>{error}</ErrorText>}
+          <div className="flex items-center justify-end gap-2">
+            <Button disabled={busy} onClick={onClose} variant="ghost">
+              取消
+            </Button>
+            <Button disabled={busy} type="submit">
+              {busy ? '处理中…' : '保存'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

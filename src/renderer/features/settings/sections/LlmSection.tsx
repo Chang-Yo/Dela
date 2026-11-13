@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dialog } from 'radix-ui';
-import { Check, Lock, Pencil, PlugZap, Plus, Search, Trash2, X } from 'lucide-react';
+import { Check, Lock, Pencil, PlugZap, Plus, Search, Trash2 } from 'lucide-react';
 import { StatusPill } from '../../../../ui/status-pill';
 import { Switch } from '../../../../ui/switch';
 import { Button } from '../../../../ui/button';
@@ -31,9 +30,16 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../../../../ui/dialog';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
@@ -125,149 +131,138 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
     });
   };
   return (
-    <Dialog.Root
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-lg overflow-y-auto')}>
-          <div className="flex items-center justify-between gap-2">
-            <Dialog.Title className="text-base font-semibold">编辑模型设置</Dialog.Title>
-            <Dialog.Close asChild>
-              <Button aria-label="关闭模型设置" size="icon-xs" variant="ghost">
-                <X />
-              </Button>
-            </Dialog.Close>
-          </div>
-          <Dialog.Description className="mt-2 text-xs text-ink-3">
-            限制留空时沿用默认值；思考档位须由服务支持。
-          </Dialog.Description>
-          <form
-            className="mt-4 grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              save();
-            }}
-          >
-            <label className="grid gap-2 text-sm">
-              模型 ID
-              <Input readOnly value={model} />
-            </label>
-            <label className="grid gap-2 text-sm">
-              上下文窗口（tokens）
-              <Input
-                aria-label="上下文窗口"
-                type="number"
-                min="1"
-                step="1"
-                placeholder={`默认 ${LLM_DEFAULT_CONTEXT_WINDOW}`}
-                value={contextWindow}
-                onChange={(event) => setContextWindow(event.target.value)}
-              />
-            </label>
-            <label className="grid gap-2 text-sm">
-              最大输出（tokens）
-              <Input
-                aria-label="最大输出"
-                type="number"
-                min="1"
-                step="1"
-                placeholder={`默认 ${LLM_DEFAULT_OUTPUT_TOKENS}`}
-                value={maxOutputTokens}
-                onChange={(event) => setMaxOutputTokens(event.target.value)}
-              />
-            </label>
-            <fieldset className="grid gap-2">
-              <legend className="mb-2 text-sm">输入类型</legend>
-              <div className="flex flex-wrap gap-1.5">
-                {/* 文本输入固定开启：不是开关，是带锁的状态（学 ZCode 的 Text 锁定 chip）。 */}
-                <span
-                  className="flex items-center gap-1 rounded-control border border-transparent bg-hover-2 px-2 py-1 text-xs text-ink"
-                  title="文本输入固定开启"
-                >
-                  文本
-                  <Lock aria-hidden="true" className="size-3" />
-                </span>
+      <DialogContent size="lg" scroll>
+        <DialogHeader>
+          <DialogTitle>编辑模型设置</DialogTitle>
+          <DialogClose aria-label="关闭模型设置" />
+        </DialogHeader>
+        <DialogDescription>限制留空时沿用默认值；思考档位须由服务支持。</DialogDescription>
+        <form
+          className="mt-4 grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save();
+          }}
+        >
+          <label className="grid gap-2 text-sm">
+            模型 ID
+            <Input readOnly value={model} />
+          </label>
+          <label className="grid gap-2 text-sm">
+            上下文窗口（tokens）
+            <Input
+              aria-label="上下文窗口"
+              type="number"
+              min="1"
+              step="1"
+              placeholder={`默认 ${LLM_DEFAULT_CONTEXT_WINDOW}`}
+              value={contextWindow}
+              onChange={(event) => setContextWindow(event.target.value)}
+            />
+          </label>
+          <label className="grid gap-2 text-sm">
+            最大输出（tokens）
+            <Input
+              aria-label="最大输出"
+              type="number"
+              min="1"
+              step="1"
+              placeholder={`默认 ${LLM_DEFAULT_OUTPUT_TOKENS}`}
+              value={maxOutputTokens}
+              onChange={(event) => setMaxOutputTokens(event.target.value)}
+            />
+          </label>
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 text-sm">输入类型</legend>
+            <div className="flex flex-wrap gap-1.5">
+              {/* 文本输入固定开启：不是开关，是带锁的状态（学 ZCode 的 Text 锁定 chip）。 */}
+              <span
+                className="flex items-center gap-1 rounded-control border border-transparent bg-hover-2 px-2 py-1 text-xs text-ink"
+                title="文本输入固定开启"
+              >
+                文本
+                <Lock aria-hidden="true" className="size-3" />
+              </span>
+              <button
+                type="button"
+                aria-pressed={vision}
+                className={cn(
+                  'rounded-control border border-line px-2 py-1 text-xs transition-colors',
+                  vision ? 'border-transparent bg-hover-2 text-ink' : 'text-ink-3 hover:bg-hover-2',
+                )}
+                onClick={() => setVision((current) => !current)}
+              >
+                视觉
+              </button>
+            </div>
+            <p className="text-xs text-ink-3">勾选视觉表示模型可读图片；文本固定开启。</p>
+          </fieldset>
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 text-sm">思考强度档位</legend>
+            <div className="flex flex-wrap gap-1.5">
+              {reasoningEffortLevels.map((level) => (
                 <button
+                  key={level}
                   type="button"
-                  aria-pressed={vision}
+                  aria-pressed={effortLevels.includes(level)}
                   className={cn(
                     'rounded-control border border-line px-2 py-1 text-xs transition-colors',
-                    vision
+                    effortLevels.includes(level)
                       ? 'border-transparent bg-hover-2 text-ink'
                       : 'text-ink-3 hover:bg-hover-2',
                   )}
-                  onClick={() => setVision((current) => !current)}
+                  onClick={() =>
+                    setEffortLevels((current) =>
+                      current.includes(level)
+                        ? current.filter((item) => item !== level)
+                        : [...current, level],
+                    )
+                  }
                 >
-                  视觉
+                  {level}
                 </button>
-              </div>
-              <p className="text-xs text-ink-3">勾选视觉表示模型可读图片；文本固定开启。</p>
-            </fieldset>
-            <fieldset className="grid gap-2">
-              <legend className="mb-2 text-sm">思考强度档位</legend>
-              <div className="flex flex-wrap gap-1.5">
-                {reasoningEffortLevels.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    aria-pressed={effortLevels.includes(level)}
-                    className={cn(
-                      'rounded-control border border-line px-2 py-1 text-xs transition-colors',
-                      effortLevels.includes(level)
-                        ? 'border-transparent bg-hover-2 text-ink'
-                        : 'text-ink-3 hover:bg-hover-2',
-                    )}
-                    onClick={() =>
-                      setEffortLevels((current) =>
-                        current.includes(level)
-                          ? current.filter((item) => item !== level)
-                          : [...current, level],
-                      )
-                    }
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-ink-3">
-                未勾选时关闭思考强度选择；已勾选的档位可在对话输入框旁切换。
-              </p>
-            </fieldset>
-            {levels.length > 0 && (
-              <label className="grid gap-2 text-sm">
-                默认思考强度
-                <Select
-                  value={levels.includes(effort as (typeof levels)[number]) ? effort : levels[0]}
-                  onValueChange={setEffort}
-                >
-                  <SelectTrigger aria-label="默认思考强度">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {levels.map((level) => (
-                      <SelectItem key={level} value={level}>
-                        {level}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            )}
-            {error && <ErrorText>{error}</ErrorText>}
-            <div className="flex justify-end gap-2">
-              <Button onClick={onClose} variant="ghost">
-                取消
-              </Button>
-              <Button type="submit">应用</Button>
+              ))}
             </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+            <p className="text-xs text-ink-3">
+              未勾选时关闭思考强度选择；已勾选的档位可在对话输入框旁切换。
+            </p>
+          </fieldset>
+          {levels.length > 0 && (
+            <label className="grid gap-2 text-sm">
+              默认思考强度
+              <Select
+                value={levels.includes(effort as (typeof levels)[number]) ? effort : levels[0]}
+                onValueChange={setEffort}
+              >
+                <SelectTrigger aria-label="默认思考强度">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {levels.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {level}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          )}
+          {error && <ErrorText>{error}</ErrorText>}
+          <div className="flex justify-end gap-2">
+            <Button onClick={onClose} variant="ghost">
+              取消
+            </Button>
+            <Button type="submit">应用</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -287,66 +282,59 @@ function CatalogModelDialog({
     initialEffort && levels.includes(initialEffort) ? initialEffort : (levels[0] ?? ''),
   );
   return (
-    <Dialog.Root
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
-          <div className="flex items-center justify-between gap-2">
-            <Dialog.Title className="text-base font-semibold">{model.name}</Dialog.Title>
-            <Dialog.Close asChild>
-              <Button aria-label="关闭模型设置" size="icon-xs" variant="ghost">
-                <X />
-              </Button>
-            </Dialog.Close>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{model.name}</DialogTitle>
+          <DialogClose aria-label="关闭模型设置" />
+        </DialogHeader>
+        <DialogDescription>
+          上下文 {compactTokens(model.contextWindow)} · 最大输出{' '}
+          {compactTokens(model.maxOutputTokens)}
+          {model.vision ? ' · 支持图片' : ''}。参数来自 Pi 模型目录。
+        </DialogDescription>
+        <form
+          className="mt-4 grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave({ effortLevels: levels, ...(effort ? { effort } : {}) });
+          }}
+        >
+          {levels.length > 0 ? (
+            <label className="grid gap-2 text-sm">
+              默认思考强度
+              <Select value={effort} onValueChange={setEffort}>
+                <SelectTrigger aria-label="默认思考强度">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {levels.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {level}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          ) : (
+            <p className="text-sm text-ink-3">这个模型不支持调节思考强度。</p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button onClick={onClose} variant="ghost">
+              取消
+            </Button>
+            <Button disabled={levels.length === 0} type="submit">
+              应用
+            </Button>
           </div>
-          <Dialog.Description className="mt-2 text-xs text-ink-3">
-            上下文 {compactTokens(model.contextWindow)} · 最大输出{' '}
-            {compactTokens(model.maxOutputTokens)}
-            {model.vision ? ' · 支持图片' : ''}。参数来自 Pi 模型目录。
-          </Dialog.Description>
-          <form
-            className="mt-4 grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              onSave({ effortLevels: levels, ...(effort ? { effort } : {}) });
-            }}
-          >
-            {levels.length > 0 ? (
-              <label className="grid gap-2 text-sm">
-                默认思考强度
-                <Select value={effort} onValueChange={setEffort}>
-                  <SelectTrigger aria-label="默认思考强度">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {levels.map((level) => (
-                      <SelectItem key={level} value={level}>
-                        {level}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            ) : (
-              <p className="text-sm text-ink-3">这个模型不支持调节思考强度。</p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button onClick={onClose} variant="ghost">
-                取消
-              </Button>
-              <Button disabled={levels.length === 0} type="submit">
-                应用
-              </Button>
-            </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1063,142 +1051,135 @@ function ProviderDetail({
         )}
       </form>
       {addingModel && (
-        <Dialog.Root
+        <Dialog
           open
           onOpenChange={(open) => {
             if (!open) setAddingModel(false);
           }}
         >
-          <Dialog.Portal>
-            <Dialog.Overlay className={dialogOverlay} />
-            <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
-              <div className="flex items-center justify-between gap-2">
-                <Dialog.Title className="text-base font-semibold">添加模型</Dialog.Title>
-                <Dialog.Close asChild>
-                  <Button aria-label="关闭添加模型" size="icon-xs" variant="ghost">
-                    <X />
-                  </Button>
-                </Dialog.Close>
+          <DialogContent scroll>
+            <DialogHeader>
+              <DialogTitle>添加模型</DialogTitle>
+              <DialogClose aria-label="关闭添加模型" />
+            </DialogHeader>
+            <DialogDescription>
+              {vendor
+                ? `从 ${vendor.name} 的模型目录中选择。`
+                : '先检测模型列表，再搜索添加；未提供列表接口时可手动输入模型 ID。'}
+            </DialogDescription>
+            {vendor ? (
+              <div className="mt-4 grid gap-3">
+                <Input
+                  aria-label="搜索模型"
+                  value={modelInput}
+                  onChange={(event) => setModelInput(event.target.value)}
+                  placeholder="搜索模型…"
+                />
+                <ul className="max-h-72 overflow-y-auto divide-y rounded-card border border-line">
+                  {vendor.models
+                    .filter((model) =>
+                      `${model.id} ${model.name}`
+                        .toLowerCase()
+                        .includes(modelInput.trim().toLowerCase()),
+                    )
+                    .map((model) => (
+                      <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={model.id}>
+                        <span className="grid min-w-0 flex-1">
+                          <span className="truncate text-sm">{model.name}</span>
+                          <span className="truncate font-mono text-xs text-ink-3">
+                            {model.id} · {compactTokens(model.contextWindow)}
+                            {model.vision ? ' · 视觉' : ''}
+                          </span>
+                        </span>
+                        <Button
+                          aria-label={`添加模型 ${model.id}`}
+                          disabled={models.includes(model.id) || models.length >= LLM_MODEL_LIMIT}
+                          onClick={() => addModel(model.id)}
+                          size="icon-xs"
+                          variant="ghost"
+                        >
+                          {models.includes(model.id) ? <Check /> : <Plus />}
+                        </Button>
+                      </li>
+                    ))}
+                </ul>
+                {importNotice && (
+                  <p className="text-xs text-ink-3" role="status">
+                    {importNotice}
+                  </p>
+                )}
               </div>
-              <Dialog.Description className="mt-2 text-xs text-ink-3">
-                {vendor
-                  ? `从 ${vendor.name} 的模型目录中选择。`
-                  : '先检测模型列表，再搜索添加；未提供列表接口时可手动输入模型 ID。'}
-              </Dialog.Description>
-              {vendor ? (
-                <div className="mt-4 grid gap-3">
-                  <Input
-                    aria-label="搜索模型"
-                    value={modelInput}
-                    onChange={(event) => setModelInput(event.target.value)}
-                    placeholder="搜索模型…"
-                  />
-                  <ul className="max-h-72 overflow-y-auto divide-y rounded-card border border-line">
-                    {vendor.models
-                      .filter((model) =>
-                        `${model.id} ${model.name}`
-                          .toLowerCase()
-                          .includes(modelInput.trim().toLowerCase()),
-                      )
-                      .map((model) => (
-                        <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={model.id}>
-                          <span className="grid min-w-0 flex-1">
-                            <span className="truncate text-sm">{model.name}</span>
-                            <span className="truncate font-mono text-xs text-ink-3">
-                              {model.id} · {compactTokens(model.contextWindow)}
-                              {model.vision ? ' · 视觉' : ''}
-                            </span>
-                          </span>
-                          <Button
-                            aria-label={`添加模型 ${model.id}`}
-                            disabled={models.includes(model.id) || models.length >= LLM_MODEL_LIMIT}
-                            onClick={() => addModel(model.id)}
-                            size="icon-xs"
-                            variant="ghost"
-                          >
-                            {models.includes(model.id) ? <Check /> : <Plus />}
-                          </Button>
-                        </li>
-                      ))}
-                  </ul>
-                  {importNotice && (
-                    <p className="text-xs text-ink-3" role="status">
-                      {importNotice}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-4 grid gap-3">
-                  <Button
-                    disabled={verifying || !baseUrl}
-                    onClick={() => void verify()}
-                    size="sm"
-                    variant="secondary"
+            ) : (
+              <div className="mt-4 grid gap-3">
+                <Button
+                  disabled={verifying || !baseUrl}
+                  onClick={() => void verify()}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {verifying ? <Spinner /> : <Search />} {verifying ? '检测中…' : '检测模型'}
+                </Button>
+                <Input
+                  aria-label="搜索或输入模型 ID"
+                  value={modelInput}
+                  onChange={(event) => setModelInput(event.target.value)}
+                  placeholder="搜索或输入模型 ID…"
+                />
+                <ul className="max-h-60 overflow-y-auto divide-y rounded-card border border-line">
+                  {(verifyResult?.models ?? [])
+                    .filter((id) => id.toLowerCase().includes(modelInput.trim().toLowerCase()))
+                    .map((id) => (
+                      <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={id}>
+                        <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
+                          {id}
+                        </span>
+                        <Button
+                          aria-label={`添加模型 ${id}`}
+                          disabled={models.includes(id) || models.length >= LLM_MODEL_LIMIT}
+                          onClick={() => addModel(id)}
+                          size="icon-xs"
+                          variant="ghost"
+                        >
+                          {models.includes(id) ? <Check /> : <Plus />}
+                        </Button>
+                      </li>
+                    ))}
+                </ul>
+                {verifyResult && (
+                  <p
+                    className={cn('text-xs', verifyResult.ok ? 'text-green' : 'text-red')}
+                    role="status"
                   >
-                    {verifying ? <Spinner /> : <Search />} {verifying ? '检测中…' : '检测模型'}
-                  </Button>
-                  <Input
-                    aria-label="搜索或输入模型 ID"
-                    value={modelInput}
-                    onChange={(event) => setModelInput(event.target.value)}
-                    placeholder="搜索或输入模型 ID…"
-                  />
-                  <ul className="max-h-60 overflow-y-auto divide-y rounded-card border border-line">
-                    {(verifyResult?.models ?? [])
-                      .filter((id) => id.toLowerCase().includes(modelInput.trim().toLowerCase()))
-                      .map((id) => (
-                        <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={id}>
-                          <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
-                            {id}
-                          </span>
-                          <Button
-                            aria-label={`添加模型 ${id}`}
-                            disabled={models.includes(id) || models.length >= LLM_MODEL_LIMIT}
-                            onClick={() => addModel(id)}
-                            size="icon-xs"
-                            variant="ghost"
-                          >
-                            {models.includes(id) ? <Check /> : <Plus />}
-                          </Button>
-                        </li>
-                      ))}
-                  </ul>
-                  {verifyResult && (
-                    <p
-                      className={cn('text-xs', verifyResult.ok ? 'text-green' : 'text-red')}
-                      role="status"
-                    >
-                      {verifyResult.message}
-                    </p>
-                  )}
-                  {importNotice && (
-                    <p className="text-xs text-ink-3" role="status">
-                      {importNotice}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-end gap-2">
-                    {verifyResult?.models?.length ? (
-                      <Button
-                        onClick={() => importModels(verifyResult.models!)}
-                        size="sm"
-                        variant="secondary"
-                      >
-                        一键导入
-                      </Button>
-                    ) : null}
+                    {verifyResult.message}
+                  </p>
+                )}
+                {importNotice && (
+                  <p className="text-xs text-ink-3" role="status">
+                    {importNotice}
+                  </p>
+                )}
+                <div className="flex items-center justify-end gap-2">
+                  {verifyResult?.models?.length ? (
                     <Button
-                      disabled={!modelInput.trim() || models.includes(modelInput.trim())}
-                      onClick={() => addModel(modelInput)}
+                      onClick={() => importModels(verifyResult.models!)}
                       size="sm"
+                      variant="secondary"
                     >
-                      添加此 ID
+                      一键导入
                     </Button>
-                  </div>
+                  ) : null}
+                  <Button
+                    disabled={!modelInput.trim() || models.includes(modelInput.trim())}
+                    onClick={() => addModel(modelInput)}
+                    size="sm"
+                  >
+                    添加此 ID
+                  </Button>
                 </div>
-              )}
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog.Root>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       )}
       {editingModel && (
         <ModelSettingsDialog

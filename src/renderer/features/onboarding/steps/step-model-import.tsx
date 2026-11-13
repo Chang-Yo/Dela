@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { Dialog } from 'radix-ui';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
-import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
-import { cn } from '../../../../ui/cn';
 import { LLM_MODEL_LIMIT } from '../../../../core/protocol/llm-models';
 import { capModels, selectedModels } from './model-import';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 
 /** 向导 · 导入模型弹层：从检测到的模型列表里勾选要写进配置的那些，默认勾上已导入的。 */
 export function StepModelImportDialog({
@@ -24,19 +22,18 @@ export function StepModelImportDialog({
   onConfirm: (picked: string[]) => void;
 }) {
   return (
-    <Dialog.Root onOpenChange={onOpenChange} open={open}>
-      <Dialog.Portal>
-        {/* 弹层 portal 到 body，脱离向导的 .bui-light 作用域，遮罩与面板需各自带上。 */}
-        <Dialog.Overlay className={cn(dialogOverlay, 'bui-light')} />
-        <Dialog.Content className={cn(dialogPanel, 'bui-light max-h-[85vh] max-w-md')}>
-          <Dialog.Title className="text-base font-semibold">导入模型</Dialog.Title>
-          <Dialog.Description className="mt-1.5 text-xs leading-relaxed text-ink-3">
-            勾选要加入配置的模型，最多保留 {LLM_MODEL_LIMIT} 个。
-          </Dialog.Description>
-          <Picker onConfirm={onConfirm} options={options} preselected={preselected} />
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="bui-light max-h-[85vh]">
+        <DialogTitle>导入模型</DialogTitle>
+        <DialogDescription>勾选要加入配置的模型，最多保留 {LLM_MODEL_LIMIT} 个。</DialogDescription>
+        <Picker
+          onCancel={() => onOpenChange(false)}
+          onConfirm={onConfirm}
+          options={options}
+          preselected={preselected}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -44,8 +41,10 @@ export function StepModelImportDialog({
 function Picker({
   options,
   preselected,
+  onCancel,
   onConfirm,
 }: {
+  onCancel: () => void;
   options: string[];
   preselected: string[];
   onConfirm: (picked: string[]) => void;
@@ -101,11 +100,9 @@ function Picker({
         已选 {picked.length} 个{dropped > 0 ? `，超出的 ${dropped} 个不会被导入` : ''}
       </p>
       <div className="flex items-center justify-end gap-2">
-        <Dialog.Close asChild>
-          <Button size="sm" variant="secondary">
-            取消
-          </Button>
-        </Dialog.Close>
+        <Button onClick={onCancel} size="sm" variant="secondary">
+          取消
+        </Button>
         <Button disabled={picked.length === 0} onClick={() => onConfirm(picked)} size="sm">
           导入所选 {picked.length} 个
         </Button>

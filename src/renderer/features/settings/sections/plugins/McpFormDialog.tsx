@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Dialog } from 'radix-ui';
 import { Button } from '../../../../../ui/button';
 import { Input } from '../../../../../ui/input';
 import { Textarea } from '../../../../../ui/textarea';
@@ -8,9 +7,8 @@ import type { McpServerView } from '../../../../../shared/api';
 import type { McpTransportConfig } from '../../../../../shared/capabilities';
 import { errorText } from '../../../../workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
-import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
-import { cn } from '../../../../../ui/cn';
 import { ErrorText } from '../../../../../ui/alert';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../../ui/dialog';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
@@ -71,123 +69,118 @@ export function McpFormDialog({
   };
 
   return (
-    <Dialog.Root onOpenChange={(open) => !open && !busy && onClose()} open>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
-          <Dialog.Title className="text-base font-semibold">
-            {isEdit ? `编辑 ${editing.server.name}` : '添加 MCP 服务器'}
-          </Dialog.Title>
-          <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
-            {isEdit
-              ? '修改名称或连接配置；留空的连接字段保持原值不变（保存后会重连）。'
-              : transport === 'stdio'
-                ? '以 stdio 方式启动本地命令进程，为 Agent 提供外部工具；保存后自动连接。'
-                : '通过 Streamable HTTP 连接远程服务器；暂不支持 OAuth 登录与旧版 SSE。'}
-          </Dialog.Description>
-          <form
-            className="mt-4 grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            {!isEdit && (
-              <SegmentedControl
-                labels={transportLabels}
-                onChange={setTransport}
-                options={transports}
-                value={transport}
-              />
-            )}
-            <label className="grid gap-2 text-sm">
-              名称
-              <Input
-                autoComplete="off"
-                onChange={(event) => setName(event.target.value)}
-                placeholder="weather"
-                required
-                value={name}
-              />
-            </label>
-            {transport === 'stdio' ? (
-              <>
-                <label className="grid gap-2 text-sm">
-                  command
-                  <Input
-                    autoComplete="off"
-                    onChange={(event) => setCommand(event.target.value)}
-                    placeholder={isEdit ? '留空保持不变' : 'npx'}
-                    required={!isEdit}
-                    spellCheck={false}
-                    value={command}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  参数（每行一个）
-                  <Textarea
-                    className={codeAreaClass}
-                    onChange={(event) => setArgsText(event.target.value)}
-                    placeholder={'-y\n@modelcontextprotocol/server-weather'}
-                    rows={3}
-                    spellCheck={false}
-                    value={argsText}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  环境变量（每行 KEY=VALUE）
-                  <Textarea
-                    className={codeAreaClass}
-                    onChange={(event) => setEnvText(event.target.value)}
-                    placeholder={'WEATHER_API_KEY=…'}
-                    rows={3}
-                    spellCheck={false}
-                    value={envText}
-                  />
-                  <span className="text-xs leading-relaxed text-ink-3">
-                    子进程默认继承 Dela 进程的环境变量；{secretHint}
-                  </span>
-                </label>
-              </>
-            ) : (
-              <>
-                <label className="grid gap-2 text-sm">
-                  地址
-                  <Input
-                    autoComplete="off"
-                    onChange={(event) => setUrl(event.target.value)}
-                    placeholder={isEdit ? '留空保持不变' : 'https://example.com/mcp'}
-                    required={!isEdit}
-                    spellCheck={false}
-                    value={url}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  请求头（每行 Name: value）
-                  <Textarea
-                    className={codeAreaClass}
-                    onChange={(event) => setHeadersText(event.target.value)}
-                    placeholder={'Authorization: Bearer …'}
-                    rows={3}
-                    spellCheck={false}
-                    value={headersText}
-                  />
-                  <span className="text-xs leading-relaxed text-ink-3">{secretHint}</span>
-                </label>
-              </>
-            )}
-            {error && <ErrorText>{error}</ErrorText>}
-            <div className="flex items-center justify-end gap-2">
-              <Button disabled={busy} onClick={onClose} variant="ghost">
-                取消
-              </Button>
-              <Button disabled={busy} type="submit">
-                {busy ? '处理中…' : '保存'}
-              </Button>
-            </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog onOpenChange={(open) => !open && !busy && onClose()} open>
+      <DialogContent scroll>
+        <DialogTitle>{isEdit ? `编辑 ${editing.server.name}` : '添加 MCP 服务器'}</DialogTitle>
+        <DialogDescription>
+          {isEdit
+            ? '修改名称或连接配置；留空的连接字段保持原值不变（保存后会重连）。'
+            : transport === 'stdio'
+              ? '以 stdio 方式启动本地命令进程，为 Agent 提供外部工具；保存后自动连接。'
+              : '通过 Streamable HTTP 连接远程服务器；暂不支持 OAuth 登录与旧版 SSE。'}
+        </DialogDescription>
+        <form
+          className="mt-4 grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          {!isEdit && (
+            <SegmentedControl
+              labels={transportLabels}
+              onChange={setTransport}
+              options={transports}
+              value={transport}
+            />
+          )}
+          <label className="grid gap-2 text-sm">
+            名称
+            <Input
+              autoComplete="off"
+              onChange={(event) => setName(event.target.value)}
+              placeholder="weather"
+              required
+              value={name}
+            />
+          </label>
+          {transport === 'stdio' ? (
+            <>
+              <label className="grid gap-2 text-sm">
+                command
+                <Input
+                  autoComplete="off"
+                  onChange={(event) => setCommand(event.target.value)}
+                  placeholder={isEdit ? '留空保持不变' : 'npx'}
+                  required={!isEdit}
+                  spellCheck={false}
+                  value={command}
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                参数（每行一个）
+                <Textarea
+                  className={codeAreaClass}
+                  onChange={(event) => setArgsText(event.target.value)}
+                  placeholder={'-y\n@modelcontextprotocol/server-weather'}
+                  rows={3}
+                  spellCheck={false}
+                  value={argsText}
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                环境变量（每行 KEY=VALUE）
+                <Textarea
+                  className={codeAreaClass}
+                  onChange={(event) => setEnvText(event.target.value)}
+                  placeholder={'WEATHER_API_KEY=…'}
+                  rows={3}
+                  spellCheck={false}
+                  value={envText}
+                />
+                <span className="text-xs leading-relaxed text-ink-3">
+                  子进程默认继承 Dela 进程的环境变量；{secretHint}
+                </span>
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="grid gap-2 text-sm">
+                地址
+                <Input
+                  autoComplete="off"
+                  onChange={(event) => setUrl(event.target.value)}
+                  placeholder={isEdit ? '留空保持不变' : 'https://example.com/mcp'}
+                  required={!isEdit}
+                  spellCheck={false}
+                  value={url}
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                请求头（每行 Name: value）
+                <Textarea
+                  className={codeAreaClass}
+                  onChange={(event) => setHeadersText(event.target.value)}
+                  placeholder={'Authorization: Bearer …'}
+                  rows={3}
+                  spellCheck={false}
+                  value={headersText}
+                />
+                <span className="text-xs leading-relaxed text-ink-3">{secretHint}</span>
+              </label>
+            </>
+          )}
+          {error && <ErrorText>{error}</ErrorText>}
+          <div className="flex items-center justify-end gap-2">
+            <Button disabled={busy} onClick={onClose} variant="ghost">
+              取消
+            </Button>
+            <Button disabled={busy} type="submit">
+              {busy ? '处理中…' : '保存'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

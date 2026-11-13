@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Dialog as DialogPrimitive } from 'radix-ui';
 import {
   CalendarRange,
   CircleCheckBig,
@@ -8,7 +7,6 @@ import {
   MapPin,
   Trash2,
   User,
-  X,
 } from 'lucide-react';
 import type { CalendarEvent } from '../../../shared/api';
 import { Button } from '../../../ui/button';
@@ -22,10 +20,15 @@ import {
   weekdayName,
 } from './timetable-format';
 import type { CalendarItemDetail } from './WeekCalendar';
-import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
-import { cn } from '../../../ui/cn';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '../../../ui/dialog';
 
 // 点击周视图条目后的详情弹窗：排版参考 Google Calendar 的事件卡
 // （色点标题 + 小图标信息行）。课程只读；自建事件的删除需二次确认；
@@ -75,133 +78,121 @@ export function EventDetailDialog({
   }
 
   return (
-    <DialogPrimitive.Root onOpenChange={(open) => !open && !deleting && onClose()} open>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className={dialogOverlay} />
-        <DialogPrimitive.Content
-          className={cn(
-            dialogPanel,
-            'max-h-[calc(100dvh-2rem)] w-[25rem] max-w-[calc(100vw-2rem)] overflow-y-auto p-5',
-          )}
-        >
-          <div className="flex items-start gap-2.5">
-            <span
-              aria-hidden="true"
-              className="mt-1 size-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: `var(--cal-${tone}-bg)` }}
-            />
-            <DialogPrimitive.Title className="min-w-0 flex-1 break-words text-base font-semibold leading-snug tracking-tight">
-              {detail.kind === 'lesson' ? detail.lesson.courseName : detail.event.title}
-            </DialogPrimitive.Title>
-            <DialogPrimitive.Close asChild>
-              <Button aria-label="关闭" className="-mr-2 -mt-1" size="icon-sm" variant="ghost">
-                <X />
-              </Button>
-            </DialogPrimitive.Close>
+    <Dialog onOpenChange={(open) => !open && !deleting && onClose()} open>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[25rem] max-w-[calc(100vw-2rem)] overflow-y-auto p-5">
+        <div className="flex items-start gap-2.5">
+          <span
+            aria-hidden="true"
+            className="mt-1 size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: `var(--cal-${tone}-bg)` }}
+          />
+          <DialogTitle className="min-w-0 flex-1 break-words leading-snug tracking-tight">
+            {detail.kind === 'lesson' ? detail.lesson.courseName : detail.event.title}
+          </DialogTitle>
+          <DialogClose />
+        </div>
+        {detail.kind === 'lesson' && (detail.lesson.className || detail.lesson.courseCode) ? (
+          <DialogDescription className="pl-5">
+            {[detail.lesson.className, detail.lesson.courseCode].filter(Boolean).join(' · ')}
+          </DialogDescription>
+        ) : null}
+        <div className="mt-4 grid gap-2.5 pl-5 text-sm">
+          <div className="flex items-start gap-2">
+            <Clock className="mt-0.5 size-4 shrink-0 text-ink-3" />
+            <span className="tabular-nums">{timeText}</span>
           </div>
-          {detail.kind === 'lesson' && (detail.lesson.className || detail.lesson.courseCode) ? (
-            <DialogPrimitive.Description className="mt-1 pl-5 text-xs text-ink-3">
-              {[detail.lesson.className, detail.lesson.courseCode].filter(Boolean).join(' · ')}
-            </DialogPrimitive.Description>
-          ) : null}
-          <div className="mt-4 grid gap-2.5 pl-5 text-sm">
+          {detail.kind === 'todo' ? (
             <div className="flex items-start gap-2">
-              <Clock className="mt-0.5 size-4 shrink-0 text-ink-3" />
-              <span className="tabular-nums">{timeText}</span>
+              <CircleCheckBig className="mt-0.5 size-4 shrink-0 text-ink-3" />
+              <span>来自个人待办的截止时间</span>
             </div>
-            {detail.kind === 'todo' ? (
+          ) : null}
+          {detail.kind !== 'lesson' ? (
+            detail.event.location ? (
               <div className="flex items-start gap-2">
-                <CircleCheckBig className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                <span>来自个人待办的截止时间</span>
+                <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
+                <span className="break-words">{detail.event.location}</span>
               </div>
-            ) : null}
-            {detail.kind !== 'lesson' ? (
-              detail.event.location ? (
+            ) : null
+          ) : (
+            <>
+              <div className="flex items-start gap-2">
+                <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
+                <span className="break-words">
+                  {[detail.lesson.classroom, detail.lesson.campus].filter(Boolean).join(' · ') ||
+                    '地点未定'}
+                </span>
+              </div>
+              {detail.lesson.teacher ? (
                 <div className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                  <span className="break-words">{detail.event.location}</span>
+                  <User className="mt-0.5 size-4 shrink-0 text-ink-3" />
+                  <span className="break-words">{detail.lesson.teacher}</span>
                 </div>
-              ) : null
-            ) : (
+              ) : null}
+              <div className="flex items-start gap-2">
+                <CalendarRange className="mt-0.5 size-4 shrink-0 text-ink-3" />
+                <span>{detail.lesson.weeksText}</span>
+              </div>
+              {detail.lesson.credits != null ? (
+                <div className="flex items-start gap-2">
+                  <GraduationCap className="mt-0.5 size-4 shrink-0 text-ink-3" />
+                  <span>{detail.lesson.credits} 学分</span>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+        {/* 底部只保留破坏性操作的确认区；关闭走右上角 X，避免重复入口。 */}
+        {detail.kind === 'event' ? (
+          <div className="mt-5 flex items-center gap-1.5">
+            {confirming ? (
               <>
-                <div className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                  <span className="break-words">
-                    {[detail.lesson.classroom, detail.lesson.campus].filter(Boolean).join(' · ') ||
-                      '地点未定'}
-                  </span>
-                </div>
-                {detail.lesson.teacher ? (
-                  <div className="flex items-start gap-2">
-                    <User className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                    <span className="break-words">{detail.lesson.teacher}</span>
-                  </div>
-                ) : null}
-                <div className="flex items-start gap-2">
-                  <CalendarRange className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                  <span>{detail.lesson.weeksText}</span>
-                </div>
-                {detail.lesson.credits != null ? (
-                  <div className="flex items-start gap-2">
-                    <GraduationCap className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                    <span>{detail.lesson.credits} 学分</span>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-          {/* 底部只保留破坏性操作的确认区；关闭走右上角 X，避免重复入口。 */}
-          {detail.kind === 'event' ? (
-            <div className="mt-5 flex items-center gap-1.5">
-              {confirming ? (
-                <>
-                  <span className="text-xs text-ink-3">确认删除？</span>
-                  <Button
-                    disabled={deleting}
-                    onClick={() => void deleteEvent(detail.event)}
-                    size="sm"
-                    variant="destructive"
-                  >
-                    删除
-                  </Button>
-                  <Button
-                    disabled={deleting}
-                    onClick={() => setConfirming(false)}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    取消
-                  </Button>
-                </>
-              ) : (
+                <span className="text-xs text-ink-3">确认删除？</span>
                 <Button
-                  className="text-red hover:text-red"
-                  onClick={() => setConfirming(true)}
+                  disabled={deleting}
+                  onClick={() => void deleteEvent(detail.event)}
+                  size="sm"
+                  variant="destructive"
+                >
+                  删除
+                </Button>
+                <Button
+                  disabled={deleting}
+                  onClick={() => setConfirming(false)}
                   size="sm"
                   variant="ghost"
                 >
-                  <Trash2 className="size-3.5" />
-                  删除
+                  取消
                 </Button>
-              )}
-            </div>
-          ) : null}
-          {detail.kind === 'todo' && detail.event.todoId && onOpenTodo ? (
-            <div className="mt-5 flex items-center">
+              </>
+            ) : (
               <Button
-                onClick={() => {
-                  onOpenTodo(detail.event.todoId!);
-                  onClose();
-                }}
+                className="text-red hover:text-red"
+                onClick={() => setConfirming(true)}
                 size="sm"
-                variant="outline"
+                variant="ghost"
               >
-                <CircleCheckBig className="size-3.5" />在 TODO 中查看
+                <Trash2 className="size-3.5" />
+                删除
               </Button>
-            </div>
-          ) : null}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+            )}
+          </div>
+        ) : null}
+        {detail.kind === 'todo' && detail.event.todoId && onOpenTodo ? (
+          <div className="mt-5 flex items-center">
+            <Button
+              onClick={() => {
+                onOpenTodo(detail.event.todoId!);
+                onClose();
+              }}
+              size="sm"
+              variant="outline"
+            >
+              <CircleCheckBig className="size-3.5" />在 TODO 中查看
+            </Button>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,7 +1,6 @@
 // 工作区 CRUD 弹窗：新建项目/文件夹/文件、重命名、移动、移除、链接资料、连接 Canvas。
 // 弹窗只负责表单与 workspace:*/canvas:* 通道调用，「成功之后」的动作由接线方经回调接手。
 import { useEffect, useState, type FormEvent } from 'react';
-import { Dialog } from 'radix-ui';
 import { Cloud, FolderOpen } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -12,9 +11,8 @@ import { useNoteDrafts } from '../content/note/drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
 import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';
-import { dialogOverlay, dialogPanel } from '../../ui/motion';
-import { cn } from '../../ui/cn';
 import { ErrorText } from '../../ui/alert';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../ui/dialog';
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
@@ -194,138 +192,131 @@ export function EntryDialogs({
   };
 
   return (
-    <Dialog.Root
+    <Dialog
       open={request !== null && !wizard}
       onOpenChange={(value) => {
         if (!value && !busy) onClose();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-w-md')}>
-          <Dialog.Title className="text-base font-semibold">
-            {request ? (titles[request.action] ?? '') : ''}
-          </Dialog.Title>
-          <Dialog.Description className="mt-2 text-xs text-ink-3">
-            {request?.action === 'connect'
-              ? '使用个人 Access Token，凭据加密保存在本机。'
-              : request?.action === 'remove'
-                ? workspace.entries.find((entry) => entry.id === request.id)?.kind === 'project'
-                  ? workspace.entries.find((entry) => entry.id === request.id)?.remoteId
-                    ? '从 Dela 移除项目并删除其全部聊天记录；远端目录与文件保留。'
-                    : '从 Dela 移除项目并删除其全部聊天记录；目录与文件保留。'
-                  : workspace.entries.find((entry) => entry.id === request.id)?.kind === 'source'
-                    ? '解除此处的资料关联，原始资料保留。'
-                    : '将文件或文件夹移至系统回收站。'
-                : request?.action === 'link'
-                  ? '在项目根目录引用资料，原位置保持不变。'
-                  : request?.action === 'note'
-                    ? '文件名原样使用，笔记请以 .md 结尾；可用 / 写子路径，如 课程/第一周.md。'
-                    : request?.action === 'project'
-                      ? '新建空项目，或导入电脑上已有的文件夹。'
-                      : '按自己的主题组织内容。'}
-          </Dialog.Description>
-          <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
-            {(request?.action === 'link' || request?.action === 'move') && (
-              <div className="grid gap-2 text-sm">
-                {request.action === 'link' ? '项目' : '位置'}
-                <Select
-                  onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
-                  value={request.action === 'link' ? linkTarget : target || ROOT_SELECT_VALUE}
+      <DialogContent>
+        <DialogTitle>{request ? (titles[request.action] ?? '') : ''}</DialogTitle>
+        <DialogDescription>
+          {request?.action === 'connect'
+            ? '使用个人 Access Token，凭据加密保存在本机。'
+            : request?.action === 'remove'
+              ? workspace.entries.find((entry) => entry.id === request.id)?.kind === 'project'
+                ? workspace.entries.find((entry) => entry.id === request.id)?.remoteId
+                  ? '从 Dela 移除项目并删除其全部聊天记录；远端目录与文件保留。'
+                  : '从 Dela 移除项目并删除其全部聊天记录；目录与文件保留。'
+                : workspace.entries.find((entry) => entry.id === request.id)?.kind === 'source'
+                  ? '解除此处的资料关联，原始资料保留。'
+                  : '将文件或文件夹移至系统回收站。'
+              : request?.action === 'link'
+                ? '在项目根目录引用资料，原位置保持不变。'
+                : request?.action === 'note'
+                  ? '文件名原样使用，笔记请以 .md 结尾；可用 / 写子路径，如 课程/第一周.md。'
+                  : request?.action === 'project'
+                    ? '新建空项目，或导入电脑上已有的文件夹。'
+                    : '按自己的主题组织内容。'}
+        </DialogDescription>
+        <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
+          {(request?.action === 'link' || request?.action === 'move') && (
+            <div className="grid gap-2 text-sm">
+              {request.action === 'link' ? '项目' : '位置'}
+              <Select
+                onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
+                value={request.action === 'link' ? linkTarget : target || ROOT_SELECT_VALUE}
+              >
+                <SelectTrigger
+                  aria-label={request.action === 'link' ? '目标项目' : '目标文件夹'}
+                  className="w-full"
                 >
-                  <SelectTrigger
-                    aria-label={request.action === 'link' ? '目标项目' : '目标文件夹'}
-                    className="w-full"
-                  >
-                    <SelectValue placeholder="选择项目" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {request.action === 'move' && (
-                      <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
-                    )}
-                    {(request.action === 'link'
-                      ? projects
-                      : workspace.entries.filter(
-                          (e) =>
-                            (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
-                        )
-                    ).map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {request.action === 'link' ? e.name : pathName(e)}
-                      </SelectItem>
-                    ))}
-                    {request.action === 'link' && (
-                      <SelectItem value="__new__">新建项目…</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <SelectValue placeholder="选择项目" />
+                </SelectTrigger>
+                <SelectContent>
+                  {request.action === 'move' && (
+                    <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
+                  )}
+                  {(request.action === 'link'
+                    ? projects
+                    : workspace.entries.filter(
+                        (e) =>
+                          (e.kind === 'folder' || e.kind === 'project') && e.id !== request?.id,
+                      )
+                  ).map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {request.action === 'link' ? e.name : pathName(e)}
+                    </SelectItem>
+                  ))}
+                  {request.action === 'link' && <SelectItem value="__new__">新建项目…</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {request &&
+            !['move', 'remove'].includes(request.action) &&
+            (request.action !== 'link' || target === '__new__') && (
+              <label className="grid gap-2 text-sm">
+                {request.action === 'connect' ? 'Access Token' : '名称'}
+                <Input
+                  autoFocus
+                  autoComplete="off"
+                  type={request.action === 'connect' ? 'password' : 'text'}
+                  aria-label={request.action === 'connect' ? 'Canvas Access Token' : '名称'}
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
             )}
-            {request &&
-              !['move', 'remove'].includes(request.action) &&
-              (request.action !== 'link' || target === '__new__') && (
-                <label className="grid gap-2 text-sm">
-                  {request.action === 'connect' ? 'Access Token' : '名称'}
-                  <Input
-                    autoFocus
-                    autoComplete="off"
-                    type={request.action === 'connect' ? 'password' : 'text'}
-                    aria-label={request.action === 'connect' ? 'Canvas Access Token' : '名称'}
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </label>
-              )}
-            {request?.action === 'project' && (
-              <div className="grid gap-2">
-                <div aria-hidden="true" className="flex items-center gap-3 text-xs">
-                  <span className="h-px flex-1 bg-line" />
-                  <span className="text-ink-3">或</span>
-                  <span className="h-px flex-1 bg-line" />
-                </div>
-                <Button
-                  disabled={busy}
-                  onClick={() => void importFolder()}
-                  type="button"
-                  variant="secondary"
-                >
-                  <FolderOpen />
-                  导入已有文件夹
-                </Button>
-                <Button
-                  disabled={busy}
-                  onClick={() => setWizard(true)}
-                  type="button"
-                  variant="secondary"
-                >
-                  <Cloud />
-                  新建远程项目
-                </Button>
+          {request?.action === 'project' && (
+            <div className="grid gap-2">
+              <div aria-hidden="true" className="flex items-center gap-3 text-xs">
+                <span className="h-px flex-1 bg-line" />
+                <span className="text-ink-3">或</span>
+                <span className="h-px flex-1 bg-line" />
               </div>
-            )}
-            {modalError && <ErrorText>{modalError}</ErrorText>}
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" disabled={busy} onClick={onClose}>
-                取消
+              <Button
+                disabled={busy}
+                onClick={() => void importFolder()}
+                type="button"
+                variant="secondary"
+              >
+                <FolderOpen />
+                导入已有文件夹
               </Button>
               <Button
-                type="submit"
-                disabled={busy || (request?.action === 'link' && !linkTarget)}
-                variant={request?.action === 'remove' ? 'destructive' : undefined}
+                disabled={busy}
+                onClick={() => setWizard(true)}
+                type="button"
+                variant="secondary"
               >
-                {busy
-                  ? '处理中…'
-                  : request?.action === 'remove'
-                    ? '移除'
-                    : request?.action === 'connect'
-                      ? '连接'
-                      : '确定'}
+                <Cloud />
+                新建远程项目
               </Button>
             </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
+          )}
+          {modalError && <ErrorText>{modalError}</ErrorText>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" disabled={busy} onClick={onClose}>
+              取消
+            </Button>
+            <Button
+              type="submit"
+              disabled={busy || (request?.action === 'link' && !linkTarget)}
+              variant={request?.action === 'remove' ? 'destructive' : undefined}
+            >
+              {busy
+                ? '处理中…'
+                : request?.action === 'remove'
+                  ? '移除'
+                  : request?.action === 'connect'
+                    ? '连接'
+                    : '确定'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
       {/* 向导有自己的对话框：外层弹窗打开它时关闭，取消后回到新建项目。 */}
       <NewRemoteProjectDialog
         open={wizard}
@@ -338,6 +329,6 @@ export function EntryDialogs({
           onCreated?.(entry);
         }}
       />
-    </Dialog.Root>
+    </Dialog>
   );
 }

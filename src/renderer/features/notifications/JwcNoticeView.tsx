@@ -1,17 +1,15 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog } from 'radix-ui';
 import { ArrowLeft, Download, ExternalLink, Paperclip } from 'lucide-react';
 import type { JwcNotice, NotificationItem } from '../../../shared/notifications';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
-import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { sanitizeHtml } from '../../lib/sanitize-html';
 import { useRootFontSize } from '../../lib/root-font-size';
-import { cn } from '../../../ui/cn';
 import { errorText } from '../../workspace/store';
 import { showToast } from '../../app/toasts';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../ui/dialog';
 
 const INITIAL_BODY_HEIGHT = 240;
 
@@ -225,68 +223,63 @@ function AttachmentDownload({
     }
   }, undefined);
   return (
-    <Dialog.Root
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open && !pending) onClose();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-w-sm')}>
-          <Dialog.Title className="text-base font-semibold">下载附件</Dialog.Title>
-          <Dialog.Description className="mt-2 break-words text-sm text-ink-3">
-            {attachment.name}
-          </Dialog.Description>
-          <form action={submit} className="mt-4 flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              {captcha ? (
-                <img src={captcha.image} alt="下载验证码" className="h-10 w-auto rounded-control" />
-              ) : (
-                <span role="status" className="text-sm text-ink-3">
-                  {error ? '验证码未加载' : '正在加载验证码…'}
-                </span>
-              )}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={pending}
-                onClick={() => {
-                  setError('');
-                  setRevision((value) => value + 1);
-                }}
-              >
-                换一张
-              </Button>
-            </div>
-            <label className="flex flex-col gap-2 text-sm">
-              验证码
-              <Input
-                autoFocus
-                inputMode="numeric"
-                autoComplete="off"
-                maxLength={4}
-                pattern="[0-9]{4}"
-                required
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                disabled={pending}
-                placeholder="输入四位数字"
-              />
-            </label>
-            {error && <ErrorText size="sm">{error}</ErrorText>}
-            <div className="mt-2 flex justify-end gap-2">
-              <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
-                取消
-              </Button>
-              <Button type="submit" disabled={pending || !captcha || !/^\d{4}$/.test(code)}>
-                {pending ? '正在下载…' : '下载'}
-              </Button>
-            </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <DialogContent size="sm">
+        <DialogTitle>下载附件</DialogTitle>
+        <DialogDescription className="break-words">{attachment.name}</DialogDescription>
+        <form action={submit} className="mt-4 flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            {captcha ? (
+              <img src={captcha.image} alt="下载验证码" className="h-10 w-auto rounded-control" />
+            ) : (
+              <span role="status" className="text-sm text-ink-3">
+                {error ? '验证码未加载' : '正在加载验证码…'}
+              </span>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={pending}
+              onClick={() => {
+                setError('');
+                setRevision((value) => value + 1);
+              }}
+            >
+              换一张
+            </Button>
+          </div>
+          <label className="flex flex-col gap-2 text-sm">
+            验证码
+            <Input
+              autoFocus
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              pattern="[0-9]{4}"
+              required
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              disabled={pending}
+              placeholder="输入四位数字"
+            />
+          </label>
+          {error && <ErrorText size="sm">{error}</ErrorText>}
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
+              取消
+            </Button>
+            <Button type="submit" disabled={pending || !captcha || !/^\d{4}$/.test(code)}>
+              {pending ? '正在下载…' : '下载'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dialog } from 'radix-ui';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
@@ -17,10 +16,9 @@ import type {
   WebSearchKeySource,
 } from '../../../../shared/api';
 import { errorText } from '../../../workspace/store';
-import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
 import { Switch } from '../../../../ui/switch';
-import { cn } from '../../../../ui/cn';
 import { ErrorText } from '../../../../ui/alert';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 
 /** 各类型展示名（键序即表单类型按钮的排列顺序，DeepSeek 置首）。 */
 const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {
@@ -89,109 +87,106 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Dialog.Root onOpenChange={(open) => !open && onClose()} open>
-      <Dialog.Portal>
-        <Dialog.Overlay className={dialogOverlay} />
-        <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
-          {draft ? (
-            <EntryForm
-              draft={draft}
-              busy={busy}
-              error={error}
-              onCancel={() => {
-                setDraft(null);
-                setError(null);
-              }}
-              onBusy={setBusy}
-              onError={setError}
-              onSaved={(list) => {
-                setEntries(list);
-                setDraft(null);
-                setError(null);
-              }}
-            />
-          ) : (
-            <>
-              <Dialog.Title className="text-base font-semibold">搜索服务</Dialog.Title>
-              <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
-                管理搜索服务配置；当前使用哪一条在聊天输入框左下角选择。
-              </Dialog.Description>
-              <ul className="mt-4 flex flex-col gap-2">
-                {(entries ?? []).map((entry) => (
-                  <li
-                    className="flex items-center gap-3 rounded-card border px-3 py-2.5"
-                    key={entry.id}
-                  >
-                    <div className="min-w-0 flex-1 grid gap-0.5">
-                      <span className="truncate text-sm font-medium">{entry.name}</span>
-                      <span className="text-xs text-ink-3">
-                        {webSearchProviderLabels[entry.provider]}
-                        {entry.provider === 'deepseek' ? ' · 按次计费' : ''}
-                      </span>
-                    </div>
-                    {confirmDeleteId === entry.id ? (
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
+      <DialogContent scroll>
+        {draft ? (
+          <EntryForm
+            draft={draft}
+            busy={busy}
+            error={error}
+            onCancel={() => {
+              setDraft(null);
+              setError(null);
+            }}
+            onBusy={setBusy}
+            onError={setError}
+            onSaved={(list) => {
+              setEntries(list);
+              setDraft(null);
+              setError(null);
+            }}
+          />
+        ) : (
+          <>
+            <DialogTitle>搜索服务</DialogTitle>
+            <DialogDescription>
+              管理搜索服务配置；当前使用哪一条在聊天输入框左下角选择。
+            </DialogDescription>
+            <ul className="mt-4 flex flex-col gap-2">
+              {(entries ?? []).map((entry) => (
+                <li
+                  className="flex items-center gap-3 rounded-card border px-3 py-2.5"
+                  key={entry.id}
+                >
+                  <div className="min-w-0 flex-1 grid gap-0.5">
+                    <span className="truncate text-sm font-medium">{entry.name}</span>
+                    <span className="text-xs text-ink-3">
+                      {webSearchProviderLabels[entry.provider]}
+                      {entry.provider === 'deepseek' ? ' · 按次计费' : ''}
+                    </span>
+                  </div>
+                  {confirmDeleteId === entry.id ? (
+                    <Button
+                      disabled={busy}
+                      onClick={() => void remove(entry.id)}
+                      size="sm"
+                      variant="destructive"
+                    >
+                      确认删除
+                    </Button>
+                  ) : (
+                    <>
                       <Button
+                        aria-label={`编辑 ${entry.name}`}
                         disabled={busy}
-                        onClick={() => void remove(entry.id)}
-                        size="sm"
-                        variant="destructive"
+                        onClick={() => {
+                          setConfirmDeleteId(null);
+                          setDraft(entry);
+                        }}
+                        size="icon-xs"
+                        title="编辑"
+                        variant="ghost"
                       >
-                        确认删除
+                        <Pencil />
                       </Button>
-                    ) : (
-                      <>
-                        <Button
-                          aria-label={`编辑 ${entry.name}`}
-                          disabled={busy}
-                          onClick={() => {
-                            setConfirmDeleteId(null);
-                            setDraft(entry);
-                          }}
-                          size="icon-xs"
-                          title="编辑"
-                          variant="ghost"
-                        >
-                          <Pencil />
-                        </Button>
-                        <Button
-                          aria-label={`删除 ${entry.name}`}
-                          disabled={busy}
-                          onClick={() => setConfirmDeleteId(entry.id)}
-                          size="icon-xs"
-                          title="删除（含密钥，需二次确认）"
-                          variant="ghost"
-                        >
-                          <Trash2 />
-                        </Button>
-                      </>
-                    )}
-                  </li>
-                ))}
-                {entries?.length === 0 && (
-                  <li className="py-6 text-center text-sm text-ink-3">
-                    还没有搜索配置，点下方添加。
-                  </li>
-                )}
-              </ul>
-              <Button
-                className="mt-3 w-full"
-                disabled={busy}
-                onClick={() =>
-                  setDraft({ name: '', provider: 'deepseek', apiKey: '', useForFetch: false })
-                }
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Plus />
-                添加搜索服务
-              </Button>
-            </>
-          )}
-          {error && !draft && <ErrorText className="mt-2">{error}</ErrorText>}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+                      <Button
+                        aria-label={`删除 ${entry.name}`}
+                        disabled={busy}
+                        onClick={() => setConfirmDeleteId(entry.id)}
+                        size="icon-xs"
+                        title="删除（含密钥，需二次确认）"
+                        variant="ghost"
+                      >
+                        <Trash2 />
+                      </Button>
+                    </>
+                  )}
+                </li>
+              ))}
+              {entries?.length === 0 && (
+                <li className="py-6 text-center text-sm text-ink-3">
+                  还没有搜索配置，点下方添加。
+                </li>
+              )}
+            </ul>
+            <Button
+              className="mt-3 w-full"
+              disabled={busy}
+              onClick={() =>
+                setDraft({ name: '', provider: 'deepseek', apiKey: '', useForFetch: false })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Plus />
+              添加搜索服务
+            </Button>
+          </>
+        )}
+        {error && !draft && <ErrorText className="mt-2">{error}</ErrorText>}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -322,9 +317,7 @@ function EntryForm({
         void save();
       }}
     >
-      <Dialog.Title className="text-base font-semibold">
-        {draft.id ? '编辑搜索服务' : '添加搜索服务'}
-      </Dialog.Title>
+      <DialogTitle>{draft.id ? '编辑搜索服务' : '添加搜索服务'}</DialogTitle>
       <div className="mt-4 flex flex-col gap-4">
         <div aria-label="搜索服务类型" className="flex flex-wrap gap-2" role="radiogroup">
           {providers.map((id) => (

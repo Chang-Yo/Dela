@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Dialog } from 'radix-ui';
 import { CalendarDays, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { ShuiyuanIcon } from '../../shuiyuan/shuiyuan-icon';
@@ -17,8 +16,8 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
 import { ErrorText } from '../../../../ui/alert';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 
 type ConnectionsSectionProps = {
   onOpenMail: () => void;
@@ -265,39 +264,36 @@ export function ConnectionsSection({
           )}
         </ul>
       </SettingsGroup>
-      <Dialog.Root
+      <Dialog
         onOpenChange={(open) => {
           if (!open && !busy) setDialog(null);
         }}
         open={dialog !== null}
       >
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogOverlay} />
-          <Dialog.Content className={cn(dialogPanel, 'max-h-[85vh] max-w-md overflow-y-auto')}>
-            <Dialog.Title className="text-base font-semibold">配置 Canvas</Dialog.Title>
-            <Dialog.Description className="mt-2 text-xs leading-relaxed text-ink-3">
-              {canvas.connected
-                ? '输入新的个人 Access Token 以替换当前连接。'
-                : '输入个人 Access Token，验证成功后读取课程列表；凭据加密保存在本机。'}
-            </Dialog.Description>
-            <CanvasTokenForm
-              actions={
-                <>
-                  {canvas.connected && (
-                    <Button disabled={busy} onClick={() => void disconnectCanvas()} variant="ghost">
-                      断开
-                    </Button>
-                  )}
-                  <Button disabled={busy} onClick={() => setDialog(null)} variant="ghost">
-                    取消
+        <DialogContent scroll>
+          <DialogTitle>配置 Canvas</DialogTitle>
+          <DialogDescription>
+            {canvas.connected
+              ? '输入新的个人 Access Token 以替换当前连接。'
+              : '输入个人 Access Token，验证成功后读取课程列表；凭据加密保存在本机。'}
+          </DialogDescription>
+          <CanvasTokenForm
+            actions={
+              <>
+                {canvas.connected && (
+                  <Button disabled={busy} onClick={() => void disconnectCanvas()} variant="ghost">
+                    断开
                   </Button>
-                </>
-              }
-              onSuccess={() => setDialog(null)}
-            />
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+                )}
+                <Button disabled={busy} onClick={() => setDialog(null)} variant="ghost">
+                  取消
+                </Button>
+              </>
+            }
+            onSuccess={() => setDialog(null)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

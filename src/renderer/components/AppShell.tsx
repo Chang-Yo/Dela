@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Dialog } from 'radix-ui';
 import {
   ArrowLeft,
   ArrowRight,
@@ -49,11 +48,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
-import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from '../../ui/motion';
+import { drawerFromLeft, fadeIn, overlayFade } from '../../ui/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../features/settings/UpdateBadge';
 import { useVisibleNavEntries } from '../navigation/entries';
 import { IconButton } from '../../ui/icon-button';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../../ui/dialog';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-slow ease-out';
@@ -568,52 +575,43 @@ export function AppShell({
           <WindowControls />
         </div>
       </header>
-      <Dialog.Root onOpenChange={setHelpOpen} open={helpOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialogOverlay} />
-          <Dialog.Content
-            className={cn(dialogPanel, 'max-h-[85vh] max-w-2xl overflow-y-auto p-8 max-md:p-6')}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
-                <Dialog.Description className="mt-1 text-sm text-ink-3">
-                  与设置 › 快捷键 同源；工作台类快捷键需焦点在工作区内。
-                </Dialog.Description>
-              </div>
-              <Dialog.Close asChild>
-                <IconButton aria-label="关闭" className="-mr-1 -mt-1">
-                  <X strokeWidth={1.8} />
-                </IconButton>
-              </Dialog.Close>
+      <Dialog onOpenChange={setHelpOpen} open={helpOpen}>
+        <DialogContent size="xl" scroll className="p-8 max-md:p-6">
+          <DialogHeader className="items-start gap-4">
+            <div>
+              <DialogTitle className="text-lg tracking-tight">快捷键</DialogTitle>
+              <DialogDescription>
+                与设置 › 快捷键 同源；工作台类快捷键需焦点在工作区内。
+              </DialogDescription>
             </div>
-            <div className="mt-8 grid items-start gap-x-12 gap-y-8 sm:grid-cols-2">
-              {/* 提示按当前生效键位渲染：用户在设置里改键后此处同步。 */}
-              {shortcutGroups().map((group) => (
-                <ShortcutSection key={group.title} title={group.title}>
-                  {group.actions.map((action) => {
-                    const keys = bindings[action.id]
-                      ? acceleratorKeys(bindings[action.id], platform, action.family)
-                      : null;
-                    return (
-                      <ShortcutRow
-                        hint={keys ? undefined : '未绑定'}
-                        key={action.id}
-                        keys={keys ?? undefined}
-                        label={action.label}
-                      />
-                    );
-                  })}
-                </ShortcutSection>
-              ))}
-              <ShortcutSection title="鼠标">
-                <ShortcutRow hint="关闭标签" label="中键点击标签" />
-                <ShortcutRow hint="新建文件" label="双击目录空白处" />
+            <DialogClose className="-mr-1 -mt-1" />
+          </DialogHeader>
+          <div className="mt-8 grid items-start gap-x-12 gap-y-8 sm:grid-cols-2">
+            {/* 提示按当前生效键位渲染：用户在设置里改键后此处同步。 */}
+            {shortcutGroups().map((group) => (
+              <ShortcutSection key={group.title} title={group.title}>
+                {group.actions.map((action) => {
+                  const keys = bindings[action.id]
+                    ? acceleratorKeys(bindings[action.id], platform, action.family)
+                    : null;
+                  return (
+                    <ShortcutRow
+                      hint={keys ? undefined : '未绑定'}
+                      key={action.id}
+                      keys={keys ?? undefined}
+                      label={action.label}
+                    />
+                  );
+                })}
               </ShortcutSection>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+            ))}
+            <ShortcutSection title="鼠标">
+              <ShortcutRow hint="关闭标签" label="中键点击标签" />
+              <ShortcutRow hint="新建文件" label="双击目录空白处" />
+            </ShortcutSection>
+          </div>
+        </DialogContent>
+      </Dialog>
       {narrow && drawer !== null && (
         <div
           aria-hidden="true"

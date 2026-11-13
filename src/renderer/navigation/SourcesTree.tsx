@@ -1,9 +1,7 @@
 // Canvas 资料树。
 // 订阅 workspace/store 的 Canvas 概览镜像，同步/归档/下载经 preload canvas:* 通道直连。
 import { useState } from 'react';
-import { AlertDialog } from 'radix-ui';
 import { Archive, Columns2, Ellipsis, Download, FileText, FolderOpen, Link2 } from 'lucide-react';
-import { Button } from '../../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +12,7 @@ import { Explorer, type ExplorerItem } from '../components/explorer';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';
-import { dialogOverlay, dialogPanel } from '../../ui/motion';
-import { cn } from '../../ui/cn';
+import { ConfirmDialog } from '../../ui/dialog';
 import { fileManagerName } from '../lib/platform';
 import { IconButton } from '../../ui/icon-button';
 
@@ -250,50 +247,39 @@ export function SourcesTree({
       )}
       {/* 确认框放在下拉菜单之外：DropdownMenuContent 关闭即卸载，挂在内层会被连同销毁。 */}
       {confirmCourse && (
-        <AlertDialog.Root open onOpenChange={(open) => !open && setConfirmCourseId(null)}>
-          <AlertDialog.Portal>
-            <AlertDialog.Overlay className={dialogOverlay} />
-            <AlertDialog.Content className={cn(dialogPanel, 'max-w-sm')}>
-              <AlertDialog.Title className="text-base font-semibold">
-                {confirmCourse.archived
-                  ? `取消归档「${confirmCourse.name}」？`
-                  : `归档「${confirmCourse.name}」？`}
-              </AlertDialog.Title>
-              <AlertDialog.Description className="mt-1 text-sm leading-relaxed text-ink-3">
-                {confirmCourse.archived
-                  ? '课程将恢复到原学期目录。'
-                  : '归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。'}
-              </AlertDialog.Description>
-              <div className="mt-4 flex items-center justify-end gap-2">
-                <Button onClick={() => setConfirmCourseId(null)} variant="ghost">
-                  取消
-                </Button>
-                <Button
-                  onClick={() => {
-                    const wasArchived = confirmCourse.archived;
-                    setConfirmCourseId(null);
-                    void window.dela?.canvas
-                      .archiveCourse(confirmCourse.id, !wasArchived)
-                      .then(useWorkspaceStore.getState().setCanvas)
-                      .then(() => {
-                        // 归档成功后展开底部「归档」区，让课程直接出现在归档文件夹中。
-                        if (!wasArchived) onArchive?.();
-                      })
-                      .catch((cause) =>
-                        showToast({
-                          variant: 'error',
-                          title: '归档课程失败',
-                          description: errorText(cause),
-                        }),
-                      );
-                  }}
-                >
-                  {confirmCourse.archived ? '取消归档' : '归档'}
-                </Button>
-              </div>
-            </AlertDialog.Content>
-          </AlertDialog.Portal>
-        </AlertDialog.Root>
+        <ConfirmDialog
+          confirmLabel={confirmCourse.archived ? '取消归档' : '归档'}
+          description={
+            confirmCourse.archived
+              ? '课程将恢复到原学期目录。'
+              : '归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。'
+          }
+          onConfirm={() => {
+            const wasArchived = confirmCourse.archived;
+            setConfirmCourseId(null);
+            void window.dela?.canvas
+              .archiveCourse(confirmCourse.id, !wasArchived)
+              .then(useWorkspaceStore.getState().setCanvas)
+              .then(() => {
+                // 归档成功后展开底部「归档」区，让课程直接出现在归档文件夹中。
+                if (!wasArchived) onArchive?.();
+              })
+              .catch((cause) =>
+                showToast({
+                  variant: 'error',
+                  title: '归档课程失败',
+                  description: errorText(cause),
+                }),
+              );
+          }}
+          onOpenChange={(open) => !open && setConfirmCourseId(null)}
+          open
+          title={
+            confirmCourse.archived
+              ? `取消归档「${confirmCourse.name}」？`
+              : `归档「${confirmCourse.name}」？`
+          }
+        />
       )}
     </>
   );
