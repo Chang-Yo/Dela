@@ -1,8 +1,7 @@
 import 'katex/dist/katex.min.css';
 
 import type { ComponentProps } from 'react';
-import ayuDark from '@shikijs/themes/ayu-dark';
-import { createCodePlugin } from '@streamdown/code';
+import { code } from '@streamdown/code';
 import { createMathPlugin } from '@streamdown/math';
 import type { MermaidConfig } from '@streamdown/mermaid';
 import {
@@ -27,39 +26,13 @@ const lazyMermaidPlugin: DiagramPlugin = {
   }),
 };
 
-/** 代码高亮沿用 Ayu Dark 的作用域规则，色值经 colorReplacements 换成随明暗翻转的 --syntax-* 变量：
- *  明暗两个槽位用同一主题，配色与编辑器、预览完全一致。 */
-const syntaxRoles: Record<string, string> = {
-  '#10141c': 'var(--syntax-bg)',
-  '#bfbdb6': 'var(--syntax-fg)',
-  '#bfbdb6b3': 'color-mix(in srgb, var(--syntax-fg) 70%, transparent)',
-  '#ff8f40': 'var(--syntax-keyword)',
-  '#aad94c': 'var(--syntax-string)',
-  '#95e6cb': 'var(--syntax-regexp)',
-  '#d2a6ff': 'var(--syntax-constant)',
-  '#c594c5': 'var(--syntax-constant)',
-  '#ffb454': 'var(--syntax-function)',
-  '#59c2ff': 'var(--syntax-entity)',
-  '#39bae6': 'var(--syntax-tag)',
-  '#39bae680': 'color-mix(in srgb, var(--syntax-tag) 50%, transparent)',
-  '#f07178': 'var(--syntax-markup)',
-  '#f29668': 'var(--syntax-operator)',
-  '#e6c08a': 'var(--syntax-special)',
-  '#5a6673': 'var(--syntax-comment)',
-  '#70bf56': 'var(--syntax-added)',
-  '#73b8ff': 'var(--syntax-modified)',
-  '#f26d78': 'var(--syntax-removed)',
-  '#d95757': 'var(--syntax-error)',
-};
-const syntaxTheme = { ...ayuDark, name: 'dela-syntax', colorReplacements: syntaxRoles };
-
 /**
- * 聊天区 Markdown 渲染的共享配置：代码高亮见 syntaxTheme；
+ * 聊天区 Markdown 渲染的共享配置：代码高亮用 GitHub Light / Dark（streamdown 默认）；
  * 数学公式启用 KaTeX（含单美元行内公式，LLM 输出惯例）；mermaid 按需加载（全屏查看见 chatControls）。
  * controls 走对象式配置时子项默认全开，不需要的必须显式关闭。
  */
 const chatStreamdownPlugins = {
-  code: createCodePlugin({ themes: [syntaxTheme, syntaxTheme] }),
+  code,
   math: createMathPlugin({ singleDollarTextMath: true }),
   mermaid: lazyMermaidPlugin,
 };

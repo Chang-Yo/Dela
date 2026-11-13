@@ -71,26 +71,25 @@
   --cal-slate-bg: oklch(0.93 0.004 255);
   --cal-slate-text: oklch(0.37 0.014 255);
 
-  /* 代码高亮全局唯一一套配色（CodeMirror、highlight.js、shiki 共用）：Ayu。
-     白底上 Ayu Light 原色对比度过低，浅色取调色板同色相最深一级。 */
-  --syntax-bg: #ebeef0;
-  --syntax-fg: #5c6166;
-  --syntax-keyword: #cf6610;
-  --syntax-string: #719700;
-  --syntax-regexp: #3b9b7c;
-  --syntax-constant: #9d6fc8;
-  --syntax-function: #b37c00;
-  --syntax-entity: #1a91cd;
-  --syntax-tag: #4393ae;
-  --syntax-markup: #e5474f;
-  --syntax-operator: #e24e37;
-  --syntax-special: #b87734;
-  --syntax-comment: #86878c;
-  --syntax-added: #719700;
-  --syntax-modified: #1a91cd;
-  --syntax-removed: #e5474f;
-  --syntax-error: #e5474f;
-  --syntax-caret: #cf6610;
+  /* 代码高亮全局唯一一套配色（CodeMirror、highlight.js、shiki 共用）：GitHub Light / Dark（Primer 经典版）。 */
+  --syntax-bg: #f6f8fa;
+  --syntax-fg: #24292e;
+  --syntax-keyword: #d73a49;
+  --syntax-string: #032f62;
+  --syntax-regexp: #032f62;
+  --syntax-constant: #005cc5;
+  --syntax-function: #6f42c1;
+  --syntax-entity: #6f42c1;
+  --syntax-tag: #22863a;
+  --syntax-markup: #005cc5;
+  --syntax-operator: #d73a49;
+  --syntax-special: #e36209;
+  --syntax-comment: #6a737d;
+  --syntax-added: #22863a;
+  --syntax-modified: #e36209;
+  --syntax-removed: #b31d28;
+  --syntax-error: #b31d28;
+  --syntax-caret: #044289;
 }
 
 :root {
@@ -159,25 +158,24 @@
   --cal-slate-bg: oklch(0.29 0.008 255);
   --cal-slate-text: oklch(0.85 0.008 255);
 
-  /* Ayu Dark 原色；注释原色在深色底面上不足 3:1，取调色板灰阶最浅一级。 */
-  --syntax-bg: #0d1017;
-  --syntax-fg: #bfbdb6;
-  --syntax-keyword: #ff8f40;
-  --syntax-string: #aad94c;
-  --syntax-regexp: #95e6cb;
-  --syntax-constant: #d2a6ff;
-  --syntax-function: #ffb454;
-  --syntax-entity: #59c2ff;
-  --syntax-tag: #39bae6;
-  --syntax-markup: #f07178;
-  --syntax-operator: #f29668;
-  --syntax-special: #e6c08a;
-  --syntax-comment: #667381;
-  --syntax-added: #70bf56;
-  --syntax-modified: #73b8ff;
-  --syntax-removed: #f26d78;
-  --syntax-error: #d95757;
-  --syntax-caret: #e6b450;
+  --syntax-bg: #24292e;
+  --syntax-fg: #e1e4e8;
+  --syntax-keyword: #f97583;
+  --syntax-string: #9ecbff;
+  --syntax-regexp: #9ecbff;
+  --syntax-constant: #79b8ff;
+  --syntax-function: #b392f0;
+  --syntax-entity: #b392f0;
+  --syntax-tag: #85e89d;
+  --syntax-markup: #79b8ff;
+  --syntax-operator: #f97583;
+  --syntax-special: #ffab70;
+  --syntax-comment: #6a737d;
+  --syntax-added: #85e89d;
+  --syntax-modified: #ffab70;
+  --syntax-removed: #fdaeb7;
+  --syntax-error: #fdaeb7;
+  --syntax-caret: #c8e1ff;
 }
 
 @theme inline {

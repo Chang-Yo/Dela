@@ -82,7 +82,7 @@
     outline-offset: 2px;
   }
 
-  /* 预览代码块（highlight.js 类名）按 vscode-ayu 的作用域规则映射到共用的 --syntax-* 配色。 */
+  /* 预览代码块（highlight.js 类名）映射到共用的 --syntax-* 配色。 */
   .hljs-keyword,
   .hljs-doctag,
   .hljs-template-tag,

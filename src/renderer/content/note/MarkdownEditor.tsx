@@ -201,7 +201,7 @@ export function MarkdownEditor({
           ? markdown({ base: markdownLanguage, codeLanguages: languages })
           : [],
       ),
-      // 即时渲染自己给正文上样式；只有看原文时才按 Ayu 给 Markdown 正文着色。
+      // 即时渲染自己给正文上样式；只有看原文时才给 Markdown 正文着色。
       previewConf.of(
         livePreview && initial.kind === 'markdown'
           ? markdownLivePreview(livePreview)
