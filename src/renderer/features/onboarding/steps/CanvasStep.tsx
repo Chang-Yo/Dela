@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { connectCanvas } from '../../settings/connections/canvas-connect';
 import { errorText } from '../../../workspace/store';
-import { StepButton, StepInput, type StepButtonState } from './step-controls';
+import { StepButton, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
 import { ErrorText } from '../../../../ui/alert';
+import {} from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
 
 /** 向导 · Canvas 步骤：先指引在 Canvas 侧获取 Access Token，再粘贴验证并同步课程，按钮转为「下一步」。 */
 export function CanvasStep({ onDone }: { onDone: () => void }) {
@@ -65,7 +67,8 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
                   void submit();
                 }}
               >
-                <StepInput
+                <Input
+                  size="lg"
                   aria-label="Access Token"
                   autoComplete="off"
                   autoFocus

@@ -4,7 +4,7 @@ import { CircleCheck, CircleX, Eye, EyeOff, ListPlus, PlugZap } from 'lucide-rea
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { SelectItem } from '../../../../ui/select';
 import { errorText } from '../../../workspace/store';
-import { StepButton, StepInput, StepSelect, type StepButtonState } from './step-controls';
+import { StepButton, StepSelect, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
 import { StepModelImportDialog } from './step-model-import';
 import { capModels } from './model-import';
@@ -12,6 +12,8 @@ import type { LlmCatalogProvider, LlmVerifyResult } from '../../../../shared/api
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import { IconButton } from '../../../../ui/icon-button';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
 
 const CUSTOM = 'custom';
 
@@ -175,7 +177,8 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                       <div className="grid gap-4">
                         <label className="grid gap-2">
                           <span className="text-sm font-medium text-ink-2">名称</span>
-                          <StepInput
+                          <Input
+                            size="lg"
                             autoComplete="off"
                             onChange={(event) => setName(event.target.value)}
                             placeholder="给这个服务起个名字"
@@ -185,7 +188,8 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                         </label>
                         <label className="grid gap-2">
                           <span className="text-sm font-medium text-ink-2">API 地址</span>
-                          <StepInput
+                          <Input
+                            size="lg"
                             autoComplete="off"
                             onChange={(event) => setBaseUrl(event.target.value)}
                             placeholder="https://api.example.com/v1"
@@ -205,7 +209,8 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
             content: (
               <div className="grid gap-2.5">
                 <div className="relative">
-                  <StepInput
+                  <Input
+                    size="lg"
                     aria-label="API Key"
                     autoComplete="off"
                     className="pr-16"
@@ -253,14 +258,10 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                       </p>
                     )}
                     {detected.length > 0 && (
-                      <button
-                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-card border border-line border-line-strong bg-surface px-3 text-xs font-medium text-ink-2 transition-colors hover:border-ink-3"
-                        onClick={() => setImportOpen(true)}
-                        type="button"
-                      >
-                        <ListPlus className="size-3.5" aria-hidden="true" />
+                      <Button onClick={() => setImportOpen(true)} variant="outline">
+                        <ListPlus aria-hidden="true" />
                         导入模型（{detected.length}）
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}

@@ -1,12 +1,7 @@
-import type {
-  ButtonHTMLAttributes,
-  ComponentProps,
-  InputHTMLAttributes,
-  TextareaHTMLAttributes,
-} from 'react';
+import type { ComponentProps } from 'react';
 import { Check } from 'lucide-react';
+import { Button } from '../../../../ui/button';
 import { Select, SelectContent, SelectTrigger, SelectValue } from '../../../../ui/select';
-import { cn } from '../../../../ui/cn';
 import { Spinner } from '../../../../ui/spinner';
 
 // 向导步骤的统一控件：纯白画布上使用固定中性配色，不随明暗主题变化。
@@ -21,7 +16,7 @@ type StepButtonProps = {
   /** success 态的按钮文案，如「连接成功，下一步」；点击进入下一步。 */
   successLabel: string;
   disabled?: boolean;
-  type?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
+  type?: ComponentProps<typeof Button>['type'];
   /**
    * 仅 type="button" 的独立按钮使用；表单内的提交按钮不要传，
    * 走 form onSubmit 单通道，保证原生 required 校验对点击和回车同样生效。
@@ -39,30 +34,19 @@ export function StepButton({
   onClick,
 }: StepButtonProps) {
   return (
-    <button
-      className={cn(
-        'grid h-10 w-full place-items-center rounded-card text-sm font-medium text-surface transition-all',
-        state === 'success' ? 'bg-cal-teal-text hover:opacity-90' : 'bg-ink hover:opacity-90',
-        (disabled || state === 'busy') && 'cursor-not-allowed opacity-50 hover:bg-ink',
-      )}
+    <Button
+      className="w-full data-[state=success]:bg-cal-teal-text"
+      data-state={state}
       disabled={disabled || state === 'busy'}
       onClick={onClick}
+      size="lg"
       type={type}
     >
-      <span className="flex items-center gap-2">
-        {state === 'busy' && <Spinner />}
-        {state === 'success' && <Check className="size-4" aria-hidden="true" />}
-        {state === 'idle' ? idleLabel : state === 'busy' ? busyLabel : successLabel}
-      </span>
-    </button>
+      {state === 'busy' && <Spinner />}
+      {state === 'success' && <Check aria-hidden="true" />}
+      {state === 'idle' ? idleLabel : state === 'busy' ? busyLabel : successLabel}
+    </Button>
   );
-}
-
-const fieldClasses =
-  'w-full rounded-card bg-field text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 hover:shadow-hairline-strong focus:bg-surface focus:shadow-focus aria-invalid:shadow-invalid';
-
-export function StepInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;
 }
 
 /** 向导下拉：复用全局 Radix Select（弹窗样式全局统一），触发器保持向导的固定白底。 */
@@ -87,14 +71,5 @@ export function StepSelect({
       {/* 弹层 portal 到 body，脱离向导的 .bui-light 作用域，需单独带上。 */}
       <SelectContent className="bui-light">{children}</SelectContent>
     </Select>
-  );
-}
-
-export function StepTextarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      className={cn(fieldClasses, 'min-h-24 resize-y px-3 py-2 font-mono text-xs', className)}
-      {...rest}
-    />
   );
 }

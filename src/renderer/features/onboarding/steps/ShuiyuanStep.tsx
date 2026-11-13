@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { errorText } from '../../../workspace/store';
-import { StepButton, StepTextarea, type StepButtonState } from './step-controls';
+import { StepButton, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
 import { ErrorText } from '../../../../ui/alert';
+import { Button } from '../../../../ui/button';
+import { Textarea } from '../../../../ui/textarea';
 
 /** 向导 · 水源步骤：独立窗口完成 jAccount 登录与授权，粘贴密钥绑定，按钮转为「下一步」。 */
 export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
@@ -64,14 +66,15 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
                 <p className="text-sm leading-relaxed text-ink-3">
                   在独立窗口登录 jAccount 并点击「授权」，然后复制页面显示的密钥并关闭弹窗。
                 </p>
-                <button
-                  className="h-10 w-full rounded-card border border-line border-line-strong bg-surface text-sm font-medium text-ink transition-colors hover:border-ink-3 disabled:cursor-not-allowed disabled:opacity-50"
+                <Button
+                  className="w-full"
                   disabled={authBusy}
                   onClick={() => void startAuth()}
-                  type="button"
+                  size="lg"
+                  variant="outline"
                 >
                   {authBusy ? '正在打开授权窗口…' : '登录并授权'}
-                </button>
+                </Button>
               </div>
             ),
           },
@@ -90,7 +93,8 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
                     <KeyRound className="size-3.5 text-ink-3" aria-hidden="true" />
                     授权密钥
                   </span>
-                  <StepTextarea
+                  <Textarea
+                    className="min-h-24 resize-y rounded-card px-3 py-2 font-mono text-xs"
                     onChange={(event) => setPayload(event.target.value)}
                     placeholder="粘贴授权密钥"
                     required

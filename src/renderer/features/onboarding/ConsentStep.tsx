@@ -3,6 +3,7 @@ import privacy from '../../../../docs/privacy.md?raw';
 import terms from '../../../../docs/terms.md?raw';
 import { LegalMarkdown } from '../../components/legal-markdown';
 import { OnboardingWindowBar } from './onboarding-window-bar';
+import { Button } from '../../../ui/button';
 
 /** 正文顶部的「最后更新」就是这一版的日期，接受记录据此回溯同意的是哪一版。 */
 function revisionOf(markdown: string) {
@@ -161,34 +162,29 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
         <div className="mx-auto flex w-full max-w-[42rem] items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {offersBackup ? (
-              <button
-                className="h-10 rounded-card px-5 text-sm text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              <Button
                 disabled={backup.kind === 'running'}
                 onClick={() => void runBackup()}
-                type="button"
+                size="lg"
+                variant="outline"
               >
                 导出本机数据
-              </button>
+              </Button>
             ) : null}
-            <button
-              className="h-10 rounded-card px-5 text-sm text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+            <Button
               disabled={backup.kind === 'running'}
               onClick={() => {
                 window.dela?.window.quit();
               }}
-              type="button"
+              size="lg"
+              variant="outline"
             >
               不同意并退出
-            </button>
+            </Button>
           </div>
-          <button
-            className="h-10 rounded-card bg-ink px-6 text-sm font-medium text-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!readToEnd}
-            onClick={agree}
-            type="button"
-          >
+          <Button disabled={!readToEnd} onClick={agree} size="lg">
             同意并继续
-          </button>
+          </Button>
         </div>
       </div>
     </div>

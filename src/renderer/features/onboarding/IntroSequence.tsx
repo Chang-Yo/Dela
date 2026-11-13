@@ -4,6 +4,7 @@ import logo from '../../../../assets/Dela_Logo.png';
 import { HandwritingLine } from './intro-handwriting';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 import { cn } from '../../../ui/cn';
+import { Button } from '../../../ui/button';
 
 // 氛围视频（854×474、静音、9.5s）：铺满整窗裁切不拉伸；品牌层出现后用高斯模糊退为背景，
 // 不叠白色蒙版。
@@ -90,13 +91,13 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
         {/* pb 让品牌列整体居中偏上，Logo 视觉重心落在画面上半部；矮窗口收缩留白与 Logo。 */}
         <div className="relative grid place-items-center overflow-hidden pb-[10vh] [@media(max-height:560px)]:pb-4">
           {/* 跳过动画：全程可点，不必等 CTA 出现。 */}
-          <button
-            className="absolute right-6 top-4 z-10 text-sm text-ink-3 transition-colors hover:text-ink"
+          <Button
+            className="absolute right-6 top-4 z-10 text-ink-3"
             onClick={leave}
-            type="button"
+            variant="ghost"
           >
             跳过
-          </button>
+          </Button>
 
           <div className="relative flex flex-col items-center">
             <motion.img

@@ -10,12 +10,21 @@ const inputVariants = {
   ghost: '',
 } as const;
 
+const inputSizes = {
+  default: '',
+  lg: 'h-10 rounded-card px-3',
+} as const;
+
 function Input({
   className,
   type,
   variant = 'default',
+  size = 'default',
   ...props
-}: React.ComponentProps<'input'> & { variant?: keyof typeof inputVariants }) {
+}: Omit<React.ComponentProps<'input'>, 'size'> & {
+  variant?: keyof typeof inputVariants;
+  size?: keyof typeof inputSizes;
+}) {
   return (
     <input
       className={cn(
@@ -23,6 +32,7 @@ function Input({
         'placeholder:text-ink-3 selection:bg-bui-accent-tint flex w-full min-w-0 rounded-control bg-transparent px-2.5 text-sm text-ink transition-[background-color,box-shadow] duration-base outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
         'aria-invalid:shadow-invalid',
         inputVariants[variant],
+        inputSizes[size],
         className,
       )}
       data-slot="input"

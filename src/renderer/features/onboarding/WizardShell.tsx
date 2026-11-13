@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { cn } from '../../../ui/cn';
 import { OnboardingWindowBar } from './onboarding-window-bar';
+import { Button } from '../../../ui/button';
 
 type WizardShellProps = {
   /** 当前步骤下标（0 起）。 */
@@ -74,28 +75,20 @@ export function WizardShell({
         <div className="grid grid-cols-[minmax(5rem,1fr)_minmax(0,26.25rem)_minmax(5rem,1fr)] items-center gap-4 px-6 pb-4 [@media(max-height:560px)]:pb-3">
           <div className="justify-self-start">
             {onBack && (
-              <button
-                className="inline-flex items-center gap-1.5 rounded-control px-2 py-2 text-sm text-ink-3 transition-colors hover:text-ink"
-                onClick={onBack}
-                type="button"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
+              <Button className="text-ink-3" onClick={onBack} variant="ghost">
+                <ArrowLeft aria-hidden="true" />
                 上一步
-              </button>
+              </Button>
             )}
           </div>
           {footer ?? (
             <p className="text-center text-xs text-ink-3">所有数据本地存储，不上传服务器</p>
           )}
           {onSkip ? (
-            <button
-              className="inline-flex items-center gap-1.5 justify-self-end rounded-control px-2 py-2 text-sm text-ink-3 transition-colors hover:text-ink"
-              onClick={onSkip}
-              type="button"
-            >
+            <Button className="justify-self-end text-ink-3" onClick={onSkip} variant="ghost">
               跳过
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </button>
+              <ArrowRight aria-hidden="true" />
+            </Button>
           ) : (
             <div />
           )}
