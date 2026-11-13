@@ -37,7 +37,8 @@ import { useVisibleNavEntries, type NavEntryId } from './entries';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
-import { useNavigationStore, useProjectNavPrefs } from './store';
+import { usePreferences } from '../app/preferences';
+import { useNavigationStore } from './store';
 import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
 import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { Input } from '../../ui/input';
@@ -106,8 +107,8 @@ export function ProjectSessionNav({
   const toggleProject = useNavigationStore((s) => s.toggleProject);
   const fullSessionLists = useNavigationStore((s) => s.fullSessionLists);
   const toggleFullSessionList = useNavigationStore((s) => s.toggleFullSessionList);
-  const preferences = useProjectNavPrefs((state) => state.projects);
-  const setProjectPreference = useProjectNavPrefs((state) => state.setProject);
+  const preferences = usePreferences((state) => state.projectNav);
+  const setProjectPreference = usePreferences((state) => state.patchProjectNav);
   const projects = entries
     .filter((entry) => entry.kind === 'project')
     .sort(

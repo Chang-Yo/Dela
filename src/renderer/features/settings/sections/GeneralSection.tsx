@@ -2,7 +2,8 @@ import { Folder } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
-import { navEntries, useNavEntryPrefs } from '../../../navigation/entries';
+import { usePreferences } from '../../../app/preferences';
+import { navEntries } from '../../../navigation/entries';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
@@ -16,8 +17,8 @@ export function GeneralSection() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  const hiddenEntries = useNavEntryPrefs((state) => state.hidden);
-  const setEntryVisible = useNavEntryPrefs((state) => state.setVisible);
+  const hiddenEntries = usePreferences((state) => state.hiddenNavEntries);
+  const setEntryVisible = usePreferences((state) => state.setNavEntryVisible);
   // 空串 = 跟随系统默认；读失败保持空串不打扰用户。
   const [downloadDirectory, setDownloadDirectory] = useState('');
   const [directoryBusy, setDirectoryBusy] = useState(false);

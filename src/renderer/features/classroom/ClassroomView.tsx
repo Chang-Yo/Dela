@@ -4,6 +4,7 @@ import { Button } from '../../../ui/button';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
 import { Resizer } from '../../../ui/resizer';
+import { usePreferenceWidth, usePreferences } from '../../app/preferences';
 import { useViewportWidth } from '../../workbench/explorer-state';
 import { cn } from '../../../ui/cn';
 import { CourseList, CoursePicker } from './CourseList';
@@ -25,11 +26,8 @@ export function ClassroomView() {
   return <DesktopClassroomView />;
 }
 
-const SIDEBAR_DEFAULT_WIDTH = 300;
 const SIDEBAR_MIN_WIDTH = 240;
 const SIDEBAR_MAX_WIDTH = 360;
-const widthStorageKey = 'dela.classroom.sidebarWidth';
-const collapsedStorageKey = 'dela.classroom.sidebarCollapsed';
 
 function DesktopClassroomView() {
   const phase = useClassroom((state) => state.phase);
@@ -39,16 +37,10 @@ function DesktopClassroomView() {
   const connect = useClassroom((state) => state.connect);
   const connectBusy = useClassroom((state) => state.connectBusy);
 
-  const [width, setWidth] = useState(() => {
-    const stored = Number(localStorage.getItem(widthStorageKey));
-    return Number.isFinite(stored) && stored >= SIDEBAR_MIN_WIDTH && stored <= SIDEBAR_MAX_WIDTH
-      ? stored
-      : SIDEBAR_DEFAULT_WIDTH;
-  });
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem(collapsedStorageKey) === '1',
-  );
-  const [resizing, setResizing] = useState(false);
+  const { width, resizing, onChange, onResizingChange } =
+    usePreferenceWidth('classroomSidebarWidth');
+  const collapsed = usePreferences((state) => state.classroomSidebarCollapsed);
+  const setPreference = usePreferences((state) => state.setPreference);
   const [sidebarTab, setSidebarTab] = useState<'节次' | '语音'>('节次');
   const viewportWidth = useViewportWidth();
 
@@ -56,28 +48,7 @@ function DesktopClassroomView() {
     void init();
   }, [init]);
 
-  // 宽度偏好防抖落盘；渲染宽度对窄视口钳制（与资料侧栏同款）。
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(widthStorageKey, String(width));
-      } catch {
-        /* localStorage 不可用时保持内存值。 */
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [width]);
-
-  const toggleSidebar = () => {
-    setCollapsed((value) => {
-      try {
-        localStorage.setItem(collapsedStorageKey, value ? '0' : '1');
-      } catch {
-        /* 只影响下次启动的初始态。 */
-      }
-      return !value;
-    });
-  };
+  const toggleSidebar = () => setPreference('classroomSidebarCollapsed', !collapsed);
 
   // 视口钳制：目录渲染宽度不超过视口约 30%（下限 240），偏好值仍按原值持久化。
   const effectiveWidth = Math.min(width, Math.max(240, Math.round(viewportWidth * 0.3)));
@@ -176,8 +147,8 @@ function DesktopClassroomView() {
               label="调整课程列表宽度"
               max={SIDEBAR_MAX_WIDTH}
               min={SIDEBAR_MIN_WIDTH}
-              onChange={setWidth}
-              onResizingChange={setResizing}
+              onChange={onChange}
+              onResizingChange={onResizingChange}
               value={width}
             />
           )}

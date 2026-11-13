@@ -26,6 +26,7 @@ import {
 import { Resizer } from '../../ui/resizer';
 import { useEditorSettings } from '../content/editor-settings';
 import { errorText, useWorkspaceStore } from '../workspace/store';
+import { usePreferences } from '../app/preferences';
 import { showToast, ToastHost } from '../app/toasts';
 import { DelaBrand } from './dela-brand';
 import { cn } from '../../ui/cn';
@@ -207,26 +208,13 @@ export function AppShell({
 }: AppShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const bindings = useShortcuts((state) => state.bindings);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem('dela.shell.sidebar-collapsed') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const sidebarCollapsed = usePreferences((state) => state.shellSidebarCollapsed);
+  const projectOpenTarget = usePreferences((state) => state.projectOpenTarget);
+  const setPreference = usePreferences((state) => state.setPreference);
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const narrow = useMediaQuery('(max-width: 767px)');
   const drawer = mobileDrawer ?? null;
   const [helpOpen, setHelpOpen] = useState(false);
-  const [projectOpenTarget, setProjectOpenTarget] = useState<'vscode' | 'explorer'>(() => {
-    try {
-      return localStorage.getItem('dela.project.open-target') === 'explorer'
-        ? 'explorer'
-        : 'vscode';
-    } catch {
-      return 'vscode';
-    }
-  });
   const explorerMobileOpen = useExplorerState((s) => s.mobileOpen);
   const viewportWidth = useViewportWidth();
   // 远端项目的目录在远端：VS Code 是经 Remote-SSH 打开的，文案必须写明，否则会被当成开本地目录。
@@ -255,14 +243,6 @@ export function AppShell({
     Math.max(200, Math.round(viewportWidth * 0.28)),
   );
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('dela.shell.sidebar-collapsed', String(sidebarCollapsed));
-    } catch {
-      /* Storage may be unavailable. */
-    }
-  }, [sidebarCollapsed]);
-
   // 拉宽窗口,或经后退/前进离开邮箱视图时,收起可能残留的邮箱级抽屉。
   useEffect(() => {
     if (!narrow || (drawer === 'mail' && view !== 'mail')) onMobileDrawerChange?.(null);
@@ -277,14 +257,7 @@ export function AppShell({
     if (view !== 'workbench' || !projectId || !window.dela) return;
     // 远端项目没有本地目录：入口只留 VS Code(SSH)，这里再兜一层，快捷图标不会掉进必然失败的路径。
     const effective: 'vscode' | 'explorer' = projectIsRemote ? 'vscode' : target;
-    if (effective === target) {
-      setProjectOpenTarget(target);
-      try {
-        localStorage.setItem('dela.project.open-target', target);
-      } catch {
-        /* Storage may be unavailable. */
-      }
-    }
+    if (effective === target) setPreference('projectOpenTarget', target);
     void window.dela.workspace
       .openProjectDirectory(projectId, effective)
       .catch((cause: unknown) => {
@@ -403,7 +376,7 @@ export function AppShell({
             onClick={() =>
               narrow
                 ? onMobileDrawerChange?.(drawer ? null : view === 'mail' ? 'mail' : 'nav')
-                : setSidebarCollapsed((value) => !value)
+                : setPreference('shellSidebarCollapsed', !sidebarCollapsed)
             }
             title={navHidden ? '展开侧边栏' : '收起侧边栏'}
             type="button"

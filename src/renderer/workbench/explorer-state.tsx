@@ -1,53 +1,25 @@
-// 工作台目录侧栏可见性：宽屏折叠 / 窄屏抽屉 + 窄屏媒体查询镜像；折叠偏好沿用原 localStorage 键。
+// 工作台目录侧栏的运行时可见性：窄屏抽屉开合 + 窄屏媒体查询镜像；宽屏折叠是偏好，见 preferences。
 // 展开入口在最左上组标签栏左侧（空组由 TabGroup 锚定同一坐标），与目录本体共享此 store。
 import { create } from 'zustand';
 import { useEffect, useState } from 'react';
 import { PanelLeft } from 'lucide-react';
 import { cn } from '../../ui/cn';
+import { usePreferences } from '../app/preferences';
 
 const NARROW_QUERY = '(max-width: 767px)';
-const collapsedStorageKey = 'dela.workspace.collapsed';
 
 type Store = {
   narrow: boolean;
-  collapsed: boolean;
   /** 窄屏抽屉开合；宽屏忽略。 */
   mobileOpen: boolean;
-  setCollapsed: (collapsed: boolean) => void;
   setMobileOpen: (open: boolean) => void;
 };
 
-function storedCollapsed(): boolean {
-  try {
-    return localStorage.getItem(collapsedStorageKey) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 export const useExplorerState = create<Store>((set) => ({
   narrow: typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches,
-  collapsed: storedCollapsed(),
   mobileOpen: false,
-  setCollapsed: (collapsed) => {
-    set({ collapsed });
-    try {
-      localStorage.setItem(collapsedStorageKey, String(collapsed));
-    } catch {
-      /* localStorage 不可用时保持内存值。 */
-    }
-  },
   setMobileOpen: (mobileOpen) => set({ mobileOpen }),
 }));
-
-/** 目录侧栏当前是否隐藏：窄屏看抽屉，宽屏看折叠。 */
-export function selectExplorerHidden(state: {
-  narrow: boolean;
-  collapsed: boolean;
-  mobileOpen: boolean;
-}): boolean {
-  return state.narrow ? !state.mobileOpen : state.collapsed;
-}
 
 /** 视口宽度镜像（rAF 合帧的 resize 监听）：壳侧栏与目录侧栏按视口钳制渲染宽度时共用。 */
 export function useViewportWidth(): number {
@@ -78,7 +50,10 @@ if (typeof window !== 'undefined') {
 
 /** 目录隐藏时的展开入口：出现在最左上组的标签栏左端。 */
 export function ExplorerRevealButton({ className }: { className?: string }) {
-  const hidden = useExplorerState(selectExplorerHidden);
+  const narrow = useExplorerState((s) => s.narrow);
+  const mobileOpen = useExplorerState((s) => s.mobileOpen);
+  const collapsed = usePreferences((s) => s.workspaceSidebarCollapsed);
+  const hidden = narrow ? !mobileOpen : collapsed;
   if (!hidden) return null;
   return (
     <button
@@ -90,7 +65,7 @@ export function ExplorerRevealButton({ className }: { className?: string }) {
       onClick={() => {
         const state = useExplorerState.getState();
         if (state.narrow) state.setMobileOpen(true);
-        else state.setCollapsed(false);
+        else usePreferences.getState().setPreference('workspaceSidebarCollapsed', false);
       }}
       title="展开目录"
       type="button"

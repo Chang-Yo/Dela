@@ -16,6 +16,7 @@ import type {
   SshConfigHost,
   WorkspaceEntry,
 } from '../../../shared/api';
+import { usePreferences } from '../../app/preferences';
 import { errorText, useWorkspaceStore } from '../store';
 import { ConnectionForm } from './ConnectionForm';
 import { DirectoryBrowser, tildePath } from './DirectoryBrowser';
@@ -96,7 +97,7 @@ export function NewRemoteProjectDialog({
       const list = useRemoteState.getState().connections ?? [];
       const preferred =
         list.find((item) => item.id === initialConnectionId) ??
-        list.find((item) => useRemoteState.getState().lastDirectory[item.host]) ??
+        list.find((item) => usePreferences.getState().remoteLastDirectory[item.host]) ??
         list[0];
       if (preferred) void choose(preferred);
       else {
@@ -132,7 +133,7 @@ export function NewRemoteProjectDialog({
     const known = useRemoteState.getState();
     const knownHome = known.homes[next.host];
     // 已经连上过：直接回到上次的位置，不等任何东西；连接在后台确认一遍。
-    setPath(known.lastDirectory[next.host] ?? knownHome ?? null);
+    setPath(usePreferences.getState().remoteLastDirectory[next.host] ?? knownHome ?? null);
     setConnecting(known.channels[next.host]?.state !== 'ready' || !knownHome);
     try {
       const result = await remotes.prepare(draftOf(next));
@@ -142,7 +143,10 @@ export function NewRemoteProjectDialog({
         return;
       }
       if (result.home) setHome(next.host, result.home);
-      setPath((current) => current ?? known.lastDirectory[next.host] ?? result.home);
+      setPath(
+        (current) =>
+          current ?? usePreferences.getState().remoteLastDirectory[next.host] ?? result.home,
+      );
     } catch (cause) {
       if (id === attempt.current) setFailure(errorText(cause));
     } finally {

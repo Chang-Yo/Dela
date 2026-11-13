@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TodoItem, TodoSaveInput, TodoState } from '../../../shared/api';
+import { usePreferences } from '../../app/preferences';
 import { TodoView } from './TodoView';
 
 const dueAt = new Date(2026, 9, 21, 23, 59).toISOString();
@@ -54,6 +55,7 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   localStorage.clear();
+  usePreferences.setState({ todoShowCompleted: true });
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -136,7 +138,7 @@ describe('TODO 视图', () => {
       findSwitch().click();
     });
     expect(host.textContent).not.toContain('已完成的待办');
-    expect(localStorage.getItem('dela.todo.show-completed')).toBe('false');
+    expect(usePreferences.getState().todoShowCompleted).toBe(false);
 
     act(() => root.unmount());
     root = createRoot(host);

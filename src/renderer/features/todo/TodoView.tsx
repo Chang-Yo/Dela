@@ -21,6 +21,7 @@ import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Switch } from '../../../ui/switch';
 import { cn } from '../../../ui/cn';
+import { usePreferences } from '../../app/preferences';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import { EventColorRow } from '../timetable/EventColorRow';
@@ -34,8 +35,6 @@ import { dateLabel } from './todo-format';
 
 const inputClass =
   'w-full rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
-
-const showCompletedStorageKey = 'dela.todo.show-completed';
 
 /** 新建待办的默认截止时间取当天结束，避免保存瞬间就被判为「已过截止时间」。 */
 function defaultDueAt(): Date {
@@ -209,23 +208,11 @@ export function TodoView({ request }: { request?: { id: string } }) {
   const [filter, setFilter] = useState<'all' | 'personal' | 'canvas'>('all');
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [month, setMonth] = useState(() => startOfDay(new Date()));
-  const [showCompleted, setShowCompleted] = useState(() => {
-    try {
-      return localStorage.getItem(showCompletedStorageKey) !== 'false';
-    } catch {
-      return true;
-    }
-  });
+  const showCompleted = usePreferences((state) => state.todoShowCompleted);
+  const setPreference = usePreferences((state) => state.setPreference);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  useEffect(() => {
-    try {
-      localStorage.setItem(showCompletedStorageKey, String(showCompleted));
-    } catch {
-      return;
-    }
-  }, [showCompleted]);
   useEffect(() => {
     const api = window.dela?.todo;
     if (!api) return;
@@ -385,7 +372,11 @@ export function TodoView({ request }: { request?: { id: string } }) {
         <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-2">
           {/* 与「写入日历」同一 Switch 语言，替代原生 checkbox 的默认渲染。 */}
           <label className="flex items-center gap-2 text-xs text-ink-3">
-            <Switch checked={showCompleted} label="显示已完成" onChange={setShowCompleted} />
+            <Switch
+              checked={showCompleted}
+              label="显示已完成"
+              onChange={(value) => setPreference('todoShowCompleted', value)}
+            />
             显示已完成
           </label>
           <div

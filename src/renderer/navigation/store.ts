@@ -1,25 +1,6 @@
-// 导航视图状态（不持久化）与项目入口偏好（dela.project-nav 持久化）；条目与会话事实由
-// workspace 镜像与注入的 sessions 数据提供。
+// 导航视图状态（不持久化）；条目与会话事实由 workspace 镜像与注入的 sessions 数据提供。
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { WorkspaceEntry } from '../../shared/api';
-
-type ProjectNavPreference = { pinned?: boolean; section?: string };
-export const useProjectNavPrefs = create<{
-  projects: Record<string, ProjectNavPreference>;
-  setProject: (id: string, patch: ProjectNavPreference) => void;
-}>()(
-  persist(
-    (set) => ({
-      projects: {},
-      setProject: (id, patch) =>
-        set((state) => ({
-          projects: { ...state.projects, [id]: { ...state.projects[id], ...patch } },
-        })),
-    }),
-    { name: 'dela.project-nav', partialize: (state) => ({ projects: state.projects }) },
-  ),
-);
 
 export function ancestorChainOf(entries: WorkspaceEntry[], id: string): string[] {
   const chain = [id];

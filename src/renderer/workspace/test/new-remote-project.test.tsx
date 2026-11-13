@@ -13,6 +13,7 @@ import type {
   WorkspaceState,
 } from '../../../shared/api';
 import { NewRemoteProjectDialog } from '../remote/NewRemoteProjectDialog';
+import { usePreferences } from '../../app/preferences';
 import { useRemoteState } from '../remote/remote-state';
 import { useWorkspaceStore } from '../store';
 import { showToast } from '../../app/toasts';
@@ -64,13 +65,13 @@ beforeEach(() => {
   localStorage.clear();
   Element.prototype.scrollIntoView ??= () => {};
   useWorkspaceStore.setState({ workspace: emptyState, loaded: true, error: null });
+  usePreferences.setState({ remoteLastDirectory: {} });
   useRemoteState.setState({
     connections: null,
     candidates: [],
     channels: {},
     homes: {},
     listings: {},
-    lastDirectory: {},
   });
 });
 
@@ -200,7 +201,7 @@ it('selects on click, enters on double click, and imports under a custom name', 
   expect(importRemoteProject).toHaveBeenCalledWith('r-1', '/home/u/proj', '我的实验');
   expect(onImported).toHaveBeenCalledWith(created);
   // 下次打开这台服务器回到这里。
-  expect(useRemoteState.getState().lastDirectory['gpu-box']).toBe('/home/u/proj');
+  expect(usePreferences.getState().remoteLastDirectory['gpu-box']).toBe('/home/u/proj');
 });
 
 it('jumps to a typed path from the path bar', async () => {

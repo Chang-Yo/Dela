@@ -29,6 +29,7 @@ import { Resizer } from '../../../ui/resizer';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { useMediaQuery } from '../../../ui/use-media-query';
+import { usePreferences } from '../../app/preferences';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 
@@ -124,13 +125,10 @@ function DesktopMailView({
   const [configuring, setConfiguring] = useState(false);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [mobileReading, setMobileReading] = useState(false);
-  const [foldersCollapsed, setFoldersCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem('dela.mail.folders-collapsed') !== 'false';
-    } catch {
-      return true;
-    }
-  });
+  const foldersCollapsed = usePreferences((state) => state.mailFoldersCollapsed);
+  const setPreference = usePreferences((state) => state.setPreference);
+  const setFoldersCollapsed = (update: (value: boolean) => boolean) =>
+    setPreference('mailFoldersCollapsed', update(foldersCollapsed));
   const [listWidth, setListWidth] = useState(320);
   const [listResizing, setListResizing] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -230,14 +228,6 @@ function DesktopMailView({
       setOpeningDraft(false);
     }
   };
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('dela.mail.folders-collapsed', String(foldersCollapsed));
-    } catch {
-      /* Storage may be unavailable. */
-    }
-  }, [foldersCollapsed]);
 
   // 容器宽度驱动分级降档;未配置账户时 grid 晚于首帧挂载,依赖 gridElement 触发本 effect 重跑。
   useLayoutEffect(() => {

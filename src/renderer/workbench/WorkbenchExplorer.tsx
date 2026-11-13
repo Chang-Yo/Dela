@@ -54,17 +54,16 @@ import {
   runEntryWork,
 } from '../workspace/entry-actions';
 import { errorText, useWorkspaceStore } from '../workspace/store';
+import { usePreferenceWidth, usePreferences } from '../app/preferences';
 import { showToast } from '../app/toasts';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState, useViewportWidth } from './explorer-state';
 import { cn } from '../../ui/cn';
 import { overlayFade } from '../../ui/motion';
 
-const SIDEBAR_DEFAULT_WIDTH = 300;
 const SIDEBAR_MIN_WIDTH = 160;
 /** 目录宽度上界：再宽会明显挤占右侧内容栏。 */
 const SIDEBAR_MAX_WIDTH = 360;
-const widthStorageKey = 'dela.workspace.sidebarWidth';
 
 /** 新建弹窗的目标容器：选中/活动文档所在文件夹，缺省回落到根（旧 currentContainer）。
  *  切换项目后 selected 可能仍指向上一个项目的条目：不属于当前根的一律回落到根，避免建到别的项目里。 */
@@ -121,13 +120,10 @@ export function WorkbenchExplorer({
   const expanded = useTreeState((s) => s.expanded);
   const query = useTreeState((s) => s.query);
   const pendingCreate = useTreeState((s) => s.pendingCreate);
-  const [width, setWidth] = useState(() => {
-    const stored = Number(localStorage.getItem(widthStorageKey));
-    return Number.isFinite(stored) && stored > 0 ? stored : SIDEBAR_DEFAULT_WIDTH;
-  });
-  const collapsed = useExplorerState((s) => s.collapsed);
+  const { width, resizing, onChange, onResizingChange } =
+    usePreferenceWidth('workspaceSidebarWidth');
+  const collapsed = usePreferences((s) => s.workspaceSidebarCollapsed);
   const mobileOpen = useExplorerState((s) => s.mobileOpen);
-  const [resizing, setResizing] = useState(false);
   const narrow = useExplorerState((s) => s.narrow);
   const viewportWidth = useViewportWidth();
   const drawerRef = useRef<HTMLElement>(null);
@@ -138,16 +134,6 @@ export function WorkbenchExplorer({
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(widthStorageKey, String(width));
-      } catch {
-        /* localStorage 不可用时保持内存值。 */
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [width]);
   // 窄屏抽屉打开时把焦点移入容器、Escape 收起；收起态由 aside 的 inert 兜底。
   useEffect(() => {
     if (!narrow || !mobileOpen) return;
@@ -343,7 +329,8 @@ export function WorkbenchExplorer({
               className="grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-base hover:bg-hover-2 hover:text-ink"
               onClick={() => {
                 if (narrow) useExplorerState.getState().setMobileOpen(false);
-                else useExplorerState.getState().setCollapsed(!collapsed);
+                else
+                  usePreferences.getState().setPreference('workspaceSidebarCollapsed', !collapsed);
               }}
               title={visible ? '收起目录' : '展开目录'}
               type="button"
@@ -679,8 +666,8 @@ export function WorkbenchExplorer({
         // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
         max={SIDEBAR_MAX_WIDTH}
         min={SIDEBAR_MIN_WIDTH}
-        onChange={setWidth}
-        onResizingChange={setResizing}
+        onChange={onChange}
+        onResizingChange={onResizingChange}
         value={width}
       />
       {portsForProject !== null && (
