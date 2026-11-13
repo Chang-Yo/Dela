@@ -189,7 +189,9 @@ export function renderShuiyuanHtml(
     }
     body {
       margin: 0; padding: 0 0.125rem 0.125rem; background: transparent; color: var(--fg);
-      font: 0.9375rem/1.8 -apple-system, 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+      font: 0.9375rem/1.8 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
       overflow-wrap: break-word;
     }
     /* 楼层 iframe 靠高度上报自适应增长，纵向滚动由外层话题区承担，内部滚动条禁止出现。 */
@@ -216,7 +218,8 @@ export function renderShuiyuanHtml(
     small { color: var(--fg-muted); }
 
     /* 行内代码与代码块：浅底无描边，靠底色分层。 */
-    code { font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+      'Courier New', monospace;
       background: var(--soft); border-radius: 0.3125rem; padding: 0.12em 0.4em; font-size: 0.88em; }
     pre { margin: 0.85em 0; padding: 0.75em 1em; background: var(--soft); border-radius: 0.5rem;
       overflow-x: auto; font-size: 0.8125rem; line-height: 1.65; }

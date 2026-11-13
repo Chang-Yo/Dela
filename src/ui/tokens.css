@@ -249,7 +249,13 @@
 
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
 
-  --font-sans: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   --font-script: Italianno, cursive;
 
   /* 字号只用 Tailwind 内置档位，随根字号（设置 › 外观 › 字号）缩放。
