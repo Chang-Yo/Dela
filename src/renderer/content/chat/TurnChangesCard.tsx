@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
+import { documentTabId } from '../../navigation/view';
 import { openTarget } from '../../workbench/open-target';
 import { reviewTabId } from '../review/tab-id';
 import { FileIcon, basenameOf, dirnameOf } from '../review/view-utils';
@@ -66,7 +67,7 @@ const TurnFileRow = memo(function TurnFileRow({
   const openInDela = () => {
     void window.dela?.chat
       .locateFile(sessionId, file.path)
-      .then((absolute) => openTarget(`preview:${absolute}`, { aside: true }))
+      .then((absolute) => openTarget(documentTabId(absolute), { aside: true }))
       .catch(fail);
   };
   const review = () =>
