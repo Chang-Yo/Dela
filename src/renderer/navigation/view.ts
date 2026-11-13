@@ -7,7 +7,8 @@ import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
-import { opensInEditor } from '../../core/protocol/files';
+import { formatByName, opensInEditor } from '../../core/protocol/files';
+import { parseRemoteNodeId } from '../../shared/remotes';
 import { useSessions } from '../sessions/store';
 import { showToast } from '../app/toasts';
 
@@ -115,9 +116,12 @@ function currentProjectLive(): boolean {
   );
 }
 
-/** 文档键（entryId 或 source:{sourceId}）→ TabId；本地文本文件开编辑标签，专用格式与资料走预览。 */
+/** 文档键（entryId 或 source:{sourceId}）→ TabId；本地文本文件开编辑标签，远端 Markdown 开只读的编辑标签，
+ *  专用格式与资料走预览。 */
 export function documentTabId(key: string): TabId {
   if (key.startsWith('source:')) return `preview:${key}`;
+  const remote = parseRemoteNodeId(key);
+  if (remote) return formatByName(remote.path) === 'markdown' ? `note:${key}` : `preview:${key}`;
   const entry = useWorkspaceStore.getState().workspace.entries.find((e) => e.id === key);
   return (entry?.kind === 'file' || (!entry && /^(?:[a-z]:[\\/]|\/)/i.test(key))) &&
     opensInEditor(entry?.name ?? key)

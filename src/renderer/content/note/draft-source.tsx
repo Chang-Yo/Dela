@@ -18,6 +18,8 @@ export interface NoteDraftSource {
   usePath?(entryId: string): string[];
   /** 订阅草稿状态；尚未建立时为 undefined。 */
   useDraft(entryId: string): NoteDraft | undefined;
+  /** Markdown 正文里的图片地址 → 可显示的地址；本地与远端文件的相对路径解析方式不同。 */
+  resolveImage(entryId: string, src: string): string;
   /** 建立或刷新草稿；force 时等在途保存结束后重读磁盘。 */
   acquire(entryId: string, force?: boolean): Promise<void>;
   /** 修改正文（进入防抖自动保存队列）。 */

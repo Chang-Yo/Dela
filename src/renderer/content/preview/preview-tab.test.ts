@@ -39,7 +39,6 @@ function docOf(format: LoadedDocument['content']['format'], extra?: Partial<Load
 describe('previewBranchOf', () => {
   it('按格式分流；无法当文本打开的内容走 binary 提示', () => {
     expect(previewBranchOf(docOf('text', { watchesDisk: true }))).toBe('text');
-    expect(previewBranchOf(docOf('markdown'))).toBe('markdown');
     expect(previewBranchOf(docOf('binary'))).toBe('binary');
   });
 

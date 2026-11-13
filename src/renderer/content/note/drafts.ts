@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { DocumentContent } from '../../../shared/api';
 import { errorText } from '../../workspace/store';
+import { parseRemoteNodeId } from '../../../shared/remotes';
 import { relocateWorkspacePath } from '../../../shared/workspace';
 
 export type NoteDraft = {
@@ -65,11 +66,14 @@ export const useNoteDrafts = create<Store>((set, get) => ({
     const work = (async () => {
       const api = window.dela!;
       const sourceId = key.startsWith('source:') ? key.slice(7) : null;
-      const content = sourceId
-        ? sourceId.startsWith('shuiyuan-topic:')
-          ? await api.shuiyuan.readSource(Number(sourceId.slice('shuiyuan-topic:'.length)))
-          : await api.canvas.read(sourceId)
-        : await api.workspace.read(key);
+      const remote = parseRemoteNodeId(key);
+      const content = remote
+        ? await api.workspace.readRemoteDocument(remote.projectId, remote.path)
+        : sourceId
+          ? sourceId.startsWith('shuiyuan-topic:')
+            ? await api.shuiyuan.readSource(Number(sourceId.slice('shuiyuan-topic:'.length)))
+            : await api.canvas.read(sourceId)
+          : await api.workspace.read(key);
       const current = get().drafts[key];
       // A refresh must never replace edits made while it was reading. A confirmed
       // reload may discard the snapshot that existed when it started, but a newer

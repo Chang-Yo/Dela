@@ -29,7 +29,7 @@ export function DocumentToolbar({
   /** 保存失败时状态文字转警示色（详情在错误条）。 */
   failed: boolean;
   dueAt?: string | null;
-  onOpenInFolder: () => void;
+  onOpenInFolder?: () => void;
   onReload: () => void;
 }) {
   return (
@@ -90,15 +90,17 @@ export function DocumentToolbar({
         </Button>
       )}
       <div className="flex shrink-0 items-center gap-0.5">
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          title="在文件夹中显示"
-          aria-label="在文件夹中显示"
-          onClick={onOpenInFolder}
-        >
-          <FolderOpen />
-        </Button>
+        {onOpenInFolder && (
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            title="在文件夹中显示"
+            aria-label="在文件夹中显示"
+            onClick={onOpenInFolder}
+          >
+            <FolderOpen />
+          </Button>
+        )}
         <Button
           size="icon-xs"
           variant="ghost"

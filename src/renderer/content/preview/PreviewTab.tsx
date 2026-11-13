@@ -1,8 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import hljs from 'highlight.js/lib/common';
 import { LoaderCircle } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Button } from '../../../ui/button';
 import { ShuiyuanSourceDoc } from '../../features/shuiyuan/SourceRefCard';
 import { useRootFontSize } from '../../lib/root-font-size';
@@ -24,11 +21,10 @@ const DocxPreview = lazy(() =>
 const SheetPreview = lazy(() =>
   import('./SheetPreview').then((module) => ({ default: module.SheetPreview })),
 );
-
 /** 分流决策（纯函数）：水源来源优先于格式。预览里的文本都是只读的（远端、资料）：
- *  本地文本文件走 note: 编辑标签，不进这里。 */
+ *  本地文本文件与所有 Markdown 走 note: 标签，不进这里。 */
 export type PreviewBranch =
-  'shuiyuan' | 'html' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'markdown' | 'text' | 'binary';
+  'shuiyuan' | 'html' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'text' | 'binary';
 
 export function previewBranchOf(doc: LoadedDocument): PreviewBranch {
   if (doc.shuiyuanTopicId !== undefined) return 'shuiyuan';
@@ -40,7 +36,6 @@ export function previewBranchOf(doc: LoadedDocument): PreviewBranch {
     format === 'docx' ||
     format === 'xlsx' ||
     format === 'pptx' ||
-    format === 'markdown' ||
     format === 'binary'
   )
     return format;
@@ -57,7 +52,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const [doc, setDoc] = useState<LoadedDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const scrollContainer = useRef<HTMLDivElement>(null);
   const docRef = useRef<LoadedDocument | null>(null);
   docRef.current = doc;
   const scrollKey = `${tabId}:${groupId}`;
@@ -96,9 +90,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   }, [tabId, loader]);
 
   const content = doc?.content;
-  useEffect(() => {
-    if (scrollContainer.current) scrollContainer.current.scrollTop = scroll;
-  }, [content]);
   useEffect(() => {
     if (!content?.bytes) {
       setBlobUrl(null);
@@ -265,7 +256,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           这个文件不是 UTF-8 文本或体积过大，无法内嵌预览，请下载文件或用默认程序打开。
         </p>
       )}
-      {content.truncated && (branch === 'text' || branch === 'markdown') && (
+      {content.truncated && branch === 'text' && (
         <p className="shrink-0 border-b px-4 py-2 text-xs text-ink-3">
           文件超过 1 MB，这里只显示开头部分。
         </p>
@@ -277,48 +268,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           scroll={scroll}
           onScroll={onScroll}
         />
-      )}
-      {branch === 'markdown' && (
-        <div
-          className="min-h-0 flex-1 overflow-auto p-6 text-sm leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-code [&_pre]:p-4 [&_pre]:text-(--syntax-fg) [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-code [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:text-(--syntax-operator) [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
-          ref={scrollContainer}
-          onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
-        >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ href, children }) => (
-                <button className="text-ink underline" onClick={() => href && openLink(href)}>
-                  {children}
-                </button>
-              ),
-              img: ({ src, alt }) =>
-                src ? (
-                  <img
-                    src={doc.resolveImage?.(src) ?? src}
-                    alt={alt ?? ''}
-                    className="mx-auto max-w-full rounded-card"
-                    loading="lazy"
-                  />
-                ) : null,
-              code: ({ className, children }) => {
-                const language = /language-([\w+.-]+)/.exec(className ?? '')?.[1];
-                if (!language || !hljs.getLanguage(language))
-                  return <code className={className}>{children}</code>;
-                return (
-                  <code
-                    className={className}
-                    dangerouslySetInnerHTML={{
-                      __html: hljs.highlight(String(children), { language }).value,
-                    }}
-                  />
-                );
-              },
-            }}
-          >
-            {content.text ?? ''}
-          </ReactMarkdown>
-        </div>
       )}
     </section>
   );

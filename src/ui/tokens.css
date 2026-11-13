@@ -71,7 +71,7 @@
   --cal-slate-bg: oklch(0.93 0.004 255);
   --cal-slate-text: oklch(0.37 0.014 255);
 
-  /* 代码高亮全局唯一一套配色（CodeMirror、highlight.js、shiki 共用）：GitHub Light / Dark（Primer 经典版）。 */
+  /* 代码高亮全局唯一一套配色（CodeMirror、shiki 共用）：GitHub Light / Dark（Primer 经典版）。 */
   --syntax-bg: #f6f8fa;
   --syntax-fg: #24292e;
   --syntax-keyword: #d73a49;

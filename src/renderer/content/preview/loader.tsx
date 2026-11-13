@@ -10,8 +10,6 @@ export interface LoadedDocument {
   shuiyuanTopicId?: number;
   /** pptx 导出/快速预览的定位引用；Canvas 资料与本地条目各指向其资源。 */
   officeRef?: ResourceRef;
-  /** 本地 Markdown 的相对图片改写为受限资源协议；不传则按原样输出。 */
-  resolveImage?: (src: string) => string;
   /** 本地磁盘文件：窗口聚焦时强制重读（外部编辑刷新），文本文件用语法高亮查看器。 */
   watchesDisk?: boolean;
 }

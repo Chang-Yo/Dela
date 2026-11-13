@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { DocumentContent, WorkspaceEntry } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
-import { isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
+import { decodeAssetPath, isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../shared/remotes';
 import type { ResourceRef } from '../../shared/resources';
-// Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/CodeMirror/
-// highlight.js），静态引入会让 registry 的懒加载分包失效。
+// Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/CodeMirror），
+// 静态引入会让 registry 的懒加载分包失效。
 import {
   ChatTabSourceProvider,
   type ChatTabSource,
@@ -211,6 +211,15 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         });
       },
       useDraft: (entryId) => useNoteDrafts((state) => state.drafts[entryId]),
+      resolveImage: (entryId, src) => {
+        if (!isRelativeAssetPath(src)) return src;
+        const remote = parseRemoteNodeId(entryId);
+        if (!remote) return noteAssetUrl(entryId, decodeAssetPath(src));
+        const root =
+          useWorkspaceStore.getState().workspace.entries.find((e) => e.id === remote.projectId)
+            ?.path ?? '/';
+        return remoteAssetUrl(remote.projectId, root, remote.path, src);
+      },
       acquire: (key, force) => useNoteDrafts.getState().acquire(key, force),
       release: (key) => useNoteDrafts.getState().release(key),
       edit: (key, text) => {
@@ -244,19 +253,11 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         entryId = target.entryId;
         // 远端文件不在条目树里：读取走远端只读通道（远端内容变了不自动重读，需要时重开标签）。
         const remote = parseRemoteNodeId(entryId);
-        if (remote) {
-          const root = entries.find((e) => e.id === remote.projectId)?.path ?? '/';
-          const content = await dela.workspace.readRemoteDocument(remote.projectId, remote.path);
+        if (remote)
           return {
-            content,
+            content: await dela.workspace.readRemoteDocument(remote.projectId, remote.path),
             watchesDisk: false,
-            // Markdown 里的相对图片同样从远端取（越界路径由主进程拒绝，这里保持原样）。
-            resolveImage: (src) =>
-              isRelativeAssetPath(src)
-                ? remoteAssetUrl(remote.projectId, root, remote.path, src)
-                : src,
           };
-        }
         entry = entries.find((e) => e.id === entryId);
         sourceId = entry?.sourceId ?? null;
       }
@@ -274,18 +275,13 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
               ? { type: 'workspace', id: entry.id }
               : undefined
           : undefined;
-      const local = entry?.kind === 'file';
       return {
         content,
         shuiyuanTopicId: sourceId?.startsWith('shuiyuan-topic:')
           ? Number(sourceId.slice('shuiyuan-topic:'.length))
           : undefined,
         officeRef,
-        watchesDisk: local,
-        resolveImage:
-          entry && local
-            ? (src) => (isRelativeAssetPath(src) ? noteAssetUrl(entry.id, src) : src)
-            : undefined,
+        watchesDisk: entry?.kind === 'file',
       };
     };
     return {

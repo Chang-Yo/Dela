@@ -5,7 +5,7 @@ import { Button } from '../../../ui/button';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import type { TabId } from '../../../shared/layout';
-import { decodeAssetPath, isRelativeAssetPath, noteAssetUrl } from '../../../shared/note-files';
+import { parseRemoteNodeId } from '../../../shared/remotes';
 import { DocumentToolbar, type NoteMode } from './document-toolbar';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -40,7 +40,7 @@ const noteModes = new Map<string, NoteMode>();
 const scrollMemory = new Map<string, number>();
 
 /**
- * 本地文本文件的编辑标签：草稿经注入的 NoteDraftSource 读写。Markdown 默认即时渲染（光标所在行显示原文），
+ * 文本文件的编辑标签：草稿经注入的 NoteDraftSource 读写，远端 Markdown 只读。Markdown 默认即时渲染（光标所在行显示原文），
  * 可切到纯源码；其余文本按语言高亮。编辑器只把用户改的字节写回去，不做任何格式化。
  */
 export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
@@ -167,7 +167,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         dirty={dirty}
         failed={draft.error !== null || error !== null}
         dueAt={draft.content.dueAt}
-        onOpenInFolder={openInFolder}
+        onOpenInFolder={parseRemoteNodeId(entryId) ? undefined : openInFolder}
         onReload={() => {
           // 有未保存草稿时先经应用内确认（与移除内容等危险操作一致），不用系统原生弹窗。
           if (dirty) setConfirmReload(true);
@@ -213,10 +213,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         scroll={scrollMemory.get(scrollKey) ?? 0}
         readOnly={readOnly}
         livePreview={
-          markdown && mode === 'live'
-            ? (src) =>
-                isRelativeAssetPath(src) ? noteAssetUrl(entryId, decodeAssetPath(src)) : src
-            : undefined
+          markdown && mode === 'live' ? (src) => source.resolveImage(entryId, src) : undefined
         }
         extensions={markdown && !readOnly ? [imageInsert(entryId)] : []}
         onChange={(text) => source.edit(entryId, text)}

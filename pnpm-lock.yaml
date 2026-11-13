@@ -254,9 +254,6 @@ importers:
       gemoji:
         specifier: 8.1.0
         version: 8.1.0
-      highlight.js:
-        specifier: 11.12.0
-        version: 11.12.0
       jsdom:
         specifier: 30.1.0
         version: 30.1.0(@noble/hashes@2.4.0)
@@ -3549,10 +3546,6 @@ packages:
 
   highlight.js@10.7.3:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
-
-  highlight.js@11.12.0:
-    resolution: {integrity: sha512-nbfWpyRMcMrPMmDwJB+dhX/eiaPKtc2RB+0QZskqJ3WjRA/FDS0e9hZrx8EC/lbEv8gXy98FcDbNa/dspAaJMg==}
-    engines: {node: '>=12.0.0'}
 
   hosted-git-info@4.1.0:
     resolution: {integrity: sha512-kyCuEOWjJqZuDbRHzL8V93NzQhwIB71oFWSyzVo+KPZI+pnQPPxucdkrOZvkLRnrf5URsQM+IJ09Dw29cRALIA==}
@@ -8944,8 +8937,6 @@ snapshots:
       space-separated-tokens: 2.0.2
 
   highlight.js@10.7.3: {}
-
-  highlight.js@11.12.0: {}
 
   hosted-git-info@4.1.0:
     dependencies:
