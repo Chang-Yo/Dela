@@ -25,7 +25,7 @@ import (
 
 const (
 	protocolVersion = 2
-	helperVersion   = "0.3.2"
+	helperVersion   = "0.3.3"
 	idleTick        = 10 * time.Second
 	minTokenLength  = 16
 )

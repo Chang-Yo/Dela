@@ -72,7 +72,7 @@ nvm、conda），stdout 与 stderr 进同一根管道，交织顺序与终端里
   `gap{offset, bytes}`（这段已被覆盖，接不回来）、`exit{state, code, signal, durationMs, output}`。
   客户端记下 `offset + len(data)`，断线重连后从这里续读。
 - **缓冲**：每个任务 8 MB。有流在读时它只是背压窗口：生产者不超过最慢的读者一个缓冲，连着的时候
-  一个字节都不丢。断线期间没人读，写满后覆盖最旧的部分，续读时先收到一条 `gap`。
+  一个字节都不丢。创建后到第一条流接上之前（最多 30 秒）也按有人在读处理。断线期间没人读，写满后覆盖最旧的部分，续读时先收到一条 `gap`。
 - **结束**：显式取消、任务自己的 `timeoutMs`、helper 退出时终止整个进程组（先 SIGTERM，5 秒后
   SIGKILL）。state 分别是 `cancelled`、`timeout`、`cancelled`；正常退出是 `exited`。
 - **保留**：在跑的任务一直留着；已结束的最多留 100 条或 1 小时，先到先清。

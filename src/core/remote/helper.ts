@@ -25,7 +25,7 @@ import {
 } from './transport';
 
 /** 必须与 helper/main.go 的 helperVersion 一致：不匹配说明远端跑的不是这一版产物。 */
-export const HELPER_VERSION = '0.3.2';
+export const HELPER_VERSION = '0.3.3';
 const PROTOCOL_VERSION = 2;
 /** 客户端每 30 秒发一次心跳；helper 连续 1 小时收不到任何请求才退出。 */
 const HEARTBEAT_MS = 30_000;
