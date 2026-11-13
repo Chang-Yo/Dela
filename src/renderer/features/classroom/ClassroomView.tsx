@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { KeyRound, Loader2, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
+import { KeyRound, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
@@ -13,6 +13,7 @@ import { SegmentedControl } from '../../../ui/segmented-control';
 import { DownloadsPanel } from './DownloadsPanel';
 import { Player } from './Player';
 import { useClassroom } from './store';
+import { Spinner } from '../../../ui/spinner';
 
 export function ClassroomView() {
   if (!window.dela) {
@@ -101,11 +102,7 @@ function DesktopClassroomView() {
                     title={connectBusy ? '等待登录…' : '重新登录交大视频（更新会话）'}
                     variant="ghost"
                   >
-                    {connectBusy ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <KeyRound className="size-4" />
-                    )}
+                    {connectBusy ? <Spinner /> : <KeyRound className="size-4" />}
                   </Button>
                   <DownloadsPanel />
                   <Button
@@ -223,7 +220,7 @@ function ConnectCard() {
           </p>
         </div>
         <Button disabled={busy} onClick={() => void connect()}>
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <LogIn className="size-4" />}
+          {busy ? <Spinner /> : <LogIn className="size-4" />}
           {connectBusy ? '等待登录…' : coursesLoading ? '正在获取视频列表…' : '登录'}
         </Button>
       </section>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileOutput, Loader2, Play, RotateCcw, Search } from 'lucide-react';
+import { FileOutput, Play, RotateCcw, Search } from 'lucide-react';
 import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../../shared/vsjtu';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
@@ -9,6 +9,7 @@ import { errorText } from '../../workspace/store';
 import { cn } from '../../../ui/cn';
 import { formatTime, lectureFileName, lectureTitle } from './player-format';
 import { useClassroom } from './store';
+import { Spinner } from '../../../ui/spinner';
 
 export function TranscriptPanel() {
   const course = useClassroom((state) =>
@@ -96,7 +97,7 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
             disabled={loading || !!error || !transcript || exporting}
             onClick={() => void exportText()}
           >
-            {exporting ? <Loader2 className="animate-spin" /> : <FileOutput />}
+            {exporting ? <Spinner /> : <FileOutput />}
           </IconButton>
         </div>
       </div>
@@ -107,7 +108,7 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
       >
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-6 text-xs text-ink-3">
-            <Loader2 className="size-4 animate-spin" />
+            <Spinner />
             正在加载文稿…
           </div>
         ) : error || !transcript ? (

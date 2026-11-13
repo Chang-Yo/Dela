@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Prec } from '@codemirror/state';
 import { EditorView, ViewPlugin, keymap } from '@codemirror/view';
-import { FileWarning, Loader2, Maximize2, Minimize2, Paperclip, Send, X } from 'lucide-react';
+import { FileWarning, Maximize2, Minimize2, Paperclip, Send, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { sheetUp } from '../../../ui/motion';
 import { cn } from '../../../ui/cn';
@@ -11,6 +11,7 @@ import { errorText } from '../../workspace/store';
 import { SHUIYUAN_ORIGIN, uploadMarkdown } from './shuiyuan-format';
 import { shuiyuanReplyDecorations } from './reply-editor';
 import { SHUIYUAN_HOST } from '../../../shared/shuiyuan';
+import { Spinner } from '../../../ui/spinner';
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -282,7 +283,7 @@ export function ReplyComposer({
               {item.error ? (
                 <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-red" />
               ) : (
-                <Loader2 aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
+                <Spinner size="sm" className="shrink-0" />
               )}
               <span className="max-w-44 truncate">{item.name}</span>
               {item.error ? (
@@ -309,11 +310,7 @@ export function ReplyComposer({
           title={uploading ? '附件上传中' : 'Ctrl/⌘ + Enter 发送'}
           type="submit"
         >
-          {busy ? (
-            <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-          ) : (
-            <Send aria-hidden="true" className="size-4" />
-          )}
+          {busy ? <Spinner /> : <Send aria-hidden="true" className="size-4" />}
           {busy ? '发送中…' : submitLabel}
         </Button>
       </div>

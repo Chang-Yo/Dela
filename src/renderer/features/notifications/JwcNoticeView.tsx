@@ -1,6 +1,6 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { ArrowLeft, Download, ExternalLink, LoaderCircle, Paperclip } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Paperclip } from 'lucide-react';
 import type { JwcNotice, NotificationItem } from '../../../shared/notifications';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
@@ -11,6 +11,7 @@ import { cn } from '../../../ui/cn';
 import { errorText } from '../../workspace/store';
 import { showToast } from '../../app/toasts';
 import { ErrorText } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
 
 const INITIAL_BODY_HEIGHT = 240;
 
@@ -114,7 +115,7 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
         </div>
       ) : !notice ? (
         <p role="status" className="flex items-center gap-2 py-6 text-sm text-ink-3">
-          <LoaderCircle className="size-4 animate-spin" />
+          <Spinner />
           正在读取通知…
         </p>
       ) : (

@@ -10,7 +10,6 @@ import {
   FolderOpen,
   FolderPlus,
   FolderKanban,
-  Loader2,
   Pencil,
   Trash2,
   FolderInput,
@@ -38,6 +37,7 @@ import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../app/toasts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { ErrorText } from '../../ui/alert';
+import { Spinner } from '../../ui/spinner';
 
 export type { EntryAction };
 
@@ -56,7 +56,7 @@ function ConnectingHint() {
   if (!slow) return null;
   return (
     <p className="flex items-center gap-2 px-3 py-3 text-xs text-ink-3" role="status">
-      <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+      <Spinner size="sm" />
       正在连接远端…
     </p>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CircleCheck, CircleX, Eye, EyeOff, ListPlus, Loader2, PlugZap } from 'lucide-react';
+import { CircleCheck, CircleX, Eye, EyeOff, ListPlus, PlugZap } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { SelectItem } from '../../../../ui/select';
 import { errorText } from '../../../workspace/store';
@@ -10,6 +10,7 @@ import { StepModelImportDialog } from './step-model-import';
 import { capModels } from './model-import';
 import type { LlmCatalogProvider, LlmVerifyResult } from '../../../../shared/api';
 import { ErrorText } from '../../../../ui/alert';
+import { Spinner } from '../../../../ui/spinner';
 
 const CUSTOM = 'custom';
 
@@ -222,11 +223,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                       title="检测连接"
                       type="button"
                     >
-                      {verifyBusy ? (
-                        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                      ) : (
-                        <PlugZap className="size-4" aria-hidden="true" />
-                      )}
+                      {verifyBusy ? <Spinner /> : <PlugZap className="size-4" aria-hidden="true" />}
                     </button>
                     <button
                       aria-label={showKey ? '隐藏 API Key' : '显示 API Key'}

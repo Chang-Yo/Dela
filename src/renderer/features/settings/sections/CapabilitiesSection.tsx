@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LoaderCircle, Lock, SlidersHorizontal } from 'lucide-react';
+import { Lock, SlidersHorizontal } from 'lucide-react';
 import type { AgentCapabilityView } from '../../../../shared/api';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
@@ -10,6 +10,7 @@ import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { SearchConfigDialog } from './SearchConfigDialog';
 import { ErrorText } from '../../../../ui/alert';
+import { Spinner } from '../../../../ui/spinner';
 
 /** 按领域聚拢能力（顺序取主进程返回的领域顺序，不依赖同名项相邻）。 */
 function groupByDomain(capabilities: AgentCapabilityView[]) {
@@ -132,7 +133,7 @@ export function CapabilitiesSection() {
           {capabilities === null && !error ? (
             <SettingsGroup>
               <p className="flex items-center gap-2 py-3.5 text-xs text-ink-3" role="status">
-                <LoaderCircle className="size-4 animate-spin" />
+                <Spinner />
                 正在读取能力清单…
               </p>
             </SettingsGroup>

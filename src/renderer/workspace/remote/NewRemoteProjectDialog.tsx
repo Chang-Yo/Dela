@@ -3,7 +3,7 @@
 // 与「设置 › 远程」共用。事实都在主进程；这里只记「每台服务器上次停在哪个目录」这类偏好。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { Loader2, Plus, Settings2 } from 'lucide-react';
+import { Plus, Settings2 } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
@@ -23,6 +23,7 @@ import { DirectoryBrowser, tildePath } from './DirectoryBrowser';
 import { SetupProgress } from './SetupProgress';
 import { channelDot, useRemoteState } from './remote-state';
 import { ErrorText } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
 
 /** 下拉框的值：已保存连接用 id，ssh config 候选用 `config:<别名>`，新建用哨兵。 */
 const NEW_CONNECTION = '__new__';
@@ -401,7 +402,7 @@ export function NewRemoteProjectDialog({
                       取消
                     </Button>
                     <Button disabled={!ready || !target || importing} type="submit">
-                      {importing && <Loader2 className="animate-spin" />}
+                      {importing && <Spinner />}
                       {existing ? '打开项目' : '添加项目'}
                     </Button>
                   </div>

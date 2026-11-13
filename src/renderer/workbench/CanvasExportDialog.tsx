@@ -2,13 +2,14 @@
 // 最低粒度为课程，目录树数据来自 workspace/store 的 Canvas 镜像。
 import { useMemo, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { Loader2 } from 'lucide-react';
+
 import { Button } from '../../ui/button';
 import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { groupCanvasCoursesByTerm } from '../../shared/canvas';
 import { cn } from '../../ui/cn';
+import { Spinner } from '../../ui/spinner';
 
 const checkboxClass = 'size-3.5 accent-[var(--ink-2)]';
 
@@ -133,7 +134,7 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
                 onClick={() => void exportSelected()}
                 size="sm"
               >
-                {exporting && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {exporting && <Spinner />}
                 导出课件
               </Button>
             </div>

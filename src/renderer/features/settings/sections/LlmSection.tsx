@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { Check, LoaderCircle, Lock, Pencil, PlugZap, Plus, Search, Trash2, X } from 'lucide-react';
+import { Check, Lock, Pencil, PlugZap, Plus, Search, Trash2, X } from 'lucide-react';
 import { StatusPill } from '../../../../ui/status-pill';
 import { Switch } from '../../../../ui/switch';
 import { Button } from '../../../../ui/button';
@@ -33,6 +33,7 @@ import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
 import { ErrorText } from '../../../../ui/alert';
+import { Spinner } from '../../../../ui/spinner';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
@@ -910,7 +911,7 @@ function ProviderDetail({
                   type="button"
                   variant="secondary"
                 >
-                  {verifying ? <LoaderCircle className="animate-spin" /> : null}
+                  {verifying ? <Spinner /> : null}
                   {verifying ? '检测中…' : '检测模型'}
                 </Button>
               )}
@@ -993,11 +994,7 @@ function ProviderDetail({
                         title="检测可用性"
                         variant="ghost"
                       >
-                        {result === 'pending' ? (
-                          <LoaderCircle className="animate-spin" />
-                        ) : (
-                          <PlugZap />
-                        )}
+                        {result === 'pending' ? <Spinner size="sm" /> : <PlugZap />}
                       </Button>
                       <Button
                         aria-label={`编辑模型 ${id}`}
@@ -1138,8 +1135,7 @@ function ProviderDetail({
                     size="sm"
                     variant="secondary"
                   >
-                    {verifying ? <LoaderCircle className="animate-spin" /> : <Search />}{' '}
-                    {verifying ? '检测中…' : '检测模型'}
+                    {verifying ? <Spinner /> : <Search />} {verifying ? '检测中…' : '检测模型'}
                   </Button>
                   <Input
                     aria-label="搜索或输入模型 ID"

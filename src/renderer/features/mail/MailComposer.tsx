@@ -1,14 +1,4 @@
-import {
-  Bold,
-  ImagePlus,
-  Italic,
-  Link,
-  LoaderCircle,
-  Paperclip,
-  Send,
-  Save,
-  X,
-} from 'lucide-react';
+import { Bold, ImagePlus, Italic, Link, Paperclip, Send, Save, X } from 'lucide-react';
 import { registerComposeClose, registerComposeSave, leaveComposer } from './compose-close';
 import {
   useCallback,
@@ -28,6 +18,7 @@ import { errorText } from '../../workspace/store';
 import { acceleratorFromEvent } from '../../../shared/keybindings';
 import { platform } from '../../lib/platform';
 import { ErrorText } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
 
 type Props = {
   draft?: PreparedEmail;
@@ -629,7 +620,7 @@ export function MailComposer({
         </div>
         <Button className="ml-auto" disabled={sending || saving} size="sm" type="submit">
           {sending ? (
-            <LoaderCircle className="size-3.5 animate-spin" strokeWidth={1.8} />
+            <Spinner size="sm" strokeWidth={1.8} />
           ) : (
             <Send className="size-3.5" strokeWidth={1.8} />
           )}

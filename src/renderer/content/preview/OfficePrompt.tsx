@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
-import { ExternalLink, FileDown, Loader2, Presentation, RefreshCw } from 'lucide-react';
+import { ExternalLink, FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
@@ -11,6 +11,7 @@ import type {
 } from '../../../shared/api';
 import type { ResourceRef } from '../../../shared/resources';
 import { ErrorText } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
 
 function progressText(progress: OfficeExportProgress | null, opening = false): string {
   if (opening) return '导出完成，正在打开…';
@@ -159,7 +160,7 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
       )}
       {exporting ? (
         <div role="status" className="flex flex-col items-center gap-1 text-xs text-ink-3">
-          <Loader2 aria-hidden className="size-5 animate-spin" />
+          <Spinner size="lg" />
           <span>{progressText(progress, opening)}</span>
           {!opening && <span className="text-xs">已进行 {elapsed} 秒</span>}
         </div>
@@ -198,7 +199,7 @@ export function OfficeExportBanner({
       <div className="flex shrink-0 items-center justify-end gap-2 px-2 pt-1 text-xs">
         {error && <ErrorText>{error}</ErrorText>}
         <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
-          {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
+          {exporting ? <Spinner /> : <RefreshCw aria-hidden />}
           {exporting ? progressText(progress, opening) : '重新导出'}
         </Button>
       </div>
@@ -213,7 +214,7 @@ export function OfficeExportBanner({
       <span className="text-ink">源文件在导出后更新过，内容可能过期</span>
       {supported ? (
         <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
-          {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
+          {exporting ? <Spinner /> : <RefreshCw aria-hidden />}
           {exporting ? progressText(progress, opening) : '重新导出'}
         </Button>
       ) : (

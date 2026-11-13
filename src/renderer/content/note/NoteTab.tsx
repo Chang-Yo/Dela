@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { LoaderCircle } from 'lucide-react';
+
 import { Button } from '../../../ui/button';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
@@ -12,6 +12,7 @@ import { MarkdownEditor } from './MarkdownEditor';
 import { markdownImageInsert } from './live-preview';
 import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { cn } from '../../../ui/cn';
+import { Spinner } from '../../../ui/spinner';
 
 /** Markdown 文件的图片粘贴/拖入：落盘到同目录 assets/，插入相对路径引用。 */
 const imageInsert = (entryId: string) =>
@@ -105,7 +106,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
           </div>
         ) : (
           <>
-            <LoaderCircle className="mr-2 size-4 animate-spin" />
+            <Spinner className="mr-2" />
             正在打开…
           </>
         )}

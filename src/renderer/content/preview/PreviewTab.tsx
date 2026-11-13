@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { LoaderCircle } from 'lucide-react';
+
 import { Button } from '../../../ui/button';
 import { ShuiyuanSourceDoc } from '../../features/shuiyuan/SourceRefCard';
 import { useRootFontSize } from '../../lib/root-font-size';
@@ -11,6 +11,7 @@ import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
 import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
 import { parsePreviewTabId } from './tab-id';
+import { Spinner } from '../../../ui/spinner';
 
 const PdfReader = lazy(() =>
   import('./PdfReader').then((module) => ({ default: module.PdfReader })),
@@ -137,7 +138,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           </div>
         ) : (
           <>
-            <LoaderCircle className="mr-2 size-4 animate-spin" />
+            <Spinner className="mr-2" />
             正在打开…
           </>
         )}

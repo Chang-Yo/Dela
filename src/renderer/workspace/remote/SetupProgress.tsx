@@ -2,10 +2,11 @@
 // 上传时一条真实的字节进度条，下面是逐行日志（默认展开，可折叠）。失败时标题说清楚卡在哪，
 // 并给出「重试 / 编辑连接」。产物已在服务器上时整个过程一两秒，不会出现上传那一步。
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Loader2, X } from 'lucide-react';
+import { Check, ChevronDown, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import type { RemoteSetupProgress, RemoteSetupStep } from '../../../shared/api';
+import { Spinner } from '../../../ui/spinner';
 
 const stepLabels: Record<RemoteSetupStep, string> = {
   probe: '探测',
@@ -120,7 +121,7 @@ export function SetupProgress({
       ) : (
         <p className="flex items-center gap-1.5 text-sm font-medium text-ink" role="status">
           {running ? (
-            <Loader2 className="size-4 shrink-0 animate-spin text-ink-3" />
+            <Spinner className="shrink-0 text-ink-3" />
           ) : (
             <Check className="size-4 shrink-0 text-green" />
           )}

@@ -6,7 +6,6 @@ import { Popover } from 'radix-ui';
 import {
   Check,
   Download,
-  Loader2,
   Maximize,
   Minimize,
   Pause,
@@ -39,6 +38,7 @@ import {
 } from './progress';
 import { SeekBar } from './SeekBar';
 import { useClassroom } from './store';
+import { Spinner } from '../../../ui/spinner';
 
 const RATE_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
 const VOLUME_KEY = 'dela.classroom.volume';
@@ -325,7 +325,7 @@ export function Player({
           onClick={() => active && void download(course.name, video, active.view)}
           title="下载当前画面"
         >
-          {streamsLoading ? <Loader2 className="animate-spin" /> : <Download />}
+          {streamsLoading ? <Spinner /> : <Download />}
         </IconButton>
       </div>
       <div className="relative mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-card bg-media shadow-hairline">
@@ -383,7 +383,7 @@ export function Player({
         ) : (
           <div className="grid h-full place-items-center">
             {streamsLoading ? (
-              <Loader2 className="size-5 animate-spin text-on-media/60" />
+              <Spinner size="lg" className="text-on-media/60" />
             ) : streamsError ? (
               <div className="flex flex-col items-center gap-2">
                 <p className="text-sm text-on-media/70">{streamsError}</p>

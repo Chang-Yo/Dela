@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { Cloud, CloudUpload, FileText, FolderOpen, LoaderCircle, RefreshCw } from 'lucide-react';
+import { Cloud, CloudUpload, FileText, FolderOpen, RefreshCw } from 'lucide-react';
 import type { SkillOrigin, SkillView, WorkspaceEntry } from '../../../../../shared/api';
 import type { RemoteSkillUpload } from '../../../../../shared/capabilities';
 import { Button } from '../../../../../ui/button';
@@ -14,6 +14,7 @@ import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
 import { SectionHeader } from '../../SectionHeader';
 import { SettingsGroup } from '../../SettingsGroup';
 import { ErrorText } from '../../../../../ui/alert';
+import { Spinner } from '../../../../../ui/spinner';
 
 const ORIGINS = ['builtin', 'user', 'project'] as const;
 const ORIGIN_LABELS: Record<SkillOrigin, string> = {
@@ -370,7 +371,7 @@ function SkillContentView({
           <div className="mt-3 min-h-32 overflow-y-auto rounded-card bg-inset p-3">
             {content === null && !error ? (
               <p className="flex items-center gap-2 text-xs text-ink-3" role="status">
-                <LoaderCircle className="size-4 animate-spin" />
+                <Spinner />
                 正在读取…
               </p>
             ) : (
@@ -485,7 +486,7 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
                 </Button>
               ) : (
                 <Button disabled={busy || !project} onClick={() => void upload(false)} size="sm">
-                  {busy && <LoaderCircle className="animate-spin" />}
+                  {busy && <Spinner />}
                   {busy ? '上传中…' : '上传'}
                 </Button>
               ))}

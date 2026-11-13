@@ -1,7 +1,7 @@
 // 新建 / 编辑 SSH 连接的表单：「新建远程项目」面板与「设置 › 远程」共用这一份。
 // Dela 只存目的地、端口与私钥路径；密码与密钥内容都交给 ssh 自己读取。
 import { useState, type FormEvent } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import type { RemoteConnection, RemoteDraft } from '../../../shared/api';
@@ -9,6 +9,7 @@ import { errorText, useWorkspaceStore } from '../store';
 import { useNavigationStore } from '../../navigation/view';
 import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
 import { Callout, ErrorText } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
 
 /** 端口上限与 ssh 自身一致；空串表示交给 ssh 按 config 解析。 */
 const MAX_PORT = 65535;
@@ -260,7 +261,7 @@ export function ConnectionForm({
             取消
           </Button>
           <Button disabled={busy} type="submit">
-            {busy && <Loader2 className="animate-spin" />}
+            {busy && <Spinner />}
             {connection ? '保存' : '保存并连接'}
           </Button>
         </div>

@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { Bookmark, Loader2, Lock, Mail, MessageSquare, Pin } from 'lucide-react';
+import { Bookmark, Lock, Mail, MessageSquare, Pin } from 'lucide-react';
 import type { ShuiyuanTopicSummary } from '../../../shared/api';
 import { cn } from '../../../ui/cn';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { categoryOf, isTopicUnread, useShuiyuan } from './store';
 import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';
 import { Callout } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
 
 /** 分类色索引（Discourse 式）：12px 色方 + 文字，颜色只做索引不做底色。 */
 export function CategoryTag({ category }: { category: { name: string; color: string } }) {
@@ -191,7 +192,7 @@ export function TopicFeed() {
           className="flex h-9 items-center justify-center text-ink-3"
           ref={sentinelRef}
         >
-          {loading ? <Loader2 className="size-4 animate-spin" strokeWidth={1.8} /> : null}
+          {loading ? <Spinner strokeWidth={1.8} /> : null}
         </div>
       ) : null}
       {!loading && !error && topics.length === 0 ? (

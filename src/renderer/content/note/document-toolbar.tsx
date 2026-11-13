@@ -1,6 +1,7 @@
-import { ChevronRight, Clock, Code, FolderOpen, LoaderCircle, RefreshCw } from 'lucide-react';
+import { ChevronRight, Clock, Code, FolderOpen, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
+import { Spinner } from '../../../ui/spinner';
 
 /** Markdown 编辑模式（本次会话内按文档记忆）：即时渲染或纯源码，两者编辑的都是同一份原文。 */
 export type NoteMode = 'live' | 'source';
@@ -69,7 +70,7 @@ export function DocumentToolbar({
       >
         {saving ? (
           <>
-            <LoaderCircle className="size-3 animate-spin" />
+            <Spinner size="xs" />
             保存中…
           </>
         ) : dirty ? (

@@ -2,13 +2,14 @@
 // 状态都在主进程（清单 + 隧道注册表），面板每次打开/动作后拉一次快照，自己不记隧道。
 import { useCallback, useEffect, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { ExternalLink, Globe, Loader2, RefreshCw, Square } from 'lucide-react';
+import { ExternalLink, Globe, RefreshCw, Square } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { cn } from '../../ui/cn';
 import type { RemotePortsState } from '../../shared/api';
 import { errorText } from './store';
 import { ErrorText } from '../../ui/alert';
+import { Spinner } from '../../ui/spinner';
 
 export function RemotePortsDialog({
   projectId,
@@ -91,7 +92,7 @@ export function RemotePortsDialog({
           <div className="mt-4 grid max-h-80 min-h-0 content-start gap-0.5 overflow-y-auto">
             {state === null && !error ? (
               <p className="flex items-center gap-2 py-4 text-xs text-ink-3" role="status">
-                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                <Spinner size="sm" />
                 正在读取远端端口…
               </p>
             ) : (
@@ -120,11 +121,7 @@ export function RemotePortsDialog({
                           size="sm"
                           variant="ghost"
                         >
-                          {busyPort === entry.port ? (
-                            <Loader2 className="animate-spin" />
-                          ) : (
-                            <Square />
-                          )}
+                          {busyPort === entry.port ? <Spinner /> : <Square />}
                           停止
                         </Button>
                       </>
@@ -135,11 +132,7 @@ export function RemotePortsDialog({
                         size="sm"
                         variant="secondary"
                       >
-                        {busyPort === entry.port ? (
-                          <Loader2 className="animate-spin" />
-                        ) : (
-                          <ExternalLink />
-                        )}
+                        {busyPort === entry.port ? <Spinner /> : <ExternalLink />}
                         打开
                       </Button>
                     )}
@@ -170,11 +163,7 @@ export function RemotePortsDialog({
                     size="sm"
                     variant="ghost"
                   >
-                    {busyPort === tunnel.remotePort ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <Square />
-                    )}
+                    {busyPort === tunnel.remotePort ? <Spinner /> : <Square />}
                     停止
                   </Button>
                 </div>
@@ -183,7 +172,7 @@ export function RemotePortsDialog({
           {error && <ErrorText className="mt-3">{error}</ErrorText>}
           <div className="mt-4 flex items-center justify-end gap-2">
             <Button disabled={working} onClick={() => void reload()} size="sm" variant="ghost">
-              {working ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {working ? <Spinner /> : <RefreshCw />}
               刷新
             </Button>
             <Button disabled={busyPort !== null} onClick={onClose} size="sm" variant="secondary">

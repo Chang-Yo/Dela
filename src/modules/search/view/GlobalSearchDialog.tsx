@@ -6,7 +6,6 @@ import {
   CircleCheckBig,
   FileText,
   FolderKanban,
-  LoaderCircle,
   Mail,
   MessageSquare,
   Search,
@@ -20,6 +19,7 @@ import { Button } from '../../../ui/button';
 import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { SEARCH_LIMIT, searchContract, type SearchHit, type SearchIcon } from '../contract';
 import { ErrorText } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
 
 const search = createClient(searchContract, window.dela?.bridge);
 
@@ -123,12 +123,7 @@ export function GlobalSearchDialog({
               role="combobox"
               value={query}
             />
-            {busy ? (
-              <LoaderCircle
-                aria-hidden="true"
-                className="size-4 shrink-0 animate-spin text-ink-3"
-              />
-            ) : null}
+            {busy ? <Spinner className="shrink-0 text-ink-3" /> : null}
             <Dialog.Close asChild>
               <Button aria-label="关闭搜索" size="icon-sm" variant="ghost">
                 <X />
@@ -143,7 +138,7 @@ export function GlobalSearchDialog({
             ) : null}
             {!hasContent && busy ? (
               <div className="flex items-center gap-2 px-3 py-5 text-sm text-ink-3" role="status">
-                <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+                <Spinner />
                 正在获取本地已同步的数据…
               </div>
             ) : null}
