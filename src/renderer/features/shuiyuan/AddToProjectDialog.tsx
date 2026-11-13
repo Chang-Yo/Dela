@@ -11,6 +11,7 @@ import {
   DialogDescription,
   DialogClose,
 } from '../../../ui/dialog';
+import { Field } from '../../../ui/field';
 
 const LARGE_TOPIC_POSTS = 1000;
 
@@ -100,8 +101,7 @@ export function AddToProjectDialog({
           <DialogClose />
         </div>
         <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
-          <label className="grid gap-2 text-sm">
-            位置
+          <Field label="位置">
             <Select
               onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
               value={target === '' ? ROOT_SELECT_VALUE : target}
@@ -119,10 +119,9 @@ export function AddToProjectDialog({
                 <SelectItem value="__new__">新建项目…</SelectItem>
               </SelectContent>
             </Select>
-          </label>
+          </Field>
           {target === '__new__' ? (
-            <label className="grid gap-2 text-sm">
-              名称
+            <Field label="名称">
               <Input
                 aria-label="新项目名称"
                 autoComplete="off"
@@ -130,7 +129,7 @@ export function AddToProjectDialog({
                 required
                 value={name}
               />
-            </label>
+            </Field>
           ) : null}
           {error ? <p className="text-xs text-red">{error}</p> : null}
           <div className="flex justify-end">

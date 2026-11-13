@@ -9,6 +9,7 @@ import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
+import { Field } from '../../../../ui/field';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
@@ -244,8 +245,7 @@ function CommandFormDialog({
             void save();
           }}
         >
-          <label className="grid gap-2 text-sm">
-            名称
+          <Field label="名称">
             <div className="flex items-center gap-1">
               <span className="text-ink-3">/</span>
               <Input
@@ -256,9 +256,8 @@ function CommandFormDialog({
                 value={name}
               />
             </div>
-          </label>
-          <label className="grid gap-2 text-sm">
-            指令内容
+          </Field>
+          <Field label="指令内容">
             <textarea
               className="min-h-28 rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
               maxLength={2000}
@@ -268,7 +267,7 @@ function CommandFormDialog({
               rows={4}
               value={prompt}
             />
-          </label>
+          </Field>
           {error && <ErrorText>{error}</ErrorText>}
           <div className="flex items-center justify-end gap-2">
             <Button disabled={busy} onClick={onClose} variant="ghost">

@@ -19,6 +19,7 @@ import { errorText } from '../../../workspace/store';
 import { Switch } from '../../../../ui/switch';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
+import { Field } from '../../../../ui/field';
 
 /** 各类型展示名（键序即表单类型按钮的排列顺序，DeepSeek 置首）。 */
 const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {
@@ -341,8 +342,7 @@ function EntryForm({
             </Button>
           ))}
         </div>
-        <label className="grid gap-2 text-sm">
-          名称
+        <Field label="名称">
           <Input
             autoComplete="off"
             onChange={(event) => setName(event.target.value)}
@@ -350,10 +350,12 @@ function EntryForm({
             required
             value={name}
           />
-        </label>
+        </Field>
         {provider === 'brave' && (
-          <label className="grid gap-2 text-sm">
-            API Key
+          <Field
+            label="API Key"
+            hint="走 Brave 为大模型设计的 LLM Context 端点，返回从页面抽取的内容片段。"
+          >
             <Input
               autoComplete="off"
               onChange={(event) => setApiKey(event.target.value)}
@@ -363,15 +365,11 @@ function EntryForm({
               type="password"
               value={apiKey}
             />
-            <span className="text-xs leading-relaxed text-ink-3">
-              走 Brave 为大模型设计的 LLM Context 端点，返回从页面抽取的内容片段。
-            </span>
-          </label>
+          </Field>
         )}
         {provider === 'google' && (
           <>
-            <label className="grid gap-2 text-sm">
-              API Key
+            <Field label="API Key">
               <Input
                 autoComplete="off"
                 onChange={(event) => setApiKey(event.target.value)}
@@ -381,9 +379,8 @@ function EntryForm({
                 type="password"
                 value={apiKey}
               />
-            </label>
-            <label className="grid gap-2 text-sm">
-              搜索引擎 ID（cx）
+            </Field>
+            <Field label="搜索引擎 ID（cx）">
               <Input
                 autoComplete="off"
                 onChange={(event) => setCx(event.target.value)}
@@ -392,13 +389,12 @@ function EntryForm({
                 spellCheck={false}
                 value={cx}
               />
-            </label>
+            </Field>
           </>
         )}
         {provider === 'deepseek' && (
           <>
-            <label className="grid gap-2 text-sm">
-              API Key
+            <Field label="API Key" hint="按成功请求计费：5 元 / 千次。">
               <Input
                 autoComplete="off"
                 onChange={(event) => setApiKey(event.target.value)}
@@ -408,10 +404,7 @@ function EntryForm({
                 type="password"
                 value={apiKey}
               />
-              <span className="text-xs leading-relaxed text-ink-3">
-                按成功请求计费：5 元 / 千次。
-              </span>
-            </label>
+            </Field>
             {keySources && keySources.length > 1 ? (
               <Select value={sourceId} onValueChange={(value) => void importKey(value)}>
                 <SelectTrigger aria-label="选择要导入密钥的 DeepSeek 供应商" className="w-full">
@@ -456,8 +449,15 @@ function EntryForm({
         )}
         {provider === 'custom' && (
           <>
-            <label className="grid gap-2 text-sm">
-              端点地址
+            <Field
+              label="端点地址"
+              hint={
+                <>
+                  用 {'{query}'}、{'{count}'} 占位搜索词与条数；不含 {'{query}'} 的 GET 请求按
+                  SearXNG 追加 q 与 format=json。结果自动识别 results、data、items 等常见结构。
+                </>
+              }
+            >
               <Input
                 autoComplete="off"
                 onChange={(event) => setUrl(event.target.value)}
@@ -467,13 +467,8 @@ function EntryForm({
                 type="url"
                 value={url}
               />
-              <span className="text-xs leading-relaxed text-ink-3">
-                用 {'{query}'}、{'{count}'} 占位搜索词与条数；不含 {'{query}'} 的 GET 请求按 SearXNG
-                追加 q 与 format=json。结果自动识别 results、data、items 等常见结构。
-              </span>
-            </label>
-            <label className="grid gap-2 text-sm">
-              请求体（可选，填写后改用 POST）
+            </Field>
+            <Field label="请求体（可选，填写后改用 POST）">
               <Textarea
                 className={headerAreaClass}
                 onChange={(event) => setBody(event.target.value)}
@@ -482,9 +477,8 @@ function EntryForm({
                 spellCheck={false}
                 value={body}
               />
-            </label>
-            <label className="grid gap-2 text-sm">
-              自定义请求头（可选，每行 Key: Value）
+            </Field>
+            <Field label="自定义请求头（可选，每行 Key: Value）">
               <Textarea
                 className={headerAreaClass}
                 onChange={(event) => setHeaders(event.target.value)}
@@ -493,7 +487,7 @@ function EntryForm({
                 spellCheck={false}
                 value={headers}
               />
-            </label>
+            </Field>
           </>
         )}
       </div>

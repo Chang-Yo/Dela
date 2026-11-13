@@ -13,6 +13,7 @@ import { errorText, useWorkspaceStore } from './store';
 import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';
 import { ErrorText } from '../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../ui/dialog';
+import { Field } from '../../ui/field';
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
@@ -256,8 +257,7 @@ export function EntryDialogs({
           {request &&
             !['move', 'remove'].includes(request.action) &&
             (request.action !== 'link' || target === '__new__') && (
-              <label className="grid gap-2 text-sm">
-                {request.action === 'connect' ? 'Access Token' : '名称'}
+              <Field label={request.action === 'connect' ? 'Access Token' : '名称'}>
                 <Input
                   autoFocus
                   autoComplete="off"
@@ -267,7 +267,7 @@ export function EntryDialogs({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
-              </label>
+              </Field>
             )}
           {request?.action === 'project' && (
             <div className="grid gap-2">

@@ -10,6 +10,7 @@ import { showToast } from '../../app/toasts';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../ui/dialog';
+import { Field } from '../../../ui/field';
 
 const INITIAL_BODY_HEIGHT = 240;
 
@@ -254,8 +255,7 @@ function AttachmentDownload({
               换一张
             </Button>
           </div>
-          <label className="flex flex-col gap-2 text-sm">
-            验证码
+          <Field label="验证码">
             <Input
               autoFocus
               inputMode="numeric"
@@ -268,7 +268,7 @@ function AttachmentDownload({
               disabled={pending}
               placeholder="输入四位数字"
             />
-          </label>
+          </Field>
           {error && <ErrorText size="sm">{error}</ErrorText>}
           <div className="mt-2 flex justify-end gap-2">
             <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>

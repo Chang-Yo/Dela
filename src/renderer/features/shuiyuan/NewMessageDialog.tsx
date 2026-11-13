@@ -14,6 +14,7 @@ import {
   DialogClose,
   DialogHeader,
 } from '../../../ui/dialog';
+import { Field } from '../../../ui/field';
 
 /** 发起新私信：收件人用户名（逗号分隔）+ 标题 + Markdown 正文。 */
 export function NewMessageDialog({
@@ -69,8 +70,7 @@ export function NewMessageDialog({
           私信只发送给你填写的收件人，支持多个用户名（逗号分隔）。
         </DialogDescription>
         <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
-          <label className="grid gap-2 text-sm">
-            收件人
+          <Field label="收件人">
             <Input
               aria-label="收件人用户名"
               autoComplete="off"
@@ -79,9 +79,8 @@ export function NewMessageDialog({
               required
               value={to}
             />
-          </label>
-          <label className="grid gap-2 text-sm">
-            标题
+          </Field>
+          <Field label="标题">
             <Input
               aria-label="私信标题"
               autoComplete="off"
@@ -89,7 +88,7 @@ export function NewMessageDialog({
               required
               value={title}
             />
-          </label>
+          </Field>
           <div className="grid gap-2 text-sm">
             正文
             <div className="h-40 overflow-hidden rounded-control border border-line shadow-hairline">

@@ -40,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../../../ui/dialog';
+import { Field } from '../../../../ui/field';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
@@ -150,12 +151,10 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
             save();
           }}
         >
-          <label className="grid gap-2 text-sm">
-            模型 ID
+          <Field label="模型 ID">
             <Input readOnly value={model} />
-          </label>
-          <label className="grid gap-2 text-sm">
-            上下文窗口（tokens）
+          </Field>
+          <Field label="上下文窗口（tokens）">
             <Input
               aria-label="上下文窗口"
               type="number"
@@ -165,9 +164,8 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
               value={contextWindow}
               onChange={(event) => setContextWindow(event.target.value)}
             />
-          </label>
-          <label className="grid gap-2 text-sm">
-            最大输出（tokens）
+          </Field>
+          <Field label="最大输出（tokens）">
             <Input
               aria-label="最大输出"
               type="number"
@@ -177,7 +175,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
               value={maxOutputTokens}
               onChange={(event) => setMaxOutputTokens(event.target.value)}
             />
-          </label>
+          </Field>
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm">输入类型</legend>
             <div className="flex flex-wrap gap-1.5">
@@ -234,8 +232,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
             </p>
           </fieldset>
           {levels.length > 0 && (
-            <label className="grid gap-2 text-sm">
-              默认思考强度
+            <Field label="默认思考强度">
               <Select
                 value={levels.includes(effort as (typeof levels)[number]) ? effort : levels[0]}
                 onValueChange={setEffort}
@@ -251,7 +248,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
                   ))}
                 </SelectContent>
               </Select>
-            </label>
+            </Field>
           )}
           {error && <ErrorText>{error}</ErrorText>}
           <div className="flex justify-end gap-2">
@@ -306,8 +303,7 @@ function CatalogModelDialog({
           }}
         >
           {levels.length > 0 ? (
-            <label className="grid gap-2 text-sm">
-              默认思考强度
+            <Field label="默认思考强度">
               <Select value={effort} onValueChange={setEffort}>
                 <SelectTrigger aria-label="默认思考强度">
                   <SelectValue />
@@ -320,7 +316,7 @@ function CatalogModelDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </label>
+            </Field>
           ) : (
             <p className="text-sm text-ink-3">这个模型不支持调节思考强度。</p>
           )}
@@ -831,8 +827,7 @@ function ProviderDetail({
             {vendor?.name ?? piProvider} · {provider.baseUrl}
           </p>
         ) : null}
-        <label className="grid gap-2 text-sm">
-          名称
+        <Field label="名称">
           <Input
             autoComplete="off"
             onBlur={() => persistIfChanged()}
@@ -843,10 +838,9 @@ function ProviderDetail({
             required
             value={name}
           />
-        </label>
+        </Field>
         {!piProvider && (
-          <label className="grid gap-2 text-sm">
-            API 地址
+          <Field label="API 地址">
             <Input
               autoComplete="off"
               onBlur={() => persistIfChanged()}
@@ -860,7 +854,7 @@ function ProviderDetail({
               type="url"
               value={baseUrl}
             />
-          </label>
+          </Field>
         )}
         <div className="grid gap-2 text-sm">
           <span>API Key</span>

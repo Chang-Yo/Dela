@@ -10,6 +10,7 @@ import { useNavigationStore } from '../../navigation/view';
 import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
 import { Callout, ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
+import { Field } from '../../../ui/field';
 
 /** 端口上限与 ssh 自身一致；空串表示交给 ssh 按 config 解析。 */
 const MAX_PORT = 65535;
@@ -127,8 +128,7 @@ export function ConnectionForm({
         <ArrowLeft className="size-4" />
         {connection ? `编辑 ${connection.label}` : '新建连接'}
       </button>
-      <label className="grid gap-1.5 text-xs text-ink-2">
-        名称
+      <Field label="名称">
         <Input
           aria-label="连接名称"
           autoComplete="off"
@@ -136,9 +136,8 @@ export function ConnectionForm({
           placeholder="可选，默认用目的地"
           value={label}
         />
-      </label>
-      <label className="grid gap-1.5 text-xs text-ink-2">
-        SSH 目的地
+      </Field>
+      <Field label="SSH 目的地">
         <Input
           aria-label="SSH 目的地"
           autoComplete="off"
@@ -147,10 +146,9 @@ export function ConnectionForm({
           placeholder="user@10.0.0.5 或 ~/.ssh/config 里的别名"
           value={host}
         />
-      </label>
+      </Field>
       <div className="grid grid-cols-[6rem_1fr] gap-3">
-        <label className="grid gap-1.5 text-xs text-ink-2">
-          端口
+        <Field label="端口">
           <Input
             aria-label="SSH 端口"
             autoComplete="off"
@@ -159,9 +157,8 @@ export function ConnectionForm({
             placeholder="22"
             value={port}
           />
-        </label>
-        <label className="grid gap-1.5 text-xs text-ink-2">
-          私钥文件
+        </Field>
+        <Field label="私钥文件">
           <div className="flex items-center gap-2">
             <Input
               aria-label="私钥文件"
@@ -174,7 +171,7 @@ export function ConnectionForm({
               选择…
             </Button>
           </div>
-        </label>
+        </Field>
       </div>
       {/* 不提供密码输入：Dela 只支持密钥与 ssh agent，放一个点了没用的控件更糟。 */}
       <p className="text-xs leading-relaxed text-ink-3">

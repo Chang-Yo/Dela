@@ -4,6 +4,7 @@ import { Input } from '../../../../ui/input';
 import { connectCanvas } from './canvas-connect';
 import { errorText } from '../../../workspace/store';
 import { ErrorText } from '../../../../ui/alert';
+import { Field } from '../../../../ui/field';
 
 type CanvasTokenFormProps = {
   /** 配置成功（已写入全局 Canvas 状态）后的回调。 */
@@ -40,8 +41,7 @@ export function CanvasTokenForm({ onSuccess, actions }: CanvasTokenFormProps) {
         void configure();
       }}
     >
-      <label className="grid gap-2 text-sm">
-        Access Token
+      <Field label="Access Token">
         <Input
           autoComplete="off"
           autoFocus
@@ -50,7 +50,7 @@ export function CanvasTokenForm({ onSuccess, actions }: CanvasTokenFormProps) {
           type="password"
           value={key}
         />
-      </label>
+      </Field>
       {error && <ErrorText>{error}</ErrorText>}
       <div className="flex items-center justify-end gap-2">
         {actions}

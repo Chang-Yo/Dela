@@ -9,6 +9,7 @@ import { errorText } from '../../../../workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
 import { ErrorText } from '../../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../../ui/dialog';
+import { Field } from '../../../../../ui/field';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
@@ -94,8 +95,7 @@ export function McpFormDialog({
               value={transport}
             />
           )}
-          <label className="grid gap-2 text-sm">
-            名称
+          <Field label="名称">
             <Input
               autoComplete="off"
               onChange={(event) => setName(event.target.value)}
@@ -103,11 +103,10 @@ export function McpFormDialog({
               required
               value={name}
             />
-          </label>
+          </Field>
           {transport === 'stdio' ? (
             <>
-              <label className="grid gap-2 text-sm">
-                command
+              <Field label="command">
                 <Input
                   autoComplete="off"
                   onChange={(event) => setCommand(event.target.value)}
@@ -116,9 +115,8 @@ export function McpFormDialog({
                   spellCheck={false}
                   value={command}
                 />
-              </label>
-              <label className="grid gap-2 text-sm">
-                参数（每行一个）
+              </Field>
+              <Field label="参数（每行一个）">
                 <Textarea
                   className={codeAreaClass}
                   onChange={(event) => setArgsText(event.target.value)}
@@ -127,9 +125,11 @@ export function McpFormDialog({
                   spellCheck={false}
                   value={argsText}
                 />
-              </label>
-              <label className="grid gap-2 text-sm">
-                环境变量（每行 KEY=VALUE）
+              </Field>
+              <Field
+                label="环境变量（每行 KEY=VALUE）"
+                hint={<>子进程默认继承 Dela 进程的环境变量；{secretHint}</>}
+              >
                 <Textarea
                   className={codeAreaClass}
                   onChange={(event) => setEnvText(event.target.value)}
@@ -138,15 +138,11 @@ export function McpFormDialog({
                   spellCheck={false}
                   value={envText}
                 />
-                <span className="text-xs leading-relaxed text-ink-3">
-                  子进程默认继承 Dela 进程的环境变量；{secretHint}
-                </span>
-              </label>
+              </Field>
             </>
           ) : (
             <>
-              <label className="grid gap-2 text-sm">
-                地址
+              <Field label="地址">
                 <Input
                   autoComplete="off"
                   onChange={(event) => setUrl(event.target.value)}
@@ -155,9 +151,8 @@ export function McpFormDialog({
                   spellCheck={false}
                   value={url}
                 />
-              </label>
-              <label className="grid gap-2 text-sm">
-                请求头（每行 Name: value）
+              </Field>
+              <Field label="请求头（每行 Name: value）" hint={secretHint}>
                 <Textarea
                   className={codeAreaClass}
                   onChange={(event) => setHeadersText(event.target.value)}
@@ -166,8 +161,7 @@ export function McpFormDialog({
                   spellCheck={false}
                   value={headersText}
                 />
-                <span className="text-xs leading-relaxed text-ink-3">{secretHint}</span>
-              </label>
+              </Field>
             </>
           )}
           {error && <ErrorText>{error}</ErrorText>}

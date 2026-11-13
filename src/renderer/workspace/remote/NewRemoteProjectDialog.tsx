@@ -23,6 +23,7 @@ import { channelDot, useRemoteState } from './remote-state';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Dialog, DialogContent, DialogTitle } from '../../../ui/dialog';
+import { Field } from '../../../ui/field';
 
 /** 下拉框的值：已保存连接用 id，ssh config 候选用 `config:<别名>`，新建用哨兵。 */
 const NEW_CONNECTION = '__new__';
@@ -260,8 +261,7 @@ export function NewRemoteProjectDialog({
               void importProject();
             }}
           >
-            <label className="grid gap-1.5 text-xs text-ink-2">
-              项目名称
+            <Field label="项目名称">
               <Input
                 aria-label="项目名称"
                 autoComplete="off"
@@ -272,7 +272,7 @@ export function NewRemoteProjectDialog({
                 placeholder="默认用目录名"
                 value={name}
               />
-            </label>
+            </Field>
 
             <div className="grid gap-1.5 text-xs text-ink-2">
               服务器
