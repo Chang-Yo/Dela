@@ -5,6 +5,7 @@ import { formatMonthDay, dayMilliseconds, weekStartFor } from './timetable-forma
 import { dialogIn, overlayFade } from '../../../ui/motion';
 import { errorText } from '../../workspace/store';
 import { cn } from '../../../ui/cn';
+import { ErrorText } from '../../../ui/alert';
 
 export function SemesterStartDialog({
   semester,
@@ -86,11 +87,7 @@ export function SemesterStartDialog({
             </p>
           ) : null}
         </div>
-        {error ? (
-          <p className="break-words text-xs text-red" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <ErrorText>{error}</ErrorText> : null}
         <div className="flex justify-end gap-2">
           <Button onClick={onClose} variant="ghost">
             取消

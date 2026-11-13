@@ -5,6 +5,7 @@ import { errorText } from '../../workspace/store';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { useShuiyuan } from './store';
 import { describeNotification, formatListDate } from './shuiyuan-format';
+import { Callout } from '../../../ui/alert';
 
 /** 个人列表（收藏/通知/私信）返回信息流首页，三处共用。 */
 export function ListBackButton() {
@@ -58,19 +59,21 @@ export function BookmarkList() {
         <p className="px-1 py-8 text-center text-sm text-ink-3">还没有收藏</p>
       ) : null}
       {error ? (
-        <div
-          className="mx-1 mt-3 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
+        <Callout
+          action={
+            <button
+              className="underline underline-offset-2"
+              onClick={() => void refreshList()}
+              type="button"
+            >
+              重试
+            </button>
+          }
+          className="mx-1 mt-3"
           role="alert"
         >
           {error}
-          <button
-            className="ml-2 underline underline-offset-2"
-            onClick={() => void refreshList()}
-            type="button"
-          >
-            重试
-          </button>
-        </div>
+        </Callout>
       ) : null}
     </div>
   );
@@ -144,19 +147,21 @@ export function NotificationList() {
         <p className="px-1 py-8 text-center text-sm text-ink-3">暂无通知</p>
       ) : null}
       {error ? (
-        <div
-          className="mx-1 mt-3 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
+        <Callout
+          action={
+            <button
+              className="underline underline-offset-2"
+              onClick={() => void refreshList()}
+              type="button"
+            >
+              重试
+            </button>
+          }
+          className="mx-1 mt-3"
           role="alert"
         >
           {error}
-          <button
-            className="ml-2 underline underline-offset-2"
-            onClick={() => void refreshList()}
-            type="button"
-          >
-            重试
-          </button>
-        </div>
+        </Callout>
       ) : null}
     </div>
   );

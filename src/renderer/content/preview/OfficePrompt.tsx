@@ -10,6 +10,7 @@ import type {
   OfficeExportProgress,
 } from '../../../shared/api';
 import type { ResourceRef } from '../../../shared/resources';
+import { ErrorText } from '../../../ui/alert';
 
 function progressText(progress: OfficeExportProgress | null, opening = false): string {
   if (opening) return '导出完成，正在打开…';
@@ -176,11 +177,7 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
           </Button>
         </div>
       )}
-      {error && (
-        <p role="alert" className="max-w-md break-words text-xs text-red">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText className="max-w-md">{error}</ErrorText>}
     </div>
   );
 }
@@ -199,11 +196,7 @@ export function OfficeExportBanner({
     if (!supported) return null;
     return (
       <div className="flex shrink-0 items-center justify-end gap-2 px-2 pt-1 text-xs">
-        {error && (
-          <span role="alert" className="text-red">
-            {error}
-          </span>
-        )}
+        {error && <ErrorText>{error}</ErrorText>}
         <Button size="sm" variant="ghost" onClick={run} disabled={exporting}>
           {exporting ? <Loader2 aria-hidden className="animate-spin" /> : <RefreshCw aria-hidden />}
           {exporting ? progressText(progress, opening) : '重新导出'}
@@ -226,11 +219,7 @@ export function OfficeExportBanner({
       ) : (
         <span>当前平台暂不支持重新导出</span>
       )}
-      {error && (
-        <span role="alert" className="text-red">
-          {error}
-        </span>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { platform } from '../../../lib/platform';
+import { ErrorText } from '../../../../ui/alert';
 
 /** 键位串 → 可读文本（错误提示用）。 */
 function acceleratorText(accelerator: string | null, family?: 'digit'): string {
@@ -124,11 +125,7 @@ export function ShortcutsSection() {
           </Button>
         }
       />
-      {error && (
-        <p className="text-xs text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
       {conflicts.length > 0 && (
         <p className="text-xs text-orange" role="status">
           {conflicts

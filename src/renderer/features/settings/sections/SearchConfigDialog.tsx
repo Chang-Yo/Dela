@@ -20,6 +20,7 @@ import { errorText } from '../../../workspace/store';
 import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
 import { Switch } from '../../../../ui/switch';
 import { cn } from '../../../../ui/cn';
+import { ErrorText } from '../../../../ui/alert';
 
 /** 各类型展示名（键序即表单类型按钮的排列顺序，DeepSeek 置首）。 */
 const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {
@@ -187,11 +188,7 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
               </Button>
             </>
           )}
-          {error && !draft && (
-            <p className="mt-2 text-xs text-red" role="alert">
-              {error}
-            </p>
-          )}
+          {error && !draft && <ErrorText className="mt-2">{error}</ErrorText>}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -507,11 +504,7 @@ function EntryForm({
           </>
         )}
       </div>
-      {error && (
-        <p className="mt-2 text-xs text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText className="mt-2">{error}</ErrorText>}
       <div className="flex items-center justify-end gap-2 pt-4">
         <Button disabled={busy} onClick={onCancel} type="button" variant="ghost">
           取消

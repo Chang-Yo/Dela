@@ -4,6 +4,7 @@ import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { errorText } from '../../../workspace/store';
 import { StepButton, StepTextarea, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
+import { ErrorText } from '../../../../ui/alert';
 
 /** 向导 · 水源步骤：独立窗口完成 jAccount 登录与授权，粘贴密钥绑定，按钮转为「下一步」。 */
 export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
@@ -98,11 +99,7 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
                     value={payload}
                   />
                 </label>
-                {error && (
-                  <p className="text-sm [overflow-wrap:anywhere] text-red" role="alert">
-                    {error}
-                  </p>
-                )}
+                {error && <ErrorText size="sm">{error}</ErrorText>}
                 <StepButton
                   busyLabel="正在绑定…"
                   idleLabel="绑定"

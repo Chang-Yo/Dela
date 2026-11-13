@@ -13,6 +13,7 @@ import { cn } from '../../../../../ui/cn';
 import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
 import { SectionHeader } from '../../SectionHeader';
 import { SettingsGroup } from '../../SettingsGroup';
+import { ErrorText } from '../../../../../ui/alert';
 
 const ORIGINS = ['builtin', 'user', 'project'] as const;
 const ORIGIN_LABELS: Record<SkillOrigin, string> = {
@@ -310,11 +311,7 @@ export function SkillsTab() {
           </ul>
         </SettingsGroup>
       ))}
-      {error && (
-        <p className="text-xs text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
       {viewing && (
         <SkillContentView
           onClose={() => setViewing(null)}
@@ -381,11 +378,7 @@ function SkillContentView({
                 {content}
               </pre>
             )}
-            {error && (
-              <p className="text-xs text-red" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <ErrorText>{error}</ErrorText>}
           </div>
           <div className="mt-3 flex items-center justify-end gap-2">
             <Button onClick={onReveal} size="sm" variant="ghost">

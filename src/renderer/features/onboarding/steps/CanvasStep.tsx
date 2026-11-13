@@ -4,6 +4,7 @@ import { connectCanvas } from '../../settings/connections/canvas-connect';
 import { errorText } from '../../../workspace/store';
 import { StepButton, StepInput, type StepButtonState } from './step-controls';
 import { StepGuide } from './step-guide';
+import { ErrorText } from '../../../../ui/alert';
 
 /** 向导 · Canvas 步骤：先指引在 Canvas 侧获取 Access Token，再粘贴验证并同步课程，按钮转为「下一步」。 */
 export function CanvasStep({ onDone }: { onDone: () => void }) {
@@ -74,11 +75,7 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
                   type="password"
                   value={token}
                 />
-                {error && (
-                  <p className="text-sm [overflow-wrap:anywhere] text-red" role="alert">
-                    {error}
-                  </p>
-                )}
+                {error && <ErrorText size="sm">{error}</ErrorText>}
                 <StepButton
                   busyLabel="正在同步课程…"
                   idleLabel="保存并连接"

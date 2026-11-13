@@ -32,6 +32,7 @@ import { monthLabel } from './todo-calendar';
 import { TodoDetail } from './TodoDetail';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
+import { ErrorText } from '../../../ui/alert';
 
 const inputClass =
   'w-full rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
@@ -345,9 +346,9 @@ export function TodoView({ request }: { request?: { id: string } }) {
         </div>
       </header>
       {(error || state?.error) && (
-        <p role="alert" className="mt-3 whitespace-pre-wrap text-sm text-red">
+        <ErrorText size="sm" className="mt-3 whitespace-pre-wrap">
           {error || state?.error}
-        </p>
+        </ErrorText>
       )}
       <div className="flex flex-wrap items-center gap-2 py-4">
         {(['all', 'canvas', 'personal'] as const).map((value) => {

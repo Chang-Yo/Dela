@@ -8,6 +8,7 @@ import type { RemoteConnection, RemoteDraft } from '../../../shared/api';
 import { errorText, useWorkspaceStore } from '../store';
 import { useNavigationStore } from '../../navigation/view';
 import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
+import { Callout, ErrorText } from '../../../ui/alert';
 
 /** 端口上限与 ssh 自身一致；空串表示交给 ssh 按 config 解析。 */
 const MAX_PORT = 65535;
@@ -209,39 +210,36 @@ export function ConnectionForm({
           </ul>
         </div>
       )}
-      {error && (
-        <p className="text-xs [overflow-wrap:anywhere] text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
       {connection && onRemoved && removeConfirm && (
-        <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-red/40 bg-red-tint p-3">
-          <span className="text-xs">
-            {projects.length
-              ? `删除连接将同时移除 ${projects.length} 个项目并删除其全部聊天记录；远端目录与文件保留。`
-              : '删除连接？需要时重新添加即可。'}
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              disabled={busy}
-              onClick={() => void remove()}
-              size="sm"
-              type="button"
-              variant="destructive"
-            >
-              确认删除
-            </Button>
-            <Button
-              disabled={busy}
-              onClick={() => setRemoveConfirm(false)}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              取消
-            </Button>
-          </div>
-        </div>
+        <Callout
+          action={
+            <div className="flex items-center gap-2">
+              <Button
+                disabled={busy}
+                onClick={() => void remove()}
+                size="sm"
+                type="button"
+                variant="destructive"
+              >
+                确认删除
+              </Button>
+              <Button
+                disabled={busy}
+                onClick={() => setRemoveConfirm(false)}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                取消
+              </Button>
+            </div>
+          }
+        >
+          {projects.length
+            ? `删除连接将同时移除 ${projects.length} 个项目并删除其全部聊天记录；远端目录与文件保留。`
+            : '删除连接？需要时重新添加即可。'}
+        </Callout>
       )}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">

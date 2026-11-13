@@ -5,6 +5,7 @@ import { cn } from '../../../ui/cn';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { categoryOf, isTopicUnread, useShuiyuan } from './store';
 import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';
+import { Callout } from '../../../ui/alert';
 
 /** 分类色索引（Discourse 式）：12px 色方 + 文字，颜色只做索引不做底色。 */
 export function CategoryTag({ category }: { category: { name: string; color: string } }) {
@@ -203,19 +204,21 @@ export function TopicFeed() {
         </p>
       ) : null}
       {error ? (
-        <div
-          className="mt-3 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
+        <Callout
+          action={
+            <button
+              className="underline underline-offset-2"
+              onClick={() => void refreshList()}
+              type="button"
+            >
+              重试
+            </button>
+          }
+          className="mt-3"
           role="alert"
         >
           {error}
-          <button
-            className="ml-2 underline underline-offset-2"
-            onClick={() => void refreshList()}
-            type="button"
-          >
-            重试
-          </button>
-        </div>
+        </Callout>
       ) : null}
     </div>
   );

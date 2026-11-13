@@ -6,6 +6,7 @@ import { Button } from '../../../ui/button';
 import { DownloadProgressRow } from '../../components/download-progress';
 import { errorText } from '../../workspace/store';
 import { StepButton } from './steps/step-controls';
+import { ErrorText } from '../../../ui/alert';
 
 /** 首次引导的最后一步：安装并启用需要额外组件的 Skill。 */
 export function CapabilitySetup({
@@ -152,9 +153,7 @@ export function CapabilitySetup({
                 {dependency.status === 'error' &&
                   dependency.error &&
                   dependency.error !== error && (
-                    <p role="alert" className="mt-2 break-words text-xs text-red">
-                      {dependency.error}
-                    </p>
+                    <ErrorText className="mt-2">{dependency.error}</ErrorText>
                   )}
               </ToastCard>
             );

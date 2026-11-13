@@ -9,6 +9,7 @@ import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { SearchConfigDialog } from './SearchConfigDialog';
+import { ErrorText } from '../../../../ui/alert';
 
 /** 按领域聚拢能力（顺序取主进程返回的领域顺序，不依赖同名项相邻）。 */
 function groupByDomain(capabilities: AgentCapabilityView[]) {
@@ -232,11 +233,7 @@ export function CapabilitiesSection() {
               })}
             </div>
           )}
-          {error && (
-            <p className="text-xs text-red" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <ErrorText>{error}</ErrorText>}
           {searchOpen && <SearchConfigDialog onClose={() => setSearchOpen(false)} />}
         </>
       )}

@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
+import { ErrorText } from '../../../ui/alert';
 
 type Props = {
   className?: string;
@@ -246,11 +247,7 @@ export function MailReader({
                 </div>
               )}
             </div>
-            {detailError && (
-              <p className="mt-2 text-xs text-red" role="alert">
-                {detailError}
-              </p>
-            )}
+            {detailError && <ErrorText className="mt-2">{detailError}</ErrorText>}
             {detail.bodyHtml ? (
               <MailHtmlBody key={detail.id} html={detail.bodyHtml} text={detail.bodyText} />
             ) : (

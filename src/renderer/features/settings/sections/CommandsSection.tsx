@@ -10,6 +10,7 @@ import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
 import { cn } from '../../../../ui/cn';
+import { ErrorText } from '../../../../ui/alert';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
@@ -109,11 +110,7 @@ export function CommandsSection() {
                 {instructionBusy ? '保存中…' : '保存'}
               </Button>
             </div>
-            {instructionError && (
-              <p className="text-xs text-red" role="alert">
-                {instructionError}
-              </p>
-            )}
+            {instructionError && <ErrorText>{instructionError}</ErrorText>}
           </div>
           <div className="grid gap-2">
             <SettingsGroup
@@ -189,11 +186,7 @@ export function CommandsSection() {
                 </ul>
               )}
             </SettingsGroup>
-            {error && (
-              <p className="text-xs text-red" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <ErrorText>{error}</ErrorText>}
           </div>
           {dialog && (
             <CommandFormDialog editing={dialog} onClose={() => setDialog(null)} onSaved={refresh} />
@@ -280,11 +273,7 @@ function CommandFormDialog({
                 value={prompt}
               />
             </label>
-            {error && (
-              <p className="text-xs text-red" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <ErrorText>{error}</ErrorText>}
             <div className="flex items-center justify-end gap-2">
               <Button disabled={busy} onClick={onClose} variant="ghost">
                 取消

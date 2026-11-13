@@ -16,6 +16,7 @@ import { refreshSessionLists, useSessions, updateSession } from '../../../sessio
 import { useNavigationStore } from '../../../navigation/view';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
+import { Callout, ErrorText } from '../../../../ui/alert';
 
 /** 项目筛选哨兵：Radix Select 不接受空串，「全部」与「随聊」（无项目）各用一个哨兵值。 */
 const allProjects = '__all__';
@@ -179,30 +180,27 @@ export function ArchivedSection() {
               恢复后重新出现在历史列表；永久删除无法撤销。共 {sessions?.length ?? 0} 条。
             </p>
             {confirm?.kind === 'all' && (
-              <div className="flex flex-wrap items-center gap-2 rounded-card border border-line border-red/40 bg-red-tint p-3">
-                <span className="text-xs">
-                  永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
-                </span>
-                <div className="ml-auto flex items-center gap-2">
-                  <Button
-                    disabled={busy}
-                    onClick={() => void removeAll()}
-                    size="sm"
-                    variant="destructive"
-                  >
-                    确认全部删除
-                  </Button>
-                  <Button onClick={() => setConfirm(null)} size="sm" variant="ghost">
-                    取消
-                  </Button>
-                </div>
-              </div>
+              <Callout
+                action={
+                  <div className="flex items-center gap-2">
+                    <Button
+                      disabled={busy}
+                      onClick={() => void removeAll()}
+                      size="sm"
+                      variant="destructive"
+                    >
+                      确认全部删除
+                    </Button>
+                    <Button onClick={() => setConfirm(null)} size="sm" variant="ghost">
+                      取消
+                    </Button>
+                  </div>
+                }
+              >
+                永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
+              </Callout>
             )}
-            {error && (
-              <p className="text-xs text-red" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <ErrorText>{error}</ErrorText>}
             {sessions !== null && sessions.length === 0 && (
               <SettingsGroup>
                 <p className="py-3.5 text-sm text-ink-3">没有已归档对话</p>

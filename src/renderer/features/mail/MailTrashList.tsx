@@ -2,6 +2,7 @@ import { Paperclip, RotateCcw, Trash2 } from 'lucide-react';
 import type { MailTrashItem } from '../../../shared/api';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/cn';
+import { ErrorText } from '../../../ui/alert';
 
 type Props = {
   className?: string;
@@ -46,11 +47,7 @@ export function MailTrashList({
           <Trash2 className="size-3.5" strokeWidth={1.8} />
         </button>
       </div>
-      {error && (
-        <p className="px-4 py-2 text-xs text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText className="px-4 py-2">{error}</ErrorText>}
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1">
         {loading && <p className="p-4 text-xs text-ink-3">加载中…</p>}
         {!loading && items.length === 0 && <p className="p-4 text-xs text-ink-3">回收站为空</p>}

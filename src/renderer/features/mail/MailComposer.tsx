@@ -27,6 +27,7 @@ import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import { acceleratorFromEvent } from '../../../shared/keybindings';
 import { platform } from '../../lib/platform';
+import { ErrorText } from '../../../ui/alert';
 
 type Props = {
   draft?: PreparedEmail;
@@ -798,11 +799,7 @@ export function MailComposer({
             ))}
           </div>
         )}
-        {error && (
-          <p className="shrink-0 border-t border-line py-2 text-xs text-red" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <ErrorText className="shrink-0 border-t border-line py-2">{error}</ErrorText>}
       </div>
     </form>
   );

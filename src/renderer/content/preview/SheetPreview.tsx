@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { Button } from '../../../ui/button';
 import { errorText } from '../../workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
+import { ErrorText } from '../../../ui/alert';
 
 // 单工作表最多解析的行数：防超大表同步渲染冻结 renderer。
 const SHEET_ROW_LIMIT = 2000;
@@ -137,15 +138,12 @@ export function SheetPreview({ url }: { url: string }) {
           )}
         </div>
         {error && (
-          <p
-            role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-sm text-red"
-          >
+          <ErrorText size="sm" className="absolute inset-x-0 top-0 bg-surface p-3">
             表格打开失败：{error}
             <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
               重试
             </button>
-          </p>
+          </ErrorText>
         )}
         {!loaded && !error && (
           <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-ink-3">

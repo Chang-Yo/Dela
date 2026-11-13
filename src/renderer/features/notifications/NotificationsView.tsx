@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
+import { Callout } from '../../../ui/alert';
 
 type NotificationsViewProps = {
   jwcNotice: NotificationItem | null;
@@ -306,24 +307,22 @@ export function NotificationsView({
       ) : null}
 
       {error || filterError ? (
-        <div
-          className="mt-4 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
+        <Callout
+          action={
+            <Button className="mt-2" onClick={onRefresh} size="sm" variant="outline">
+              重试
+            </Button>
+          }
+          className="mt-4"
           role="alert"
         >
-          <p>{error || filterError}</p>
-          <Button className="mt-2" onClick={onRefresh} size="sm" variant="outline">
-            重试
-          </Button>
-        </div>
+          {error || filterError}
+        </Callout>
       ) : null}
       {sourceErrors.map((message) => (
-        <p
-          className="mt-3 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
-          key={message}
-          role="status"
-        >
+        <Callout className="mt-3" key={message} role="status">
           {message}
-        </p>
+        </Callout>
       ))}
 
       {(loading || initialLoading) && !state ? (

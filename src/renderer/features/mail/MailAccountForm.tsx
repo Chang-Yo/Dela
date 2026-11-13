@@ -4,6 +4,7 @@ import type { MailConfigureInput } from '../../../shared/mail';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/cn';
+import { ErrorText } from '../../../ui/alert';
 
 const modes = ['交大邮箱', '第三方 IMAP'] as const;
 
@@ -117,14 +118,7 @@ export function MailAccountForm({
           </motion.div>
         )}
       </AnimatePresence>
-      {error && (
-        <p
-          className={wizard ? 'text-sm [overflow-wrap:anywhere] text-red' : 'text-sm text-red'}
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
+      {error && <ErrorText size="sm">{error}</ErrorText>}
       {submit}
     </form>
   );

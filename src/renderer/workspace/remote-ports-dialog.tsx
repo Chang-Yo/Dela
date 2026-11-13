@@ -8,6 +8,7 @@ import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { cn } from '../../ui/cn';
 import type { RemotePortsState } from '../../shared/api';
 import { errorText } from './store';
+import { ErrorText } from '../../ui/alert';
 
 export function RemotePortsDialog({
   projectId,
@@ -179,11 +180,7 @@ export function RemotePortsDialog({
                 </div>
               ))}
           </div>
-          {error && (
-            <p className="mt-3 text-xs [overflow-wrap:anywhere] text-red" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <ErrorText className="mt-3">{error}</ErrorText>}
           <div className="mt-4 flex items-center justify-end gap-2">
             <Button disabled={working} onClick={() => void reload()} size="sm" variant="ghost">
               {working ? <Loader2 className="animate-spin" /> : <RefreshCw />}

@@ -9,6 +9,7 @@ import { StepGuide } from './step-guide';
 import { StepModelImportDialog } from './step-model-import';
 import { capModels } from './model-import';
 import type { LlmCatalogProvider, LlmVerifyResult } from '../../../../shared/api';
+import { ErrorText } from '../../../../ui/alert';
 
 const CUSTOM = 'custom';
 
@@ -312,11 +313,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     自定义服务没有预设模型，检测后从列表导入。
                   </span>
                 )}
-                {error && (
-                  <p className="text-sm [overflow-wrap:anywhere] text-red" role="alert">
-                    {error}
-                  </p>
-                )}
+                {error && <ErrorText size="sm">{error}</ErrorText>}
                 <StepButton
                   busyLabel="保存中…"
                   disabled={options.length === 0}

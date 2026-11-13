@@ -10,6 +10,7 @@ import { errorText } from '../../workspace/store';
 import { cn } from '../../../ui/cn';
 import { platform } from '../../lib/platform';
 import '@xterm/xterm/css/xterm.css';
+import { ErrorText } from '../../../ui/alert';
 
 const activeByProject = new Map<string, string>();
 const BUFFER_LIMIT = 1024 * 1024;
@@ -354,9 +355,9 @@ export function TerminalTab({ tabId }: TabComponentProps) {
         </Button>
       </div>
       {error && (
-        <p className="shrink-0 px-3 py-2 text-sm text-red" role="alert">
+        <ErrorText size="sm" className="shrink-0 px-3 py-2">
           {error}
-        </p>
+        </ErrorText>
       )}
       {active?.exitCode !== null && active && (
         <p className="shrink-0 px-3 py-1 text-xs text-ink-3">

@@ -32,6 +32,7 @@ import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
+import { ErrorText } from '../../../../ui/alert';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
@@ -255,11 +256,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
                 </Select>
               </label>
             )}
-            {error && (
-              <p className="text-xs text-red" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <ErrorText>{error}</ErrorText>}
             <div className="flex justify-end gap-2">
               <Button onClick={onClose} variant="ghost">
                 取消
@@ -511,11 +508,7 @@ export function LlmSection() {
           </SettingsGroup>
         ) : null}
       </div>
-      {error && (
-        <p className="text-xs [overflow-wrap:anywhere] text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
     </div>
   );
 }
@@ -1059,11 +1052,7 @@ function ProviderDetail({
               : '列表结果不代表模型可调用，可用性请用模型行的检测按钮确认。'}
           </p>
         </div>
-        {error && (
-          <p className="text-xs text-red" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <ErrorText>{error}</ErrorText>}
         {/* 创建需一次性提交（密钥与地址无法逐键生效）；编辑态全部即时保存，没有底部按钮。 */}
         {creating && (
           <div className="flex items-center justify-end gap-2">

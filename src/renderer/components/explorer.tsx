@@ -15,6 +15,7 @@ import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, FileText, Folder, FolderKanban } from 'lucide-react';
 import { cn } from '../../ui/cn';
 import { fileIconUrl } from './file-icons';
+import { ErrorText } from '../../ui/alert';
 
 export interface ExplorerItem {
   gitIgnored?: boolean;
@@ -623,13 +624,9 @@ function PendingRow({ pending, level }: { pending: ExplorerPending; level: numbe
         />
       </div>
       {error && (
-        <p
-          id="explorer-pending-error"
-          role="alert"
-          className="ml-5 text-xs [overflow-wrap:anywhere] text-red"
-        >
+        <ErrorText className="ml-5" id="explorer-pending-error">
           {error}
-        </p>
+        </ErrorText>
       )}
     </div>
   );

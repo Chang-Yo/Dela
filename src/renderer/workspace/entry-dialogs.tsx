@@ -14,6 +14,7 @@ import { errorText, useWorkspaceStore } from './store';
 import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';
 import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { cn } from '../../ui/cn';
+import { ErrorText } from '../../ui/alert';
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
@@ -303,11 +304,7 @@ export function EntryDialogs({
                 </Button>
               </div>
             )}
-            {modalError && (
-              <p role="alert" className="text-xs [overflow-wrap:anywhere] text-red">
-                {modalError}
-              </p>
-            )}
+            {modalError && <ErrorText>{modalError}</ErrorText>}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" disabled={busy} onClick={onClose}>
                 取消

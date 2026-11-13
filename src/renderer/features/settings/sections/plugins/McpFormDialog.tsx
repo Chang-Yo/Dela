@@ -10,6 +10,7 @@ import { errorText } from '../../../../workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
 import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
 import { cn } from '../../../../../ui/cn';
+import { ErrorText } from '../../../../../ui/alert';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
@@ -175,11 +176,7 @@ export function McpFormDialog({
                 </label>
               </>
             )}
-            {error && (
-              <p className="text-xs text-red" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <ErrorText>{error}</ErrorText>}
             <div className="flex items-center justify-end gap-2">
               <Button disabled={busy} onClick={onClose} variant="ghost">
                 取消

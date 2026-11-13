@@ -7,6 +7,7 @@ import { SettingRow } from '../SettingRow';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
+import { ErrorText } from '../../../../ui/alert';
 
 /** 暂停期限选项与通知中心一致（同一份 workspace_settings 暂停状态）。 */
 function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
@@ -205,11 +206,7 @@ export function SystemNotifications() {
           </div>
         </SettingRow>
       </SettingsGroup>
-      {error && (
-        <p className="text-xs text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
     </div>
   );
 }

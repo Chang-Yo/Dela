@@ -18,6 +18,7 @@ import { SettingsGroup } from '../SettingsGroup';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { dialogOverlay, dialogPanel } from '../../../../ui/motion';
+import { ErrorText } from '../../../../ui/alert';
 
 type ConnectionsSectionProps = {
   onOpenMail: () => void;
@@ -203,11 +204,7 @@ export function ConnectionsSection({
   return (
     <div className="grid gap-10">
       <SectionHeader title="连接" />
-      {loadError && (
-        <p className="text-xs text-red" role="alert">
-          {loadError}
-        </p>
-      )}
+      {loadError && <ErrorText>{loadError}</ErrorText>}
       <SettingsGroup>
         <ul className="grid">
           {connections.map(

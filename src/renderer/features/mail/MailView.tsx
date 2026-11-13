@@ -32,6 +32,7 @@ import { useMediaQuery } from '../../../ui/use-media-query';
 import { usePreferences } from '../../app/preferences';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
+import { Callout, ErrorText } from '../../../ui/alert';
 
 const MESSAGE_LIMIT = 200;
 
@@ -684,12 +685,9 @@ function DesktopMailView({
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       {sync?.phase === 'error' && sync.error && (
-        <p
-          className="mx-4 mt-3 rounded-card border border-line border-red/30 bg-red-tint px-3 py-2 text-xs text-red"
-          role="alert"
-        >
+        <Callout className="mx-4 mt-3" role="alert">
           同步出现问题：{sync.error}
-        </p>
+        </Callout>
       )}
       <div
         ref={setGridElement}
@@ -770,11 +768,7 @@ function DesktopMailView({
               <small className="text-xs text-ink-3">{localDrafts.length} 份</small>
             </div>
             <div className="min-h-0 flex-1 p-4">
-              {draftError && (
-                <p role="alert" className="text-sm text-red">
-                  {draftError}
-                </p>
-              )}
+              {draftError && <ErrorText size="sm">{draftError}</ErrorText>}
               {!localDrafts.length && <p className="text-sm text-ink-3">暂无草稿</p>}
               {localDrafts.map((item) => (
                 <div key={item.id} className="flex items-center gap-2 border-b py-3">

@@ -12,6 +12,7 @@ import { SettingsGroup } from '../../SettingsGroup';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
 import { dialogOverlay, dialogPanel } from '../../../../../ui/motion';
+import { ErrorText } from '../../../../../ui/alert';
 
 /** 设置 › MCP Server：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {
@@ -233,11 +234,7 @@ export function McpTab() {
           </ul>
         </SettingsGroup>
       )}
-      {error && (
-        <p className="text-xs text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
       {dialog && (
         <McpFormDialog
           editing={dialog}

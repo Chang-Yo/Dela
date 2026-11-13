@@ -22,6 +22,7 @@ import { ConnectionForm } from './ConnectionForm';
 import { DirectoryBrowser, tildePath } from './DirectoryBrowser';
 import { SetupProgress } from './SetupProgress';
 import { channelDot, useRemoteState } from './remote-state';
+import { ErrorText } from '../../../ui/alert';
 
 /** 下拉框的值：已保存连接用 id，ssh config 候选用 `config:<别名>`，新建用哨兵。 */
 const NEW_CONNECTION = '__new__';
@@ -384,11 +385,7 @@ export function NewRemoteProjectDialog({
               </div>
 
               <div className="grid gap-2">
-                {error && (
-                  <p className="text-xs [overflow-wrap:anywhere] text-red" role="alert">
-                    {error}
-                  </p>
-                )}
+                {error && <ErrorText>{error}</ErrorText>}
                 <div className="flex items-center justify-between gap-3">
                   <p className="min-w-0 truncate text-xs text-ink-3" title={target ?? undefined}>
                     {target ? (

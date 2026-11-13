@@ -3,6 +3,7 @@ import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
 import { connectCanvas } from './canvas-connect';
 import { errorText } from '../../../workspace/store';
+import { ErrorText } from '../../../../ui/alert';
 
 type CanvasTokenFormProps = {
   /** 配置成功（已写入全局 Canvas 状态）后的回调。 */
@@ -50,11 +51,7 @@ export function CanvasTokenForm({ onSuccess, actions }: CanvasTokenFormProps) {
           value={key}
         />
       </label>
-      {error && (
-        <p className="text-xs [overflow-wrap:anywhere] text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText>{error}</ErrorText>}
       <div className="flex items-center justify-end gap-2">
         {actions}
         <Button disabled={busy} type="submit">

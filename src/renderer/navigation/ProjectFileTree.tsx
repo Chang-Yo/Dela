@@ -37,6 +37,7 @@ import { remoteAccent } from './remote-color';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../app/toasts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
+import { ErrorText } from '../../ui/alert';
 
 export type { EntryAction };
 
@@ -355,11 +356,7 @@ export function ProjectFileTree({
   );
   return (
     <>
-      {localError && (
-        <p role="alert" className="px-3 py-2 text-xs text-red">
-          {localError}
-        </p>
-      )}
+      {localError && <ErrorText className="px-3 py-2">{localError}</ErrorText>}
       {query.trim() && searching && (
         <p role="status" className="px-3 py-2 text-xs text-ink-3">
           正在搜索…

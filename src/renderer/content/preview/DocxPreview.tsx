@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../ui/button';
 import { errorText } from '../../workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
+import { ErrorText } from '../../../ui/alert';
 
 // 缩放范围与步进：与 PdfReader 的 10% 步进一致。
 const MIN_ZOOM = 0.5;
@@ -83,15 +84,12 @@ export function DocxPreview({ url }: { url: string }) {
           <div ref={host} style={{ zoom }} className="docx-preview-host min-h-full" />
         </div>
         {error && (
-          <p
-            role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-sm text-red"
-          >
+          <ErrorText size="sm" className="absolute inset-x-0 top-0 bg-surface p-3">
             文档打开失败：{error}
             <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
               重试
             </button>
-          </p>
+          </ErrorText>
         )}
         {loading && !error && (
           <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-ink-3">

@@ -39,6 +39,7 @@ import { ChatHome } from '../content/chat/ChatHome';
 import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
+import { ErrorText } from '../../ui/alert';
 
 /** TabId → 旧文档键（entryId 或 source:{sourceId}）；chat 无对应文档。 */
 function tabDocumentKey(tabId: TabId | null): string | null {
@@ -333,9 +334,9 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         <ContentLoaderProvider loader={loader}>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {workspaceError && (
-              <p className="px-4 py-2 text-sm text-red" role="alert">
+              <ErrorText size="sm" className="px-4 py-2">
                 {workspaceError}
-              </p>
+              </ErrorText>
             )}
             <div className="relative flex min-h-0 flex-1">
               {home ? (

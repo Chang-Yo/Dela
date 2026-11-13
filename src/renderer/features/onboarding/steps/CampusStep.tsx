@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { connectAndSyncTimetable } from '../../timetable/timetable-connect';
 import { StepButton, type StepButtonState } from './step-controls';
+import { ErrorText } from '../../../../ui/alert';
 
 /** 向导 · 教学信息服务网步骤：独立窗口完成登录并同步课表，按钮转为「下一步」。 */
 export function CampusStep({ onDone }: { onDone: () => void }) {
@@ -39,11 +40,7 @@ export function CampusStep({ onDone }: { onDone: () => void }) {
           登录在独立窗口完成，Dela 只读取你的个人课表。
         </p>
       </header>
-      {error && (
-        <p className="text-sm [overflow-wrap:anywhere] text-red" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorText size="sm">{error}</ErrorText>}
       <StepButton
         busyLabel="等待登录…"
         idleLabel="登录并同步"

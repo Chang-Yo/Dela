@@ -19,6 +19,7 @@ import { cn } from '../../../ui/cn';
 import { Button } from '../../../ui/button';
 import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { SEARCH_LIMIT, searchContract, type SearchHit, type SearchIcon } from '../contract';
+import { ErrorText } from '../../../ui/alert';
 
 const search = createClient(searchContract, window.dela?.bridge);
 
@@ -136,9 +137,9 @@ export function GlobalSearchDialog({
           </div>
           <div className="h-80 min-h-0 overflow-y-auto p-2">
             {error && !hasContent ? (
-              <p className="px-3 py-5 text-sm text-red" role="alert">
+              <ErrorText size="sm" className="px-3 py-5">
                 {error}
-              </p>
+              </ErrorText>
             ) : null}
             {!hasContent && busy ? (
               <div className="flex items-center gap-2 px-3 py-5 text-sm text-ink-3" role="status">

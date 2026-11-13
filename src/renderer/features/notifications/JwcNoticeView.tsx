@@ -10,6 +10,7 @@ import { useRootFontSize } from '../../lib/root-font-size';
 import { cn } from '../../../ui/cn';
 import { errorText } from '../../workspace/store';
 import { showToast } from '../../app/toasts';
+import { ErrorText } from '../../../ui/alert';
 
 const INITIAL_BODY_HEIGHT = 240;
 
@@ -273,11 +274,7 @@ function AttachmentDownload({
                 placeholder="输入四位数字"
               />
             </label>
-            {error && (
-              <p role="alert" className="text-sm text-red">
-                {error}
-              </p>
-            )}
+            {error && <ErrorText size="sm">{error}</ErrorText>}
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
                 取消

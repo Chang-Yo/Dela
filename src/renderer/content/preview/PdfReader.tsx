@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, Minus, MoveHorizontal, Plus } from 'lucide-r
 import { Button } from '../../../ui/button';
 import { errorText } from '../../workspace/store';
 import 'pdfjs-dist/web/pdf_viewer.css';
+import { ErrorText } from '../../../ui/alert';
 
 declare const __PDF_ASSET_DIR__: string;
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -276,10 +277,7 @@ export function PdfReader({
           <div ref={pages} className="pdfViewer dela-pdf-pages" />
         </div>
         {error && (
-          <p
-            role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-sm text-red"
-          >
+          <ErrorText size="sm" className="absolute inset-x-0 top-0 bg-surface p-3">
             PDF 打开失败：{error}
             <button
               className="ml-2 underline"
@@ -291,7 +289,7 @@ export function PdfReader({
             >
               重试
             </button>
-          </p>
+          </ErrorText>
         )}
         {!pageCount && !error && (
           <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-ink-3">

@@ -9,6 +9,7 @@ import { roundToMinute } from './timetable-format';
 import { sheetUp } from '../../../ui/motion';
 import { errorText } from '../../workspace/store';
 import { cn } from '../../../ui/cn';
+import { ErrorText } from '../../../ui/alert';
 
 const HOUR_MS = 3_600_000;
 
@@ -129,11 +130,7 @@ export function NewEventDialog({
             </div>
             <EventColorRow className="transition-colors" onColorChange={setColor} value={color} />
           </div>
-          {error ? (
-            <p className="break-words text-xs text-red" role="alert">
-              {error}
-            </p>
-          ) : null}
+          {error ? <ErrorText>{error}</ErrorText> : null}
           <div className="flex justify-end gap-2">
             <Button onClick={onClose} variant="ghost">
               取消
