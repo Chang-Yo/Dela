@@ -9,6 +9,7 @@ import { showToast } from '../../app/toasts';
 import { useShuiyuan } from './store';
 import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { cn } from '../../../ui/cn';
+import { IconButton } from '../../../ui/icon-button';
 
 /** 发起新私信：收件人用户名（逗号分隔）+ 标题 + Markdown 正文。 */
 export function NewMessageDialog({
@@ -61,13 +62,9 @@ export function NewMessageDialog({
           <div className="flex items-center justify-between">
             <Dialog.Title className="text-base font-semibold">新私信</Dialog.Title>
             <Dialog.Close asChild>
-              <button
-                aria-label="关闭"
-                className="grid size-8 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-                type="button"
-              >
-                <X className="size-4" />
-              </button>
+              <IconButton size="lg" aria-label="关闭">
+                <X />
+              </IconButton>
             </Dialog.Close>
           </div>
           <Dialog.Description className="mt-1 text-xs text-ink-3">

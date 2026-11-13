@@ -17,6 +17,7 @@ import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';
 import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { cn } from '../../ui/cn';
 import { fileManagerName } from '../lib/platform';
+import { IconButton } from '../../ui/icon-button';
 
 export function SourcesTree({
   expanded,
@@ -154,13 +155,13 @@ export function SourcesTree({
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink"
+                <IconButton
+                  size="sm"
+
                   aria-label={`${node.name} 的操作`}
                 >
-                  <Ellipsis className="size-4" />
-                </button>
+                  <Ellipsis />
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {course ? (

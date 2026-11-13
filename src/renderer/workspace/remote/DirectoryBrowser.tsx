@@ -12,6 +12,7 @@ import type { RemoteBrowseResult, RemoteDraft } from '../../../shared/api';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../store';
 import { useRemoteState } from './remote-state';
+import { IconButton } from '../../../ui/icon-button';
 
 function crumbs(path: string): { name: string; path: string }[] {
   const parts = path.split('/').filter(Boolean);
@@ -161,16 +162,16 @@ export function DirectoryBrowser({
   return (
     <div className="grid min-h-0 grid-rows-[auto_auto_1fr_auto] overflow-hidden rounded-card border border-line">
       <div className="flex items-center gap-1.5 border-b border-line px-2 py-1.5">
-        <button
+        <IconButton
+          size="sm"
           aria-label="主目录"
-          className="grid size-6 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink disabled:opacity-40"
+
           disabled={!home}
           onClick={() => home && onNavigate(home)}
           title="主目录"
-          type="button"
         >
-          <House className="size-3.5" />
-        </button>
+          <House />
+        </IconButton>
         {editing ? (
           <Input
             aria-label="远端路径"

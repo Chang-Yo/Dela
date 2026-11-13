@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Slider as SliderPrimitive } from 'radix-ui';
 import { ArrowDownToLine, ArrowUpToLine, Lock, Reply } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
+import { IconButton } from '../../../ui/icon-button';
 
 type TopicTimelineProps = {
   current: number;
@@ -33,10 +33,8 @@ function ReplyButton({
   );
 }
 
-const edgeButton =
-  'flex h-7 items-center gap-2 rounded-control text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink';
 /** 负边距让悬停底色外扩，而图标仍落在轴线栏中线上。 */
-const wideEdge = '-ml-1.5 pr-2 pl-1.5';
+const wideEdge = '-ml-1.5 gap-2 pr-2 pl-1.5 text-ink-3';
 
 /** 楼号读数，点击换成输入框直接跳楼；回车跳转，Esc 或失焦放弃。 */
 function FloorField({
@@ -102,12 +100,12 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
           aria-label="楼层进度"
           className="absolute top-6 bottom-[4.25rem] left-[calc(50%+23rem)] hidden flex-col items-start justify-end @min-[62rem]:flex"
         >
-          <button className={cn(edgeButton, wideEdge)} onClick={() => jump(1)} type="button">
+          <Button className={wideEdge} onClick={() => jump(1)} size="sm" variant="ghost">
             <span className="grid w-4 place-items-center">
               <ArrowUpToLine aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
             </span>
             首楼
-          </button>
+          </Button>
           {/* 轨道随阅读页高度伸缩，上限 32rem。 */}
           <div className="relative my-2 max-h-[32rem] min-h-24 w-full flex-1">
             <SliderPrimitive.Root
@@ -135,12 +133,12 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
               <FloorField highest={highest} onJump={jump} value={value} />
             </div>
           </div>
-          <button className={cn(edgeButton, wideEdge)} onClick={() => jump(highest)} type="button">
+          <Button className={wideEdge} onClick={() => jump(highest)} size="sm" variant="ghost">
             <span className="grid w-4 place-items-center">
               <ArrowDownToLine aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
             </span>
             最新
-          </button>
+          </Button>
         </nav>
       ) : null}
       {/* -ml-2 让按钮图标与轴线栏同一中线。 */}
@@ -173,23 +171,13 @@ export function FloorCapsule({ current, highest, onJump, reply }: TopicTimelineP
         >
           {progress ? (
             <>
-              <button
-                aria-label="跳到首楼"
-                className={cn(edgeButton, 'w-7 justify-center')}
-                onClick={() => jump(1)}
-                type="button"
-              >
-                <ArrowUpToLine aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-              </button>
+              <IconButton aria-label="跳到首楼" onClick={() => jump(1)}>
+                <ArrowUpToLine aria-hidden="true" strokeWidth={1.8} />
+              </IconButton>
               <FloorField highest={highest} onJump={jump} value={current} />
-              <button
-                aria-label="跳到最新楼层"
-                className={cn(edgeButton, 'w-7 justify-center')}
-                onClick={() => jump(highest)}
-                type="button"
-              >
-                <ArrowDownToLine aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-              </button>
+              <IconButton aria-label="跳到最新楼层" onClick={() => jump(highest)}>
+                <ArrowDownToLine aria-hidden="true" strokeWidth={1.8} />
+              </IconButton>
             </>
           ) : null}
           {progress && reply ? (

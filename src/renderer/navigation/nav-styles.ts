@@ -18,12 +18,6 @@ export const navSubRow = (active: boolean) =>
 
 export const navSectionTitle = 'px-2 pb-1 text-xs font-medium text-ink-3';
 
-export const chromeIconButton =
-  'grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-40 aria-[current=page]:bg-hover-2 aria-[current=page]:text-ink';
-
-export const rowIconButton =
-  'grid size-6 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink [&_svg]:size-3.5';
-
 /** 行尾悬浮操作区：盖住被截断的标题尾部。 */
 export const rowActions =
   'pointer-events-none absolute right-1 flex items-center gap-0.5 opacity-0 transition-opacity duration-base group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 max-md:pointer-events-auto max-md:opacity-100';

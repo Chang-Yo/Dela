@@ -16,6 +16,7 @@ import { iconOf, titleOf } from './registry';
 import { ExplorerRevealButton } from './explorer-state';
 import { encodeTabDrag, hasTabDrag, parseTabDrag, setCurrentTabDrag, tabDragType } from './tab-dnd';
 import { GroupToolbar } from './GroupToolbar';
+import { IconButton } from '../../ui/icon-button';
 
 export const TabBar = memo(function TabBar({
   group,
@@ -187,17 +188,18 @@ export const TabBar = memo(function TabBar({
                     {title}
                   </span>
                   {!isPinned && (
-                    <button
+                    <IconButton
+                      size="xs"
                       aria-hidden
-                      className="relative grid size-5 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink after:absolute after:-inset-1 after:content-['']"
+                      className="relative after:absolute after:-inset-1 after:content-['']"
                       tabIndex={-1}
                       onClick={(event) => {
                         event.stopPropagation();
                         closeTab(tab, group.id);
                       }}
                     >
-                      <X className="size-3" />
-                    </button>
+                      <X />
+                    </IconButton>
                   )}
                 </div>
               </ContextMenuTrigger>

@@ -21,6 +21,7 @@ import { CategoryTag } from './TopicFeed';
 import { FloorCapsule, TopicTimeline } from './TopicTimeline';
 import type { ShuiyuanPost } from '../../../shared/api';
 import { Callout } from '../../../ui/alert';
+import { IconButton } from '../../../ui/icon-button';
 
 type ReplyTarget = { postNumber: number; username: string };
 
@@ -77,15 +78,14 @@ function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsPr
       </button>
       {canReply ? (
         <>
-          <button
+          <IconButton
             aria-label={`引用第 ${post.postNumber} 楼`}
-            className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+
             onClick={() => onQuote(post)}
             title="引用"
-            type="button"
           >
-            <Quote className="size-3.5" strokeWidth={1.8} />
-          </button>
+            <Quote strokeWidth={1.8} />
+          </IconButton>
           <button
             className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
             onClick={() => onReply(post)}

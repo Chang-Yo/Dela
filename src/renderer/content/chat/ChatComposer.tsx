@@ -978,14 +978,14 @@ function ComposerChip({
       {icon}
       <span className="truncate">{label}</span>
       {detail && <span className="shrink-0 text-ink-3">{detail}</span>}
-      <button
+      <IconButton
+        size="sm"
         aria-label={removeLabel}
-        className="flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink"
+
         onClick={onRemove}
-        type="button"
       >
-        <X className="size-3" strokeWidth={2.2} />
-      </button>
+        <X strokeWidth={2.2} />
+      </IconButton>
     </span>
   );
 }
@@ -1142,7 +1142,7 @@ function BackgroundTaskList({
               {formatDuration(now - task.startedAt)}
             </span>
             <IconButton aria-label="停止" onClick={() => onStop(task.id)} title="停止">
-              <Square className="size-3" />
+              <Square />
             </IconButton>
           </li>
         );

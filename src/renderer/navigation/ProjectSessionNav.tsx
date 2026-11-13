@@ -44,10 +44,11 @@ import { dialogOverlay, dialogPanel } from '../../ui/motion';
 import { Input } from '../../ui/input';
 import { purgeRemovedEntries } from '../workbench/removed-cleanup';
 import { menuItem, menuPanel } from '../../ui/menu-styles';
-import { navIcon, navRow, navSectionTitle, rowActions, rowIconButton } from './nav-styles';
+import { navIcon, navRow, navSectionTitle, rowActions } from './nav-styles';
 import { useRemoteActivity } from './remote-activity';
 import { RemoteConnectionTip } from './remote-connection-tip';
 import { useRemoteConnections } from './remote-connections';
+import { IconButton } from '../../ui/icon-button';
 
 export type { NavSessionSummary, SessionRunBadge };
 
@@ -229,14 +230,9 @@ export function ProjectSessionNav({
             <div className={cn(rowActions, rowActive ? 'bg-hover-2' : 'bg-hover')}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
-                    aria-label={`${label} 的项目菜单`}
-                    title="项目菜单"
-                    className={rowIconButton}
-                    type="button"
-                  >
+                  <IconButton size="sm" aria-label={`${label} 的项目菜单`} title="项目菜单">
                     <MoreHorizontal />
-                  </button>
+                  </IconButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="right" className="w-56">
                   <DropdownMenuLabel className="break-words text-sm text-ink">
@@ -319,15 +315,15 @@ export function ProjectSessionNav({
                 </DropdownMenuContent>
               </DropdownMenu>
               {onNewChat && (
-                <button
+                <IconButton
+                  size="sm"
                   aria-label={`在 ${label} 中新建对话`}
                   title="新对话"
-                  className={rowIconButton}
+
                   onClick={() => onNewChat(key)}
-                  type="button"
                 >
                   <SquarePen />
-                </button>
+                </IconButton>
               )}
             </div>
           )}
@@ -473,15 +469,15 @@ export function ProjectSessionNav({
         >
           项目
         </span>
-        <button
+        <IconButton
+          size="sm"
           aria-label="新建项目"
-          className={rowIconButton}
+
           onClick={onNewProject}
           title="新建项目"
-          type="button"
         >
           <Plus strokeWidth={1.8} />
-        </button>
+        </IconButton>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <section aria-labelledby="project-session-nav-title" className="grid content-start gap-px">

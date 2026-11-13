@@ -38,6 +38,7 @@ import { showToast } from '../app/toasts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { ErrorText } from '../../ui/alert';
 import { Spinner } from '../../ui/spinner';
+import { IconButton } from '../../ui/icon-button';
 
 export type { EntryAction };
 
@@ -309,13 +310,13 @@ export function ProjectFileTree({
   /** 两个菜单共用的触发器与「在侧边打开」：本地菜单的其余项远端一个都不能给。 */
   const menuTrigger = (name: string) => (
     <DropdownMenuTrigger asChild>
-      <button
-        type="button"
-        className="grid size-6 place-items-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink"
+      <IconButton
+        size="sm"
+
         aria-label={`${name} 的操作`}
       >
-        <Ellipsis className="size-4" />
-      </button>
+        <Ellipsis />
+      </IconButton>
     </DropdownMenuTrigger>
   );
   const openToSideItem = (id: string) => (

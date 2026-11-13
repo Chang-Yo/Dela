@@ -8,6 +8,7 @@ import { errorText, useWorkspaceStore } from '../../workspace/store';
 import { dialogOverlay, dialogPanel } from '../../../ui/motion';
 import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
+import { IconButton } from '../../../ui/icon-button';
 
 const LARGE_TOPIC_POSTS = 1000;
 
@@ -97,13 +98,9 @@ export function AddToProjectDialog({
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <button
-                aria-label="关闭"
-                className="grid size-8 shrink-0 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-                type="button"
-              >
-                <X className="size-4" />
-              </button>
+              <IconButton size="lg" aria-label="关闭">
+                <X />
+              </IconButton>
             </Dialog.Close>
           </div>
           <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>

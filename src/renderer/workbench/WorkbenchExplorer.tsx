@@ -60,6 +60,7 @@ import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState, useViewportWidth } from './explorer-state';
 import { cn } from '../../ui/cn';
 import { overlayFade } from '../../ui/motion';
+import { IconButton } from '../../ui/icon-button';
 
 const SIDEBAR_MIN_WIDTH = 160;
 /** 目录宽度上界：再宽会明显挤占右侧内容栏。 */
@@ -322,21 +323,20 @@ export function WorkbenchExplorer({
           style={narrow ? undefined : { width: effectiveWidth }}
         >
           <div className="flex h-10 shrink-0 items-center gap-1 px-2">
-            <button
+            <IconButton
               aria-controls="workspace-explorer"
               aria-expanded={visible}
               aria-label={visible ? '收起目录' : '展开目录'}
-              className="grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-base hover:bg-hover-2 hover:text-ink"
+
               onClick={() => {
                 if (narrow) useExplorerState.getState().setMobileOpen(false);
                 else
                   usePreferences.getState().setPreference('workspaceSidebarCollapsed', !collapsed);
               }}
               title={visible ? '收起目录' : '展开目录'}
-              type="button"
             >
-              <PanelLeft className="size-3.5" strokeWidth={1.8} />
-            </button>
+              <PanelLeft strokeWidth={1.8} />
+            </IconButton>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

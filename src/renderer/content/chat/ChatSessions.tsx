@@ -81,7 +81,7 @@ function SessionList({
               onClick={() => setConfirmingId(session.id)}
               title="归档对话"
             >
-              <Archive className="size-3.5" />
+              <Archive />
             </IconButton>
           )}
         </div>

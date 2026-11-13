@@ -11,6 +11,7 @@ import { capModels } from './model-import';
 import type { LlmCatalogProvider, LlmVerifyResult } from '../../../../shared/api';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
+import { IconButton } from '../../../../ui/icon-button';
 
 const CUSTOM = 'custom';
 
@@ -215,29 +216,23 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     value={apiKey}
                   />
                   <div className="absolute inset-y-0 right-0.5 flex items-center gap-1">
-                    <button
+                    <IconButton
                       aria-label="检测连接"
-                      className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="hover:text-ink-2 disabled:cursor-not-allowed"
                       disabled={verifyBusy || (vendor ? !selected : !baseUrl.trim())}
                       onClick={() => void verify()}
                       title="检测连接"
-                      type="button"
                     >
-                      {verifyBusy ? <Spinner /> : <PlugZap className="size-4" aria-hidden="true" />}
-                    </button>
-                    <button
+                      {verifyBusy ? <Spinner /> : <PlugZap aria-hidden="true" />}
+                    </IconButton>
+                    <IconButton
                       aria-label={showKey ? '隐藏 API Key' : '显示 API Key'}
-                      className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink-2"
+                      className="hover:text-ink-2"
                       onClick={() => setShowKey((value) => !value)}
                       title={showKey ? '隐藏 API Key' : '显示 API Key'}
-                      type="button"
                     >
-                      {showKey ? (
-                        <EyeOff className="size-4" aria-hidden="true" />
-                      ) : (
-                        <Eye className="size-4" aria-hidden="true" />
-                      )}
-                    </button>
+                      {showKey ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                    </IconButton>
                   </div>
                 </div>
                 {(verifyResult || importNotice) && (

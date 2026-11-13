@@ -4,6 +4,7 @@ import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { cn } from '../../../ui/cn';
 import { useShuiyuan, type ListSelection } from './store';
+import { IconButton } from '../../../ui/icon-button';
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -57,23 +58,20 @@ export function ShuiyuanHeader() {
     Icon: typeof Bookmark,
     onClick: () => void,
   ) => (
-    <button
-      aria-current={active ? 'true' : undefined}
-      className={cn(
-        'relative grid size-8 place-items-center rounded-control transition-colors',
-        active ? 'bg-hover-2 text-ink' : 'text-ink-3 hover:bg-hover-2/60 hover:text-ink',
-      )}
+    <IconButton
+      aria-current={active ? 'page' : undefined}
+      className="relative"
       onClick={onClick}
+      size="lg"
       title={label}
-      type="button"
     >
-      <Icon className="size-4" strokeWidth={1.8} />
+      <Icon strokeWidth={1.8} />
       {count && count > 0 ? (
         <span className="absolute -right-1.5 -top-1 rounded-full bg-ink px-1 text-xs font-medium leading-4 tabular-nums text-surface">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}
-    </button>
+    </IconButton>
   );
 
   return (
@@ -203,18 +201,17 @@ export function ShuiyuanHeader() {
             </SelectContent>
           </Select>
           {/* 刷新同属“当前列表”操作，紧随筛选器；与右侧搜索区分组。 */}
-          <button
+          <IconButton
+            size="lg"
             aria-label="刷新"
-            className="grid size-8 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2/60 hover:text-ink"
             onClick={() => {
               void refreshList();
               void refreshCounts();
             }}
             title="刷新"
-            type="button"
           >
-            <RefreshCw className={cn('size-4', listLoading && 'animate-spin')} strokeWidth={1.8} />
-          </button>
+            <RefreshCw className={cn(listLoading && 'animate-spin')} strokeWidth={1.8} />
+          </IconButton>
         </div>
       </div>
     </header>

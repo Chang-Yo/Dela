@@ -50,9 +50,10 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
 import { dialogOverlay, dialogPanel, drawerFromLeft, fadeIn, overlayFade } from '../../ui/motion';
-import { chromeIconButton, navIcon, navRow } from '../navigation/nav-styles';
+import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../features/settings/UpdateBadge';
 import { useVisibleNavEntries } from '../navigation/entries';
+import { IconButton } from '../../ui/icon-button';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-slow ease-out';
@@ -364,12 +365,11 @@ export function AppShell({
         )}
       >
         <div className="flex h-full items-center">
-          <button
+          <IconButton
             aria-controls="main-nav"
             aria-expanded={!navHidden}
             aria-label={navHidden ? '展开侧边栏' : '收起侧边栏'}
             className={cn(
-              chromeIconButton,
               '[-webkit-app-region:no-drag] ml-2',
               !navHidden && 'opacity-70 hover:opacity-100',
             )}
@@ -379,80 +379,74 @@ export function AppShell({
                 : setPreference('shellSidebarCollapsed', !sidebarCollapsed)
             }
             title={navHidden ? '展开侧边栏' : '收起侧边栏'}
-            type="button"
           >
             {navHidden ? (
               narrow ? (
-                <Menu className="size-4" strokeWidth={1.8} />
+                <Menu strokeWidth={1.8} />
               ) : (
-                <PanelLeft className="size-4" strokeWidth={1.8} />
+                <PanelLeft strokeWidth={1.8} />
               )
             ) : (
-              <PanelLeftClose className="size-4" strokeWidth={1.8} />
+              <PanelLeftClose strokeWidth={1.8} />
             )}
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             aria-label="后退"
-            className={cn(chromeIconButton, '[-webkit-app-region:no-drag] ml-1.5')}
+            className="[-webkit-app-region:no-drag] ml-1.5"
             disabled={!canBack}
             onClick={onBack}
             title="后退"
-            type="button"
           >
-            <ArrowLeft className="size-4" strokeWidth={1.8} />
-          </button>
-          <button
+            <ArrowLeft strokeWidth={1.8} />
+          </IconButton>
+          <IconButton
             aria-label="前进"
-            className={cn(chromeIconButton, '[-webkit-app-region:no-drag] ml-0.5')}
+            className="[-webkit-app-region:no-drag] ml-0.5"
             disabled={!canForward}
             onClick={onForward}
             title="前进"
-            type="button"
           >
-            <ArrowRight className="size-4" strokeWidth={1.8} />
-          </button>
+            <ArrowRight strokeWidth={1.8} />
+          </IconButton>
           {/* 侧栏折叠后首页与功能入口随侧栏隐藏，这里补回可达入口（与侧栏同一份可见性，窄屏由抽屉承载）。 */}
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] ml-2 flex h-full items-center gap-1">
-              <button
+              <IconButton
                 aria-current={view === 'home' ? 'page' : undefined}
                 aria-label="首页"
-                className={chromeIconButton}
+
                 onClick={onOpenGeneralChat}
                 title="首页"
-                type="button"
               >
-                <House className="size-4" strokeWidth={1.8} />
-              </button>
+                <House strokeWidth={1.8} />
+              </IconButton>
               {visibleEntries.map((item) => {
                 const Icon = item.icon;
                 const active = item.id === 'sources' ? sourcesActive : view === item.id;
                 return (
-                  <button
+                  <IconButton
                     aria-current={active ? 'page' : undefined}
                     aria-label={item.label}
-                    className={chromeIconButton}
+
                     key={item.id}
                     onClick={() =>
                       item.id === 'sources' ? onOpenSources() : onNavigateBusiness(item.id)
                     }
                     title={item.label}
-                    type="button"
                   >
-                    <Icon className="size-4" strokeWidth={1.8} />
-                  </button>
+                    <Icon strokeWidth={1.8} />
+                  </IconButton>
                 );
               })}
-              <button
+              <IconButton
                 aria-current={view === 'settings' ? 'page' : undefined}
                 aria-label="设置"
-                className={chromeIconButton}
+
                 onClick={() => navigate('settings')}
                 title="设置"
-                type="button"
               >
-                <Settings className="size-4" strokeWidth={1.8} />
-              </button>
+                <Settings strokeWidth={1.8} />
+              </IconButton>
             </div>
           )}
           {/* 更新提示固定排在左侧这一组的最右端：它是状态提示，不属于前进/后退那串导航动作。 */}
@@ -462,44 +456,41 @@ export function AppShell({
           {/* 侧栏折叠后铃铛/搜索随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] flex h-full items-center gap-1 pr-1">
-              <button
+              <IconButton
                 aria-current={view === 'todo' ? 'page' : undefined}
                 aria-label={todoUnreadCount > 0 ? `TODO，${todoUnreadCount} 条新消息` : 'TODO'}
-                className={chromeIconButton}
+
                 onClick={() => navigate('todo')}
                 title="TODO"
-                type="button"
               >
                 <SquareCheckBig
                   className={cn('size-4', todoUnreadCount > 0 && 'text-bui-accent')}
                   strokeWidth={1.8}
                 />
-              </button>
-              <button
+              </IconButton>
+              <IconButton
                 aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
                 aria-current={view === 'notifications' ? 'page' : undefined}
-                className={cn(chromeIconButton, 'relative')}
+                className="relative"
                 onClick={() => navigate('notifications')}
                 title="通知"
-                type="button"
               >
-                <Bell className="size-4" strokeWidth={1.8} />
+                <Bell strokeWidth={1.8} />
                 {notificationCount > 0 && (
                   <span
                     aria-hidden="true"
                     className="absolute right-1 top-1 size-1.5 rounded-full bg-bui-accent ring-2 ring-page"
                   />
                 )}
-              </button>
-              <button
+              </IconButton>
+              <IconButton
                 aria-label="搜索"
-                className={chromeIconButton}
+
                 onClick={onSearch}
                 title="全局搜索 (Ctrl/⌘+K)"
-                type="button"
               >
-                <Search className="size-4" strokeWidth={1.8} />
-              </button>
+                <Search strokeWidth={1.8} />
+              </IconButton>
             </div>
           )}
           {view === 'workbench' && projectId && window.dela && (
@@ -553,28 +544,26 @@ export function AppShell({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <button
+              <IconButton
                 aria-label="打开项目终端"
-                className={chromeIconButton}
+
                 onClick={() => projectId && useNavigationStore.getState().openTerminal(projectId)}
                 title="打开项目终端"
-                type="button"
               >
-                <SquareTerminal className="size-4" strokeWidth={1.8} />
-              </button>
+                <SquareTerminal strokeWidth={1.8} />
+              </IconButton>
             </div>
           )}
           {/* 资料页（通用工作台）的聊天入口：新对话落为工作台标签，单组分屏、多组进最右组。 */}
           {view === 'workbench' && projectId === null && window.dela && (
-            <button
+            <IconButton
               aria-label="新聊天"
-              className={cn(chromeIconButton, '[-webkit-app-region:no-drag] mr-1')}
+              className="[-webkit-app-region:no-drag] mr-1"
               onClick={() => void useNavigationStore.getState().newChat(null)}
               title="新聊天"
-              type="button"
             >
-              <MessageCirclePlus className="size-4" strokeWidth={1.8} />
-            </button>
+              <MessageCirclePlus strokeWidth={1.8} />
+            </IconButton>
           )}
           <WindowControls />
         </div>
@@ -593,13 +582,9 @@ export function AppShell({
                 </Dialog.Description>
               </div>
               <Dialog.Close asChild>
-                <button
-                  aria-label="关闭"
-                  className={cn(chromeIconButton, '-mr-1 -mt-1')}
-                  type="button"
-                >
-                  <X className="size-4" strokeWidth={1.8} />
-                </button>
+                <IconButton aria-label="关闭" className="-mr-1 -mt-1">
+                  <X strokeWidth={1.8} />
+                </IconButton>
               </Dialog.Close>
             </div>
             <div className="mt-8 grid items-start gap-x-12 gap-y-8 sm:grid-cols-2">
@@ -678,51 +663,44 @@ export function AppShell({
               </span>
             </div>
             <div className="flex-1" />
-            <button
+            <IconButton
               aria-current={view === 'todo' ? 'page' : undefined}
               aria-label={todoUnreadCount > 0 ? `TODO，${todoUnreadCount} 条新消息` : 'TODO'}
-              className={chromeIconButton}
+
               onClick={() => navigate('todo')}
               title="TODO"
-              type="button"
             >
               <SquareCheckBig
                 className={cn('size-4', todoUnreadCount > 0 && 'text-bui-accent')}
                 strokeWidth={1.8}
               />
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
               aria-current={view === 'notifications' ? 'page' : undefined}
-              className={cn(
-                chromeIconButton,
-                'relative',
-                view === 'notifications' && 'bg-hover-2 text-ink',
-              )}
+              className={cn('relative', view === 'notifications' && 'bg-hover-2 text-ink')}
               onClick={() => navigate('notifications')}
               title="通知"
-              type="button"
             >
-              <Bell className="size-4" strokeWidth={1.8} />
+              <Bell strokeWidth={1.8} />
               {notificationCount > 0 && (
                 <span
                   aria-hidden="true"
                   className="absolute right-1 top-1 size-1.5 rounded-full bg-bui-accent ring-2 ring-page"
                 />
               )}
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               aria-label="搜索"
-              className={chromeIconButton}
+
               onClick={() => {
                 onMobileDrawerChange?.(null);
                 onSearch();
               }}
               title="全局搜索 (Ctrl/⌘+K)"
-              type="button"
             >
-              <Search className="size-4" strokeWidth={1.8} />
-            </button>
+              <Search strokeWidth={1.8} />
+            </IconButton>
           </div>
           <ProjectSessionNav
             activeBusinessId={

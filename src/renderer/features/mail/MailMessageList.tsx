@@ -5,7 +5,7 @@ import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/cn';
 import { Shimmer } from '../../../ui/shimmer';
 import { Input } from '../../../ui/input';
-import { chromeIconButton } from '../../navigation/nav-styles';
+import { IconButton } from '../../../ui/icon-button';
 
 type Props = {
   className?: string;
@@ -58,16 +58,15 @@ export function MailMessageList({
           </small>
         </div>
         <div className="flex-1" />
-        <button
+        <IconButton
           aria-label="同步邮件"
-          className={cn(chromeIconButton, 'disabled:cursor-wait')}
+          className="disabled:cursor-wait"
           disabled={spinning}
           onClick={refresh}
           title={syncLabel || '同步邮件'}
-          type="button"
         >
-          <RefreshCw className={cn('size-3.5', spinning && 'animate-spin')} strokeWidth={1.8} />
-        </button>
+          <RefreshCw className={cn(spinning && 'animate-spin')} strokeWidth={1.8} />
+        </IconButton>
         <Input
           aria-label="搜索邮件"
           className="h-7 w-32 shrink-0 text-xs max-[1080px]:w-24"

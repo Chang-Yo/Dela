@@ -19,6 +19,7 @@ import { acceleratorFromEvent } from '../../../shared/keybindings';
 import { platform } from '../../lib/platform';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
+import { IconButton } from '../../../ui/icon-button';
 
 type Props = {
   draft?: PreparedEmail;
@@ -31,9 +32,6 @@ type Props = {
   /** 弹窗场景:弹窗自身已是带边框的容器,去掉灰底画布与内卡描边,避免三层框嵌套。 */
   embedded?: boolean;
 };
-
-const toolButtonClass =
-  'grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2 hover:text-ink aria-pressed:bg-hover-2 aria-pressed:text-ink disabled:pointer-events-none disabled:opacity-40';
 
 function restoreSelection(editor: HTMLDivElement, range: Range | null): void {
   editor.focus();
@@ -658,60 +656,55 @@ export function MailComposer({
 
         {linkDraft === null ? (
           <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line">
-            <button
+            <IconButton
               aria-label="加粗"
               aria-pressed={formatState.bold}
-              className={toolButtonClass}
+
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => format('bold')}
               title="加粗"
-              type="button"
             >
-              <Bold className="size-4" strokeWidth={1.8} />
-            </button>
-            <button
+              <Bold strokeWidth={1.8} />
+            </IconButton>
+            <IconButton
               aria-label="斜体"
               aria-pressed={formatState.italic}
-              className={toolButtonClass}
+
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => format('italic')}
               title="斜体"
-              type="button"
             >
-              <Italic className="size-4" strokeWidth={1.8} />
-            </button>
-            <button
+              <Italic strokeWidth={1.8} />
+            </IconButton>
+            <IconButton
               aria-label="添加链接"
               disabled={!hasLinkSelection}
-              className={toolButtonClass}
+
               onMouseDown={(event) => event.preventDefault()}
               onClick={openLinkDraft}
               title={hasLinkSelection ? '添加链接' : '选中文字后添加链接'}
-              type="button"
             >
-              <Link className="size-4" strokeWidth={1.8} />
-            </button>
+              <Link strokeWidth={1.8} />
+            </IconButton>
             <span aria-hidden="true" className="mx-1 h-4 w-px bg-line" />
-            <button
+            <IconButton
               aria-label="插入图片"
-              className={toolButtonClass}
+
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => void pickFiles('inline')}
               title="插入图片"
-              type="button"
             >
-              <ImagePlus className="size-4" strokeWidth={1.8} />
-            </button>
-            <button
+              <ImagePlus strokeWidth={1.8} />
+            </IconButton>
+            <IconButton
               aria-label="添加附件"
-              className={toolButtonClass}
+
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => void pickFiles('attachment')}
               title="添加附件"
-              type="button"
             >
-              <Paperclip className="size-4" strokeWidth={1.8} />
-            </button>
+              <Paperclip strokeWidth={1.8} />
+            </IconButton>
           </div>
         ) : (
           <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line">

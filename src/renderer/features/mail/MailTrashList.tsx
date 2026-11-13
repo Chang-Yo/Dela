@@ -3,6 +3,7 @@ import type { MailTrashItem } from '../../../shared/api';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/cn';
 import { ErrorText } from '../../../ui/alert';
+import { IconButton } from '../../../ui/icon-button';
 
 type Props = {
   className?: string;
@@ -36,16 +37,15 @@ export function MailTrashList({
           <small className="shrink-0 text-xs text-ink-3">{items.length} 封</small>
         </div>
         <div className="flex-1" />
-        <button
+        <IconButton
           aria-label="清空已删除邮件"
-          className="grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2 hover:text-red disabled:cursor-wait disabled:opacity-50"
+          className="hover:text-red disabled:cursor-wait"
           disabled={items.length === 0}
           onClick={onEmpty}
           title="清空已删除邮件"
-          type="button"
         >
-          <Trash2 className="size-3.5" strokeWidth={1.8} />
-        </button>
+          <Trash2 strokeWidth={1.8} />
+        </IconButton>
       </div>
       {error && <ErrorText className="px-4 py-2">{error}</ErrorText>}
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1">
@@ -97,24 +97,22 @@ export function MailTrashList({
                   </span>
                 </button>
                 <span className="flex shrink-0 items-center gap-1 pt-0.5">
-                  <button
+                  <IconButton
                     aria-label={`恢复到 ${item.folderName ?? '原文件夹'}`}
-                    className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2 hover:text-ink"
+
                     onClick={() => onRestore(item)}
                     title={`恢复到 ${item.folderName ?? '原文件夹'}`}
-                    type="button"
                   >
-                    <RotateCcw className="size-3.5" strokeWidth={1.8} />
-                  </button>
-                  <button
+                    <RotateCcw strokeWidth={1.8} />
+                  </IconButton>
+                  <IconButton
                     aria-label="彻底删除"
-                    className="grid size-7 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover-2 hover:text-red"
+                    className="hover:text-red"
                     onClick={() => onPurge(item)}
                     title="彻底删除"
-                    type="button"
                   >
-                    <Trash2 className="size-3.5" strokeWidth={1.8} />
-                  </button>
+                    <Trash2 strokeWidth={1.8} />
+                  </IconButton>
                 </span>
               </div>
             );

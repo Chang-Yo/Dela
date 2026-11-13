@@ -9,7 +9,8 @@ import { useSessionRunStatus } from '../sessions/runs';
 import { updateSession } from '../sessions/store';
 import { errorText } from '../workspace/store';
 import { showToast } from '../app/toasts';
-import { navSubRow, rowActions, rowIconButton } from './nav-styles';
+import { navSubRow, rowActions } from './nav-styles';
+import { IconButton } from '../../ui/icon-button';
 
 export interface NavSessionSummary {
   id: string;
@@ -137,27 +138,27 @@ export function SessionRow({
         </Button>
       ) : (
         <div className={cn(rowActions, active ? 'bg-hover-2' : 'bg-hover')}>
-          <button
+          <IconButton
+            size="sm"
             disabled={busy}
             aria-label={`${session.pinned ? '取消置顶' : '置顶'} ${title}`}
             title={session.pinned ? '取消置顶' : '置顶'}
-            className={rowIconButton}
+
             onClick={() => void change(false)}
-            type="button"
           >
             {session.pinned ? <PinOff /> : <Pin />}
-          </button>
+          </IconButton>
           {onDelete && (
-            <button
+            <IconButton
+              size="sm"
               disabled={busy}
               aria-label={`归档 ${title}`}
               title="归档对话"
-              className={rowIconButton}
+
               onClick={() => void change(true)}
-              type="button"
             >
               <Archive />
-            </button>
+            </IconButton>
           )}
         </div>
       )}

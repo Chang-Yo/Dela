@@ -3,8 +3,8 @@
 import { create } from 'zustand';
 import { useEffect, useState } from 'react';
 import { PanelLeft } from 'lucide-react';
-import { cn } from '../../ui/cn';
 import { usePreferences } from '../app/preferences';
+import { IconButton } from '../../ui/icon-button';
 
 const NARROW_QUERY = '(max-width: 767px)';
 
@@ -56,21 +56,17 @@ export function ExplorerRevealButton({ className }: { className?: string }) {
   const hidden = narrow ? !mobileOpen : collapsed;
   if (!hidden) return null;
   return (
-    <button
+    <IconButton
       aria-label="展开目录"
-      className={cn(
-        'grid size-7 shrink-0 place-items-center rounded-control text-ink-3 transition-colors duration-base hover:bg-hover-2 hover:text-ink',
-        className,
-      )}
+      className={className}
       onClick={() => {
         const state = useExplorerState.getState();
         if (state.narrow) state.setMobileOpen(true);
         else usePreferences.getState().setPreference('workspaceSidebarCollapsed', false);
       }}
       title="展开目录"
-      type="button"
     >
-      <PanelLeft className="size-4" strokeWidth={1.8} />
-    </button>
+      <PanelLeft strokeWidth={1.8} />
+    </IconButton>
   );
 }

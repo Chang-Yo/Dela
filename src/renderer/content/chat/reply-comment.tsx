@@ -7,6 +7,7 @@ import type { ChatComment } from '../../../shared/api';
 import { menuPanel } from '../../../ui/menu-styles';
 import { cn } from '../../../ui/cn';
 import { useChatDrafts } from './drafts';
+import { IconButton } from '../../../ui/icon-button';
 
 /** 浮层与视口边缘、与选区之间的留白（rem）。 */
 const EDGE_REM = 0.5;
@@ -392,14 +393,14 @@ function CommentChip({
                 {item.comment && <span className="max-w-24 truncate text-ink-3">{item.quote}</span>}
                 <span className="truncate">{item.comment || item.quote}</span>
               </button>
-              <button
+              <IconButton
+                size="sm"
                 aria-label="移除评论"
-                className="flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors duration-fast hover:bg-hover-2 hover:text-ink"
+
                 onClick={onRemove}
-                type="button"
               >
-                <X className="size-3" strokeWidth={2.2} />
-              </button>
+                <X strokeWidth={2.2} />
+              </IconButton>
             </span>
           </HoverCard.Trigger>
         </Popover.Anchor>

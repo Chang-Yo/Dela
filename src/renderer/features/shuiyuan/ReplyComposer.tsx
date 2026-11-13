@@ -12,6 +12,7 @@ import { SHUIYUAN_ORIGIN, uploadMarkdown } from './shuiyuan-format';
 import { shuiyuanReplyDecorations } from './reply-editor';
 import { SHUIYUAN_HOST } from '../../../shared/shuiyuan';
 import { Spinner } from '../../../ui/spinner';
+import { IconButton } from '../../../ui/icon-button';
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -212,15 +213,15 @@ export function ReplyComposer({
             : '回复帖子'}
         </span>
         {replyTarget ? (
-          <button
+          <IconButton
+            size="xs"
             aria-label="改为回复帖子"
-            className="grid size-5 shrink-0 place-items-center rounded-chip text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+
             onClick={onClearReplyTarget}
             title="改为回复帖子"
-            type="button"
           >
-            <X className="size-3" />
-          </button>
+            <X />
+          </IconButton>
         ) : null}
         <div className="flex-1" />
         <Button
