@@ -307,7 +307,7 @@ export function Player({
           <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-13 font-medium text-ink">
+          <p className="truncate text-sm font-medium text-ink">
             {course.name} · {lectureTitle(video)}
           </p>
           <p className="truncate text-xs tabular-nums text-ink-3">{lectureMeta(video)}</p>
@@ -373,7 +373,7 @@ export function Player({
         ) : failed ? (
           <div className="grid h-full place-items-center">
             <div className="flex flex-col items-center gap-2">
-              <p className="text-13 text-on-media/70">视频加载失败，请重试</p>
+              <p className="text-sm text-on-media/70">视频加载失败，请重试</p>
               <Button onClick={retry} size="sm" variant="secondary">
                 <RotateCcw className="size-3.5" />
                 重试
@@ -386,7 +386,7 @@ export function Player({
               <Loader2 className="size-5 animate-spin text-on-media/60" />
             ) : streamsError ? (
               <div className="flex flex-col items-center gap-2">
-                <p className="text-13 text-on-media/70">{streamsError}</p>
+                <p className="text-sm text-on-media/70">{streamsError}</p>
                 <Button onClick={() => void ensureStreams(video.id)} size="sm" variant="secondary">
                   <RotateCcw className="size-3.5" />
                   重试
@@ -397,7 +397,7 @@ export function Player({
         )}
         {resumeNotice !== null && active && !failed && (
           <div
-            className="absolute bottom-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-2 gap-y-1 rounded-control bg-media/80 px-3 py-2 text-13 text-on-media shadow-overlay"
+            className="absolute bottom-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-2 gap-y-1 rounded-control bg-media/80 px-3 py-2 text-sm text-on-media shadow-overlay"
             role="status"
           >
             <span className="tabular-nums">上次观看到 {formatTime(resumeNotice)}，已继续播放</span>

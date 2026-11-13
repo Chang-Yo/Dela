@@ -80,7 +80,7 @@ export function CommandsSection() {
     <div className="grid gap-10">
       <SectionHeader title="自定义指令" />
       {!window.dela ? (
-        <p className="text-13 text-ink-3">指令配置仅在桌面端可用。</p>
+        <p className="text-sm text-ink-3">指令配置仅在桌面端可用。</p>
       ) : (
         <>
           <div className="grid gap-2" data-setting-id="instruction">
@@ -90,7 +90,7 @@ export function CommandsSection() {
             />
             <textarea
               aria-label="全局指令"
-              className="min-h-24 rounded-control bg-field px-2.5 py-1.5 text-13 leading-relaxed text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
+              className="min-h-24 rounded-control bg-field px-2.5 py-1.5 text-sm leading-relaxed text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
               disabled={instruction === null || instructionBusy}
               maxLength={2000}
               onChange={(event) => {
@@ -127,7 +127,7 @@ export function CommandsSection() {
               title="快捷指令"
             >
               {commands !== null && commands.length === 0 && (
-                <p className="py-3.5 text-13 text-ink-3">
+                <p className="py-3.5 text-sm text-ink-3">
                   还没有自定义指令，例如「周报」：汇总本周日程与未读邮件。
                 </p>
               )}
@@ -143,7 +143,7 @@ export function CommandsSection() {
                           <Terminal className="size-4 text-ink-3" strokeWidth={1.8} />
                         </span>
                         <div className="grid min-w-0 gap-0.5">
-                          <strong className="truncate text-13">/{command.name}</strong>
+                          <strong className="truncate text-sm">/{command.name}</strong>
                           <span className="truncate text-xs text-ink-3" title={command.prompt}>
                             {command.prompt}
                           </span>
@@ -255,7 +255,7 @@ function CommandFormDialog({
               void save();
             }}
           >
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               名称
               <div className="flex items-center gap-1">
                 <span className="text-ink-3">/</span>
@@ -268,10 +268,10 @@ function CommandFormDialog({
                 />
               </div>
             </label>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               指令内容
               <textarea
-                className="min-h-28 rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
+                className="min-h-28 rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
                 maxLength={2000}
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder="每周帮我汇总本周的日程、作业与未读邮件"

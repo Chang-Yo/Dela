@@ -68,12 +68,12 @@ export function SemesterStartDialog({
           </Button>
         </div>
         <div className="grid gap-2">
-          <div className="flex h-8 w-full items-center rounded-control bg-field px-2.5 text-13 text-ink shadow-hairline transition-[background-color,box-shadow] duration-base focus-within:bg-surface focus-within:shadow-focus">
+          <div className="flex h-8 w-full items-center rounded-control bg-field px-2.5 text-sm text-ink shadow-hairline transition-[background-color,box-shadow] duration-base focus-within:bg-surface focus-within:shadow-focus">
             {/* 原生 date input：日历弹层跟随全局 color-scheme，值即 YYYY-MM-DD，选不满不会产出非法日期。 */}
             <input
               aria-label="开学日期"
               autoFocus
-              className="w-full bg-transparent text-13 tabular-nums outline-none"
+              className="w-full bg-transparent text-sm tabular-nums outline-none"
               onChange={(event) => setValue(event.target.value)}
               type="date"
               value={value}

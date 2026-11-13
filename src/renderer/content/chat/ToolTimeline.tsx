@@ -96,7 +96,7 @@ function Disclosure({
         // data-trace-toggle：ChatThread 据此在用户展开过程时暂停贴底跟随。
         data-trace-toggle
         onClick={() => setOpen(!open)}
-        className="group/row flex h-7 w-full min-w-0 items-center gap-1 text-left text-13 text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
+        className="group/row flex h-7 w-full min-w-0 items-center gap-1 text-left text-sm text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
       >
         <ChevronRight
           aria-hidden
@@ -225,7 +225,7 @@ function Reasoning({ part, live }: { part: Extract<Part, { type: 'reasoning' }>;
       >
         <div
           data-reasoning-body
-          className="max-h-72 overflow-y-auto border-l border-line pl-3 text-13 leading-6 whitespace-pre-wrap text-ink-3"
+          className="max-h-72 overflow-y-auto border-l border-line pl-3 text-sm leading-6 whitespace-pre-wrap text-ink-3"
         >
           {part.text}
         </div>
@@ -272,7 +272,7 @@ export function ReplyTrace({
         <div
           key={key}
           data-assistant-body
-          className="my-3 min-w-0 text-13 leading-7 text-ink first:mt-0"
+          className="my-3 min-w-0 text-sm leading-7 text-ink first:mt-0"
         >
           {renderText ? (
             renderText(part.text)
@@ -303,7 +303,7 @@ export function ReplyTrace({
           aria-expanded={expanded}
           data-trace-toggle
           onClick={() => setExpanded(!expanded)}
-          className="group/row mb-1 flex h-7 w-full min-w-0 items-center gap-1 text-left text-13 text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
+          className="group/row mb-1 flex h-7 w-full min-w-0 items-center gap-1 text-left text-sm text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
         >
           <ChevronRight
             aria-hidden

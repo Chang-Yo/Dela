@@ -258,7 +258,7 @@ export function SourcesTree({
                   ? `取消归档「${confirmCourse.name}」？`
                   : `归档「${confirmCourse.name}」？`}
               </AlertDialog.Title>
-              <AlertDialog.Description className="mt-1 text-13 leading-relaxed text-ink-3">
+              <AlertDialog.Description className="mt-1 text-sm leading-relaxed text-ink-3">
                 {confirmCourse.archived
                   ? '课程将恢复到原学期目录。'
                   : '归档后将移入「归档」区，不再自动同步该课程，也不再提示同步错误。'}

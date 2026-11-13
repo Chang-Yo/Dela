@@ -31,7 +31,7 @@ export function MailTrashList({
     <section aria-label="已删除邮件" className={cn('flex min-h-0 flex-col', className)}>
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <strong className="truncate text-13">已删除</strong>
+          <strong className="truncate text-sm">已删除</strong>
           <small className="shrink-0 text-xs text-ink-3">{items.length} 封</small>
         </div>
         <div className="flex-1" />
@@ -73,19 +73,17 @@ export function MailTrashList({
                   <span className="flex min-w-0 items-baseline justify-between gap-3">
                     <strong
                       className={cn(
-                        'min-w-0 truncate text-13',
+                        'min-w-0 truncate text-sm',
                         item.seen ? 'font-normal text-ink-2' : 'font-semibold',
                       )}
                     >
                       {senderLabel(item)}
                     </strong>
-                    <span className="shrink-0 text-2xs text-ink-3">
-                      {formatMailDate(item.date)}
-                    </span>
+                    <span className="shrink-0 text-xs text-ink-3">{formatMailDate(item.date)}</span>
                   </span>
                   <span className="flex items-center gap-1.5 overflow-hidden">
                     <span
-                      className={cn('truncate text-13', item.seen ? 'text-ink-2' : 'font-medium')}
+                      className={cn('truncate text-sm', item.seen ? 'text-ink-2' : 'font-medium')}
                     >
                       {item.subject ?? '(无主题)'}
                     </span>

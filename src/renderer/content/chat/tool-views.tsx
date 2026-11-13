@@ -203,7 +203,7 @@ function SubagentView({ result }: ViewProps) {
         </p>
       )}
       {details?.reply && (
-        <div className="max-h-80 overflow-y-auto rounded-card border border-line px-3 py-2 text-13 leading-6">
+        <div className="max-h-80 overflow-y-auto rounded-card border border-line px-3 py-2 text-sm leading-6">
           <ChatMarkdown animated={false}>{details.reply}</ChatMarkdown>
         </div>
       )}

@@ -68,7 +68,7 @@ function ShortcutSection({ children, title }: { children: ReactNode; title: stri
 function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; label: string }) {
   return (
     <div className="flex h-9 items-center justify-between gap-8">
-      <span className="min-w-0 truncate text-13 text-ink-2">{label}</span>
+      <span className="min-w-0 truncate text-sm text-ink-2">{label}</span>
       {keys ? (
         <span className="flex shrink-0 items-center gap-1">
           {keys.map((key) => (
@@ -81,7 +81,7 @@ function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; la
           ))}
         </span>
       ) : (
-        <span className="shrink-0 text-13 text-ink-3">{hint}</span>
+        <span className="shrink-0 text-sm text-ink-3">{hint}</span>
       )}
     </div>
   );
@@ -615,7 +615,7 @@ export function AppShell({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Dialog.Title className="text-lg font-semibold tracking-tight">快捷键</Dialog.Title>
-                <Dialog.Description className="mt-1 text-13 text-ink-3">
+                <Dialog.Description className="mt-1 text-sm text-ink-3">
                   与设置 › 快捷键 同源；工作台类快捷键需焦点在工作区内。
                 </Dialog.Description>
               </div>
@@ -696,7 +696,7 @@ export function AppShell({
               <DelaBrand className="h-[1.125rem] w-auto" />
               <span
                 className={cn(
-                  'text-15 font-semibold tracking-tight text-ink',
+                  'text-base font-semibold tracking-tight text-ink',
                   labelFade,
                   sidebarCollapsed && 'opacity-0',
                 )}

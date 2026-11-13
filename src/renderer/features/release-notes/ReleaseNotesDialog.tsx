@@ -31,7 +31,7 @@ export function ReleaseNotesDialog() {
                     {note.version} · {note.date}
                   </h3>
                 )}
-                <ul className="grid list-disc gap-1.5 pl-4 text-13 leading-relaxed text-ink-2">
+                <ul className="grid list-disc gap-1.5 pl-4 text-sm leading-relaxed text-ink-2">
                   {note.items.map((item) => (
                     <li key={item}>{item}</li>
                   ))}

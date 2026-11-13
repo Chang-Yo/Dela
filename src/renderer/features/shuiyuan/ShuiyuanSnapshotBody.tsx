@@ -42,7 +42,7 @@ function SnapshotPage({
       </Button>
     );
   return html === null ? (
-    <p style={{ height: estimatedHeight }} className="p-4 text-13 text-ink-3">
+    <p style={{ height: estimatedHeight }} className="p-4 text-sm text-ink-3">
       正在加载楼层…
     </p>
   ) : (

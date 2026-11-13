@@ -85,7 +85,7 @@ function DesktopClassroomView() {
   return (
     <div className="flex h-full min-h-0 bg-surface">
       {phase === 'loading' && (
-        <div className="grid h-full flex-1 place-items-center text-13 text-ink-3">
+        <div className="grid h-full flex-1 place-items-center text-sm text-ink-3">
           正在连接交大视频…
         </div>
       )}
@@ -210,7 +210,7 @@ function PlayerSection({
             <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
           </div>
         )}
-        <div className="flex flex-col items-center gap-2 text-13 text-ink-3">
+        <div className="flex flex-col items-center gap-2 text-sm text-ink-3">
           <MonitorPlay aria-hidden className="size-7 opacity-45" />
           <p>从左侧选择一场录像开始观看</p>
           <p className="text-xs text-ink-3/80">支持跳转、拖拽进度、音量与倍速，也可下载</p>
@@ -246,7 +246,7 @@ function ConnectCard() {
         </div>
         <div className="grid gap-1">
           <h2 className="text-lg font-semibold tracking-tight">登录交大视频</h2>
-          <p className="text-13 leading-relaxed text-ink-3">
+          <p className="text-sm leading-relaxed text-ink-3">
             登录后读取本学期课程与课堂录像。已连接 Canvas
             时自动登录，否则在官方窗口完成，校园会话与课表共用。
           </p>

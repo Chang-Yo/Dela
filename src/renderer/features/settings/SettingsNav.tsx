@@ -70,7 +70,7 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
       ref={navRef}
     >
       {/* 壳层锚点：分区目录以「设置」标题开头（窄屏横向分区行不放标题）。 */}
-      <span className="hidden px-2 pb-1 text-13 font-semibold text-ink md:block">设置</span>
+      <span className="hidden px-2 pb-1 text-sm font-semibold text-ink md:block">设置</span>
       {sectionGroups.map((group, index) => (
         <div className="flex shrink-0 gap-1 md:grid md:gap-1" key={group.title}>
           {index > 0 && (
@@ -85,7 +85,7 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
               <button
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-8 shrink-0 items-center gap-2.5 rounded-control px-2.5 text-13 transition-colors duration-base',
+                  'flex h-8 shrink-0 items-center gap-2.5 rounded-control px-2.5 text-sm transition-colors duration-base',
                   active
                     ? 'bg-surface font-medium text-ink shadow-hairline'
                     : 'text-ink-2 hover:bg-hover hover:text-ink',

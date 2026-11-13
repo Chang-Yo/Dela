@@ -69,7 +69,7 @@ export function ShuiyuanHeader() {
     >
       <Icon className="size-4" strokeWidth={1.8} />
       {count && count > 0 ? (
-        <span className="absolute -right-1.5 -top-1 rounded-full bg-ink px-1 text-2xs font-medium leading-4 tabular-nums text-surface">
+        <span className="absolute -right-1.5 -top-1 rounded-full bg-ink px-1 text-xs font-medium leading-4 tabular-nums text-surface">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}

@@ -38,7 +38,7 @@ function TopicAvatar({ topic }: { topic: ShuiyuanTopicSummary }) {
   return (
     <span
       aria-hidden="true"
-      className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-inset text-13 font-medium text-ink-3 max-md:size-8"
+      className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-inset text-sm font-medium text-ink-3 max-md:size-8"
     >
       {initial || '…'}
     </span>
@@ -194,7 +194,7 @@ export function TopicFeed() {
         </div>
       ) : null}
       {!loading && !error && topics.length === 0 ? (
-        <p className="px-1 py-8 text-center text-13 text-ink-3">
+        <p className="px-1 py-8 text-center text-sm text-ink-3">
           {list.kind === 'search'
             ? '没有匹配的帖子'
             : list.kind === 'messages'

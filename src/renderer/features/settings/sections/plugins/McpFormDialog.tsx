@@ -99,7 +99,7 @@ export function McpFormDialog({
                 value={transport}
               />
             )}
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               名称
               <Input
                 autoComplete="off"
@@ -111,7 +111,7 @@ export function McpFormDialog({
             </label>
             {transport === 'stdio' ? (
               <>
-                <label className="grid gap-2 text-13">
+                <label className="grid gap-2 text-sm">
                   command
                   <Input
                     autoComplete="off"
@@ -122,7 +122,7 @@ export function McpFormDialog({
                     value={command}
                   />
                 </label>
-                <label className="grid gap-2 text-13">
+                <label className="grid gap-2 text-sm">
                   参数（每行一个）
                   <Textarea
                     className={codeAreaClass}
@@ -133,7 +133,7 @@ export function McpFormDialog({
                     value={argsText}
                   />
                 </label>
-                <label className="grid gap-2 text-13">
+                <label className="grid gap-2 text-sm">
                   环境变量（每行 KEY=VALUE）
                   <Textarea
                     className={codeAreaClass}
@@ -150,7 +150,7 @@ export function McpFormDialog({
               </>
             ) : (
               <>
-                <label className="grid gap-2 text-13">
+                <label className="grid gap-2 text-sm">
                   地址
                   <Input
                     autoComplete="off"
@@ -161,7 +161,7 @@ export function McpFormDialog({
                     value={url}
                   />
                 </label>
-                <label className="grid gap-2 text-13">
+                <label className="grid gap-2 text-sm">
                   请求头（每行 Name: value）
                   <Textarea
                     className={codeAreaClass}

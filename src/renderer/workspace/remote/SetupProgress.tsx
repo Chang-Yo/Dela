@@ -99,7 +99,7 @@ export function SetupProgress({
     <div className="grid gap-3 rounded-card border border-line bg-field p-3.5">
       {failure ? (
         <div className="grid gap-1" role="alert">
-          <p className="flex items-center gap-1.5 text-13 font-medium text-red">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-red">
             <X className="size-4 shrink-0" />
             {failureTitle(failedLine?.step)}
           </p>
@@ -118,7 +118,7 @@ export function SetupProgress({
           </div>
         </div>
       ) : (
-        <p className="flex items-center gap-1.5 text-13 font-medium text-ink" role="status">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-ink" role="status">
           {running ? (
             <Loader2 className="size-4 shrink-0 animate-spin text-ink-3" />
           ) : (
@@ -184,7 +184,7 @@ export function SetupProgress({
               style={{ width: `${(upload.bytes.sent / upload.bytes.total) * 100}%` }}
             />
           </div>
-          <p className="text-right text-2xs tabular-nums text-ink-3">
+          <p className="text-right text-xs tabular-nums text-ink-3">
             {formatBytes(upload.bytes.sent)} / {formatBytes(upload.bytes.total)}
           </p>
         </div>
@@ -207,7 +207,7 @@ export function SetupProgress({
         </button>
         {expanded && (
           <div
-            className="grid max-h-36 content-start gap-0.5 overflow-y-auto rounded-control bg-surface px-2.5 py-2 font-mono text-2xs leading-[1.7]"
+            className="grid max-h-36 content-start gap-0.5 overflow-y-auto rounded-control bg-surface px-2.5 py-2 font-mono text-xs leading-[1.7]"
             ref={logRef}
             role="log"
           >

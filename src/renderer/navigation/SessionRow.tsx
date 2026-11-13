@@ -101,7 +101,7 @@ export function SessionRow({
                 className={cn('size-1.5 shrink-0 rounded-full', visual.className)}
               />
             )}
-            <span className={cn('sidebar-title min-w-0 flex-1 text-13', active && 'font-medium')}>
+            <span className={cn('sidebar-title min-w-0 flex-1 text-sm', active && 'font-medium')}>
               {title}
             </span>
             {session.pinned && <Pin className="size-3 shrink-0 text-ink-3" aria-label="已置顶" />}

@@ -40,7 +40,7 @@ export function StepButton({
   return (
     <button
       className={cn(
-        'grid h-10 w-full place-items-center rounded-card text-13 font-medium text-surface transition-all',
+        'grid h-10 w-full place-items-center rounded-card text-sm font-medium text-surface transition-all',
         state === 'success' ? 'bg-cal-teal-text hover:opacity-90' : 'bg-ink hover:opacity-90',
         (disabled || state === 'busy') && 'cursor-not-allowed opacity-50 hover:bg-ink',
       )}
@@ -58,7 +58,7 @@ export function StepButton({
 }
 
 const fieldClasses =
-  'w-full rounded-card bg-field text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 hover:shadow-hairline-strong focus:bg-surface focus:shadow-focus aria-invalid:shadow-invalid';
+  'w-full rounded-card bg-field text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 hover:shadow-hairline-strong focus:bg-surface focus:shadow-focus aria-invalid:shadow-invalid';
 
 export function StepInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(fieldClasses, 'h-10 px-3', className)} {...rest} />;
@@ -79,7 +79,7 @@ export function StepSelect({
     <Select {...rest}>
       <SelectTrigger
         aria-label={label}
-        className="w-full rounded-card text-13 data-[placeholder]:text-ink-3"
+        className="w-full rounded-card text-sm data-[placeholder]:text-ink-3"
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

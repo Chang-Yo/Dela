@@ -254,24 +254,15 @@
   --font-sans: Inter, 'Segoe UI Variable', 'Microsoft YaHei UI', sans-serif;
   --font-script: Italianno, cursive;
 
-  /* 字号随根字号（设置 › 外观 › 字号）缩放。由 text-[Npx] 迁来的档位行高继承父级，
-     sm 以上沿用 Tailwind 自带行高比。v3 末统一到内置档位（见 Plan-v2 P4 第 5 步）。 */
-  --text-9: 0.5625rem;
-  --text-9--line-height: inherit;
-  --text-2xs: 0.6875rem;
-  --text-2xs--line-height: inherit;
+  /* 字号只用 Tailwind 内置档位，随根字号（设置 › 外观 › 字号）缩放。
+     xs、sm 的行高继承父级：密集界面由容器决定行距，base 以上沿用 Tailwind 行高比。 */
   --text-xs: 0.75rem;
   --text-xs--line-height: inherit;
-  --text-13: 0.8125rem;
-  --text-13--line-height: inherit;
   --text-sm: 0.875rem;
-  --text-15: 0.9375rem;
-  --text-15--line-height: inherit;
+  --text-sm--line-height: inherit;
   --text-base: 1rem;
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
-  --text-21: 1.3125rem;
-  --text-21--line-height: inherit;
   --text-2xl: 1.5rem;
   --text-3xl: 1.875rem;
 }

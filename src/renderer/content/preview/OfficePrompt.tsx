@@ -148,7 +148,7 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
       <Presentation className="size-10 text-ink-3" aria-hidden />
       <div>
-        <p className="text-13 font-medium">{title}</p>
+        <p className="text-sm font-medium">{title}</p>
         <p className="mt-1 text-xs text-ink-3">PowerPoint 演示文稿 · 只读，应用内不直接渲染</p>
       </div>
       {!supported && (
@@ -160,7 +160,7 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
         <div role="status" className="flex flex-col items-center gap-1 text-xs text-ink-3">
           <Loader2 aria-hidden className="size-5 animate-spin" />
           <span>{progressText(progress, opening)}</span>
-          {!opening && <span className="text-2xs">已进行 {elapsed} 秒</span>}
+          {!opening && <span className="text-xs">已进行 {elapsed} 秒</span>}
         </div>
       ) : (
         <div className="flex items-center gap-2">
@@ -198,7 +198,7 @@ export function OfficeExportBanner({
   if (!exported.stale) {
     if (!supported) return null;
     return (
-      <div className="flex shrink-0 items-center justify-end gap-2 px-2 pt-1 text-2xs">
+      <div className="flex shrink-0 items-center justify-end gap-2 px-2 pt-1 text-xs">
         {error && (
           <span role="alert" className="text-red">
             {error}
@@ -214,7 +214,7 @@ export function OfficeExportBanner({
   return (
     <div
       role="status"
-      className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1 text-2xs text-ink-3"
+      className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1 text-xs text-ink-3"
     >
       <span>已打开导出的 {exported.title}</span>
       <span className="text-ink">源文件在导出后更新过，内容可能过期</span>

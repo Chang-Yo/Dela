@@ -39,7 +39,7 @@ function loadTurn(
 
 const StatSpan = memo(function StatSpan({ stat }: { stat: DiffStat }) {
   return (
-    <span className="flex shrink-0 gap-1.5 font-mono text-2xs">
+    <span className="flex shrink-0 gap-1.5 font-mono text-xs">
       {stat.added > 0 && <span className="text-green">+{stat.added}</span>}
       {stat.deleted > 0 && <span className="text-red">-{stat.deleted}</span>}
     </span>
@@ -74,7 +74,7 @@ const TurnFileRow = memo(function TurnFileRow({
   return (
     <li className="flex min-w-0 items-center gap-2 px-3 py-1.5" data-turn-file={file.path}>
       <FileIcon path={file.path} />
-      <span className="shrink-0 truncate text-13" title={file.path}>
+      <span className="shrink-0 truncate text-sm" title={file.path}>
         {basenameOf(file.path)}
       </span>
       <span className="min-w-0 flex-1 truncate text-xs text-ink-3" title={file.path}>
@@ -167,7 +167,7 @@ export const TurnChangesCard = memo(function TurnChangesCard({
   return (
     <section
       aria-label="本轮改动"
-      className="mt-3 overflow-hidden rounded-card border border-line text-13"
+      className="mt-3 overflow-hidden rounded-card border border-line text-sm"
     >
       <button
         aria-expanded={open}
@@ -180,7 +180,7 @@ export const TurnChangesCard = memo(function TurnChangesCard({
           className={`size-3.5 shrink-0 text-ink-3 transition-transform duration-base ${open ? '' : '-rotate-90'}`}
         />
         <span className="shrink-0 text-xs text-ink-3">本轮改动 · {record.files.length} 个文件</span>
-        <span className="flex min-w-0 gap-1.5 font-mono text-2xs">
+        <span className="flex min-w-0 gap-1.5 font-mono text-xs">
           {total.added > 0 && <span className="text-green">+{total.added}</span>}
           {total.deleted > 0 && <span className="text-red">-{total.deleted}</span>}
         </span>
@@ -200,7 +200,7 @@ export const TurnChangesCard = memo(function TurnChangesCard({
             ))}
           </ul>
           {record.state === 'partial' && record.warnings.length > 0 && (
-            <p className="border-t border-line px-3 py-2 text-2xs leading-5 text-ink-3">
+            <p className="border-t border-line px-3 py-2 text-xs leading-5 text-ink-3">
               部分内容未能记录：
               {record.warnings[0]}
               {record.warnings.length > 1 && ` 等 ${record.warnings.length} 项`}

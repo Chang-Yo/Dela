@@ -60,7 +60,7 @@ export function RemoteSection() {
       {connections !== null && connections.length === 0 && (
         <SettingsGroup>
           <div className="grid gap-1 py-3.5">
-            <span className="text-13 font-medium text-ink">还没有 SSH 连接</span>
+            <span className="text-sm font-medium text-ink">还没有 SSH 连接</span>
             <span className="text-xs leading-relaxed text-ink-3">
               点「新建连接」填一个目的地，或在新建远程项目时直接选 ~/.ssh/config 里的主机。
             </span>

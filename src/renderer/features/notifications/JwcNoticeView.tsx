@@ -81,7 +81,7 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
           )}
         </div>
         <h1 className="break-words text-xl font-semibold">{item.title}</h1>
-        <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-13 text-ink-3">
+        <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-ink-3">
           <span>教务处</span>
           <span aria-hidden="true">·</span>
           <span>
@@ -105,14 +105,14 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
         </p>
       </header>
       {error ? (
-        <div role="alert" className="py-6 text-13 text-red">
+        <div role="alert" className="py-6 text-sm text-red">
           <p>{error}</p>
           <Button className="mt-3" variant="outline" onClick={() => setRetry((value) => value + 1)}>
             重试
           </Button>
         </div>
       ) : !notice ? (
-        <p role="status" className="flex items-center gap-2 py-6 text-13 text-ink-3">
+        <p role="status" className="flex items-center gap-2 py-6 text-sm text-ink-3">
           <LoaderCircle className="size-4 animate-spin" />
           正在读取通知…
         </p>
@@ -143,13 +143,13 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
               aria-label="相关附件"
               className="mt-6 scroll-mt-6 border-t border-line pt-4"
             >
-              <h2 className="text-13 font-medium text-ink-3">附件</h2>
+              <h2 className="text-sm font-medium text-ink-3">附件</h2>
               <ul className="-mx-2 mt-1">
                 {notice.attachments.map((file) => (
                   <li key={file.id}>
                     <button
                       type="button"
-                      className="group flex w-full items-start gap-2 rounded-control px-2 py-1.5 text-left text-13 text-ink-2 outline-none transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-bui-accent"
+                      className="group flex w-full items-start gap-2 rounded-control px-2 py-1.5 text-left text-sm text-ink-2 outline-none transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-bui-accent"
                       onClick={() => setAttachment(file)}
                     >
                       <Paperclip className="mt-0.5 size-3.5 shrink-0 text-ink-3" />
@@ -233,7 +233,7 @@ function AttachmentDownload({
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content className={cn(dialogPanel, 'max-w-sm')}>
           <Dialog.Title className="text-base font-semibold">下载附件</Dialog.Title>
-          <Dialog.Description className="mt-2 break-words text-13 text-ink-3">
+          <Dialog.Description className="mt-2 break-words text-sm text-ink-3">
             {attachment.name}
           </Dialog.Description>
           <form action={submit} className="mt-4 flex flex-col gap-3">
@@ -241,7 +241,7 @@ function AttachmentDownload({
               {captcha ? (
                 <img src={captcha.image} alt="下载验证码" className="h-10 w-auto rounded-control" />
               ) : (
-                <span role="status" className="text-13 text-ink-3">
+                <span role="status" className="text-sm text-ink-3">
                   {error ? '验证码未加载' : '正在加载验证码…'}
                 </span>
               )}
@@ -258,7 +258,7 @@ function AttachmentDownload({
                 换一张
               </Button>
             </div>
-            <label className="flex flex-col gap-2 text-13">
+            <label className="flex flex-col gap-2 text-sm">
               验证码
               <Input
                 autoFocus
@@ -274,7 +274,7 @@ function AttachmentDownload({
               />
             </label>
             {error && (
-              <p role="alert" className="text-13 text-red">
+              <p role="alert" className="text-sm text-red">
                 {error}
               </p>
             )}

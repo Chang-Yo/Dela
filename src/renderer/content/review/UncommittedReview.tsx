@@ -124,7 +124,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
     <section aria-label="工作区改动" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
         <GitCompare aria-hidden className="size-4 shrink-0 text-ink-3" />
-        <span className="shrink-0 text-13 font-medium">工作区改动</span>
+        <span className="shrink-0 text-sm font-medium">工作区改动</span>
         <span
           className="min-w-0 truncate text-xs text-ink-3"
           title={summary?.repositoryRoot ?? undefined}
@@ -185,7 +185,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
         {files.map((file) => (
           <button
             aria-current={selected === file.path ? 'true' : undefined}
-            className={`flex w-full min-w-0 items-center gap-2 px-3 py-1.5 text-left text-13 transition-colors duration-fast hover:bg-hover ${
+            className={`flex w-full min-w-0 items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors duration-fast hover:bg-hover ${
               selected === file.path ? 'bg-hover' : ''
             }`}
             key={file.path}
@@ -198,7 +198,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
             <span className="min-w-0 flex-1 truncate text-xs text-ink-3">
               {dirnameOf(file.path)}
             </span>
-            <span className="shrink-0 text-2xs text-ink-3">{STATUS_TEXT[file.status]}</span>
+            <span className="shrink-0 text-xs text-ink-3">{STATUS_TEXT[file.status]}</span>
           </button>
         ))}
       </aside>
@@ -208,7 +208,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
         ) : detail ? (
           <div className="py-2">
             <div className="flex items-center gap-2 px-3 pb-2">
-              <span className="text-13 font-medium">{basenameOf(detail.path)}</span>
+              <span className="text-sm font-medium">{basenameOf(detail.path)}</span>
               <span className="shrink-0 text-xs text-ink-3">· {STATUS_TEXT[detail.status]}</span>
               {detail.note && (
                 <span className="min-w-0 truncate text-xs text-ink-3">{detail.note}</span>

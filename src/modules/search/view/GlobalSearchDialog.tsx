@@ -110,7 +110,7 @@ export function GlobalSearchDialog({
               aria-controls={listId}
               aria-expanded={hasContent}
               aria-label="全局搜索"
-              className="min-w-0 flex-1 bg-transparent text-13 outline-none placeholder:text-ink-3"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-3"
               maxLength={200}
               onChange={(event) => {
                 setQuery(event.target.value);
@@ -136,18 +136,18 @@ export function GlobalSearchDialog({
           </div>
           <div className="h-80 min-h-0 overflow-y-auto p-2">
             {error && !hasContent ? (
-              <p className="px-3 py-5 text-13 text-red" role="alert">
+              <p className="px-3 py-5 text-sm text-red" role="alert">
                 {error}
               </p>
             ) : null}
             {!hasContent && busy ? (
-              <div className="flex items-center gap-2 px-3 py-5 text-13 text-ink-3" role="status">
+              <div className="flex items-center gap-2 px-3 py-5 text-sm text-ink-3" role="status">
                 <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
                 正在获取本地已同步的数据…
               </div>
             ) : null}
             {!hasContent && !busy && !error ? (
-              <p className="px-3 py-5 text-13 text-ink-3">
+              <p className="px-3 py-5 text-sm text-ink-3">
                 {isRecent ? '还没有可显示的最近记录。' : '没有找到匹配的本地数据。'}
               </p>
             ) : null}
@@ -188,7 +188,7 @@ export function GlobalSearchDialog({
                               <Icon className="size-4 text-ink-3" strokeWidth={1.8} />
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-13 font-medium">
+                              <span className="block truncate text-sm font-medium">
                                 {hit.title}
                               </span>
                               {hit.subtitle ? (

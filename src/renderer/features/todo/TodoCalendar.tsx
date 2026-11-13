@@ -22,7 +22,7 @@ function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) =
       type="button"
       aria-label={`打开 ${item.title}，${course}${time ? `，${time}` : ''}${done ? '，已完成' : ''}`}
       className={cn(
-        'flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-left text-2xs transition-opacity duration-fast hover:opacity-80 @max-[320px]:h-2 @max-[320px]:w-2 @max-[320px]:rounded-full @max-[320px]:overflow-hidden @max-[320px]:p-0',
+        'flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-left text-xs transition-opacity duration-fast hover:opacity-80 @max-[320px]:h-2 @max-[320px]:w-2 @max-[320px]:rounded-full @max-[320px]:overflow-hidden @max-[320px]:p-0',
         done && 'opacity-60',
       )}
       onClick={() => onOpen(item)}
@@ -49,7 +49,7 @@ function DayOverflow({
   const [open, setOpen] = useState(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="flex h-5 items-center rounded-chip px-1.5 text-left text-2xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-2 hover:text-ink focus-visible:ring-3 focus-visible:ring-bui-accent-tint">
+      <Popover.Trigger className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-2 hover:text-ink focus-visible:ring-3 focus-visible:ring-bui-accent-tint">
         +{items.length - 3}
         <span className="@max-[320px]:hidden"> 更多</span>
       </Popover.Trigger>
@@ -90,7 +90,7 @@ function DayOverflow({
                       >
                         {item.title}
                       </span>
-                      <span className="mt-0.5 block truncate text-2xs opacity-70">
+                      <span className="mt-0.5 block truncate text-xs opacity-70">
                         {item.courseName ?? '个人待办'}
                       </span>
                     </span>
@@ -123,7 +123,7 @@ export function TodoCalendar({
     <section aria-label="待办日历" className="@container">
       <div className="grid grid-cols-7 border-b">
         {weekDays.map((day) => (
-          <div className="px-2 py-2 text-center text-2xs text-ink-3 @max-[320px]:px-1" key={day}>
+          <div className="px-2 py-2 text-center text-xs text-ink-3 @max-[320px]:px-1" key={day}>
             {day}
           </div>
         ))}

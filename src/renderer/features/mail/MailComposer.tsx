@@ -621,7 +621,7 @@ export function MailComposer({
           <X />
         </Button>
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <strong className="text-13">新邮件</strong>
+          <strong className="text-sm">新邮件</strong>
           <span className="truncate text-xs text-ink-3 max-md:hidden">
             从 {accountAddress} 发送
           </span>
@@ -646,7 +646,7 @@ export function MailComposer({
           <span className="w-16 shrink-0 text-xs text-ink-3">收件人</span>
           <input
             autoFocus
-            className="min-w-0 flex-1 bg-transparent py-2 text-13 outline-none placeholder:text-ink-3"
+            className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-ink-3"
             onChange={(event) => setTo(event.target.value)}
             placeholder="多个地址用逗号分隔"
             type="text"
@@ -656,7 +656,7 @@ export function MailComposer({
         <label className="flex min-h-10 items-center border-b border-line transition-colors focus-within:border-line-strong">
           <span className="w-16 shrink-0 text-xs text-ink-3">主题</span>
           <input
-            className="min-w-0 flex-1 bg-transparent py-2 text-13 outline-none placeholder:text-ink-3"
+            className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-ink-3"
             onChange={(event) => setSubject(event.target.value)}
             placeholder="邮件主题"
             type="text"
@@ -727,7 +727,7 @@ export function MailComposer({
             <input
               autoFocus
               className={cn(
-                'min-w-0 flex-1 bg-transparent py-2 text-13 outline-none placeholder:text-ink-3',
+                'min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-ink-3',
                 linkInvalid && 'text-red',
               )}
               onChange={(event) => {
@@ -763,7 +763,7 @@ export function MailComposer({
         <div
           aria-label="邮件正文"
           // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
-          className="min-h-0 flex-1 overflow-y-auto py-4 text-13 leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-bui-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-control"
+          className="min-h-0 flex-1 overflow-y-auto py-4 text-sm leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-bui-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-control"
           contentEditable
           style={{ fontSynthesis: 'weight style' }}
           onInput={handleEditorInput}

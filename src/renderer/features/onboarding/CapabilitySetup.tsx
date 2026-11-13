@@ -80,7 +80,7 @@ export function CapabilitySetup({
       <h2 className="text-2xl font-semibold tracking-tight">能力拓展</h2>
       <div className="grid gap-3">
         {skills === null && !error && (
-          <p role="status" className="text-13 text-ink-3">
+          <p role="status" className="text-sm text-ink-3">
             正在检查组件…
           </p>
         )}
@@ -161,7 +161,7 @@ export function CapabilitySetup({
           })}
       </div>
       {error && (
-        <div role="alert" className="flex flex-wrap items-center gap-2 text-13 text-red">
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-red">
           <span>{error}</span>
           {skills === null && (
             <Button

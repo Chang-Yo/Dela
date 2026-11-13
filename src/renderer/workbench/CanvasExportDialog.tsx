@@ -70,7 +70,7 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content className={cn(dialogPanel, 'flex max-h-[85vh] max-w-md flex-col p-5')}>
           <div className="grid gap-1">
-            <Dialog.Title className="text-13 font-semibold">批量导出课件</Dialog.Title>
+            <Dialog.Title className="text-sm font-semibold">批量导出课件</Dialog.Title>
             <Dialog.Description className="text-xs leading-relaxed text-ink-3">
               勾选要导出的课程，导出每门课「文件」目录下的全部课件；课程模块等处的重复文件不包含。
             </Dialog.Description>
@@ -100,7 +100,7 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
                   </label>
                   {group.courses.map((course) => (
                     <label
-                      className="flex items-center gap-2 rounded-control px-2 py-1 text-13 transition-colors duration-base hover:bg-hover"
+                      className="flex items-center gap-2 rounded-control px-2 py-1 text-sm transition-colors duration-base hover:bg-hover"
                       key={course.id}
                     >
                       <input
@@ -114,7 +114,7 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
                         {course.name}
                       </span>
                       {course.archived && (
-                        <span className="shrink-0 text-2xs text-ink-3">已归档</span>
+                        <span className="shrink-0 text-xs text-ink-3">已归档</span>
                       )}
                     </label>
                   ))}

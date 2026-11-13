@@ -90,7 +90,7 @@ function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVide
         onClick={() => selectVideo(course.id, video.id)}
         type="button"
       >
-        <span className={cn('truncate text-13', selected ? 'font-medium text-ink' : 'text-ink-2')}>
+        <span className={cn('truncate text-sm', selected ? 'font-medium text-ink' : 'text-ink-2')}>
           {lectureTitle(video)}
         </span>
         <span className="truncate text-xs tabular-nums text-ink-3">{lectureMeta(video)}</span>

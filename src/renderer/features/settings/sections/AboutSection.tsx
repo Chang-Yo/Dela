@@ -155,7 +155,7 @@ function PersonIdentity({ person }: { person: CreditPerson }) {
           src={person.avatar}
         />
       )}
-      <span className="text-13 font-medium text-ink">{person.name}</span>
+      <span className="text-sm font-medium text-ink">{person.name}</span>
     </div>
   );
 }
@@ -203,7 +203,7 @@ export function AboutSection() {
       <section className="grid justify-items-center gap-1.5 px-6 pb-10 pt-6 text-center">
         <DelaBrand className="h-48 w-48" />
         <h2 className="text-4xl font-script tracking-tight">Dela</h2>
-        <p className="text-13 text-ink-3">The world keeps changing. Dela stays with you.</p>
+        <p className="text-sm text-ink-3">The world keeps changing. Dela stays with you.</p>
         <p className="mt-5 text-xs text-ink-3">版本 {window.dela?.version ?? '浏览器预览'}</p>
         <div className="mt-1 flex items-center justify-center gap-1.5">
           {projectLinks.map(({ icon, label, url }) => (

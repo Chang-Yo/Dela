@@ -139,7 +139,7 @@ export function AppearanceSection({
       <SettingsGroup>
         {/* 主题三选一占满整行：缩略图卡片比色块更能说明「切过去长什么样」。 */}
         <div className="grid gap-3 border-b border-line py-3.5" data-setting-id="theme">
-          <h3 className="text-13 font-medium text-ink">主题</h3>
+          <h3 className="text-sm font-medium text-ink">主题</h3>
           {/* 恒三列：窗口最小宽 600px，三张卡片各约 180px 仍是可读缩略图，比堆成三行更好分辨。 */}
           <div aria-label="主题" className="grid grid-cols-3 gap-2" role="group">
             {themes.map(({ id, label }) => (

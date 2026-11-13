@@ -153,7 +153,7 @@ export function ShortcutsSection() {
                 data-setting-id={`shortcut-${action.id}`}
                 key={action.id}
               >
-                <span className="min-w-0 truncate text-13">{action.label}</span>
+                <span className="min-w-0 truncate text-sm">{action.label}</span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   <button
                     aria-label={`修改「${action.label}」的快捷键`}

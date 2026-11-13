@@ -68,7 +68,7 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
         </button>
       </div>
       {plain ? (
-        <div className="mt-3 rounded-t-card border-x border-t p-4 text-13 leading-relaxed whitespace-pre-wrap break-words">
+        <div className="mt-3 rounded-t-card border-x border-t p-4 text-sm leading-relaxed whitespace-pre-wrap break-words">
           {text ?? new DOMParser().parseFromString(html, 'text/html').body.textContent}
         </div>
       ) : (

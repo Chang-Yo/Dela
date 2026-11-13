@@ -7,7 +7,7 @@ import { Button } from '../../ui/button';
  *  由 TabGroup 锚定在标签栏位置，不进本居中栈。 */
 export function EmptyState({ onNewChat }: { onNewChat: () => void }) {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-13 text-ink-3">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-ink-3">
       <LayoutGrid className="size-7 opacity-45 @max-[180px]:size-5" />
       <p className="@max-[180px]:max-w-full @max-[180px]:truncate @max-[180px]:text-xs">
         此组没有打开的标签

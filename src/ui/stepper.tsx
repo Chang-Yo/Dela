@@ -55,7 +55,7 @@ function StepperInput({
     if (next !== value) onChange(next);
   };
   return (
-    <span className="flex h-8 min-w-16 items-center justify-end gap-0.5 rounded-control bg-field pl-2 pr-1.5 text-13 font-medium tabular-nums text-ink shadow-hairline">
+    <span className="flex h-8 min-w-16 items-center justify-end gap-0.5 rounded-control bg-field pl-2 pr-1.5 text-sm font-medium tabular-nums text-ink shadow-hairline">
       <input
         aria-label={label}
         className="w-6 bg-transparent text-right outline-none"
@@ -120,7 +120,7 @@ export function StepperControl({
           value={input.value}
         />
       ) : (
-        <span className="grid h-8 min-w-16 place-items-center rounded-control bg-field px-2 text-13 font-medium tabular-nums text-ink shadow-hairline">
+        <span className="grid h-8 min-w-16 place-items-center rounded-control bg-field px-2 text-sm font-medium tabular-nums text-ink shadow-hairline">
           {display}
         </span>
       )}

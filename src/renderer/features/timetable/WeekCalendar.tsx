@@ -82,11 +82,11 @@ export function WeekCalendar({
             const today = date ? dateKey(date) === dateKey(new Date()) : false;
             return (
               <div className="border-l px-2 py-2 text-center" key={day}>
-                <span className="text-2xs text-ink-3">{day}</span>
+                <span className="text-xs text-ink-3">{day}</span>
                 {date ? (
                   <strong
                     className={cn(
-                      'mx-auto mt-0.5 grid size-7 place-items-center rounded-full text-13 font-semibold',
+                      'mx-auto mt-0.5 grid size-7 place-items-center rounded-full text-sm font-semibold',
                       today && 'bg-ink text-surface',
                     )}
                   >
@@ -105,7 +105,7 @@ export function WeekCalendar({
             {hours.map((hour) => (
               <span
                 className={cn(
-                  'absolute right-2 text-2xs tabular-nums text-ink-3',
+                  'absolute right-2 text-xs tabular-nums text-ink-3',
                   // 首个刻度在网格顶边，上移一半会被表头遮住。
                   hour * 60 > timelineStart && '-translate-y-1/2',
                 )}
@@ -180,7 +180,7 @@ export function WeekCalendar({
           if (!dailyLessons.length && !dailyEvents.length) return null;
           return (
             <section className="grid gap-2" key={day}>
-              <h2 className="flex items-baseline gap-2 text-13 font-semibold">
+              <h2 className="flex items-baseline gap-2 text-sm font-semibold">
                 <span>{day}</span>
                 {date ? (
                   <span className="text-xs font-normal text-ink-3">
@@ -258,12 +258,12 @@ function LessonBlock({
           </strong>
           {/* 教师排在教室之前：并排窄列截断时保证教师可见。矮块隐藏次要行，完整信息看 Tooltip。 */}
           {showMeta && (
-            <span className="mt-0.5 block truncate text-2xs leading-none opacity-75">
+            <span className="mt-0.5 block truncate text-xs leading-none opacity-75">
               {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || '地点未定'}
             </span>
           )}
           {showPeriods && (
-            <span className="block truncate text-2xs leading-none opacity-75">
+            <span className="block truncate text-xs leading-none opacity-75">
               {lesson.periodsText}
             </span>
           )}
@@ -351,16 +351,14 @@ function LocalEventBlock({
             {event.title}
           </strong>
           {showTime ? (
-            <span className="mt-0.5 block truncate text-2xs leading-none opacity-70">
+            <span className="mt-0.5 block truncate text-xs leading-none opacity-70">
               {edges.isEnd
                 ? `${formatTime(start)}–${formatTime(end)}`
                 : `${formatMonthDay(start)} ${formatTime(start)} – ${formatMonthDay(end)} ${formatTime(end)}`}
             </span>
           ) : null}
           {showLocation ? (
-            <span className="block truncate text-2xs leading-none opacity-70">
-              {event.location}
-            </span>
+            <span className="block truncate text-xs leading-none opacity-70">{event.location}</span>
           ) : null}
         </article>
       </TooltipTrigger>

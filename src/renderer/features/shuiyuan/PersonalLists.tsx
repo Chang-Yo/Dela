@@ -41,21 +41,21 @@ export function BookmarkList() {
         >
           <div className="flex items-start gap-1.5">
             <Heart aria-hidden="true" className="mt-1 size-3.5 shrink-0 fill-current text-ink" />
-            <span className="line-clamp-2 text-15 font-medium leading-snug">
+            <span className="line-clamp-2 text-base font-medium leading-snug">
               <ShuiyuanTitle text={bookmark.title} />
             </span>
           </div>
           {bookmark.excerpt ? (
-            <p className="line-clamp-2 text-13 leading-relaxed text-ink-3">{bookmark.excerpt}</p>
+            <p className="line-clamp-2 text-sm leading-relaxed text-ink-3">{bookmark.excerpt}</p>
           ) : null}
-          <p className="pl-5 text-2xs tabular-nums text-ink-3">
+          <p className="pl-5 text-xs tabular-nums text-ink-3">
             收藏于 {formatListDate(bookmark.createdAt)}
           </p>
         </button>
       ))}
       {loading ? <p className="p-4 text-xs text-ink-3">加载中…</p> : null}
       {!loading && !error && bookmarks.length === 0 ? (
-        <p className="px-1 py-8 text-center text-13 text-ink-3">还没有收藏</p>
+        <p className="px-1 py-8 text-center text-sm text-ink-3">还没有收藏</p>
       ) : null}
       {error ? (
         <div
@@ -124,12 +124,12 @@ export function NotificationList() {
             <span className="grid min-w-0 flex-1 gap-1">
               <span
                 className={
-                  item.read ? 'text-13 leading-snug text-ink-2' : 'text-13 font-medium leading-snug'
+                  item.read ? 'text-sm leading-snug text-ink-2' : 'text-sm font-medium leading-snug'
                 }
               >
                 {meta.text}
               </span>
-              <span className="text-2xs tabular-nums text-ink-3">
+              <span className="text-xs tabular-nums text-ink-3">
                 {formatListDate(item.createdAt)}
               </span>
             </span>
@@ -141,7 +141,7 @@ export function NotificationList() {
       })}
       {loading ? <p className="p-4 text-xs text-ink-3">加载中…</p> : null}
       {!loading && !error && notifications.length === 0 ? (
-        <p className="px-1 py-8 text-center text-13 text-ink-3">暂无通知</p>
+        <p className="px-1 py-8 text-center text-sm text-ink-3">暂无通知</p>
       ) : null}
       {error ? (
         <div

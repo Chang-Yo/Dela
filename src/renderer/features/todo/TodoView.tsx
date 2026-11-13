@@ -33,7 +33,7 @@ import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 
 const inputClass =
-  'w-full rounded-control bg-field px-2.5 py-1.5 text-13 text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
+  'w-full rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
 
 const showCompletedStorageKey = 'dela.todo.show-completed';
 
@@ -66,7 +66,7 @@ function CalendarOptionRows({
       <div className="flex h-11 items-center gap-2 px-3">
         <span className="w-8 shrink-0 text-xs text-ink-3">日历</span>
         <div className="flex flex-1 items-center justify-between gap-2">
-          <span className="text-13">写入日历</span>
+          <span className="text-sm">写入日历</span>
           <Switch checked={calendar} label="写入日历" onChange={onCalendarChange} />
         </div>
       </div>
@@ -119,7 +119,7 @@ function TodoComposer({
       >
         <Input
           autoFocus
-          className="h-10 px-0 text-15 font-medium"
+          className="h-10 px-0 text-base font-medium"
           maxLength={200}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="例如：准备小组展示"
@@ -358,7 +358,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
         </div>
       </header>
       {(error || state?.error) && (
-        <p role="alert" className="mt-3 whitespace-pre-wrap text-13 text-red">
+        <p role="alert" className="mt-3 whitespace-pre-wrap text-sm text-red">
           {error || state?.error}
         </p>
       )}
@@ -375,7 +375,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
             >
               {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
               {count > 0 && (
-                <span className="rounded-full bg-ink px-1.5 text-2xs font-medium leading-4 tabular-nums text-surface">
+                <span className="rounded-full bg-ink px-1.5 text-xs font-medium leading-4 tabular-nums text-surface">
                   {count}
                 </span>
               )}
@@ -416,13 +416,13 @@ export function TodoView({ request }: { request?: { id: string } }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
         {!state ? (
-          <p className="py-8 text-center text-13 text-ink-3">
+          <p className="py-8 text-center text-sm text-ink-3">
             {window.dela?.todo ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
           </p>
         ) : view === 'calendar' ? (
           <TodoCalendar items={items} month={month} onOpenItem={(item) => openItem(item.id)} />
         ) : !items.length ? (
-          <p className="py-8 text-center text-13 text-ink-3">暂无符合条件的待办</p>
+          <p className="py-8 text-center text-sm text-ink-3">暂无符合条件的待办</p>
         ) : (
           <ul className="space-y-1">
             {items.map((item) => {
@@ -464,7 +464,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                     onClick={() => openItem(item.id)}
                   >
                     <div className="flex items-center gap-2">
-                      <span className={cn('break-words text-13 font-medium', done && 'text-ink-3')}>
+                      <span className={cn('break-words text-sm font-medium', done && 'text-ink-3')}>
                         {item.title}
                       </span>
                       {!item.readAt && (

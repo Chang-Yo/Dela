@@ -42,7 +42,7 @@ function ProviderMonogram({ name, size }: { name: string; size: 'sm' | 'md' }) {
       aria-hidden="true"
       className={cn(
         'grid shrink-0 place-items-center rounded-card bg-hover-2 font-medium text-ink-2',
-        size === 'sm' ? 'size-6 text-2xs' : 'size-8 text-13',
+        size === 'sm' ? 'size-6 text-xs' : 'size-8 text-sm',
       )}
     >
       {(name.trim()[0] ?? '新').toUpperCase()}
@@ -150,11 +150,11 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
               save();
             }}
           >
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               模型 ID
               <Input readOnly value={model} />
             </label>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               上下文窗口（tokens）
               <Input
                 aria-label="上下文窗口"
@@ -166,7 +166,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
                 onChange={(event) => setContextWindow(event.target.value)}
               />
             </label>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               最大输出（tokens）
               <Input
                 aria-label="最大输出"
@@ -179,7 +179,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
               />
             </label>
             <fieldset className="grid gap-2">
-              <legend className="mb-2 text-13">输入类型</legend>
+              <legend className="mb-2 text-sm">输入类型</legend>
               <div className="flex flex-wrap gap-1.5">
                 {/* 文本输入固定开启：不是开关，是带锁的状态（学 ZCode 的 Text 锁定 chip）。 */}
                 <span
@@ -206,7 +206,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
               <p className="text-xs text-ink-3">勾选视觉表示模型可读图片；文本固定开启。</p>
             </fieldset>
             <fieldset className="grid gap-2">
-              <legend className="mb-2 text-13">思考强度档位</legend>
+              <legend className="mb-2 text-sm">思考强度档位</legend>
               <div className="flex flex-wrap gap-1.5">
                 {reasoningEffortLevels.map((level) => (
                   <button
@@ -236,7 +236,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
               </p>
             </fieldset>
             {levels.length > 0 && (
-              <label className="grid gap-2 text-13">
+              <label className="grid gap-2 text-sm">
                 默认思考强度
                 <Select
                   value={levels.includes(effort as (typeof levels)[number]) ? effort : levels[0]}
@@ -319,7 +319,7 @@ function CatalogModelDialog({
             }}
           >
             {levels.length > 0 ? (
-              <label className="grid gap-2 text-13">
+              <label className="grid gap-2 text-sm">
                 默认思考强度
                 <Select value={effort} onValueChange={setEffort}>
                   <SelectTrigger aria-label="默认思考强度">
@@ -335,7 +335,7 @@ function CatalogModelDialog({
                 </Select>
               </label>
             ) : (
-              <p className="text-13 text-ink-3">这个模型不支持调节思考强度。</p>
+              <p className="text-sm text-ink-3">这个模型不支持调节思考强度。</p>
             )}
             <div className="flex justify-end gap-2">
               <Button onClick={onClose} variant="ghost">
@@ -408,7 +408,7 @@ export function LlmSection() {
     return (
       <div className="grid gap-10" data-setting-id="providers">
         <SectionHeader title="模型供应商" />
-        <p className="text-13 text-ink-3">模型供应商配置仅在桌面端可用。</p>
+        <p className="text-sm text-ink-3">模型供应商配置仅在桌面端可用。</p>
       </div>
     );
   }
@@ -460,7 +460,7 @@ export function LlmSection() {
                         <button
                           aria-current={active ? 'true' : undefined}
                           className={cn(
-                            'flex h-8 w-full min-w-0 items-center gap-2.5 rounded-card px-2 text-left text-13 transition-colors',
+                            'flex h-8 w-full min-w-0 items-center gap-2.5 rounded-card px-2 text-left text-sm transition-colors',
                             active
                               ? 'bg-hover font-medium text-ink'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -507,7 +507,7 @@ export function LlmSection() {
           </SettingsGroup>
         ) : providers?.length === 0 ? (
           <SettingsGroup>
-            <p className="py-3.5 text-13 text-ink-3">还没有配置提供商。添加一个以启用对话助手。</p>
+            <p className="py-3.5 text-sm text-ink-3">还没有配置提供商。添加一个以启用对话助手。</p>
           </SettingsGroup>
         ) : null}
       </div>
@@ -824,7 +824,7 @@ function ProviderDetail({
         }}
       >
         {creating ? (
-          <div className="grid gap-2 text-13">
+          <div className="grid gap-2 text-sm">
             厂商
             <Select onValueChange={chooseVendor} value={piProvider ?? CUSTOM}>
               <SelectTrigger aria-label="厂商">
@@ -849,7 +849,7 @@ function ProviderDetail({
             {vendor?.name ?? piProvider} · {provider.baseUrl}
           </p>
         ) : null}
-        <label className="grid gap-2 text-13">
+        <label className="grid gap-2 text-sm">
           名称
           <Input
             autoComplete="off"
@@ -863,7 +863,7 @@ function ProviderDetail({
           />
         </label>
         {!piProvider && (
-          <label className="grid gap-2 text-13">
+          <label className="grid gap-2 text-sm">
             API 地址
             <Input
               autoComplete="off"
@@ -880,7 +880,7 @@ function ProviderDetail({
             />
           </label>
         )}
-        <div className="grid gap-2 text-13">
+        <div className="grid gap-2 text-sm">
           <span>API Key</span>
           <Input
             autoComplete="off"
@@ -900,7 +900,7 @@ function ProviderDetail({
             密钥经系统加密保存在本机，不会回传页面。留空即沿用已保存的密钥。
           </p>
         </div>
-        <div className="grid gap-2 text-13">
+        <div className="grid gap-2 text-sm">
           <div className="flex items-center justify-between gap-2">
             <span>
               模型列表{' '}
@@ -1117,7 +1117,7 @@ function ProviderDetail({
                       .map((model) => (
                         <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={model.id}>
                           <span className="grid min-w-0 flex-1">
-                            <span className="truncate text-13">{model.name}</span>
+                            <span className="truncate text-sm">{model.name}</span>
                             <span className="truncate font-mono text-xs text-ink-3">
                               {model.id} · {compactTokens(model.contextWindow)}
                               {model.vision ? ' · 视觉' : ''}

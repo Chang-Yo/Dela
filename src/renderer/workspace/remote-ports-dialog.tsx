@@ -82,7 +82,7 @@ export function RemotePortsDialog({
         <Dialog.Overlay className={dialogOverlay} />
         <Dialog.Content className={cn(dialogPanel, 'max-w-md p-5')}>
           <div className="grid gap-1">
-            <Dialog.Title className="text-13 font-semibold">远端端口</Dialog.Title>
+            <Dialog.Title className="text-sm font-semibold">远端端口</Dialog.Title>
             <Dialog.Description className="text-xs leading-relaxed text-ink-3">
               远端监听中的端口；「打开」会建立一条 SSH 隧道并在浏览器访问，停止后隧道关闭。
             </Dialog.Description>
@@ -98,7 +98,7 @@ export function RemotePortsDialog({
                 const tunnel = tunnelOf(entry.port);
                 return (
                   <div
-                    className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-13 transition-colors duration-base hover:bg-hover"
+                    className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-sm transition-colors duration-base hover:bg-hover"
                     key={entry.port}
                   >
                     <Globe className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
@@ -110,7 +110,7 @@ export function RemotePortsDialog({
                     </span>
                     {tunnel ? (
                       <>
-                        <span className="shrink-0 font-mono text-2xs text-green tabular-nums">
+                        <span className="shrink-0 font-mono text-xs text-green tabular-nums">
                           → 127.0.0.1:{tunnel.localPort}
                         </span>
                         <Button
@@ -153,14 +153,14 @@ export function RemotePortsDialog({
               .filter((tunnel) => !state.ports.some((entry) => entry.port === tunnel.remotePort))
               .map((tunnel) => (
                 <div
-                  className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-13 transition-colors duration-base hover:bg-hover"
+                  className="flex min-w-0 items-center gap-2.5 rounded-control px-2 py-1.5 text-sm transition-colors duration-base hover:bg-hover"
                   key={`t-${tunnel.remotePort}`}
                 >
                   <Globe className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
                   <span className="min-w-0 flex-1 truncate text-ink-3">
                     端口 {tunnel.remotePort}（进程已退出）
                   </span>
-                  <span className="shrink-0 font-mono text-2xs text-green tabular-nums">
+                  <span className="shrink-0 font-mono text-xs text-green tabular-nums">
                     → 127.0.0.1:{tunnel.localPort}
                   </span>
                   <Button

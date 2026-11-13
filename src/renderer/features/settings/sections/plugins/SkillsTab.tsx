@@ -155,7 +155,7 @@ export function SkillsTab() {
     return (
       <div className="grid gap-10">
         <SectionHeader title="Skills" />
-        <p className="text-13 text-ink-3">Skills 仅在桌面端可用。</p>
+        <p className="text-sm text-ink-3">Skills 仅在桌面端可用。</p>
       </div>
     );
   }
@@ -188,7 +188,7 @@ export function SkillsTab() {
       {skills !== null && skills.length === 0 && (
         <SettingsGroup>
           <div className="grid gap-1 py-3.5">
-            <span className="text-13 font-medium text-ink">还没有发现 Skill</span>
+            <span className="text-sm font-medium text-ink">还没有发现 Skill</span>
             <span className="text-xs leading-relaxed text-ink-3">
               在用户主目录的 .dela/skills 或 .agents/skills，或项目里的 .agents/skills 放入包含
               SKILL.md 的子文件夹（frontmatter 带 name 与 description），回到此页刷新。
@@ -198,7 +198,7 @@ export function SkillsTab() {
       )}
       {skills !== null && skills.length > 0 && visible.length === 0 && (
         <SettingsGroup>
-          <p className="py-3.5 text-13 text-ink-3">该范围下没有 Skill。</p>
+          <p className="py-3.5 text-sm text-ink-3">该范围下没有 Skill。</p>
         </SettingsGroup>
       )}
       {groups.map((group) => (
@@ -216,12 +216,12 @@ export function SkillsTab() {
                 <div className="flex min-w-0 items-center gap-3">
                   <span
                     aria-hidden="true"
-                    className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2 text-13 font-medium uppercase text-ink-2"
+                    className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2 text-sm font-medium uppercase text-ink-2"
                   >
                     {skill.name.charAt(0)}
                   </span>
                   <div className="grid min-w-0 gap-0.5">
-                    <strong className="truncate text-13">{skill.name}</strong>
+                    <strong className="truncate text-sm">{skill.name}</strong>
                     <span className="truncate text-xs text-ink-3" title={skill.description}>
                       {skill.description || '（无描述）'}
                     </span>
@@ -466,7 +466,7 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
                   >
                     <Cloud className="size-4 shrink-0 text-ink-3" strokeWidth={1.8} />
                     <span className="grid min-w-0">
-                      <span className="truncate text-13 text-ink">{entry.name}</span>
+                      <span className="truncate text-sm text-ink">{entry.name}</span>
                       <span className="truncate font-mono text-xs text-ink-3" title={entry.path}>
                         {entry.path}
                       </span>

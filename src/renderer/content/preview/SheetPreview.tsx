@@ -121,7 +121,7 @@ export function SheetPreview({ url }: { url: string }) {
           ref={scroller}
           className="absolute inset-0 overflow-auto overscroll-contain bg-surface [overflow-anchor:none] [scrollbar-gutter:stable]"
         >
-          {loaded && !sheets.length && <p className="p-6 text-13 text-ink-3">工作簿没有工作表。</p>}
+          {loaded && !sheets.length && <p className="p-6 text-sm text-ink-3">工作簿没有工作表。</p>}
           {current && (
             <div style={{ zoom }} className="inline-block min-w-full p-4 text-xs">
               {current.truncated && (
@@ -139,7 +139,7 @@ export function SheetPreview({ url }: { url: string }) {
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-13 text-red"
+            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-sm text-red"
           >
             表格打开失败：{error}
             <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
@@ -148,7 +148,7 @@ export function SheetPreview({ url }: { url: string }) {
           </p>
         )}
         {!loaded && !error && (
-          <p role="status" className="absolute inset-x-0 top-0 p-3 text-13 text-ink-3">
+          <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-ink-3">
             正在加载表格…
           </p>
         )}

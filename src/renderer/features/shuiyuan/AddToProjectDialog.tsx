@@ -107,7 +107,7 @@ export function AddToProjectDialog({
             </Dialog.Close>
           </div>
           <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               位置
               <Select
                 onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
@@ -128,7 +128,7 @@ export function AddToProjectDialog({
               </Select>
             </label>
             {target === '__new__' ? (
-              <label className="grid gap-2 text-13">
+              <label className="grid gap-2 text-sm">
                 名称
                 <Input
                   aria-label="新项目名称"

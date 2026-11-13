@@ -229,7 +229,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   };
 
   if (!state || !semester) {
-    return <div className="grid h-full place-items-center text-13 text-ink-3">正在读取课表…</div>;
+    return <div className="grid h-full place-items-center text-sm text-ink-3">正在读取课表…</div>;
   }
 
   const weekEnd = addDays(visibleWeekStart, 6);
@@ -262,7 +262,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
           <div className="mr-1 min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight">{headerTitle}</h1>
             {/* 周次信息已由下方「教学周」Select 展示，副标题只保留学期，避免同屏重复。 */}
-            <p className="text-2xs text-ink-3">{semesterLabel(semester)}</p>
+            <p className="text-xs text-ink-3">{semesterLabel(semester)}</p>
           </div>
           <div className="flex items-center rounded-control border border-line bg-surface shadow-hairline">
             <Button

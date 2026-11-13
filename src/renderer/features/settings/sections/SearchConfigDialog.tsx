@@ -122,7 +122,7 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
                     key={entry.id}
                   >
                     <div className="min-w-0 flex-1 grid gap-0.5">
-                      <span className="truncate text-13 font-medium">{entry.name}</span>
+                      <span className="truncate text-sm font-medium">{entry.name}</span>
                       <span className="text-xs text-ink-3">
                         {webSearchProviderLabels[entry.provider]}
                         {entry.provider === 'deepseek' ? ' · 按次计费' : ''}
@@ -167,7 +167,7 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
                   </li>
                 ))}
                 {entries?.length === 0 && (
-                  <li className="py-6 text-center text-13 text-ink-3">
+                  <li className="py-6 text-center text-sm text-ink-3">
                     还没有搜索配置，点下方添加。
                   </li>
                 )}
@@ -351,7 +351,7 @@ function EntryForm({
             </Button>
           ))}
         </div>
-        <label className="grid gap-2 text-13">
+        <label className="grid gap-2 text-sm">
           名称
           <Input
             autoComplete="off"
@@ -362,7 +362,7 @@ function EntryForm({
           />
         </label>
         {provider === 'brave' && (
-          <label className="grid gap-2 text-13">
+          <label className="grid gap-2 text-sm">
             API Key
             <Input
               autoComplete="off"
@@ -380,7 +380,7 @@ function EntryForm({
         )}
         {provider === 'google' && (
           <>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               API Key
               <Input
                 autoComplete="off"
@@ -392,7 +392,7 @@ function EntryForm({
                 value={apiKey}
               />
             </label>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               搜索引擎 ID（cx）
               <Input
                 autoComplete="off"
@@ -407,7 +407,7 @@ function EntryForm({
         )}
         {provider === 'deepseek' && (
           <>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               API Key
               <Input
                 autoComplete="off"
@@ -451,7 +451,7 @@ function EntryForm({
             )}
             <div className="flex items-start justify-between gap-3 rounded-card border p-3">
               <div className="grid gap-0.5">
-                <span className="text-13 font-medium">网页读取也使用 DeepSeek</span>
+                <span className="text-sm font-medium">网页读取也使用 DeepSeek</span>
                 <span className="text-xs leading-relaxed text-ink-3">
                   web_fetch 改走官方接口，取不到正文或 PDF 时回退本地抓取；同样按次计费。
                 </span>
@@ -466,7 +466,7 @@ function EntryForm({
         )}
         {provider === 'custom' && (
           <>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               端点地址
               <Input
                 autoComplete="off"
@@ -482,7 +482,7 @@ function EntryForm({
                 追加 q 与 format=json。结果自动识别 results、data、items 等常见结构。
               </span>
             </label>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               请求体（可选，填写后改用 POST）
               <Textarea
                 className={headerAreaClass}
@@ -493,7 +493,7 @@ function EntryForm({
                 value={body}
               />
             </label>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               自定义请求头（可选，每行 Key: Value）
               <Textarea
                 className={headerAreaClass}

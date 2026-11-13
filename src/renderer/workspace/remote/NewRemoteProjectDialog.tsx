@@ -302,7 +302,7 @@ export function NewRemoteProjectDialog({
                         );
                       })}
                       {candidates.length > 0 && (
-                        <p className="px-2 pt-2 pb-1 text-2xs text-ink-3">来自 ~/.ssh/config</p>
+                        <p className="px-2 pt-2 pb-1 text-xs text-ink-3">来自 ~/.ssh/config</p>
                       )}
                       {candidates.map((host) => (
                         <SelectItem key={host.alias} value={configValue(host.alias)}>
@@ -340,7 +340,7 @@ export function NewRemoteProjectDialog({
               <div className="grid min-h-0 content-start gap-3">
                 {connections !== null && connections.length === 0 && candidates.length === 0 && (
                   <div className="grid gap-2 rounded-card border border-dashed border-line px-4 py-6 text-center">
-                    <p className="text-13 text-ink-2">还没有可用的服务器</p>
+                    <p className="text-sm text-ink-2">还没有可用的服务器</p>
                     <p className="text-xs text-ink-3">
                       新建一个 SSH 连接；在 ~/.ssh/config 里配置过的主机会自动出现在这里。
                     </p>

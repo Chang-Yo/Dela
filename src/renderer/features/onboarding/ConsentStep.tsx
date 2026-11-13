@@ -128,14 +128,14 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
       <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] justify-items-center gap-4 px-6 pt-8">
         <header className="grid w-full max-w-[42rem] gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">{current.title}</h1>
-          <p className="text-13 leading-relaxed text-ink-3">
+          <p className="text-sm leading-relaxed text-ink-3">
             第 {index + 1} 份，共 {documents.length} 份 · 阅读至底部后即可继续
           </p>
         </header>
         {/* key 让换条款时重建元素：滚动位置在提交前就归零，不必等 effect。 */}
         <div
           aria-label={`${current.title}正文`}
-          className="w-full max-w-[42rem] min-h-0 overflow-y-auto overscroll-contain rounded-card border border-line bg-page px-5 py-4 text-13 leading-relaxed text-ink-2"
+          className="w-full max-w-[42rem] min-h-0 overflow-y-auto overscroll-contain rounded-card border border-line bg-page px-5 py-4 text-sm leading-relaxed text-ink-2"
           data-consent-text=""
           key={current.key}
           onScroll={sync}
@@ -152,7 +152,7 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
       <div className="grid gap-3 px-6 pb-6 pt-5">
         {offersBackup ? (
           <p
-            className="mx-auto w-full max-w-[42rem] text-13 leading-relaxed text-ink-3"
+            className="mx-auto w-full max-w-[42rem] text-sm leading-relaxed text-ink-3"
             role="status"
           >
             {hint}
@@ -162,7 +162,7 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
           <div className="flex items-center gap-3">
             {offersBackup ? (
               <button
-                className="h-10 rounded-card px-5 text-13 text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-10 rounded-card px-5 text-sm text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={backup.kind === 'running'}
                 onClick={() => void runBackup()}
                 type="button"
@@ -171,7 +171,7 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
               </button>
             ) : null}
             <button
-              className="h-10 rounded-card px-5 text-13 text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-10 rounded-card px-5 text-sm text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
               disabled={backup.kind === 'running'}
               onClick={() => {
                 window.dela?.window.quit();
@@ -182,7 +182,7 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
             </button>
           </div>
           <button
-            className="h-10 rounded-card bg-ink px-6 text-13 font-medium text-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-10 rounded-card bg-ink px-6 text-sm font-medium text-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={!readToEnd}
             onClick={agree}
             type="button"

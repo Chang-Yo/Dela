@@ -116,13 +116,13 @@ function LikeGroupRow({
           <span
             className={
               unread
-                ? 'block break-words text-13 font-semibold'
-                : 'block break-words text-13 font-normal'
+                ? 'block break-words text-sm font-semibold'
+                : 'block break-words text-sm font-normal'
             }
           >
             {latest.title}
           </span>
-          <span className="mt-1 block break-words text-13 leading-relaxed text-ink-3">
+          <span className="mt-1 block break-words text-sm leading-relaxed text-ink-3">
             {likeGroupSummary(items)}
           </span>
           <span className="mt-2 block text-xs tabular-nums text-ink-3">
@@ -217,7 +217,7 @@ export function NotificationsView({
         <div className="flex items-baseline gap-2">
           <h1 className="text-xl font-semibold tracking-tight">通知</h1>
           {state?.unreadCount ? (
-            <span className="text-13 tabular-nums text-ink-3">{state.unreadCount} 未读</span>
+            <span className="text-sm tabular-nums text-ink-3">{state.unreadCount} 未读</span>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1">
@@ -299,7 +299,7 @@ export function NotificationsView({
       </header>
 
       {snoozed ? (
-        <div className="mt-4 flex items-start gap-2 rounded-card border border-line bg-inset px-4 py-3 text-13 text-ink-3">
+        <div className="mt-4 flex items-start gap-2 rounded-card border border-line bg-inset px-4 py-3 text-sm text-ink-3">
           <BellOff aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           <p>已暂停至 {new Date(state!.snoozedUntil!).toLocaleString('zh-CN')}；仍会收集新通知。</p>
         </div>
@@ -327,10 +327,10 @@ export function NotificationsView({
       ))}
 
       {(loading || initialLoading) && !state ? (
-        <p className="py-12 text-center text-13 text-ink-3">正在获取通知…</p>
+        <p className="py-12 text-center text-sm text-ink-3">正在获取通知…</p>
       ) : null}
       {!loading && !state && !error && !initialLoading ? (
-        <div className="py-12 text-center text-13 text-ink-3">
+        <div className="py-12 text-center text-sm text-ink-3">
           <p>通知服务暂不可用。</p>
           <Button className="mt-3" onClick={onRefresh} size="sm" variant="outline">
             重新连接
@@ -338,7 +338,7 @@ export function NotificationsView({
         </div>
       ) : null}
       {state && !loading && items.length === 0 ? (
-        <p className="py-12 text-center text-13 text-ink-3">
+        <p className="py-12 text-center text-sm text-ink-3">
           {allSelected
             ? '暂时没有通知。'
             : `没有${sources.map((source) => filterLabels[source]).join('、')}通知。`}
@@ -381,13 +381,13 @@ export function NotificationsView({
                   <span
                     className={
                       item.readAt
-                        ? 'block break-words text-13 font-normal'
-                        : 'block break-words text-13 font-semibold'
+                        ? 'block break-words text-sm font-normal'
+                        : 'block break-words text-sm font-semibold'
                     }
                   >
                     {item.title}
                   </span>
-                  <span className="mt-1 block break-words text-13 leading-relaxed text-ink-3 line-clamp-3">
+                  <span className="mt-1 block break-words text-sm leading-relaxed text-ink-3 line-clamp-3">
                     {item.body}
                   </span>
                   <span className="mt-2 block text-xs tabular-nums text-ink-3">

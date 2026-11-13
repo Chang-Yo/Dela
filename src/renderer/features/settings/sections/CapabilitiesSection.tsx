@@ -55,7 +55,7 @@ function SubagentLimit() {
       data-setting-id="capability-subagent-limit"
     >
       <div className="grid min-w-0 gap-0.5">
-        <span className="truncate text-13 font-medium">同时运行上限</span>
+        <span className="truncate text-sm font-medium">同时运行上限</span>
         <span className="line-clamp-2 text-xs leading-relaxed text-ink-3">
           全应用同时运行的子 Agent 数，超出时派发失败，不排队
         </span>
@@ -125,7 +125,7 @@ export function CapabilitiesSection() {
     <div className="grid gap-10" data-setting-id="capabilities">
       <SectionHeader title="内置能力" />
       {!window.dela ? (
-        <p className="text-13 text-ink-3">内置能力配置仅在桌面端可用。</p>
+        <p className="text-sm text-ink-3">内置能力配置仅在桌面端可用。</p>
       ) : (
         <>
           {capabilities === null && !error ? (
@@ -194,7 +194,7 @@ export function CapabilitiesSection() {
                       >
                         <div className="grid min-w-0 gap-0.5">
                           <div className="flex min-w-0 items-baseline gap-2">
-                            <span className="truncate text-13 font-medium">{capability.label}</span>
+                            <span className="truncate text-sm font-medium">{capability.label}</span>
                             <span className="truncate font-mono text-xs text-ink-3">
                               {capability.name}
                             </span>

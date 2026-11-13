@@ -6,7 +6,7 @@ import { cn } from './cn';
 // API 沿用 shadcn（variant/size 名不变），外观对齐 beautiful-ui：冷灰 token、8px 圆角、
 // 150ms 颜色过渡与按压微缩；聚焦环统一 bui-accent。
 const buttonVariants = cva(
-  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control text-13 font-medium transition-[background-color,color,box-shadow,transform,opacity] duration-base ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control text-sm font-medium transition-[background-color,color,box-shadow,transform,opacity] duration-base ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {

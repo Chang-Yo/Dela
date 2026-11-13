@@ -56,7 +56,7 @@ function SnapshotStatus({
 
   return snapshotText ? (
     <div className="flex w-full items-center justify-between gap-2 border-t border-line pt-3">
-      <p className={cn('text-2xs', snapshot?.status === 'failed' ? 'text-red' : 'text-ink-3')}>
+      <p className={cn('text-xs', snapshot?.status === 'failed' ? 'text-red' : 'text-ink-3')}>
         {snapshotText}
       </p>
       {behind && reading ? (
@@ -109,7 +109,7 @@ export function ShuiyuanSourceDoc({
         >
           <ShuiyuanIcon className="size-10 shrink-0 rounded-card" />
           <div className="grid min-w-0 flex-1 gap-1">
-            <p className="flex items-center gap-1.5 text-2xs text-ink-3">
+            <p className="flex items-center gap-1.5 text-xs text-ink-3">
               <span className="font-medium">水源社区</span>
               {ref?.categoryName ? (
                 <>
@@ -118,10 +118,10 @@ export function ShuiyuanSourceDoc({
                 </>
               ) : null}
             </p>
-            <p className="line-clamp-2 text-13 font-semibold leading-snug">
+            <p className="line-clamp-2 text-sm font-semibold leading-snug">
               <ShuiyuanTitle text={ref?.title ?? content.title} />
             </p>
-            <p className="text-2xs text-ink-3">{meta.join(' · ') || '来自水源社区的帖子'}</p>
+            <p className="text-xs text-ink-3">{meta.join(' · ') || '来自水源社区的帖子'}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -158,7 +158,7 @@ export function ShuiyuanSourceDoc({
         ) : content.format === 'html' ? (
           <ShuiyuanHtmlBody html={text} onOpenTopic={onOpenInShuiyuan} title="帖子内容" />
         ) : (
-          <pre className="whitespace-pre-wrap break-words rounded-control border border-line bg-inset p-4 text-13 leading-relaxed">
+          <pre className="whitespace-pre-wrap break-words rounded-control border border-line bg-inset p-4 text-sm leading-relaxed">
             {text}
           </pre>
         )}

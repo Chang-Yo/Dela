@@ -116,7 +116,7 @@ export function TopicReaderHeader() {
       <Button aria-label="返回信息流" onClick={closeReading} size="icon-sm" variant="ghost">
         <ArrowLeft className="size-4" strokeWidth={1.8} />
       </Button>
-      <h1 className="min-w-0 flex-1 truncate text-13 font-medium leading-tight">
+      <h1 className="min-w-0 flex-1 truncate text-sm font-medium leading-tight">
         {detail ? <ShuiyuanTitle text={detail.title} /> : '正在加载…'}
       </h1>
       {detail && !isPM ? (
@@ -425,7 +425,7 @@ export function TopicReader() {
               </div>
             ) : null}
             {!detail && !reading?.error ? (
-              <p className="py-8 text-center text-13 text-ink-3">正在加载帖子…</p>
+              <p className="py-8 text-center text-sm text-ink-3">正在加载帖子…</p>
             ) : null}
             {detail ? (
               // 话题标题区：正文列同宽，分类/标签/统计一行弱化呈现（Discourse 式）。
@@ -491,7 +491,7 @@ export function TopicReader() {
                         {post.username}
                       </span>
                       {post.yours ? (
-                        <span className="shrink-0 rounded bg-inset px-1.5 py-px text-2xs text-ink-3">
+                        <span className="shrink-0 rounded bg-inset px-1.5 py-px text-xs text-ink-3">
                           你
                         </span>
                       ) : null}

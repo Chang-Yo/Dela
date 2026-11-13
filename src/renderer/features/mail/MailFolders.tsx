@@ -114,7 +114,7 @@ function SidebarRow({
         aria-current={selected ? 'page' : undefined}
         aria-label={hasCount ? `${label}，${countLabel}` : label}
         className={cn(
-          'relative flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-base',
+          'relative flex h-8 shrink-0 items-center rounded-control px-2 text-left text-sm transition-colors duration-base',
           selected ? 'bg-hover-2 font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
         )}
         onClick={onSelect}
@@ -280,7 +280,7 @@ export function MailFolders({
             aria-current={composing ? 'page' : undefined}
             aria-label="发送邮件"
             className={cn(
-              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-base',
+              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-sm transition-colors duration-base',
               composing
                 ? 'bg-hover-2 font-medium text-ink'
                 : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -303,7 +303,7 @@ export function MailFolders({
           >
             <UserRound className="size-4 shrink-0" strokeWidth={1.8} />
             <RowLabel collapsed={foldersCollapsed}>
-              <span className="text-13 text-ink">
+              <span className="text-sm text-ink">
                 {account ? account.address.split('@')[0] : '未配置'}
               </span>
             </RowLabel>
@@ -316,7 +316,7 @@ export function MailFolders({
           <button
             aria-label={confirmingDisconnect ? '再点一次确认退出' : '退出登录'}
             className={cn(
-              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-13 transition-colors duration-base',
+              'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-sm transition-colors duration-base',
               confirmingDisconnect
                 ? 'bg-hover-2 font-medium text-red'
                 : 'text-ink-2 hover:bg-hover hover:text-red',

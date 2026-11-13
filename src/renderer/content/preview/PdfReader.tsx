@@ -278,7 +278,7 @@ export function PdfReader({
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-13 text-red"
+            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-sm text-red"
           >
             PDF 打开失败：{error}
             <button
@@ -294,7 +294,7 @@ export function PdfReader({
           </p>
         )}
         {!pageCount && !error && (
-          <p role="status" className="absolute inset-x-0 top-0 p-3 text-13 text-ink-3">
+          <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-ink-3">
             正在加载 PDF…
           </p>
         )}

@@ -6,7 +6,7 @@ export const menuPanel =
   'z-overlay min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-card bg-surface p-1 text-ink shadow-raised animate-pop-in';
 
 export const menuItem =
-  "relative flex h-8 cursor-default select-none items-center gap-2 rounded-chip px-2 text-13 text-ink outline-hidden transition-colors duration-fast focus:bg-hover data-[highlighted]:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-ink-3";
+  "relative flex h-8 cursor-default select-none items-center gap-2 rounded-chip px-2 text-sm text-ink outline-hidden transition-colors duration-fast focus:bg-hover data-[highlighted]:bg-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-ink-3";
 
 export const menuItemDestructive =
   'data-[variant=destructive]:text-red data-[variant=destructive]:focus:bg-red-tint data-[variant=destructive]:data-[highlighted]:bg-red-tint data-[variant=destructive]:*:[svg]:!text-red';

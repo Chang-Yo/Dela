@@ -130,13 +130,13 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
 
   if (!parsePreviewTabId(tabId))
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-13 text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-ink-3">
         无效的预览标签：{tabId}
       </div>
     );
   if (!doc || !content)
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-13 text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-ink-3">
         {error ? (
           <div role="alert" className="min-w-0">
             <p className="break-words">{error}</p>
@@ -205,7 +205,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {branch === 'pdf' &&
         (content.previewUrl ? (
-          <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载阅读器…</p>}>
+          <Suspense fallback={<p className="p-4 text-sm text-ink-3">正在加载阅读器…</p>}>
             <PdfReader
               key={content.previewUrl}
               url={content.previewUrl}
@@ -214,7 +214,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             />
           </Suspense>
         ) : (
-          <p className="p-4 text-13 text-ink-3">正在准备预览…</p>
+          <p className="p-4 text-sm text-ink-3">正在准备预览…</p>
         ))}
       {branch === 'image' && (
         <div className="min-h-0 flex-1 overflow-auto p-4">
@@ -223,7 +223,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {(branch === 'docx' || branch === 'xlsx') &&
         (content.previewUrl ? (
-          <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载预览…</p>}>
+          <Suspense fallback={<p className="p-4 text-sm text-ink-3">正在加载预览…</p>}>
             {branch === 'docx' ? (
               <DocxPreview key={content.previewUrl} url={content.previewUrl} />
             ) : (
@@ -231,7 +231,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             )}
           </Suspense>
         ) : (
-          <p className="p-4 text-13 text-ink-3">正在准备预览…</p>
+          <p className="p-4 text-sm text-ink-3">正在准备预览…</p>
         ))}
       {branch === 'pptx' && (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -243,7 +243,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             />
           )}
           {exported?.previewUrl ? (
-            <Suspense fallback={<p className="p-4 text-13 text-ink-3">正在加载阅读器…</p>}>
+            <Suspense fallback={<p className="p-4 text-sm text-ink-3">正在加载阅读器…</p>}>
               <PdfReader
                 key={exported.previewUrl}
                 url={exported.previewUrl}
@@ -261,7 +261,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         </div>
       )}
       {branch === 'binary' && (
-        <p className="p-6 text-13 text-ink-3">
+        <p className="p-6 text-sm text-ink-3">
           这个文件不是 UTF-8 文本或体积过大，无法内嵌预览，请下载文件或用默认程序打开。
         </p>
       )}
@@ -280,7 +280,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {branch === 'markdown' && (
         <div
-          className="min-h-0 flex-1 overflow-auto p-6 text-13 leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-code [&_pre]:p-4 [&_pre]:text-(--syntax-fg) [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-code [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:text-(--syntax-operator) [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
+          className="min-h-0 flex-1 overflow-auto p-6 text-sm leading-relaxed [&_h1]:mb-4 [&_h1]:text-2xl [&_h2]:my-4 [&_h2]:text-xl [&_h3]:my-3 [&_p]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-auto [&_pre]:rounded-card [&_pre]:bg-code [&_pre]:p-4 [&_pre]:text-(--syntax-fg) [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-code [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:text-(--syntax-operator) [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
           ref={scrollContainer}
           onScroll={(event) => onScroll(event.currentTarget.scrollTop)}
         >

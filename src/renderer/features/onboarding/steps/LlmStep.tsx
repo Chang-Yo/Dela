@@ -135,7 +135,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     >
       <header className="grid gap-2">
         <h2 className="text-2xl font-semibold tracking-tight">配置模型服务</h2>
-        <p className="text-13 leading-relaxed text-ink-3">
+        <p className="text-sm leading-relaxed text-ink-3">
           选择 Pi 内置的厂商，或自定义 OpenAI 兼容端点，密钥加密保存于本机。
         </p>
       </header>
@@ -171,7 +171,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     >
                       <div className="grid gap-4">
                         <label className="grid gap-2">
-                          <span className="text-13 font-medium text-ink-2">名称</span>
+                          <span className="text-sm font-medium text-ink-2">名称</span>
                           <StepInput
                             autoComplete="off"
                             onChange={(event) => setName(event.target.value)}
@@ -181,7 +181,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                           />
                         </label>
                         <label className="grid gap-2">
-                          <span className="text-13 font-medium text-ink-2">API 地址</span>
+                          <span className="text-sm font-medium text-ink-2">API 地址</span>
                           <StepInput
                             autoComplete="off"
                             onChange={(event) => setBaseUrl(event.target.value)}
@@ -313,7 +313,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                   </span>
                 )}
                 {error && (
-                  <p className="text-13 [overflow-wrap:anywhere] text-red" role="alert">
+                  <p className="text-sm [overflow-wrap:anywhere] text-red" role="alert">
                     {error}
                   </p>
                 )}

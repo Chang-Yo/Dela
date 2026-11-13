@@ -234,7 +234,7 @@ export default function CodeBlock({
         />
       )}
       {/* Dela 适配：文件名保留正常行高；leading-none 的 1em 行盒会在字号调大后裁掉下划线与字形下缘。 */}
-      <div className="flex min-h-11 items-center gap-2 border-b border-line px-4 py-2 text-13">
+      <div className="flex min-h-11 items-center gap-2 border-b border-line px-4 py-2 text-sm">
         <span className="inline-flex min-w-0 items-center gap-[0.4375rem]">
           <FileIcon />
           <span className="truncate font-mono leading-normal text-ink">{filename}</span>
@@ -289,7 +289,7 @@ export default function CodeBlock({
       </div>
 
       <div
-        className={`py-3 font-mono text-13 leading-[1.65] text-ink-2${bodyClassName ? ` ${bodyClassName}` : ''}`}
+        className={`py-3 font-mono text-sm leading-[1.65] text-ink-2${bodyClassName ? ` ${bodyClassName}` : ''}`}
       >
         {isDiff ? (
           <div className="relative">
@@ -312,7 +312,7 @@ export default function CodeBlock({
                     />
                   )}
                   <span
-                    className={`select-none text-center text-2xs ${add ? 'text-green' : del ? 'text-red' : 'text-ink-3'}`}
+                    className={`select-none text-center text-xs ${add ? 'text-green' : del ? 'text-red' : 'text-ink-3'}`}
                   >
                     {num ?? ''}
                   </span>
@@ -332,7 +332,7 @@ export default function CodeBlock({
             <span className="pointer-events-none absolute inset-y-0 left-5 w-px bg-line" />
             {lines.map((line, i) => (
               <div key={i} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start">
-                <span className="select-none text-center text-2xs text-ink-3">{i + 1}</span>
+                <span className="select-none text-center text-xs text-ink-3">{i + 1}</span>
                 <code className="pr-3 pl-1 break-words whitespace-pre-wrap">
                   {plain ? line : highlight(line)}
                 </code>

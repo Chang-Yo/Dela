@@ -83,13 +83,13 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
 
   if (entryId === null)
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-13 text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-ink-3">
         无效的笔记标签：{tabId}
       </div>
     );
   if (!draft)
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-13 text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-sm text-ink-3">
         {error ? (
           <div role="alert" className="min-w-0">
             <p className="break-words">{error}</p>
@@ -114,7 +114,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
 
   if (draft.content.format !== 'markdown' && draft.content.format !== 'text')
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-13 text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-sm text-ink-3">
         <p>“{draft.content.title}”不是 UTF-8 文本，或超过 50 MB，无法在应用内打开。</p>
         <Button
           variant="secondary"

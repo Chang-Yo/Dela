@@ -53,7 +53,7 @@ export function BindCard() {
         <section className="grid w-full max-w-[30rem] justify-items-start gap-3 rounded-card border border-line bg-surface p-6">
           <ShuiyuanIcon className="size-10 rounded-card" />
           <h2 className="text-lg font-semibold tracking-tight">绑定成功</h2>
-          <p className="text-13 leading-relaxed text-ink-3">
+          <p className="text-sm leading-relaxed text-ink-3">
             已绑定 @{bound.username}，即将进入水源。
           </p>
         </section>
@@ -67,7 +67,7 @@ export function BindCard() {
         <ShuiyuanIcon className="size-10 rounded-card" />
         <div className="grid gap-1">
           <h2 className="text-lg font-semibold tracking-tight">连接水源社区</h2>
-          <p className="text-13 leading-relaxed text-ink-3">
+          <p className="text-sm leading-relaxed text-ink-3">
             授权 Dela 读取你的水源数据并支持回复、私信（读取 + 写入）。登录与授权在独立窗口完成。
           </p>
         </div>

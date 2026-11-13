@@ -96,7 +96,7 @@ export function NewEventDialog({
         <form className="mt-4 flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
           <Input
             autoFocus
-            className="h-10 px-0 text-15 font-medium"
+            className="h-10 px-0 text-base font-medium"
             maxLength={120}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="例如：小组讨论"

@@ -86,7 +86,7 @@ export function TodoDetail({
   const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
   return (
     <TodoSheet fixedHeight label="待办详情" title={item.title} onClose={onClose}>
-      <div className="mt-3 shrink-0 space-y-1.5 text-13 text-ink-3">
+      <div className="mt-3 shrink-0 space-y-1.5 text-sm text-ink-3">
         <p className="flex items-start gap-1.5">
           <BookOpen className="mt-0.5 size-3.5 shrink-0" />
           <span className="break-words">
@@ -112,7 +112,7 @@ export function TodoDetail({
       </div>
       {personal ? (
         item.notes && (
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words border-t pt-3 text-13 [scrollbar-width:none]">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words border-t pt-3 text-sm [scrollbar-width:none]">
             {item.notes}
           </div>
         )

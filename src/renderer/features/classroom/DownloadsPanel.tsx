@@ -109,13 +109,13 @@ function DownloadRow({
     <div className="flex items-center gap-2.5 rounded-chip px-2 py-2">
       <ProgressRing progress={progress} size={28} tone={tone}>
         {download.state === 'progressing' ? (
-          <span className="text-9">{percent}%</span>
+          <span className="text-xs">{percent}%</span>
         ) : download.state === 'completed' ? (
           <Check aria-hidden className="size-3" />
         ) : null}
       </ProgressRing>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-13 text-ink">{download.name}</span>
+        <span className="truncate text-sm text-ink">{download.name}</span>
         <span className="truncate text-xs tabular-nums text-ink-3">
           {meta ? `${label} · ${meta}` : label}
         </span>

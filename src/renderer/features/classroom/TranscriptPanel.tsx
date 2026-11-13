@@ -125,7 +125,7 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
           </div>
         ) : (
           <>
-            <p className="px-1 pb-2 text-2xs text-ink-3">
+            <p className="px-1 pb-2 text-xs text-ink-3">
               语音识别生成，仅供参考{keyword ? ` · ${segments.length} 段匹配` : ''}
             </p>
             {segments.length === 0 && (
@@ -137,7 +137,7 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
                 <div
                   key={`${segment.startMs}-${index}`}
                   className={cn(
-                    'mb-1 rounded-control px-2 py-2 text-13 leading-relaxed text-ink-2',
+                    'mb-1 rounded-control px-2 py-2 text-sm leading-relaxed text-ink-2',
                     active && 'bg-hover-2 text-ink',
                   )}
                 >

@@ -3,7 +3,7 @@ import { cn } from '../../ui/cn';
 
 export const navRow = (active: boolean) =>
   cn(
-    'flex h-8 min-w-0 items-center gap-2.5 rounded-control px-2 text-left text-13 transition-colors duration-base',
+    'flex h-8 min-w-0 items-center gap-2.5 rounded-control px-2 text-left text-sm transition-colors duration-base',
     active ? 'bg-hover-2 font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
   );
 

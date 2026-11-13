@@ -232,7 +232,7 @@ export function ConnectionsSection({
                     <Icon className="size-4 text-ink-3" strokeWidth={1.8} />
                   </span>
                   <div className="grid min-w-0 gap-0.5">
-                    <strong className="text-13">{name}</strong>
+                    <strong className="text-sm">{name}</strong>
                     {description && (
                       <span className="truncate text-xs text-ink-3" title={description}>
                         {description}

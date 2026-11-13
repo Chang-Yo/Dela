@@ -337,7 +337,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         <ContentLoaderProvider loader={loader}>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {workspaceError && (
-              <p className="px-4 py-2 text-13 text-red" role="alert">
+              <p className="px-4 py-2 text-sm text-red" role="alert">
                 {workspaceError}
               </p>
             )}

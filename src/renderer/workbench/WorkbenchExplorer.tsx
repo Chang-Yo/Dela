@@ -292,7 +292,7 @@ export function WorkbenchExplorer({
   const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-ink-3';
   // 区块小标题：比组头浅一档的分层提示（同步 / 文件两区），纯展示不可交互；归档区靠底部
   // 分隔线 + 自身组头分层，不另加小标题以免与"归档"组头文字重复。
-  const eyebrowClass = 'px-3 pt-3 pb-1 text-2xs font-medium tracking-wider text-ink-3/70';
+  const eyebrowClass = 'px-3 pt-3 pb-1 text-xs font-medium tracking-wider text-ink-3/70';
   const chevron = (open: boolean) => (
     <ChevronRight
       className={cn(

@@ -36,7 +36,7 @@ export function TimetableConnectCard({ semester, onSuccess }: TimetableConnectCa
       </div>
       <div className="grid gap-1">
         <h2 className="text-lg font-semibold tracking-tight">连接教学信息服务网</h2>
-        <p className="text-13 leading-relaxed text-ink-3">
+        <p className="text-sm leading-relaxed text-ink-3">
           登录后读取课程、教师、教室、节次和教学周。登录在独立窗口完成。
         </p>
       </div>

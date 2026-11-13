@@ -74,7 +74,7 @@ export function NewMessageDialog({
             私信只发送给你填写的收件人，支持多个用户名（逗号分隔）。
           </Dialog.Description>
           <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               收件人
               <Input
                 aria-label="收件人用户名"
@@ -85,7 +85,7 @@ export function NewMessageDialog({
                 value={to}
               />
             </label>
-            <label className="grid gap-2 text-13">
+            <label className="grid gap-2 text-sm">
               标题
               <Input
                 aria-label="私信标题"
@@ -95,7 +95,7 @@ export function NewMessageDialog({
                 value={title}
               />
             </label>
-            <div className="grid gap-2 text-13">
+            <div className="grid gap-2 text-sm">
               正文
               <div className="h-40 overflow-hidden rounded-control border border-line shadow-hairline">
                 <MarkdownEditor

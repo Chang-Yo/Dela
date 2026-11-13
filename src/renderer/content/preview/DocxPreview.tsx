@@ -85,7 +85,7 @@ export function DocxPreview({ url }: { url: string }) {
         {error && (
           <p
             role="alert"
-            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-13 text-red"
+            className="absolute inset-x-0 top-0 break-words bg-surface p-3 text-sm text-red"
           >
             文档打开失败：{error}
             <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
@@ -94,7 +94,7 @@ export function DocxPreview({ url }: { url: string }) {
           </p>
         )}
         {loading && !error && (
-          <p role="status" className="absolute inset-x-0 top-0 p-3 text-13 text-ink-3">
+          <p role="status" className="absolute inset-x-0 top-0 p-3 text-sm text-ink-3">
             正在加载文档…
           </p>
         )}

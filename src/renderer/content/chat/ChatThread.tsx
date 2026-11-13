@@ -111,7 +111,7 @@ const MessageImage = memo(function MessageImage({ id, name }: { id: string; name
     </button>
   ) : (
     <span
-      className="grid size-20 place-items-center rounded-card border border-line border-line/60 bg-inset text-2xs text-ink-3"
+      className="grid size-20 place-items-center rounded-card border border-line border-line/60 bg-inset text-xs text-ink-3"
       title={name || undefined}
     >
       图片
@@ -155,7 +155,7 @@ const UserMessage = memo(function UserMessage({
       <div className="mb-5 flex flex-col items-end">
         <textarea
           autoFocus
-          className="max-h-64 w-[85%] resize-none rounded-card border border-line border-line-strong bg-surface px-3.5 py-2 text-13 leading-relaxed text-ink shadow-card outline-none [field-sizing:content]"
+          className="max-h-64 w-[85%] resize-none rounded-card border border-line border-line-strong bg-surface px-3.5 py-2 text-sm leading-relaxed text-ink shadow-card outline-none [field-sizing:content]"
           onChange={(event) => setText(event.target.value)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) return;
@@ -203,7 +203,7 @@ const UserMessage = memo(function UserMessage({
         </div>
       ) : null}
       {message.content ? (
-        <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-13 leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
+        <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-sm leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
           {/* 气泡已是容器：内部代码块去底色，避免「灰底气泡套灰底代码块」的多层嵌套。 */}
           <ChatMarkdown
             className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent"
@@ -320,7 +320,7 @@ function ErrorCard({ reason, onRetry }: { reason: string; onRetry?: () => void }
   return (
     <div
       role="alert"
-      className="my-3 flex items-start gap-2 rounded-card bg-red-tint px-3 py-2 text-13 leading-6 text-ink"
+      className="my-3 flex items-start gap-2 rounded-card bg-red-tint px-3 py-2 text-sm leading-6 text-ink"
     >
       <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-red" />
       <p className="min-w-0 flex-1 break-words">{reason}</p>
@@ -405,11 +405,11 @@ const AssistantMessage = memo(function AssistantMessage({
 
   return (
     <div
-      className="group/msg mb-8 min-w-0 text-13 leading-7 [overflow-wrap:anywhere]"
+      className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]"
       data-reply-live={live || undefined}
     >
       {live && empty && (
-        <p className="h-7 text-13 leading-7" role="status">
+        <p className="h-7 text-sm leading-7" role="status">
           <Shimmer>正在思考</Shimmer>
         </p>
       )}
@@ -430,7 +430,7 @@ const AssistantMessage = memo(function AssistantMessage({
         )}
       />
       {reason && <ErrorCard onRetry={onRetry} reason={reason} />}
-      {message.stopped && !live && <p className="my-2 text-13 text-ink-3">已停止</p>}
+      {message.stopped && !live && <p className="my-2 text-sm text-ink-3">已停止</p>}
       {onOpenDraft &&
         draftIds.map((draftId) => (
           <Button
@@ -498,7 +498,7 @@ function TaskNoticeMessage({ content, task }: { content: string; task: TaskNotic
         </IconButton>
       </div>
       {open && (
-        <ChatMarkdown className="text-13" mode="static">
+        <ChatMarkdown className="text-sm" mode="static">
           {content}
         </ChatMarkdown>
       )}
@@ -510,11 +510,11 @@ function TaskNoticeMessage({ content, task }: { content: string; task: TaskNotic
 function ExtensionMessage({ content, customType }: { content: string; customType: string }) {
   return (
     <div className="my-3 grid gap-1.5 rounded-card bg-inset px-3.5 py-2.5">
-      <span className="flex items-center gap-1.5 text-2xs font-medium text-ink-3">
+      <span className="flex items-center gap-1.5 text-xs font-medium text-ink-3">
         <Package aria-hidden className="size-3" strokeWidth={1.8} />
         扩展 · {customType}
       </span>
-      <ChatMarkdown className="text-13" mode="static">
+      <ChatMarkdown className="text-sm" mode="static">
         {content}
       </ChatMarkdown>
     </div>

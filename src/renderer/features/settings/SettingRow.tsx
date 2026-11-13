@@ -23,7 +23,7 @@ export function SettingRow({
 }) {
   const label = (
     <div className="grid content-start gap-1">
-      <h3 className="text-13 font-medium text-ink">{title}</h3>
+      <h3 className="text-sm font-medium text-ink">{title}</h3>
       {description && <p className="text-xs leading-relaxed text-ink-3">{description}</p>}
     </div>
   );

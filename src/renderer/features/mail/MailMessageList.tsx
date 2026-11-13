@@ -50,7 +50,7 @@ export function MailMessageList({
     <section className={cn('flex min-h-0 flex-col', className)}>
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <strong className="truncate text-13 font-semibold text-ink">
+          <strong className="truncate text-sm font-semibold text-ink">
             {selectedFolder?.name ?? '邮件'}
           </strong>
           <small className="shrink-0 truncate text-xs tabular-nums text-ink-3">
@@ -110,7 +110,7 @@ export function MailMessageList({
                 <span className="flex min-w-0 items-baseline justify-between gap-3">
                   <strong
                     className={cn(
-                      'min-w-0 truncate text-13',
+                      'min-w-0 truncate text-sm',
                       message.seen ? 'font-normal text-ink-2' : 'font-semibold text-ink',
                     )}
                   >
@@ -123,7 +123,7 @@ export function MailMessageList({
                 <span className="flex items-center gap-1.5 overflow-hidden">
                   <span
                     className={cn(
-                      'truncate text-13',
+                      'truncate text-sm',
                       message.seen ? 'text-ink-2' : 'font-medium text-ink',
                     )}
                   >

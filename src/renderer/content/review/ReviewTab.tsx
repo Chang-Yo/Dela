@@ -78,7 +78,7 @@ function TurnFileReview({
     <Shell>
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
         <FileCode2 aria-hidden className="size-4 shrink-0 text-ink-3" />
-        <span className="shrink-0 text-13 font-medium">{basenameOf(detail.path)}</span>
+        <span className="shrink-0 text-sm font-medium">{basenameOf(detail.path)}</span>
         <span className="min-w-0 truncate text-xs text-ink-3" title={detail.path}>
           {dirnameOf(detail.path)}
         </span>

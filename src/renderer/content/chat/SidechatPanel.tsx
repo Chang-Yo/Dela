@@ -248,7 +248,7 @@ export function SidechatPanel({
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-ink-3">
               <MessageCircleDashed className="size-8" strokeWidth={1.5} />
-              <p className="text-13">随口一问，不扰主线</p>
+              <p className="text-sm">随口一问，不扰主线</p>
             </div>
           )}
         </div>

@@ -134,7 +134,7 @@ export function ArchivedSection() {
     <div className="grid gap-10">
       <SectionHeader title="已归档" />
       {!window.dela ? (
-        <p className="text-13 text-ink-3">已归档对话管理仅在桌面端可用。</p>
+        <p className="text-sm text-ink-3">已归档对话管理仅在桌面端可用。</p>
       ) : (
         <>
           <div className="grid gap-3">
@@ -205,12 +205,12 @@ export function ArchivedSection() {
             )}
             {sessions !== null && sessions.length === 0 && (
               <SettingsGroup>
-                <p className="py-3.5 text-13 text-ink-3">没有已归档对话</p>
+                <p className="py-3.5 text-sm text-ink-3">没有已归档对话</p>
               </SettingsGroup>
             )}
             {sessions !== null && sessions.length > 0 && groups.length === 0 && (
               <SettingsGroup>
-                <p className="py-3.5 text-13 text-ink-3">没有匹配的已归档对话</p>
+                <p className="py-3.5 text-sm text-ink-3">没有匹配的已归档对话</p>
               </SettingsGroup>
             )}
           </div>
@@ -235,7 +235,7 @@ export function ArchivedSection() {
                       key={session.id}
                     >
                       <div className="grid min-w-0 gap-0.5">
-                        <span className="truncate text-13" title={session.title}>
+                        <span className="truncate text-sm" title={session.title}>
                           {session.title || '新对话'}
                         </span>
                         <span className="text-xs text-ink-3">

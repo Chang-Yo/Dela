@@ -226,7 +226,7 @@ export function EntryDialogs({
           </Dialog.Description>
           <form onSubmit={(event) => void submit(event)} className="mt-4 grid gap-4">
             {(request?.action === 'link' || request?.action === 'move') && (
-              <div className="grid gap-2 text-13">
+              <div className="grid gap-2 text-sm">
                 {request.action === 'link' ? '项目' : '位置'}
                 <Select
                   onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
@@ -263,7 +263,7 @@ export function EntryDialogs({
             {request &&
               !['move', 'remove'].includes(request.action) &&
               (request.action !== 'link' || target === '__new__') && (
-                <label className="grid gap-2 text-13">
+                <label className="grid gap-2 text-sm">
                   {request.action === 'connect' ? 'Access Token' : '名称'}
                   <Input
                     autoFocus

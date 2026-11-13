@@ -31,7 +31,7 @@ export function MailAccountForm({
   const custom = mode === '第三方 IMAP';
   const wizard = variant === 'wizard';
   const field = wizard ? 'h-10 rounded-card' : '';
-  const label = wizard ? 'text-13 font-medium text-ink-2' : 'text-xs font-medium text-ink-3';
+  const label = wizard ? 'text-sm font-medium text-ink-2' : 'text-xs font-medium text-ink-3';
 
   return (
     <form
@@ -119,7 +119,7 @@ export function MailAccountForm({
       </AnimatePresence>
       {error && (
         <p
-          className={wizard ? 'text-13 [overflow-wrap:anywhere] text-red' : 'text-13 text-red'}
+          className={wizard ? 'text-sm [overflow-wrap:anywhere] text-red' : 'text-sm text-red'}
           role="alert"
         >
           {error}

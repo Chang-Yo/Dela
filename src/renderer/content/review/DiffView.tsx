@@ -57,7 +57,7 @@ function PagedDiff({ patch }: { patch: string }) {
       )}
       <div
         aria-label="文件差异"
-        className="min-w-0 overflow-x-auto font-mono text-2xs leading-5"
+        className="min-w-0 overflow-x-auto font-mono text-xs leading-5"
         role="table"
       >
         {rows.slice(start, start + PAGE_ROWS).map((row, index) => (

@@ -104,7 +104,7 @@ export function EventDetailDialog({
               {[detail.lesson.className, detail.lesson.courseCode].filter(Boolean).join(' · ')}
             </DialogPrimitive.Description>
           ) : null}
-          <div className="mt-4 grid gap-2.5 pl-5 text-13">
+          <div className="mt-4 grid gap-2.5 pl-5 text-sm">
             <div className="flex items-start gap-2">
               <Clock className="mt-0.5 size-4 shrink-0 text-ink-3" />
               <span className="tabular-nums">{timeText}</span>

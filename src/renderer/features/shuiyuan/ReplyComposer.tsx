@@ -205,7 +205,7 @@ export function ReplyComposer({
       onSubmit={(e) => void submit(e)}
     >
       <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-5 max-md:pl-4">
-        <span className="min-w-0 truncate text-13 font-medium tabular-nums">
+        <span className="min-w-0 truncate text-sm font-medium tabular-nums">
           {replyTarget
             ? `回复 @${replyTarget.username} · 第 ${replyTarget.postNumber} 楼`
             : '回复帖子'}

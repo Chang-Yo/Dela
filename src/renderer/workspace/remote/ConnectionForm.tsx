@@ -118,7 +118,7 @@ export function ConnectionForm({
   return (
     <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
       <button
-        className="flex w-fit items-center gap-1.5 text-13 font-medium text-ink-2 transition-colors duration-base hover:text-ink"
+        className="flex w-fit items-center gap-1.5 text-sm font-medium text-ink-2 transition-colors duration-base hover:text-ink"
         onClick={onBack}
         type="button"
       >
@@ -180,7 +180,7 @@ export function ConnectionForm({
       </p>
       {projects.length > 0 && (
         <div className="grid gap-1 rounded-card bg-inset px-4 py-2">
-          <h3 className="text-13 font-semibold text-ink-2">使用此连接的项目</h3>
+          <h3 className="text-sm font-semibold text-ink-2">使用此连接的项目</h3>
           <ul className="grid">
             {projects.map((project) => (
               <li
@@ -188,7 +188,7 @@ export function ConnectionForm({
                 key={project.id}
               >
                 <div className="flex min-w-0 items-baseline gap-3">
-                  <span className="shrink-0 text-13" title={project.name}>
+                  <span className="shrink-0 text-sm" title={project.name}>
                     {project.name}
                   </span>
                   <span className="truncate text-xs text-ink-3" title={project.path}>

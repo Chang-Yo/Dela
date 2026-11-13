@@ -48,7 +48,7 @@ function RecipientRow({
   return (
     <div className="flex gap-3">
       <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">收件人</span>
-      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-13 leading-5">
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-sm leading-5">
         <span className="break-all">{formatMailAddress(self.name, self.address)}</span>
         {foldedCount > 0 && (
           <Tooltip>
@@ -141,12 +141,12 @@ export function MailReader({
       >
         ← 返回列表
       </button>
-      {detailLoading && <p className="m-auto text-13 text-ink-3">正在获取正文…</p>}
+      {detailLoading && <p className="m-auto text-sm text-ink-3">正在获取正文…</p>}
       {!detailLoading && !detail && !detailError && (
-        <p className="m-auto text-13 text-ink-3">选择一封邮件查看正文</p>
+        <p className="m-auto text-sm text-ink-3">选择一封邮件查看正文</p>
       )}
       {!detailLoading && detailError && !detail && (
-        <div className="m-auto grid place-items-center gap-3 text-center text-13 text-red">
+        <div className="m-auto grid place-items-center gap-3 text-center text-sm text-red">
           <p>{detailError}</p>
           {selectedMessageId !== null && (
             <Button
@@ -165,7 +165,7 @@ export function MailReader({
         <article className="min-h-0 flex-1 overflow-y-auto px-4 pt-6 pb-0 @min-[520px]:px-8 max-md:pt-2 max-md:pb-0">
           <div className="mx-auto flex w-full max-w-[47.5rem] flex-col">
             <div className="flex items-start gap-2">
-              <h2 className="min-w-0 flex-1 break-words text-21 font-semibold leading-7 tracking-tight">
+              <h2 className="min-w-0 flex-1 break-words text-xl font-semibold leading-7 tracking-tight">
                 {detail.subject ?? '(无主题)'}
               </h2>
               {!readOnly && (
@@ -194,7 +194,7 @@ export function MailReader({
             <div className="mt-3 grid gap-1.5 border-b border-line-soft pb-4">
               <div className="flex gap-3">
                 <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">发件人</span>
-                <span className="min-w-0 flex-1 break-all text-13 leading-5">
+                <span className="min-w-0 flex-1 break-all text-sm leading-5">
                   {detail.sender
                     ? formatMailAddress(detail.sender.name, detail.sender.address)
                     : '(未知发件人)'}
@@ -207,14 +207,14 @@ export function MailReader({
               {detail.to.length === 0 && detail.cc.length > 0 && (
                 <div className="flex gap-3">
                   <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">抄送</span>
-                  <span className="min-w-0 flex-1 break-all text-13 leading-5">
+                  <span className="min-w-0 flex-1 break-all text-sm leading-5">
                     {detail.cc.map((cc) => formatMailAddress(cc.name, cc.address)).join(', ')}
                   </span>
                 </div>
               )}
               <div className="flex gap-3">
                 <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">时间</span>
-                <span className="min-w-0 flex-1 break-all text-13 leading-5">
+                <span className="min-w-0 flex-1 break-all text-sm leading-5">
                   {formatFullDate(detail.date)}
                 </span>
               </div>
@@ -254,7 +254,7 @@ export function MailReader({
             {detail.bodyHtml ? (
               <MailHtmlBody key={detail.id} html={detail.bodyHtml} text={detail.bodyText} />
             ) : (
-              <div className="mt-3 rounded-t-card border-x border-t p-4 text-13 leading-relaxed whitespace-pre-wrap break-words">
+              <div className="mt-3 rounded-t-card border-x border-t p-4 text-sm leading-relaxed whitespace-pre-wrap break-words">
                 {detail.bodyText ?? '(无正文)'}
               </div>
             )}

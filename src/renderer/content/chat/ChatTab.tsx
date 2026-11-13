@@ -39,7 +39,7 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
 
   if (sessionId === null) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-center text-13 text-ink-3">
+      <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center p-6 text-center text-sm text-ink-3">
         无效的会话标签
       </div>
     );

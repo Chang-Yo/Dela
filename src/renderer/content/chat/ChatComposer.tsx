@@ -489,7 +489,7 @@ export function ChatComposer({
         }}
       >
         {dragging && (
-          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-window border-2 border-dashed border-line-strong bg-page/80 text-13 text-ink-3">
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-window border-2 border-dashed border-line-strong bg-page/80 text-sm text-ink-3">
             松开以添加图片或附件
           </div>
         )}
@@ -599,7 +599,7 @@ export function ChatComposer({
                         <button
                           aria-checked={searchSelectedId === null}
                           className={cn(
-                            'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-13 transition-colors',
+                            'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-sm transition-colors',
                             searchSelectedId === null
                               ? 'bg-hover font-medium text-ink'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -619,7 +619,7 @@ export function ChatComposer({
                           <button
                             aria-checked={entry.id === searchSelectedId}
                             className={cn(
-                              'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-13 transition-colors',
+                              'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-sm transition-colors',
                               entry.id === searchSelectedId
                                 ? 'bg-hover font-medium text-ink'
                                 : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -630,7 +630,7 @@ export function ChatComposer({
                           >
                             <span className="truncate">{entry.name}</span>
                             {entry.provider === 'deepseek' && (
-                              <span className="shrink-0 text-2xs text-ink-3">按次计费</span>
+                              <span className="shrink-0 text-xs text-ink-3">按次计费</span>
                             )}
                             {entry.id === searchSelectedId && (
                               <Check
@@ -712,7 +712,7 @@ export function ChatComposer({
                           <li key={provider.id}>
                             <button
                               className={cn(
-                                'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
+                                'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
                                 provider.id === focusedId
                                   ? 'bg-hover font-medium text-ink'
                                   : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -740,7 +740,7 @@ export function ChatComposer({
                           <li key={item}>
                             <button
                               className={cn(
-                                'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
+                                'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
                                 focused.id === providerId && model === item
                                   ? 'bg-hover font-medium text-ink'
                                   : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -818,7 +818,7 @@ export function ChatComposer({
                         <li key={level}>
                           <button
                             className={cn(
-                              'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-13 transition-colors',
+                              'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
                               level === effort
                                 ? 'bg-hover font-medium text-ink'
                                 : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -915,16 +915,16 @@ export function ChatComposer({
                 ) : menu?.kind === 'session' ? (
                   <MessageSquare className="size-3.5 shrink-0 text-ink-3" />
                 ) : (
-                  <span className="shrink-0 font-mono text-13 text-ink-3">/</span>
+                  <span className="shrink-0 font-mono text-sm text-ink-3">/</span>
                 )}
                 {'name' in item ? (
                   <>
-                    <span className="shrink-0 text-13 font-medium text-ink">/{item.name}</span>
+                    <span className="shrink-0 text-sm font-medium text-ink">/{item.name}</span>
                     <span className="min-w-0 flex-1 truncate text-xs text-ink-3">{item.hint}</span>
                   </>
                 ) : item.session ? (
                   <span
-                    className="min-w-0 flex-1 truncate text-13 font-semibold"
+                    className="min-w-0 flex-1 truncate text-sm font-semibold"
                     style={{ color: 'var(--cal-blue-text)' }}
                   >
                     {item.title}
@@ -947,11 +947,11 @@ function MentionTitle({ title }: { title: string }) {
   const dir = at < 0 ? '' : title.slice(0, at + 1);
   const name = at < 0 ? title : title.slice(at + 1);
   return (
-    <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-13">
+    <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-sm">
       <span className="shrink-0 font-semibold" style={{ color: 'var(--cal-blue-text)' }}>
         {name}
       </span>
-      {dir && <span className="min-w-0 truncate text-2xs text-ink-3">{dir}</span>}
+      {dir && <span className="min-w-0 truncate text-xs text-ink-3">{dir}</span>}
     </span>
   );
 }
@@ -996,7 +996,7 @@ function QueuedMessages({ messages, onWithdraw }: { messages: string[]; onWithdr
   return (
     <div
       aria-label="待送达的消息"
-      className="mb-2 flex items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-13 leading-6 shadow-hairline"
+      className="mb-2 flex items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-sm leading-6 shadow-hairline"
       role="status"
       style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
     >
@@ -1033,7 +1033,7 @@ function QueuedMessages({ messages, onWithdraw }: { messages: string[]; onWithdr
 function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
   return (
     <div
-      className="absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--red-tint),var(--red-tint))] px-3 py-1.5 text-13 leading-6 text-ink shadow-hairline"
+      className="absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--red-tint),var(--red-tint))] px-3 py-1.5 text-sm leading-6 text-ink shadow-hairline"
       role="alert"
       style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
     >
@@ -1115,7 +1115,7 @@ function BackgroundTaskList({
             <Icon className="size-3.5 shrink-0 text-ink-3" />
             <span
               className={cn(
-                'min-w-0 flex-1 truncate text-13 text-ink',
+                'min-w-0 flex-1 truncate text-sm text-ink',
                 task.kind === 'bash' && 'font-mono',
               )}
               title={task.label}
@@ -1180,7 +1180,7 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
           }}
         >
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-13 font-medium text-ink">上下文</span>
+            <span className="text-sm font-medium text-ink">上下文</span>
             <span className="text-xs tabular-nums text-ink-3">
               {usage.tokens === null
                 ? '—'
@@ -1201,7 +1201,7 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
           </div>
           {/* 按本会话累计显示（不是最近一轮）：单轮命中率受该轮是否新建缓存影响，波动大、看不出趋势。 */}
           <div className="mt-2 flex items-baseline justify-between gap-3">
-            <span className="text-13 text-ink-2">缓存命中率</span>
+            <span className="text-sm text-ink-2">缓存命中率</span>
             <span className="text-xs tabular-nums text-ink-3">{cacheHitRateText(usage)}</span>
           </div>
         </Popover.Content>

@@ -237,7 +237,7 @@ export function DirectoryBrowser({
       </div>
 
       {recent.length > 0 ? (
-        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-b border-line px-2.5 py-1.5 text-2xs">
+        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-b border-line px-2.5 py-1.5 text-xs">
           <Clock className="size-3 shrink-0 text-ink-3" aria-hidden="true" />
           <span className="shrink-0 text-ink-3">最近</span>
           {recent.map((item) => (
@@ -293,7 +293,7 @@ export function DirectoryBrowser({
         {parent && (
           <li>
             <button
-              className="flex h-7 w-full items-center gap-2 px-3 text-left text-13 text-ink-3 hover:bg-hover hover:text-ink"
+              className="flex h-7 w-full items-center gap-2 px-3 text-left text-sm text-ink-3 hover:bg-hover hover:text-ink"
               onClick={() => onNavigate(parent)}
               tabIndex={-1}
               type="button"
@@ -312,7 +312,7 @@ export function DirectoryBrowser({
           >
             <button
               className={cn(
-                'flex h-7 w-full min-w-0 items-center gap-2 px-3 text-left text-13 transition-colors duration-fast',
+                'flex h-7 w-full min-w-0 items-center gap-2 px-3 text-left text-sm transition-colors duration-fast',
                 entry.path === selected
                   ? 'bg-hover-2 text-ink'
                   : 'text-ink-2 hover:bg-hover hover:text-ink',
@@ -364,7 +364,7 @@ export function DirectoryBrowser({
         )}
       </ul>
 
-      <div className="flex items-center justify-between border-t border-line px-2.5 py-1.5 text-2xs text-ink-3">
+      <div className="flex items-center justify-between border-t border-line px-2.5 py-1.5 text-xs text-ink-3">
         <span className="flex-1" />
         <button
           className="mr-3 flex items-center gap-1 rounded-chip px-1 py-0.5 hover:bg-hover hover:text-ink"

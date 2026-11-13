@@ -39,7 +39,7 @@ export function CanvasTokenForm({ onSuccess, actions }: CanvasTokenFormProps) {
         void configure();
       }}
     >
-      <label className="grid gap-2 text-13">
+      <label className="grid gap-2 text-sm">
         Access Token
         <Input
           autoComplete="off"

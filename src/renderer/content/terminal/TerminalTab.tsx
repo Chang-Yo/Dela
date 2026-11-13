@@ -295,7 +295,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
             <div
               key={session.id}
               className={cn(
-                'flex shrink-0 items-center rounded-control text-13 text-ink-3',
+                'flex shrink-0 items-center rounded-control text-sm text-ink-3',
                 session.id === activeId && 'bg-hover text-ink',
               )}
             >
@@ -354,7 +354,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
         </Button>
       </div>
       {error && (
-        <p className="shrink-0 px-3 py-2 text-13 text-red" role="alert">
+        <p className="shrink-0 px-3 py-2 text-sm text-red" role="alert">
           {error}
         </p>
       )}
@@ -364,7 +364,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
         </p>
       )}
       {!activeId && (
-        <div className="flex flex-1 items-center justify-center text-13 text-ink-3">
+        <div className="flex flex-1 items-center justify-center text-sm text-ink-3">
           {busy ? '正在打开终端…' : '点击 + 新建终端'}
         </div>
       )}
@@ -378,7 +378,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
           else void paste();
         }}
         className={cn(
-          'min-h-0 flex-1 overflow-hidden bg-surface p-2 font-mono text-13 text-ink',
+          'min-h-0 flex-1 overflow-hidden bg-surface p-2 font-mono text-sm text-ink',
           !activeId && 'hidden',
         )}
       />

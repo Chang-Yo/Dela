@@ -75,7 +75,7 @@ export function WizardShell({
           <div className="justify-self-start">
             {onBack && (
               <button
-                className="inline-flex items-center gap-1.5 rounded-control px-2 py-2 text-13 text-ink-3 transition-colors hover:text-ink"
+                className="inline-flex items-center gap-1.5 rounded-control px-2 py-2 text-sm text-ink-3 transition-colors hover:text-ink"
                 onClick={onBack}
                 type="button"
               >
@@ -89,7 +89,7 @@ export function WizardShell({
           )}
           {onSkip ? (
             <button
-              className="inline-flex items-center gap-1.5 justify-self-end rounded-control px-2 py-2 text-13 text-ink-3 transition-colors hover:text-ink"
+              className="inline-flex items-center gap-1.5 justify-self-end rounded-control px-2 py-2 text-sm text-ink-3 transition-colors hover:text-ink"
               onClick={onSkip}
               type="button"
             >
