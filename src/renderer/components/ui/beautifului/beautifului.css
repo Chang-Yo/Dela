@@ -178,6 +178,7 @@
   --color-field: var(--field);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-line-soft: var(--line-soft);
   --color-bui-accent: var(--bui-accent);
   --color-bui-accent-ink: var(--bui-accent-ink);
   --color-bui-accent-tint: var(--bui-accent-tint);
