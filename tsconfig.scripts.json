@@ -9,8 +9,11 @@
     "scripts/fix-native-permissions.ts",
     "scripts/prepare-runtime.ts",
     "scripts/refactor-metrics.ts",
+    "scripts/remote-smoke.ts",
     "scripts/run-ts-smoke.ts",
+    "scripts/runtime-smoke.ts",
     "scripts/verify-macos-package.ts",
+    "scripts/workspace-smoke.ts",
     "src/main/modules.d.ts"
   ]
 }

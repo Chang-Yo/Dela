@@ -17,7 +17,8 @@ import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 
 const root = resolve('.');
 const profile = mkdtempSync(join(tmpdir(), 'dela-runtime-中文-'));
-app.setAppPath(root);
+// setAppPath 是 Electron 未写进类型的内部接口，让打包后的随包路径指回仓库。
+(app as typeof app & { setAppPath(path: string): void }).setAppPath(root);
 for (const name of ['userData', 'documents', 'home'] as const) app.setPath(name, profile);
 // 隔离 Pi 的二进制缓存，禁用缺少工具时的联网下载，确保测试命中随包工具。
 process.env.PI_CODING_AGENT_DIR = join(profile, 'pi');

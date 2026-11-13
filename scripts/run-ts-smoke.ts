@@ -17,7 +17,7 @@ const smokes: Record<string, SmokeConfig> = {
     timeout: 45000,
     minify: false,
   },
-  'workspace-smoke': { external: [], timeout: 60000 },
+  'workspace-smoke': { external: [/^@earendil-works\//], timeout: 60000 },
   'remote-smoke': {
     external: [
       // 原生模块必须留在 node_modules：打进 bundle 后 node-pty 找不到自己的 prebuilds。

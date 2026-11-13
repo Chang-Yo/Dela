@@ -63,6 +63,7 @@ jobs:
           node scripts/ci-smoke.ts "Electron and native dependencies" pnpm smoke
           node scripts/ci-smoke.ts "Agent runtime" pnpm smoke:runtime
           node scripts/ci-smoke.ts "Desktop behavior" pnpm smoke:desktop
+          node scripts/ci-smoke.ts "Workspace behavior" pnpm smoke:workspace
           node scripts/ci-smoke.ts "Terminal behavior" pnpm exec electron scripts/terminal-smoke.cjs
       - name: Fetch remote rg
         run: pnpm fetch:remote-rg
