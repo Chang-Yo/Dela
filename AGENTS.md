@@ -158,23 +158,25 @@ Dela/
 │  │  ├─ remote/              远程执行后端与 helper 通道
 │  │  └─ ports.ts             宿主端口（HostPorts）
 │  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册、宿主端口实现
-│  ├─ modules/                v3：已迁移的通用模块（search）
+│  ├─ modules/                v3：已迁移的通用模块（search、todo）
+│  ├─ sjtu/                   v3：交大模块（主进程部分），经 register() 向通用模块的注册口登记
+│  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
+│  │  ├─ canvas/              Canvas 课程资料、作业与公告
+│  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
+│  │  ├─ jwc/                 教务处通知
+│  │  ├─ shuiyuan/            水源社区
+│  │  └─ timetable/           课表与日历事件
 │  ├─ ui/                     v3：Design System（fork 自 beautiful-ui）
 │  ├─ main/                   Electron 主进程
-│  │  ├─ agent/               dela 命令域与内置 Skills 的注册清单（P5 随各模块迁出）
-│  │  ├─ canvas/              Canvas 课程资料
+│  │  ├─ agent/               通用的 dela 命令域与内置 Skills（P5 随各模块迁出）
 │  │  ├─ documents/           文档读取与 Skill 组件
 │  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
 │  │  ├─ migrations/          旧版用户的数据库迁移
-│  │  ├─ notifications/       通知轮询
+│  │  ├─ notifications/       通知中心与通知来源注册口
 │  │  ├─ remotes/             SSH 连接管理、端口转发与文件传输
 │  │  ├─ settings/            设置与模型/网络配置
-│  │  ├─ shuiyuan/            水源社区
 │  │  ├─ terminal/            内置终端与 Bash 定位
-│  │  ├─ timetable/           课表
-│  │  ├─ todo/                TODO
 │  │  ├─ update/              应用内更新
-│  │  ├─ vsjtu/               致远一号
 │  │  └─ workspace/           工作区文件
 │  ├─ preload/                contextBridge 与按契约白名单放行的 bridge
 │  ├─ renderer/               React 界面
@@ -184,7 +186,7 @@ Dela/
 │  │  ├─ navigation/          侧栏与导航
 │  │  ├─ sessions/            会话管理
 │  │  ├─ workspace/           工作区浏览
-│  │  ├─ features/            业务功能页（mail、settings、timetable…）
+│  │  ├─ features/            业务功能页（mail、settings，以及尚未纵切的交大页面）
 │  │  ├─ components/          应用外壳与跨功能组件
 │  │  ├─ lib/                 渲染层工具
 │  │  └─ styles/              全局样式与设计 token
