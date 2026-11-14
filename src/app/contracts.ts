@@ -7,6 +7,7 @@ import { llmContract } from '../core/protocol/llm';
 import { chatContract } from '../modules/chat/contract';
 import { mailContract } from '../modules/mail/contract';
 import { notificationsContract } from '../modules/notifications/contract';
+import { onboardingContract } from '../modules/onboarding/contract';
 import { remotesContract } from '../modules/remotes/contract';
 import { searchContract } from '../modules/search/contract';
 import { settingsContract } from '../modules/settings/contract';
@@ -31,6 +32,7 @@ export const contracts: Contract[] = [
   mailContract,
   settingsContract,
   updateContract,
+  onboardingContract,
   searchContract,
   todoContract,
   notificationsContract,

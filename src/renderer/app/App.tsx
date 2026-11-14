@@ -2,11 +2,12 @@
 // 视图路由在 ./navigation；主题/缩放在 ./theme；工作台在 workbench/WorkbenchShell。
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { CompletionOverlay } from '../features/onboarding/CompletionOverlay';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
-import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboarding-state';
+import { isSmokeTest, readOnboardingState } from '../features/onboarding/onboarding-state';
 import { leaveComposer } from '../../modules/mail/view';
 import { SettingsView } from '../features/settings';
 import { ReleaseNotesDialog, UpdatePrompt, useUpdateState } from '../../modules/update/view';
@@ -76,9 +77,16 @@ export default function App() {
   const mobileDrawer = useMobileDrawer((state) => state.drawer);
   const setMobileDrawer = useMobileDrawer((state) => state.setDrawer);
   // 首次启动引导：flow 期间主界面不渲染；completion 时主界面已挂载、完成动画叠在其上渐隐。
-  const [launchStage, setLaunchStage] = useState<'flow' | 'completion' | 'app'>(() =>
-    isSmokeTest || onboardingCompleted() ? 'app' : 'flow',
-  );
+  // 读到引导状态前什么都不渲染，避免老用户闪过引导页。
+  const onboarding = useQuery({
+    queryKey: ['onboarding'],
+    queryFn: readOnboardingState,
+    enabled: !isSmokeTest,
+  });
+  const [stage, setLaunchStage] = useState<'flow' | 'completion' | 'app'>();
+  const launchStage =
+    stage ??
+    (isSmokeTest || onboarding.data?.consented ? 'app' : onboarding.data ? 'flow' : undefined);
   const appVisible = launchStage === 'app' || launchStage === 'completion';
 
   const view = useNavigationStore((state) => state.view);
@@ -289,6 +297,7 @@ export default function App() {
       )}
       {launchStage === 'flow' && (
         <OnboardingFlow
+          completed={onboarding.data?.completed ?? false}
           onConsentDone={() => setLaunchStage('app')}
           onWizardDone={() => setLaunchStage('completion')}
         />

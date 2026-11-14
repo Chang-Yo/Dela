@@ -16,3 +16,13 @@ export function recordConsent(document: ConsentDocument, revision: string): void
     console.error('条款接受记录写入失败', error);
   }
 }
+
+export function hasConsented(): boolean {
+  const row = getDatabase()
+    .prepare(
+      `SELECT COUNT(DISTINCT document) AS count FROM consent_records
+       WHERE document IN ('terms', 'privacy')`,
+    )
+    .get() as { count: number };
+  return row.count === 2;
+}

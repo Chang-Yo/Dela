@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
 import { closeDatabase, getDatabase } from '../../../../main/database';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { settingsContract } from '../../contract';
-import { recordConsent } from '../consent';
+import { hasConsented, recordConsent } from '../consent';
 
 beforeEach(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-consent-'));
@@ -52,4 +52,12 @@ it('只认识两份条款，版本号不能为空', () => {
   const input = settingsContract.procedures.recordConsent.input;
   expect(() => input.parse({ document: 'cookie-policy', revision: '2026-10-15' })).toThrow();
   expect(() => input.parse({ document: 'terms', revision: '' })).toThrow();
+});
+
+it('两份条款都有接受记录才算接受过', () => {
+  expect(hasConsented()).toBe(false);
+  recordConsent('terms', '2026-10-15');
+  expect(hasConsented()).toBe(false);
+  recordConsent('privacy', '2026-10-15');
+  expect(hasConsented()).toBe(true);
 });

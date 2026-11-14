@@ -24,7 +24,9 @@ import {
 } from './main/prefs';
 import { openAtLogin, setOpenAtLogin, setTheme, setZoom } from './main/system';
 
+export { hasConsented } from './main/consent';
 export {
+  readSetting,
   savedIcon,
   savedPendingInstall,
   savedTheme,
@@ -32,6 +34,7 @@ export {
   savedZoom,
   setPendingInstall,
   setVideoDownloadDirectory,
+  writeSetting,
 } from './main/prefs';
 export { applyTheme } from './main/system';
 export { settingsSearch } from './main/search';

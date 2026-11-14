@@ -3,6 +3,7 @@ import type { ModuleDefinition } from './module';
 import { chatModule } from '../modules/chat';
 import { mailModule } from '../modules/mail';
 import { notificationsModule } from '../modules/notifications';
+import { onboardingModule } from '../modules/onboarding';
 import { remotesModule } from '../modules/remotes';
 import { searchModule } from '../modules/search';
 import { settingsModule } from '../modules/settings';
@@ -24,6 +25,7 @@ export const modules: ModuleDefinition[] = [
   mailModule,
   settingsModule,
   updateModule,
+  onboardingModule,
   searchModule,
   todoModule,
   notificationsModule,
