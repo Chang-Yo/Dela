@@ -2,7 +2,7 @@
 // coverage 对象化（folders 附带）、freshness 取账号最近同步时间。
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../../mail/api', async () => {
+vi.mock('../../api', async () => {
   const { z } = await import('zod');
   return {
     mailSearchSchema: z.object({ query: z.string().default('') }),
@@ -12,7 +12,7 @@ vi.mock('../../../../mail/api', async () => {
   };
 });
 
-import { getMailState, listMailFolders, searchMail } from '../../../../mail/api';
+import { getMailState, listMailFolders, searchMail } from '../../api';
 import { listMailFoldersTool } from '../list-folders';
 import { searchMailTool } from '../search-mail';
 

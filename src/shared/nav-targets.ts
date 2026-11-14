@@ -5,7 +5,6 @@ declare module '../app/module' {
   interface NavTargets {
     projects: { entryId: string };
     chat: { projectId: string | null; sessionId: string };
-    mail: { messageId: number };
     sources: { sourceId: string };
     settings: { section: SettingsSectionId };
   }

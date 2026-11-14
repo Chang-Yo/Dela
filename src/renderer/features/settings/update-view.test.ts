@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // 更新状态的展示映射测试：动作、进度与标题栏提示由快照推出，不能靠页面猜。
 // 具体措辞不锁死，只验证该有说明的时候不为空，避免改文案就要改测试。
 import { describe, expect, it } from 'vitest';

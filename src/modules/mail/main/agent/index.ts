@@ -1,5 +1,5 @@
 import type { CommandDomain } from '../../../../core/capabilities/commands';
-import skill from '../../skills/mail/SKILL.md?raw';
+import skill from './skill/SKILL.md?raw';
 import { listMailFoldersTool } from './list-folders';
 import { prepareEmailTool } from './prepare-email';
 import { searchMailTool } from './search-mail';

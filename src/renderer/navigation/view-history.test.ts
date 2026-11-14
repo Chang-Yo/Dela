@@ -17,7 +17,7 @@ const project: WorkspaceEntry = {
 
 const workspace: WorkspaceState = { entries: [project], directory: 'D:/code' };
 
-function seed(view: 'home' | 'workbench' | 'mail', projectId: string | null): void {
+function seed(view: 'home' | 'workbench' | 'settings', projectId: string | null): void {
   useNavigationStore.setState({ view, target: null, projectId, backStack: [], forwardStack: [] });
   localStorage.clear();
 }
@@ -48,16 +48,16 @@ describe('导航历史', () => {
 
   it('前进回到离开后的视图，项目随之恢复', () => {
     seed('workbench', 'p1');
-    useNavigationStore.getState().navigate('mail');
+    useNavigationStore.getState().navigate('settings');
     useNavigationStore.getState().goBack();
     useNavigationStore.getState().goForward();
-    expect(useNavigationStore.getState()).toMatchObject({ view: 'mail', projectId: 'p1' });
+    expect(useNavigationStore.getState()).toMatchObject({ view: 'settings', projectId: 'p1' });
   });
 
   it('后退回到模块页面时带回离开时的跳转参数', () => {
     seed('home', null);
     useNavigationStore.getState().navigate({ page: 'todo', todoId: 't1' });
-    useNavigationStore.getState().navigate('mail');
+    useNavigationStore.getState().navigate('settings');
     useNavigationStore.getState().goBack();
     expect(useNavigationStore.getState()).toMatchObject({
       view: 'todo',

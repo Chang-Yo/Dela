@@ -7,7 +7,6 @@ import type { CapabilityApi } from './capabilities';
 import type { ChatApi } from './chat';
 import type { ConsentApi } from './consent';
 import type { LlmApi } from './llm';
-import type { MailApi } from './mail';
 import type { RemoteApi } from './remotes';
 import type { SessionApi, SidechatApi } from './session';
 import type { SettingsApi } from './settings';
@@ -48,7 +47,6 @@ export interface DelaApi {
   readonly cache: CacheApi;
   readonly llm: LlmApi;
   readonly chat: ChatApi;
-  readonly mail: MailApi;
   readonly session: SessionApi;
   readonly sidechat: SidechatApi;
   readonly remotes: RemoteApi;
@@ -59,30 +57,6 @@ export type { WindowState, TrayAction, WindowApi } from './window';
 export type { BackupApi, BackupResult } from './backup';
 export type { CacheApi, CacheClearResult } from './cache';
 export type { ConsentApi, ConsentDocument } from './consent';
-
-export type {
-  MailAddress,
-  MailAttachmentInfo,
-  MailFolderInfo,
-  MailMessageSummary,
-  MailMessageDetail,
-  MailTrashItem,
-  MailTrashRetention,
-  MailSyncPhase,
-  MailSyncStatus,
-  MailAccountInfo,
-  MailState,
-  MailResult,
-  MailServerConfig,
-  MailConfigureInput,
-  MailComposeFileKind,
-  MailComposeFile,
-  PreparedEmail,
-  MailDraftInput,
-  MailDraftSummary,
-  MailSendInput,
-  MailApi,
-} from './mail';
 
 export type {
   ThemePreference,

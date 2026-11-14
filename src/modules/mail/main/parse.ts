@@ -1,7 +1,7 @@
 // 邮件 MIME 结构与正文解析：挑正文 part、下载正文并内联 CID 图片、HTML 转纯文本、
 // 地址与附件 JSON 的编解码。只依赖 IMAP 连接，不碰数据库。
 import type { ImapFlow, MessageStructureObject } from 'imapflow';
-import type { MailAddress, MailMessageDetail } from '../../shared/api';
+import type { MailAddress, MailMessageDetail } from '../contract';
 
 const BODY_MAX_BYTES = 2_000_000;
 const SNIPPET_MAX_LENGTH = 220;

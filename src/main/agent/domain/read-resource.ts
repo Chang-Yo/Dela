@@ -1,8 +1,7 @@
 import { z } from 'zod';
-import { readMailMessage } from '../../mail/api';
+import { mailAttachment, readMailMessage } from '../../../modules/mail';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
 import { readWorkspaceResource, withAttachmentFile, type ResourceContent } from '../../resources';
-import { mailAttachment } from '../../mail/api';
 import { workspaceFilePath } from '../../../modules/workspace';
 import type { CommandDomain } from '../../../core/capabilities/commands';
 import { resourceResolver, type ResourceResolver } from '../../../core/capabilities/resources';

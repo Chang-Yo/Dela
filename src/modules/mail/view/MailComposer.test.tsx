@@ -2,15 +2,27 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, PreparedEmail } from '../../../shared/api';
-import { MailComposer } from './MailComposer';
+import type { PreparedEmail } from '../contract';
 
-vi.mock('../../app/toasts', () => ({ showToast: vi.fn() }));
+// 契约客户端在模块加载时取 bridge，须先于导入组件装好。
+const api = vi.hoisted(() => {
+  const handlers: Record<string, (input: unknown) => Promise<unknown>> = {};
+  window.dela = {
+    bridge: {
+      invoke: (channel: string, input: unknown) => handlers[channel.slice('mail:'.length)]!(input),
+      subscribe: () => () => {},
+    },
+    session: { onRunEvent: () => () => {} },
+  } as unknown as NonNullable<typeof window.dela>;
+  return handlers;
+});
+vi.mock('../../../renderer/app/toasts', () => ({ showToast: vi.fn() }));
+import { MailComposer } from './MailComposer';
 
 let container: HTMLDivElement;
 let root: Root;
 let saveDraft: ReturnType<typeof vi.fn>;
-let sendMessage: ReturnType<typeof vi.fn>;
+let send: ReturnType<typeof vi.fn>;
 let commandState: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -19,27 +31,22 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
   saveDraft = vi.fn(async (_input: unknown) => ({ id: 'saved' }));
-  sendMessage = vi.fn(async (_input: unknown) => ({ ok: true }));
+  send = vi.fn(async (_input: unknown) => ({ ok: true }));
   commandState = vi.fn(() => false);
   Object.defineProperty(document, 'queryCommandState', { configurable: true, value: commandState });
-  window.dela = {
-    session: { onRunEvent: () => () => {} },
-    mail: {
-      saveDraft,
-      sendMessage,
-      deleteDraft: async () => {},
-      setComposeActive: async () => {},
-      onRequestClose: () => () => {},
-      releaseComposeFiles: async () => {},
-    },
-  } as unknown as DelaApi;
+  Object.assign(api, {
+    saveDraft,
+    send,
+    deleteDraft: async () => {},
+    setComposeActive: async () => {},
+    releaseComposeFiles: async () => {},
+  });
 });
 
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   delete (document as Partial<Document>).queryCommandState;
-  delete window.dela;
   vi.unstubAllGlobals();
 });
 
@@ -90,7 +97,7 @@ it('加粗、斜体与链接经过草稿恢复、保存、发送后保持一致'
       .querySelector('form')!
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
   );
-  expect(sendMessage.mock.calls[0]![0]).toMatchObject({ html: saved.html, text: saved.text });
+  expect(send.mock.calls[0]![0]).toMatchObject({ html: saved.html, text: saved.text });
   expect(saved.html).not.toContain('font-synthesis');
 });
 

@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { defineContract } from '../../core/protocol/contract';
+
 export interface MailAddress {
   readonly name: string | null;
   readonly address: string | null;
@@ -146,33 +149,76 @@ export interface MailSendInput {
   readonly inlineImageIds: readonly string[];
 }
 
-export interface MailApi {
-  getState(): Promise<MailState>;
-  configure(input: MailConfigureInput): Promise<MailResult>;
-  disconnect(): Promise<MailResult>;
-  listFolders(): Promise<readonly MailFolderInfo[]>;
-  listMessages(folderId: number, limit: number): Promise<readonly MailMessageSummary[]>;
-  getMessage(messageId: number): Promise<MailMessageDetail>;
-  markSeen(messageId: number): Promise<MailResult>;
-  deleteMessage(messageId: number): Promise<MailResult>;
-  restoreMessage(messageId: number): Promise<MailResult>;
-  purgeMessage(messageId: number): Promise<MailResult>;
-  emptyTrash(): Promise<MailResult>;
-  listTrash(): Promise<readonly MailTrashItem[]>;
-  getTrashRetention(): Promise<MailTrashRetention>;
-  setTrashRetention(retention: MailTrashRetention): Promise<MailTrashRetention>;
-  downloadAttachment(messageId: number, part: string): Promise<MailResult>;
-  pickComposeFiles(kind: MailComposeFileKind): Promise<readonly MailComposeFile[]>;
-  addComposeImage(dataUrl: string): Promise<MailComposeFile>;
-  releaseComposeFiles(ids: readonly string[]): Promise<void>;
-  sendMessage(input: MailSendInput): Promise<MailResult>;
-  openDraft(id: string): Promise<PreparedEmail>;
-  saveDraft(input: MailDraftInput): Promise<MailDraftSummary>;
-  listDrafts(account: string): Promise<MailDraftSummary[]>;
-  deleteDraft(id: string): Promise<void>;
-  confirmDraftClose(): Promise<'save' | 'discard' | 'cancel'>;
-  setComposeActive(active: boolean): Promise<void>;
-  onRequestClose(listener: (quitting: boolean) => void): () => void;
-  syncNow(): Promise<void>;
-  onSyncStatus(listener: (status: MailSyncStatus) => void): () => void;
+const result = z.custom<MailResult>();
+const messageId = z.number();
+const port = z.number().int().min(1).max(65535);
+const host = z.string().trim().min(1).max(253);
+
+export const mailContract = defineContract(
+  'mail',
+  {
+    state: { input: z.undefined(), output: z.custom<MailState>() },
+    configure: {
+      input: z.object({
+        address: z.string(),
+        password: z.string(),
+        /** 第三方 IMAP 自填服务器；不带 server 即交大邮箱预设。 */
+        server: z
+          .object({ imapHost: host, imapPort: port, smtpHost: host, smtpPort: port })
+          .optional(),
+      }),
+      output: result,
+    },
+    disconnect: { input: z.undefined(), output: result },
+    folders: { input: z.undefined(), output: z.custom<MailFolderInfo[]>() },
+    messages: {
+      input: z.object({ folderId: z.number(), limit: z.number() }),
+      output: z.custom<MailMessageSummary[]>(),
+    },
+    message: { input: messageId, output: z.custom<MailMessageDetail>() },
+    markSeen: { input: messageId, output: result },
+    deleteMessage: { input: messageId, output: result },
+    restoreMessage: { input: messageId, output: result },
+    purgeMessage: { input: messageId, output: result },
+    emptyTrash: { input: z.undefined(), output: result },
+    trash: { input: z.undefined(), output: z.custom<MailTrashItem[]>() },
+    trashRetention: { input: z.undefined(), output: z.custom<MailTrashRetention>() },
+    setTrashRetention: {
+      input: z.custom<MailTrashRetention>(),
+      output: z.custom<MailTrashRetention>(),
+    },
+    downloadAttachment: {
+      input: z.object({ messageId, part: z.string() }),
+      output: result,
+    },
+    pickComposeFiles: {
+      input: z.enum(['attachment', 'inline']),
+      output: z.custom<MailComposeFile[]>(),
+    },
+    addComposeImage: { input: z.string(), output: z.custom<MailComposeFile>() },
+    releaseComposeFiles: { input: z.array(z.string().uuid()).max(50), output: z.void() },
+    send: { input: z.custom<MailSendInput>(), output: result },
+    openDraft: { input: z.string(), output: z.custom<PreparedEmail>() },
+    saveDraft: { input: z.custom<MailDraftInput>(), output: z.custom<MailDraftSummary>() },
+    drafts: { input: z.string(), output: z.custom<MailDraftSummary[]>() },
+    deleteDraft: { input: z.string(), output: z.void() },
+    /** 关闭写信前弹系统对话框问是否存草稿。 */
+    confirmDraftClose: {
+      input: z.undefined(),
+      output: z.custom<'save' | 'discard' | 'cancel'>(),
+    },
+    setComposeActive: { input: z.boolean(), output: z.void() },
+    sync: { input: z.undefined(), output: z.void() },
+  },
+  {
+    syncStatus: z.custom<MailSyncStatus>(),
+    /** 写信未存时拦下关窗或退出；载荷为是否在退出应用。 */
+    requestClose: z.boolean(),
+  },
+);
+
+declare module '../../app/module' {
+  interface NavTargets {
+    mail: { messageId?: number };
+  }
 }

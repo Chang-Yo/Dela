@@ -35,7 +35,7 @@ import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigati
 import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from '../navigation/view';
 import { showToast } from '../app/toasts';
-import { MailDraftDialog } from '../app/mail-draft-dialog';
+import { MailDraftDialog } from '../../modules/mail/view';
 import { ChatHome } from '../content/chat/ChatHome';
 import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';

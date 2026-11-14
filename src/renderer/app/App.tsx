@@ -4,11 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { MailView } from '../features/mail';
 import { CompletionOverlay } from '../features/onboarding/CompletionOverlay';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
 import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboarding-state';
-import { leaveComposer } from '../features/mail/compose-close';
+import { leaveComposer } from '../../modules/mail/view';
 import { SettingsView } from '../features/settings';
 import { UpdatePrompt } from '../features/settings/UpdatePrompt';
 import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog';
@@ -27,7 +26,8 @@ import { importFromDialog } from '../workspace/entry-actions';
 import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from './toasts';
-import { useNavigationStore, type MobileDrawer } from '../navigation/view';
+import { useNavigationStore } from '../navigation/view';
+import { useMobileDrawer } from '../lib/mobile-drawer';
 import { useNotificationCounts } from '../../modules/notifications/view';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
@@ -74,7 +74,8 @@ function ModulePage({ target }: { target: NavTarget }) {
 
 export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
-  const [mobileDrawer, setMobileDrawer] = useState<MobileDrawer | null>(null);
+  const mobileDrawer = useMobileDrawer((state) => state.drawer);
+  const setMobileDrawer = useMobileDrawer((state) => state.setDrawer);
   // 首次启动引导：flow 期间主界面不渲染；completion 时主界面已挂载、完成动画叠在其上渐隐。
   const [launchStage, setLaunchStage] = useState<'flow' | 'completion' | 'app'>(() =>
     isSmokeTest || onboardingCompleted() ? 'app' : 'flow',
@@ -85,7 +86,6 @@ export default function App() {
   const projectId = useNavigationStore((state) => state.projectId);
   const canBack = useNavigationStore((state) => state.backStack.length > 0);
   const canForward = useNavigationStore((state) => state.forwardStack.length > 0);
-  const mailRequest = useNavigationStore((state) => state.mailRequest);
   const target = useNavigationStore((state) => state.target);
   const settingsRequest = useNavigationStore((state) => state.settingsRequest);
 
@@ -243,9 +243,7 @@ export default function App() {
           }}
           onOpenGeneralChat={() => void useNavigationStore.getState().openGeneralChat(false)}
           onNavigateBusiness={(id) =>
-            void useNavigationStore
-              .getState()
-              .navigate(id === 'mail' ? id : ({ page: id } as NavTarget))
+            void useNavigationStore.getState().navigate({ page: id } as NavTarget)
           }
         >
           <MotionConfig reducedMotion="user">
@@ -265,20 +263,12 @@ export default function App() {
                   {(view === 'workbench' || view === 'home') && (
                     <WorkbenchShell home={view === 'home'} />
                   )}
-                  {view === 'mail' && (
-                    <MailView
-                      mobileDrawerOpen={mobileDrawer === 'mail'}
-                      onMobileDrawerClose={() => setMobileDrawer(null)}
-                      openRequest={mailRequest ?? undefined}
-                    />
-                  )}
                   {target && <ModulePage target={target} />}
                   {view === 'settings' && (
                     <SettingsView
                       fontSize={fontSize}
                       onFontSizeChange={changeFontSize}
                       onThemeChange={changeTheme}
-                      onOpenMail={() => void useNavigationStore.getState().navigate('mail')}
                       onZoomChange={changeZoom}
                       sectionRequest={settingsRequest ?? undefined}
                       theme={theme}

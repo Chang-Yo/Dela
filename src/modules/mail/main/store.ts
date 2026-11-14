@@ -3,8 +3,8 @@
 import { ImapFlow } from 'imapflow';
 import type { ListResponse } from 'imapflow';
 import { z } from 'zod';
-import type { MailMessageSummary, MailServerConfig, MailTrashRetention } from '../../shared/api';
-import { getDatabase } from '../database';
+import type { MailMessageSummary, MailServerConfig, MailTrashRetention } from '../contract';
+import { hostPorts, type SqlDatabase } from '../../../core/ports';
 import { storedMailServer } from './server';
 
 export const SPECIAL_USE_LABELS: Record<string, string> = {
@@ -99,7 +99,8 @@ export function connectImap(
 
 export function getAccountRow(): AccountRow | null {
   return (
-    (getDatabase()
+    (hostPorts()
+      .database()
       .prepare(
         'SELECT id, address, imap_host, imap_port, last_synced_at FROM mail_accounts ORDER BY id LIMIT 1',
       )
@@ -108,13 +109,18 @@ export function getAccountRow(): AccountRow | null {
 }
 
 export function readMailSetting(key: string): string | undefined {
-  const row = getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
-    { value: string } | undefined;
+  const row = hostPorts()
+    .database()
+    .prepare('SELECT value FROM workspace_settings WHERE key=?')
+    .get(key) as { value: string } | undefined;
   return row?.value;
 }
 
 export function writeMailSetting(key: string, value: string): void {
-  getDatabase().prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value);
+  hostPorts()
+    .database()
+    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
+    .run(key, value);
 }
 
 const trashRetentionSchema = z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(0)]);
@@ -130,7 +136,19 @@ export function setMailTrashRetention(retention: unknown): MailTrashRetention {
   return parsed.data;
 }
 
-export function applyTrashRetention(db: ReturnType<typeof getDatabase>): void {
+// SqlDatabase 端口没有 transaction()，用显式 BEGIN/COMMIT 保持多条写入的原子性。
+export function inTransaction(db: SqlDatabase, write: () => void): void {
+  db.prepare('BEGIN').run();
+  try {
+    write();
+    db.prepare('COMMIT').run();
+  } catch (error) {
+    db.prepare('ROLLBACK').run();
+    throw error;
+  }
+}
+
+export function applyTrashRetention(db: SqlDatabase): void {
   const retention = getMailTrashRetention();
   if (retention === 0) return;
   const cutoff = new Date(Date.now() - retention * 24 * 60 * 60 * 1000).toISOString();

@@ -1,4 +1,4 @@
-import type { MailMessageSummary } from '../../../shared/api';
+import type { MailMessageSummary } from '../contract';
 export function formatMailDate(iso: string | null): string {
   if (!iso) return '';
   const date = new Date(iso);

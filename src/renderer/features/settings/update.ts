@@ -4,7 +4,7 @@ import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import { useNoteDrafts } from '../../content/note/drafts';
 import { saveChatDrafts } from '../../content/chat/drafts';
-import { saveComposers } from '../mail/compose-close';
+import { saveComposers } from '../../../modules/mail/view';
 import { saveWorkbenchLayout } from '../../workbench/layout-store';
 import { useRuns, runBadge } from '../../sessions/runs';
 import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../../../shared/update';

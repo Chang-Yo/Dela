@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { MailConfigureInput } from '../../../shared/mail';
+import type { MailConfigureInput } from '../contract';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/cn';

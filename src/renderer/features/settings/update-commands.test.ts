@@ -14,7 +14,7 @@ const invoke = vi.hoisted(() => {
 });
 import { useNoteDrafts } from '../../content/note/drafts';
 import { useChatDrafts, registerChatAttachmentCheck } from '../../content/chat/drafts';
-import { registerComposeSave } from '../mail/compose-close';
+import { registerComposeSave } from '../../../modules/mail/view';
 import { useWorkbenchLayout } from '../../workbench/layout-store';
 import { useRuns } from '../../sessions/runs';
 import { useToastStore } from '../../app/toasts';

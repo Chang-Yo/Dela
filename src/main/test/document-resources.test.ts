@@ -21,7 +21,7 @@ vi.mock('../../modules/workspace', async (importOriginal) => ({
     throw new Error('GUI preview must not be called');
   }),
 }));
-vi.mock('../mail/api', () => ({
+vi.mock('../../modules/mail', () => ({
   readMailMessage: vi.fn(async () => ({ attachments: [{ part: '1', filename: '报名.xlsx' }] })),
   saveMailAttachment: vi.fn(async (_id: number, _part: string, path: string) =>
     writeFile(path, 'attachment bytes'),
@@ -198,6 +198,6 @@ it('returns attachment metadata without downloading it', async () => {
     ref: { type: 'attachment', messageId: 1, part: '1' },
   });
   expect(result).toMatchObject({ title: '报名.xlsx', format: 'file', readable: false });
-  const { saveMailAttachment } = await import('../mail/api');
+  const { saveMailAttachment } = await import('../../modules/mail');
   expect(saveMailAttachment).not.toHaveBeenCalled();
 });

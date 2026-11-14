@@ -1,5 +1,5 @@
 import { Paperclip, RotateCcw, Trash2 } from 'lucide-react';
-import type { MailTrashItem } from '../../../shared/api';
+import type { MailTrashItem } from '../contract';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/cn';
 import { ErrorText } from '../../../ui/alert';

@@ -1,12 +1,21 @@
 // 邮件同步：同步状态广播、按文件夹拉取最近窗口的头信息与预取正文、服务器草稿箱一次性清理，
 // 以及账号配置/断开（二者都会使进行中的同步失效）。
-import { BrowserWindow } from 'electron';
 import type { ImapFlow, ListResponse } from 'imapflow';
 import { z } from 'zod';
-import type { MailAddress, MailConfigureInput, MailResult, MailSyncStatus } from '../../shared/api';
-import { SJTU_MAIL_SERVER } from '../../shared/mail';
-import { getDatabase } from '../database';
-import { clearMailCredentials, loadMailCredentials, saveMailCredentials } from '../credentials';
+import { emit, hostPorts, type SqlDatabase } from '../../../core/ports';
+import {
+  mailContract,
+  SJTU_MAIL_SERVER,
+  type MailAddress,
+  type MailConfigureInput,
+  type MailResult,
+  type MailSyncStatus,
+} from '../contract';
+import {
+  clearMailCredentials,
+  loadMailCredentials,
+  saveMailCredentials,
+} from '../../../main/credentials';
 import {
   addressJson,
   collectAttachments,
@@ -31,7 +40,7 @@ import {
 export const SYNC_WINDOW = 300;
 const BODY_PRELOAD = 30;
 
-export let syncStatus: MailSyncStatus = {
+let syncStatus: MailSyncStatus = {
   phase: 'idle',
   folderPath: null,
   processed: 0,
@@ -44,8 +53,7 @@ export let syncStatus: MailSyncStatus = {
 let syncGeneration = 0;
 let activeSync: Promise<void> | null = null;
 
-// 邮件缓存变化（读信、删除、恢复、同步完成）会改变派生的通知状态；
-// notifications/index.ts 注册监听后重播通知状态，回调在数据库事务提交后触发。
+// 邮件缓存变化会改变派生的通知状态，通知来源据此重播。
 const mailCacheListeners = new Set<() => void>();
 
 export function onMailCacheChanged(listener: () => void): void {
@@ -56,19 +64,17 @@ export function emitMailCacheChanged(): void {
   for (const listener of mailCacheListeners) listener();
 }
 
-function pushSyncStatus(): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) window.webContents.send('mail:sync-status', syncStatus);
-  }
+export function mailSyncStatus(): MailSyncStatus {
+  return syncStatus;
 }
 
 export function updateSync(patch: Partial<MailSyncStatus>): void {
   syncStatus = { ...syncStatus, ...patch };
-  pushSyncStatus();
+  emit(mailContract, 'syncStatus', syncStatus);
 }
 
 async function syncFolder(
-  db: ReturnType<typeof getDatabase>,
+  db: SqlDatabase,
   client: ImapFlow,
   folder: FolderRow,
   generation: number,
@@ -228,7 +234,7 @@ async function purgeServerDrafts(client: ImapFlow, listed: ListResponse[], addre
 
 async function runSync(account: AccountRow, password: string): Promise<void> {
   const generation = syncGeneration;
-  const db = getDatabase();
+  const db = hostPorts().database();
   const isStale = () => generation !== syncGeneration;
   const client = connectImap(account.address, password);
   updateSync({
@@ -330,7 +336,7 @@ export async function configureMailAccount(input: MailConfigureInput): Promise<M
   if (!input.server && !address.endsWith('@sjtu.edu.cn')) {
     return { ok: false, error: '交大邮箱地址需以 @sjtu.edu.cn 结尾，或改选第三方 IMAP' };
   }
-  const db = getDatabase();
+  const db = hostPorts().database();
   const client = connectImap(address, password, server);
   try {
     await client.connect();
@@ -371,7 +377,7 @@ export async function configureMailAccount(input: MailConfigureInput): Promise<M
 
 export function disconnectMailAccount(): MailResult {
   syncGeneration += 1;
-  const db = getDatabase();
+  const db = hostPorts().database();
   db.prepare('DELETE FROM mail_accounts').run();
   try {
     clearMailCredentials();

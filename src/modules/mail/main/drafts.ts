@@ -12,10 +12,10 @@ import {
 import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import type { MailComposeFile, PreparedEmail, MailDraftSummary } from '../../shared/api';
-import { resourceRefSchema } from '../../shared/resources';
-import { getDatabase } from '../database';
-import { withResourceFile } from '../resources';
+import type { MailComposeFile, PreparedEmail, MailDraftSummary } from '../contract';
+import { resourceRefSchema } from '../../../shared/resources';
+import { hostPorts } from '../../../core/ports';
+import { withResourceFile } from '../../../main/resources';
 import {
   addComposeAttachment,
   releaseComposeFiles,
@@ -82,7 +82,8 @@ export function saveLocalDraft(input: unknown): MailDraftSummary {
       { flag: 'wx' },
     );
     renameSync(temporary, path);
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
       .run(`mail-draft:${id}`, JSON.stringify({ ...summary, account: args.account }));
     return summary;
@@ -93,7 +94,8 @@ export function saveLocalDraft(input: unknown): MailDraftSummary {
 
 export function listLocalDrafts(account: unknown): MailDraftSummary[] {
   const address = z.string().max(320).parse(account);
-  const rows = getDatabase()
+  const rows = hostPorts()
+    .database()
     .prepare("SELECT value FROM workspace_settings WHERE key LIKE 'mail-draft:%'")
     .all() as { value: string }[];
   return rows
@@ -106,7 +108,10 @@ export function deleteLocalDraft(value: unknown): void {
   const id = z.string().uuid().parse(value),
     path = draftPath(id);
   if (existsSync(path)) unlinkSync(path);
-  getDatabase().prepare('DELETE FROM workspace_settings WHERE key=?').run(`mail-draft:${id}`);
+  hostPorts()
+    .database()
+    .prepare('DELETE FROM workspace_settings WHERE key=?')
+    .run(`mail-draft:${id}`);
 }
 
 function openLocalDraft(id: string): PreparedEmail {
@@ -155,7 +160,8 @@ export function prepareEmail(input: unknown) {
   if (draft.attachments.some((ref) => ref.type === 'mail'))
     throw new Error('附件必须引用文件或邮件附件，不能引用整封邮件');
   const id = randomUUID();
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare('INSERT INTO workspace_settings VALUES (?, ?)')
     .run(`email-draft:${id}`, JSON.stringify(draft));
   return {
@@ -172,7 +178,8 @@ export function prepareEmail(input: unknown) {
 export async function openEmailDraft(id: unknown): Promise<PreparedEmail> {
   const key = z.string().uuid().parse(id);
   if (existsSync(draftPath(key))) return openLocalDraft(key);
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare('SELECT value FROM workspace_settings WHERE key=?')
     .get(`email-draft:${key}`) as { value: string } | undefined;
   if (!row) throw new Error('草稿不存在');

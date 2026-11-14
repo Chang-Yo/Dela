@@ -9,7 +9,6 @@ export type ProjectNavPreference = { pinned?: boolean; section?: string };
 const defaults = {
   shellSidebarCollapsed: false,
   projectOpenTarget: 'vscode' as 'vscode' | 'explorer',
-  mailFoldersCollapsed: true,
   workspaceSidebarWidth: 300,
   workspaceSidebarCollapsed: false,
   hiddenNavEntries: [] as string[],
@@ -73,7 +72,6 @@ function migrateLegacyPreferences(): string {
     shellSidebarCollapsed: localStorage.getItem('dela.shell.sidebar-collapsed') === 'true',
     projectOpenTarget:
       localStorage.getItem('dela.project.open-target') === 'explorer' ? 'explorer' : 'vscode',
-    mailFoldersCollapsed: localStorage.getItem('dela.mail.folders-collapsed') !== 'false',
     workspaceSidebarWidth: legacyWidth(
       'dela.workspace.sidebarWidth',
       (value) => value > 0,

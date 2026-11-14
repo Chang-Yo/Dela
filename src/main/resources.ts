@@ -2,7 +2,7 @@ import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/p
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { resourceRefSchema, type ResourceRef } from '../shared/resources';
-import { readMailMessage, saveMailAttachment } from './mail/api';
+import { readMailMessage, saveMailAttachment } from '../modules/mail';
 import { resourceResolver } from '../core/capabilities/resources';
 import {
   entry,

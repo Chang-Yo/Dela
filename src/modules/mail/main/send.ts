@@ -3,8 +3,8 @@ import { statSync, readFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { MailComposeFile, MailComposeFileKind, MailResult } from '../../shared/api';
-import type { MailCredential } from '../credentials';
+import type { MailComposeFile, MailComposeFileKind, MailResult } from '../contract';
+import type { MailCredential } from '../../../main/credentials';
 import { storedMailServer } from './server';
 
 import nodemailer from 'nodemailer';

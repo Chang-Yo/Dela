@@ -32,12 +32,8 @@ import { cn } from '../../ui/cn';
 import { useMediaQuery } from '../../ui/use-media-query';
 import { fileManagerName, platform } from '../lib/platform';
 import type { NavTarget } from '../../app/module';
-import {
-  useNavigationStore,
-  type AppView,
-  type MobileDrawer,
-  type ShellView,
-} from '../navigation/view';
+import { useNavigationStore, type AppView, type ShellView } from '../navigation/view';
+import type { MobileDrawer } from '../lib/mobile-drawer';
 import { useShortcuts } from '../app/shortcuts';
 import { useExplorerState } from '../workbench/explorer-state';
 import { useViewportWidth } from '../lib/use-viewport-width';
@@ -287,7 +283,8 @@ export function AppShell({
 
   const navigate = (next: ShellView | NavTarget) => {
     onNavigate(next);
-    if (narrow) onMobileDrawerChange?.(next === 'mail' ? 'mail' : null);
+    if (narrow)
+      onMobileDrawerChange?.(typeof next !== 'string' && next.page === 'mail' ? 'mail' : null);
   };
 
   // Ctrl/⌘ +/-/0 的缩放步进：在设置页同一组档位间移动，两端保持不动；0 重置。
@@ -343,7 +340,7 @@ export function AppShell({
           navigate('home');
           break;
         case 'open-mail':
-          navigate('mail');
+          navigate({ page: 'mail' });
           break;
         case 'open-timetable':
           navigate({ page: 'timetable' });

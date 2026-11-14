@@ -15,8 +15,7 @@ import { dirname, join } from 'node:path';
 import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/host-electron';
 import { closeDatabase, getDatabase } from '../src/main/database';
-import { prepareEmail } from '../src/main/mail/drafts';
-import { releaseComposeFiles } from '../src/main/mail/send';
+import { mailModule, prepareEmail } from '../src/modules/mail';
 import {
   canvasNextPage,
   cachedCourseFiles,
@@ -38,7 +37,6 @@ import {
 } from '../src/modules/workspace';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
-import { registerMailIpc } from '../src/main/mail/ipc';
 import { registerModuleIpc } from '../src/app/ipc';
 import { notificationsModule } from '../src/modules/notifications';
 import { canvasModule } from '../src/sjtu/canvas';
@@ -385,8 +383,7 @@ app
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     registerSettingsIpc();
     registerRemoteIpc();
-    registerMailIpc();
-    registerModuleIpc([workspaceModule, notificationsModule, canvasModule]);
+    registerModuleIpc([workspaceModule, notificationsModule, mailModule, canvasModule]);
     registerUpdateIpc();
     const win = new BrowserWindow({
       show: false,
@@ -439,14 +436,16 @@ app
     });
     assert.equal(email.sent, false);
     const prepared = await invoke(
-      `return await window.dela.mail.openDraft(${JSON.stringify(email.draftId)});`,
+      `return await window.dela.bridge.invoke('mail:openDraft', ${JSON.stringify(email.draftId)});`,
     );
     assert.equal(prepared.subject, '报告草稿');
     assert.equal(prepared.text, '请查看附件');
     assert.equal(prepared.files.length, 1);
     assert.equal(prepared.files[0].size, Buffer.byteLength('# 恢复测试'));
     assert.equal('path' in prepared.files[0], false);
-    releaseComposeFiles(prepared.files.map((file: { id: string }) => file.id));
+    await invoke(
+      `await window.dela.bridge.invoke('mail:releaseComposeFiles', ${JSON.stringify(prepared.files.map((file: { id: string }) => file.id))});`,
+    );
     await invoke(`await document.fonts.ready;`);
     assert.equal(
       await invoke(

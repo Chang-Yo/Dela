@@ -19,20 +19,15 @@ import {
   restoreMailMessage,
   setMailTrashRetention,
   startMailSync,
-  syncStatus,
 } from '../api';
-import { getDatabase } from '../../database';
-import { loadMailCredentials } from '../../credentials';
+import { mailSyncStatus } from '../sync';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import { loadMailCredentials } from '../../../../main/credentials';
 import { storedMailServer } from '../server';
-import { SJTU_MAIL_SERVER } from '../../../shared/mail';
+import { SJTU_MAIL_SERVER } from '../../contract';
 
-vi.mock('electron', () => ({
-  BrowserWindow: { getAllWindows: () => [] },
-  ipcMain: {},
-  shell: {},
-}));
-vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../credentials', () => ({
+vi.mock('electron', () => ({ ipcMain: {}, shell: {} }));
+vi.mock('../../../../main/credentials', () => ({
   clearMailCredentials: vi.fn(),
   loadMailCredentials: vi.fn(),
   saveMailCredentials: vi.fn(),
@@ -278,7 +273,7 @@ describe('mail local trash and folder sync', () => {
 
   beforeEach(() => {
     db = createMailDb();
-    vi.mocked(getDatabase).mockReturnValue(db);
+    provideTestHostPorts({ database: () => db });
     vi.mocked(loadMailCredentials).mockReturnValue({
       address: 'reader@example.com',
       password: 'pw',
@@ -294,8 +289,8 @@ describe('mail local trash and folder sync', () => {
 
   const waitForSync = () =>
     vi.waitFor(() => {
-      if (syncStatus.phase !== 'idle' && syncStatus.phase !== 'error') {
-        throw new Error(`sync phase: ${syncStatus.phase}`);
+      if (mailSyncStatus().phase !== 'idle' && mailSyncStatus().phase !== 'error') {
+        throw new Error(`sync phase: ${mailSyncStatus().phase}`);
       }
     });
 
@@ -306,7 +301,7 @@ describe('mail local trash and folder sync', () => {
       throw new Error('凭据无法解密');
     });
     expect(() => startMailSync()).not.toThrow();
-    expect(syncStatus).toMatchObject({ phase: 'error', error: '凭据无法解密' });
+    expect(mailSyncStatus()).toMatchObject({ phase: 'error', error: '凭据无法解密' });
     expect(listMailMessages(folderId)).toHaveLength(1);
   });
 
@@ -333,7 +328,7 @@ describe('mail local trash and folder sync', () => {
 
     startMailSync();
     await waitForSync();
-    expect(syncStatus.phase).toBe('idle');
+    expect(mailSyncStatus().phase).toBe('idle');
 
     expect(imapHarness.deletions).toEqual([{ all: true }]);
     expect(imapHarness.lockedPaths).toEqual(['Drafts']);
@@ -358,7 +353,7 @@ describe('mail local trash and folder sync', () => {
 
     startMailSync();
     await waitForSync();
-    expect(syncStatus.phase).toBe('idle');
+    expect(mailSyncStatus().phase).toBe('idle');
     expect(imapHarness.deletions).toHaveLength(1);
     expect(setting(db, 'mail-drafts-purged')).toBeUndefined();
     expect(folderPaths(db)).toEqual(['INBOX']);
@@ -573,7 +568,7 @@ describe('mail server settings', () => {
 
   beforeEach(() => {
     db = createMailDb();
-    vi.mocked(getDatabase).mockReturnValue(db);
+    provideTestHostPorts({ database: () => db });
     vi.mocked(loadMailCredentials).mockReturnValue({
       address: 'reader@example.com',
       password: 'pw',

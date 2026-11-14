@@ -5,14 +5,9 @@ import { rename, rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
-import type {
-  MailMessageDetail,
-  MailMessageSummary,
-  MailResult,
-  MailTrashItem,
-} from '../../shared/api';
-import { getDatabase } from '../database';
-import { loadMailCredentials } from '../credentials';
+import type { MailMessageDetail, MailMessageSummary, MailResult, MailTrashItem } from '../contract';
+import { hostPorts, type SqlDatabase } from '../../../core/ports';
+import { loadMailCredentials } from '../../../main/credentials';
 import {
   downloadMessageBody,
   makeSnippet,
@@ -25,28 +20,28 @@ import {
   connectImap,
   friendlyError,
   getAccountRow,
+  inTransaction,
   SPECIAL_USE_LABELS,
   specialUseRank,
   toSummary,
   type FolderRow,
   type MessageRow,
 } from './store';
-import { emitMailCacheChanged, SYNC_WINDOW, syncStatus } from './sync';
+import { emitMailCacheChanged, mailSyncStatus, SYNC_WINDOW } from './sync';
 
-// 邮件域入口：查询、读信、附件、已读、本地回收站与发送。同步与账号配置在 sync.ts，
-// 解析在 parse.ts，共享底座在 store.ts；此处一并 re-export，调用方只认 mail/api。
+// 邮件查询、读信、附件、已读、本地回收站与发送；同步与账号配置在 sync.ts。
 export { downloadHtmlImages, pickTextPart } from './parse';
 export { friendlyError, getMailTrashRetention, setMailTrashRetention } from './store';
 export {
   configureMailAccount,
   disconnectMailAccount,
   onMailCacheChanged,
+  mailSyncStatus,
   startMailSync,
-  syncStatus,
 } from './sync';
 
 function getMessageRow(
-  db: ReturnType<typeof getDatabase>,
+  db: SqlDatabase,
   id: number,
 ): (MessageRow & { folder_path: string }) | undefined {
   return db
@@ -74,7 +69,8 @@ async function fetchMissingBody(row: MessageRow, folderPath: string): Promise<vo
       const textPart = message ? pickTextPart(message.bodyStructure) : null;
       if (!message || !textPart) throw new Error('邮件没有可显示的正文');
       const body = await downloadMessageBody(client, row.uid, textPart, message.bodyStructure);
-      getDatabase()
+      hostPorts()
+        .database()
         .prepare(
           `UPDATE mail_messages
            SET body_text = ?, body_html = ?, body_version = 1, snippet = COALESCE(?, snippet)
@@ -128,7 +124,7 @@ export function searchMail(input: unknown) {
     conditions.push('julianday(date) < julianday(?)');
     values.push(args.endAt);
   }
-  const db = getDatabase();
+  const db = hostPorts().database();
   const rows = db
     .prepare(
       `SELECT id, subject, sender_name AS senderName, sender_address AS senderAddress,
@@ -173,7 +169,8 @@ export function listMailMessages(folderId: unknown, limit: unknown = 100): MailM
     .max(500)
     .safeParse(limit ?? 100);
   if (!parsedFolderId.success || !parsedLimit.success) throw new Error('参数无效');
-  const rows = getDatabase()
+  const rows = hostPorts()
+    .database()
     .prepare(
       `SELECT * FROM mail_messages WHERE folder_id = ? AND deleted_at IS NULL
        ORDER BY (date IS NULL), date DESC, uid DESC LIMIT ?`,
@@ -185,7 +182,7 @@ export function listMailMessages(folderId: unknown, limit: unknown = 100): MailM
 export async function readMailMessage(messageId: unknown): Promise<MailMessageDetail> {
   const parsed = z.number().int().positive().safeParse(messageId);
   if (!parsed.success) throw new Error('参数无效');
-  const db = getDatabase();
+  const db = hostPorts().database();
   const row = getMessageRow(db, parsed.data);
   if (!row) throw new Error('邮件不存在');
   const mutableRow: MessageRow & { folder_path: string } = { ...row };
@@ -216,7 +213,7 @@ export function mailAttachment(messageId: unknown, part: unknown) {
     .regex(/^\d+(?:\.\d+)*$/)
     .safeParse(part);
   if (!parsedMessageId.success || !parsedPart.success) throw new Error('参数无效');
-  const row = getMessageRow(getDatabase(), parsedMessageId.data);
+  const row = getMessageRow(hostPorts().database(), parsedMessageId.data);
   const attachment = row
     ? parseAttachments(row.attachments).find((item) => item.part === parsedPart.data)
     : null;
@@ -255,7 +252,7 @@ export async function saveMailAttachment(
 }
 
 export function getMailState() {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const account = getAccountRow();
   let configured = false;
   let credentialError: string | null = null;
@@ -279,15 +276,16 @@ export function getMailState() {
         ? { address: account.address, lastSyncedAt: account.last_synced_at }
         : null,
     sync: credentialError
-      ? { ...syncStatus, phase: 'error' as const, error: credentialError }
-      : syncStatus,
+      ? { ...mailSyncStatus(), phase: 'error' as const, error: credentialError }
+      : mailSyncStatus(),
   };
 }
 
 export function listMailFolders() {
   const account = getAccountRow();
   if (!account) return [];
-  const rows = getDatabase()
+  const rows = hostPorts()
+    .database()
     .prepare(
       `SELECT id, path, name, special_use, uid_validity, total, unread, synced_at
        FROM mail_folders WHERE account_id = ?`,
@@ -316,7 +314,7 @@ export function listMailFolders() {
 export async function markMailSeen(messageId: unknown): Promise<MailResult> {
   const parsed = z.number().int().positive().safeParse(messageId);
   if (!parsed.success) return { ok: false, error: '参数无效' };
-  const db = getDatabase();
+  const db = hostPorts().database();
   const row = getMessageRow(db, parsed.data);
   if (!row) return { ok: false, error: '邮件不存在' };
   // 已读直接返回；通知跳转与邮件视图打开都会触发标记，避免重复建立 IMAP 连接。
@@ -338,14 +336,14 @@ export async function markMailSeen(messageId: unknown): Promise<MailResult> {
     client.close();
     return { ok: false, error: friendlyError(error) };
   }
-  db.transaction(() => {
+  inTransaction(db, () => {
     db.prepare('UPDATE mail_messages SET seen = 1 WHERE id = ?').run(row.id);
     db.prepare(
       `UPDATE mail_folders
        SET unread = CASE WHEN unread IS NULL THEN NULL ELSE MAX(unread - 1, 0) END
        WHERE id = ?`,
     ).run(row.folder_id);
-  })();
+  });
   emitMailCacheChanged();
   return { ok: true };
 }
@@ -355,7 +353,7 @@ export async function markAllMailSeen(): Promise<MailResult> {
   const account = getAccountRow();
   const credential = account ? loadMailCredentials() : null;
   if (!account || !credential) return { ok: false, error: '邮箱未配置' };
-  const db = getDatabase();
+  const db = hostPorts().database();
   const rows = db
     .prepare(
       `SELECT m.id, m.uid, m.folder_id FROM mail_messages m
@@ -394,7 +392,7 @@ export async function markAllMailSeen(): Promise<MailResult> {
     client.close();
     return { ok: false, error: friendlyError(error) };
   }
-  db.transaction(() => {
+  inTransaction(db, () => {
     for (const [folderId, group] of byFolder) {
       const placeholders = group.ids.map(() => '?').join(', ');
       db.prepare(`UPDATE mail_messages SET seen = 1 WHERE id IN (${placeholders})`).run(
@@ -407,7 +405,7 @@ export async function markAllMailSeen(): Promise<MailResult> {
          WHERE id = ?`,
       ).run(folderId);
     }
-  })();
+  });
   emitMailCacheChanged();
   return { ok: true };
 }
@@ -416,13 +414,13 @@ export async function markAllMailSeen(): Promise<MailResult> {
 export function deleteMailMessage(messageId: unknown): MailResult {
   const parsed = z.number().int().positive().safeParse(messageId);
   if (!parsed.success) return { ok: false, error: '参数无效' };
-  const db = getDatabase();
+  const db = hostPorts().database();
   const row = db
     .prepare('SELECT id, folder_id, seen, deleted_at FROM mail_messages WHERE id = ?')
     .get(parsed.data) as
     { id: number; folder_id: number; seen: number; deleted_at: string | null } | undefined;
   if (!row || row.deleted_at !== null) return { ok: false, error: '邮件不存在' };
-  db.transaction(() => {
+  inTransaction(db, () => {
     db.prepare('UPDATE mail_messages SET deleted_at = ? WHERE id = ?').run(
       new Date().toISOString(),
       row.id,
@@ -434,7 +432,7 @@ export function deleteMailMessage(messageId: unknown): MailResult {
          WHERE id = ?`,
       ).run(row.folder_id);
     }
-  })();
+  });
   // 删除会让对应邮件通知从列表消失（派生查询按未删除过滤）。
   emitMailCacheChanged();
   return { ok: true };
@@ -443,7 +441,7 @@ export function deleteMailMessage(messageId: unknown): MailResult {
 export function restoreMailMessage(messageId: unknown): MailResult {
   const parsed = z.number().int().positive().safeParse(messageId);
   if (!parsed.success) return { ok: false, error: '参数无效' };
-  const db = getDatabase();
+  const db = hostPorts().database();
   const row = db
     .prepare('SELECT id, folder_id, seen, deleted_at FROM mail_messages WHERE id = ?')
     .get(parsed.data) as
@@ -452,7 +450,7 @@ export function restoreMailMessage(messageId: unknown): MailResult {
   const folder = db.prepare('SELECT id FROM mail_folders WHERE id = ?').get(row.folder_id);
   if (!folder) return { ok: false, error: '原文件夹已不存在，无法恢复' };
   if (row.deleted_at === null) return { ok: true };
-  db.transaction(() => {
+  inTransaction(db, () => {
     db.prepare('UPDATE mail_messages SET deleted_at = NULL WHERE id = ?').run(row.id);
     if (row.seen === 0) {
       db.prepare(
@@ -461,7 +459,7 @@ export function restoreMailMessage(messageId: unknown): MailResult {
          WHERE id = ?`,
       ).run(row.folder_id);
     }
-  })();
+  });
   emitMailCacheChanged();
   return { ok: true };
 }
@@ -469,18 +467,22 @@ export function restoreMailMessage(messageId: unknown): MailResult {
 export function purgeMailMessage(messageId: unknown): MailResult {
   const parsed = z.number().int().positive().safeParse(messageId);
   if (!parsed.success) return { ok: false, error: '参数无效' };
-  const result = getDatabase().prepare('DELETE FROM mail_messages WHERE id = ?').run(parsed.data);
+  const result = hostPorts()
+    .database()
+    .prepare('DELETE FROM mail_messages WHERE id = ?')
+    .run(parsed.data) as { changes: number };
   if (result.changes === 0) return { ok: false, error: '邮件不存在' };
   return { ok: true };
 }
 
 export function emptyMailTrash(): MailResult {
-  getDatabase().prepare('DELETE FROM mail_messages WHERE deleted_at IS NOT NULL').run();
+  hostPorts().database().prepare('DELETE FROM mail_messages WHERE deleted_at IS NOT NULL').run();
   return { ok: true };
 }
 
 export function listMailTrash(): MailTrashItem[] {
-  const rows = getDatabase()
+  const rows = hostPorts()
+    .database()
     .prepare(
       `SELECT m.*, f.name AS folder_name FROM mail_messages m
        LEFT JOIN mail_folders f ON f.id = m.folder_id
@@ -506,7 +508,8 @@ export async function sendMessage(input: unknown): Promise<MailResult> {
   const account = getAccountRow();
   let sentPath: string | null = null;
   if (account) {
-    const sent = getDatabase()
+    const sent = hostPorts()
+      .database()
       .prepare(
         "SELECT path FROM mail_folders WHERE account_id = ? AND special_use = '\\Sent' LIMIT 1",
       )

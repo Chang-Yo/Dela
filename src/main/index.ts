@@ -18,7 +18,6 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { closeDatabase, getDatabase, SCHEMA_VERSION } from './database';
 import { runMigrations } from './migrations';
-import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
 import { registerPreviewProtocol, registerPreviewScheme } from '../modules/workspace';
@@ -33,10 +32,9 @@ import { registerSearchProvider } from '../modules/search';
 import { registerBuiltinCapabilities } from './agent/domain';
 import { registerModuleIpc } from '../app/ipc';
 import { modules } from '../app/modules';
-import { mailSearch } from './mail/search';
 import { settingsSearch } from './settings/search';
-import { registerMailNotices } from './mail/notice-source';
-import { getMailState, startMailSync } from './mail/api';
+import { hasMailComposer } from '../modules/mail';
+import { mailContract } from '../modules/mail/contract';
 import {
   closeDomainBridge,
   gcChatMedia,
@@ -45,7 +43,7 @@ import {
   registerAgentIpc,
   shutdownSessions,
 } from '../app/agent-ipc';
-import { provideHostPorts } from '../core/ports';
+import { emit, provideHostPorts } from '../core/ports';
 import { electronPorts } from '../app/host-electron';
 import { applyTheme, registerSettingsIpc, savedIcon, savedTheme, savedZoom } from './settings';
 import { registerUpdateIpc, startBackgroundUpdateCheck } from './update';
@@ -100,10 +98,7 @@ if (smokeTest && !terminalSmokeTest) {
   app.setPath('documents', profile);
   app.setPath('home', profile);
 }
-// IMAP 沿用现有增量同步，每五分钟检查一次。
-const MAIL_REFRESH_MS = 5 * 60_000;
 let stopModules: (() => void)[] = [];
-let mailTimer: ReturnType<typeof setInterval> | undefined;
 let stopUpdateCheck: (() => void) | undefined;
 let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
@@ -205,30 +200,18 @@ app
     registerConsentIpc();
     registerBackupIpc();
     registerCacheIpc();
-    registerMailIpc();
     registerAgentIpc();
     registerTerminalIpc();
     registerRemoteIpc();
     registerModuleIpc(modules);
-    registerSearchProvider(mailSearch);
     registerBuiltinCapabilities();
     for (const module of modules) module.register?.();
     registerSearchProvider(settingsSearch);
     registerUpdateIpc();
-    registerMailNotices();
     // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
     gcChatMedia();
     if (!smokeTest) {
-      const syncMail = () => {
-        try {
-          if (getMailState().account) startMailSync();
-        } catch (error) {
-          console.error('Mail background sync failed', error);
-        }
-      };
       stopModules = modules.flatMap((module) => module.start?.() ?? []);
-      syncMail();
-      mailTimer = setInterval(syncMail, MAIL_REFRESH_MS);
       stopUpdateCheck = startBackgroundUpdateCheck();
     }
   })
@@ -308,8 +291,8 @@ async function createWindow(): Promise<void> {
   window.webContents.on('will-prevent-unload', (event) => {
     const wasQuitting = quitting;
     quitting = false;
-    if (hasMailComposer(window.webContents.id)) {
-      window.webContents.send('mail:request-close', wasQuitting);
+    if (hasMailComposer()) {
+      emit(mailContract, 'requestClose', wasQuitting);
       return;
     }
     const choice = dialog.showMessageBoxSync(window, {
@@ -478,7 +461,6 @@ app.on('will-quit', () => {
   closeDomainBridge();
   tray?.destroy();
   for (const stop of stopModules) stop();
-  clearInterval(mailTimer);
   stopUpdateCheck?.();
   // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
   // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。

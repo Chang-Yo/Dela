@@ -1,4 +1,4 @@
-import { rootFontSize } from '../../lib/root-font-size';
+import { rootFontSize } from '../../../renderer/lib/root-font-size';
 
 // iframe 依赖高度上报自适应增长，纵向滚动由外层阅读区承担：html 禁止出现纵向滚动条
 // （滚动条挤占宽度引起重新折行，再反过来改变上报高度，来回振荡即正文闪烁）；

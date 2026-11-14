@@ -1,7 +1,7 @@
 // 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性定位脉冲；
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
-import { leaveComposer } from '../features/mail/compose-close';
+import { leaveComposer } from '../../modules/mail/view';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
@@ -14,15 +14,12 @@ import type { NavTarget, NavTargets } from '../../app/module';
 import { pageOf } from '../../app/views';
 
 /** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
-export type ShellView = 'home' | 'workbench' | 'mail' | 'settings';
+export type ShellView = 'home' | 'workbench' | 'settings';
 
 /** 由外壳自己分发的跳转目标：工作台里的标签与尚未迁移的页面。 */
-type ShellTarget = 'projects' | 'chat' | 'sources' | 'mail' | 'settings';
+type ShellTarget = 'projects' | 'chat' | 'sources' | 'settings';
 
 export type AppView = ShellView | Exclude<keyof NavTargets, ShellTarget>;
-
-/** 窄屏抽屉层级：null 关闭；nav 主导航；mail 邮箱功能层（仅邮箱视图可达）。 */
-export type MobileDrawer = 'nav' | 'mail';
 
 const projectStorageKey = 'dela.workspace.project';
 
@@ -49,7 +46,6 @@ interface NavigationState {
   projectId: string | null;
   backStack: NavigationRoute[];
   forwardStack: NavigationRoute[];
-  mailRequest: { messageId: number } | null;
   /** 每次赋新对象，保证已在设置页时也能触发分区切换。 */
   settingsRequest: { section: SettingsSectionId } | null;
   /** 新建项目弹窗脉冲（导航栏/托盘/快捷键），由工作台装配层转成 EntryDialogs 请求。 */
@@ -76,7 +72,6 @@ interface NavigationState {
   /** 打开文档（entryId 或 source: 资料键）为工作台标签，留在当前工作台；keep 时不作预览。 */
   openDocument(key: string, options?: { keep?: boolean }): boolean;
   openTerminal(projectId: string): boolean;
-  openMail(messageId: number): boolean;
   openSettings(section?: SettingsSectionId): boolean;
   /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
@@ -143,7 +138,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     projectId: null,
     backStack: [],
     forwardStack: [],
-    mailRequest: null,
     settingsRequest: null,
     createProject: false,
     reveal: null,
@@ -155,7 +149,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         if (next.page === 'projects') return get().openProject(next.entryId);
         if (next.page === 'chat') return get().openChat(next.sessionId, next.projectId);
         if (next.page === 'sources') return get().openDocument(`source:${next.sourceId}`);
-        if (next.page === 'mail') return get().openMail(next.messageId);
         if (next.page === 'settings') return get().openSettings(next.section);
       }
       const view = typeof next === 'string' ? next : next.page;
@@ -177,7 +170,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
           ...(view === 'home' ? { projectId: null } : {}),
           backStack: [...state.backStack, routeOf(state)],
           forwardStack: [],
-          mailRequest: null,
           settingsRequest: null,
           reveal: null,
           generalChat: null,
@@ -198,7 +190,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         projectId: prev.projectId,
         backStack: state.backStack.slice(0, -1),
         forwardStack: [routeOf(state), ...state.forwardStack],
-        mailRequest: null,
         settingsRequest: null,
         reveal: null,
         generalChat: null,
@@ -217,7 +208,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         projectId: next.projectId,
         backStack: [...state.backStack, routeOf(state)],
         forwardStack: state.forwardStack.slice(1),
-        mailRequest: null,
         settingsRequest: null,
         reveal: null,
         generalChat: null,
@@ -299,12 +289,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     openDocument: (key, options) =>
       revealInProject(documentTabId(key), get().projectId, options?.keep),
     openTerminal: (projectId) => revealInProject(`terminal:${projectId}`, projectId),
-
-    openMail: (messageId) => {
-      if (!get().navigate('mail')) return false;
-      set({ mailRequest: { messageId } });
-      return true;
-    },
 
     openSettings: (section) => {
       if (!get().navigate('settings')) return false;

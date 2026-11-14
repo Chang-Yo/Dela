@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import type { MailFolderInfo, MailAccountInfo, MailSyncStatus } from '../../../shared/api';
+import type { MailFolderInfo, MailAccountInfo, MailSyncStatus } from '../contract';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { cn } from '../../../ui/cn';

@@ -1,5 +1,5 @@
-import { likePattern, type SearchProvider } from '../../modules/search';
-import { getDatabase } from '../database';
+import { likePattern, type SearchProvider } from '../../search';
+import { hostPorts } from '../../../core/ports';
 
 const matchedColumns = ['subject', 'sender_name', 'sender_address', 'snippet', 'body_text'];
 
@@ -9,7 +9,8 @@ export const mailSearch: SearchProvider = {
   icon: 'mail',
   search(query, limit) {
     const match = matchedColumns.map((column) => `${column} LIKE ? ESCAPE '!'`).join(' OR ');
-    const rows = getDatabase()
+    const rows = hostPorts()
+      .database()
       .prepare(
         `SELECT id, subject, sender_name AS senderName, sender_address AS senderAddress, snippet
          FROM mail_messages WHERE deleted_at IS NULL ${query ? `AND (${match})` : ''}

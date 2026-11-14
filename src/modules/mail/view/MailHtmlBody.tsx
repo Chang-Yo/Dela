@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
 import { cn } from '../../../ui/cn';
-import { frameHeightFromEvent, injectFrameHeightReport } from '../../lib/frame-height';
-import { useRootFontSize } from '../../lib/root-font-size';
+import { frameHeightFromEvent, injectFrameHeightReport } from '../../../renderer/lib/frame-height';
+import { useRootFontSize } from '../../../renderer/lib/root-font-size';
 
 const toolbarToggle = cn(
   'h-7 rounded-full px-3 text-xs transition-colors',

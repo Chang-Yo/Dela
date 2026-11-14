@@ -8,7 +8,6 @@ import { backup } from './backup';
 import { bridge } from './bridge';
 import { llm } from './llm';
 import { capabilityApi as capability } from './capabilities';
-import { mail } from './mail';
 import { remotes } from './remotes';
 import { session, sidechat } from './session';
 import { settings } from './settings';
@@ -31,7 +30,6 @@ contextBridge.exposeInMainWorld('dela', {
   cache,
   llm,
   chat,
-  mail,
   session,
   sidechat,
   capability,

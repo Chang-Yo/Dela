@@ -1,13 +1,13 @@
 import { Paperclip, Reply, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '../../../ui/button';
-import type { MailMessageDetail, MailAttachmentInfo, MailAddress } from '../../../shared/api';
+import type { MailMessageDetail, MailAttachmentInfo, MailAddress } from '../contract';
 import { formatMailAddress, formatFullDate, formatSize } from './mail-format';
 import { MailHtmlBody } from './MailHtmlBody';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { cn } from '../../../ui/cn';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
+import { showToast } from '../../../renderer/app/toasts';
+import { errorMessage } from '../../../core/protocol/contract';
 import { ErrorText } from '../../../ui/alert';
 
 type Props = {
@@ -108,6 +108,7 @@ export function MailReader({
   const [downloadingPart, setDownloadingPart] = useState<string | null>(null);
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- 过渡：T6 重写邮件页状态时移除
     setDownloadingPart(null);
   }, [detail?.id]);
 
@@ -123,7 +124,7 @@ export function MailReader({
           description: result.error ?? '附件下载失败',
         });
     } catch (reason) {
-      showToast({ variant: 'error', title: '保存附件失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '保存附件失败', description: errorMessage(reason) });
     } finally {
       setDownloadingPart(null);
     }

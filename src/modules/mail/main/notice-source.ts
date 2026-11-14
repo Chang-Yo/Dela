@@ -7,12 +7,13 @@ import {
   systemNotifyItem,
   upsertNotification,
   type NoticeSource,
-} from '../../modules/notifications';
-import { getDatabase } from '../database';
+} from '../../notifications';
+import { hostPorts } from '../../../core/ports';
 import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from './api';
 
 function mailAccount() {
-  return getDatabase()
+  return hostPorts()
+    .database()
     .prepare('SELECT address, created_at FROM mail_accounts ORDER BY id LIMIT 1')
     .get() as { address: string; created_at: string } | undefined;
 }
@@ -22,7 +23,7 @@ function syncMailNotices(recordSuccess: boolean): void {
   const account = mailAccount();
   if (!account) return;
   const key = account.address;
-  const db = getDatabase();
+  const db = hostPorts().database();
   const unread = db
     .prepare(
       `SELECT m.id, m.subject, m.sender_name, m.sender_address, m.snippet, m.date

@@ -2,7 +2,7 @@
 // 隐藏只影响导航，能力仍在。首页固定显示，不在此列表。
 // 模块页面的入口来自视图清单（docs/adr/0019）。
 import type { ComponentType } from 'react';
-import { FolderOpen, Mail } from 'lucide-react';
+import { FolderOpen } from 'lucide-react';
 import type { NavTargets } from '../../app/module';
 import { navPages } from '../../app/views';
 import { usePreferences } from '../app/preferences';
@@ -13,11 +13,7 @@ export const navEntries: Array<{
   id: NavEntryId;
   label: string;
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
-}> = [
-  { id: 'sources', label: '资料', icon: FolderOpen },
-  { id: 'mail', label: '邮箱', icon: Mail },
-  ...navPages,
-];
+}> = [{ id: 'sources', label: '资料', icon: FolderOpen }, ...navPages];
 
 export function useVisibleNavEntries() {
   const hidden = usePreferences((state) => state.hiddenNavEntries);

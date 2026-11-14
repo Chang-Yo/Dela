@@ -8,13 +8,11 @@ import { DOCUMENT_SKILL, documentDependency, verifyDocumentRuntime } from '../..
 import { prepareDocumentFile } from '../../resources';
 import { registerDocumentReader } from '../../../core/capabilities/documents';
 import { documentDomain } from './document';
-import { mailDomain } from './mail';
 import { builtinResourceResolvers, resourceDomain } from './read-resource';
 import { todoDomain } from './todo';
 
 export function registerBuiltinCapabilities(): void {
-  for (const domain of [resourceDomain, documentDomain, mailDomain, todoDomain])
-    registerCommandDomain(domain);
+  for (const domain of [resourceDomain, documentDomain, todoDomain]) registerCommandDomain(domain);
   for (const [type, resolver] of Object.entries(builtinResourceResolvers))
     registerResourceResolver(type, resolver as ResourceResolver);
   registerDocumentReader({

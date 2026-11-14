@@ -7,7 +7,7 @@ import { builtinResourceResolvers } from '../agent/domain/read-resource';
 import { registerResourceResolver, type ResourceResolver } from '../../core/capabilities/resources';
 
 vi.mock('node:fs/promises', () => ({ mkdtemp: vi.fn(), rm: vi.fn() }));
-vi.mock('../mail/api', () => ({ readMailMessage: vi.fn(), saveMailAttachment: vi.fn() }));
+vi.mock('../../modules/mail', () => ({ readMailMessage: vi.fn(), saveMailAttachment: vi.fn() }));
 vi.mock('../../modules/workspace', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../modules/workspace')>()),
   importWorkspaceFiles: vi.fn(),

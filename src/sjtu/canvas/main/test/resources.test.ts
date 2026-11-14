@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../../../main/workspace/preview', () => ({ previewFileResponse: vi.fn() }));
 vi.mock('../../../../main/agent/domain/read-resource', () => ({ readDocument: vi.fn() }));
 vi.mock('../api', () => ({
   cachedFile: vi.fn(),

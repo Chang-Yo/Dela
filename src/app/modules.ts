@@ -1,5 +1,6 @@
 // 模块清单：主进程据此注册各模块的 IPC 与后台任务。
 import type { ModuleDefinition } from './module';
+import { mailModule } from '../modules/mail';
 import { notificationsModule } from '../modules/notifications';
 import { searchModule } from '../modules/search';
 import { todoModule } from '../modules/todo';
@@ -12,6 +13,7 @@ import { timetableModule } from '../sjtu/timetable';
 
 export const modules: ModuleDefinition[] = [
   workspaceModule,
+  mailModule,
   searchModule,
   todoModule,
   notificationsModule,

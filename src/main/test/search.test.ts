@@ -15,7 +15,8 @@ import { closeDatabase, getDatabase } from '../database';
 import type { SearchGroup } from '../../modules/search/contract';
 import { registerSearchProvider, searchModule } from '../../modules/search';
 import { workspaceModule } from '../../modules/workspace';
-import { mailSearch } from '../mail/search';
+import { mailSearch } from '../../modules/mail';
+import { provideTestHostPorts } from '../../core/test/host-mock';
 
 const timestamp = '2026-09-16T12:00:00.000Z';
 const run = (sql: string, ...values: unknown[]) =>
@@ -28,6 +29,7 @@ const hitsOf = (query: string, group: string) =>
 
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-search-'));
+  provideTestHostPorts({ database: getDatabase });
   workspaceModule.register?.();
   registerSearchProvider(mailSearch);
   run(

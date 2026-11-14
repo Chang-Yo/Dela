@@ -1,28 +1,26 @@
 import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { provideTestHostPorts } from '../../../core/test/host-mock';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
-vi.mock('../../../modules/todo', () => ({
+vi.mock('../../../todo', () => ({
   getTodoState: () => ({ syncedAt: null, error: null }),
   todoNotifications: () => [],
   onTaskNotice: vi.fn(),
   onTodoChange: vi.fn(),
   markTodoRead: vi.fn(),
 }));
-vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../api', () => ({
   getMailState: vi.fn(() => ({ sync: { phase: 'idle', error: null } })),
   markMailSeen: vi.fn(),
   markAllMailSeen: vi.fn(),
   onMailCacheChanged: vi.fn(),
 }));
-vi.mock('../../../modules/notifications', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../modules/notifications')>()),
+vi.mock('../../../notifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../notifications')>()),
   systemNotifyItem: vi.fn(),
 }));
 
-import { notificationsModule, systemNotifyItem } from '../../../modules/notifications';
-import { getDatabase } from '../../database';
+import { notificationsModule, systemNotifyItem } from '../../../notifications';
 import { markAllMailSeen, markMailSeen, onMailCacheChanged } from '../api';
 import { registerMailNotices } from '../notice-source';
 
@@ -69,7 +67,6 @@ beforeEach(() => {
     '2026-09-10T00:00:00.000Z',
   );
   db.prepare("INSERT INTO mail_folders VALUES (1, 1, '\\Inbox')").run();
-  vi.mocked(getDatabase).mockReturnValue(db as never);
   provideTestHostPorts({ database: () => db as never });
 });
 

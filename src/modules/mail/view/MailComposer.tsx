@@ -9,14 +9,16 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import type { MailComposeFile, PreparedEmail } from '../../../shared/api';
+import { mailContract, type MailComposeFile, type PreparedEmail } from '../contract';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { formatSize } from './mail-format';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
+import { showToast } from '../../../renderer/app/toasts';
+import { errorMessage, subscribe } from '../../../core/protocol/contract';
+import { mailClient } from './use-mail';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：键位解析尚未移入 ui 或 renderer/lib
 import { acceleratorFromEvent } from '../../../shared/keybindings';
-import { platform } from '../../lib/platform';
+import { platform } from '../../../renderer/lib/platform';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { IconButton } from '../../../ui/icon-button';
@@ -164,10 +166,13 @@ export function MailComposer({
   const [linkDraft, setLinkDraft] = useState<string | null>(null);
   const [linkInvalid, setLinkInvalid] = useState(false);
 
+  // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
   filesRef.current = files;
   const dirtyCallback = useRef(onDirtyChange);
+  // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
   dirtyCallback.current = onDirtyChange;
   const dirty = Boolean(
+    // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
     to.trim() || subject.trim() || bodyHasContent || files.length || savedId.current,
   );
 
@@ -241,19 +246,20 @@ export function MailComposer({
     setError(null);
     try {
       const content = snapshot();
-      const result = await dela.mail.saveDraft({ ...content, id: savedId.current });
+      const result = await mailClient.saveDraft({ ...content, id: savedId.current });
       savedId.current = result.id;
       savedContent.current = JSON.stringify(content);
       showToast({ variant: 'success', title: '草稿已保存' });
       return true;
     } catch (reason) {
-      showToast({ variant: 'error', title: '保存草稿失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '保存草稿失败', description: errorMessage(reason) });
       return false;
     } finally {
       savingDraft.current = false;
       setSaving(false);
     }
   };
+  // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
   latestClose.current = async () => {
     if (sending || saving) {
       setLeaveBlocked(true);
@@ -261,14 +267,15 @@ export function MailComposer({
     }
     if (!dirty || JSON.stringify(snapshot()) === savedContent.current) return true;
     try {
-      const choice = await dela.mail.confirmDraftClose();
+      const choice = await mailClient.confirmDraftClose();
       if (choice === 'cancel') return false;
       return choice === 'discard' || (await saveDraft());
     } catch (reason) {
-      showToast({ variant: 'error', title: '保存草稿失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '保存草稿失败', description: errorMessage(reason) });
       return false;
     }
   };
+  // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
   latestSave.current = async () => {
     if (sending || savingDraft.current) return false;
     if (!dirty || JSON.stringify(snapshot()) === savedContent.current) return true;
@@ -278,14 +285,15 @@ export function MailComposer({
   useEffect(() => registerComposeClose(() => latestClose.current()), []);
   useEffect(() => registerComposeSave(() => latestSave.current()), []);
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- 过渡：T6 重写邮件页状态时移除
     if (!sending && !saving) setLeaveBlocked(false);
   }, [sending, saving]);
   useEffect(() => {
-    void dela.mail.setComposeActive(true);
-    const unsubscribe = dela.mail.onRequestClose((quitting) => {
+    void mailClient.setComposeActive(true);
+    const unsubscribe = subscribe(mailContract, dela.bridge, 'requestClose', (quitting) => {
       const close = () => {
         allowUnload.current = true;
-        void dela.mail.setComposeActive(false).then(() => {
+        void mailClient.setComposeActive(false).then(() => {
           if (quitting) dela.window.quit();
           else dela.window.close();
         });
@@ -295,7 +303,7 @@ export function MailComposer({
     });
     return () => {
       unsubscribe();
-      void dela.mail.setComposeActive(false);
+      void mailClient.setComposeActive(false);
     };
   }, [dela]);
 
@@ -321,12 +329,12 @@ export function MailComposer({
       if (ids.length) {
         releaseTimerRef.current = window.setTimeout(() => {
           releaseTimerRef.current = null;
-          void dela.mail.releaseComposeFiles(ids);
+          void mailClient.releaseComposeFiles(ids);
         }, 0);
       }
       dirtyCallback.current(false);
     };
-  }, [dela.mail]);
+  }, []);
 
   const attachments = files.filter((file) => file.kind === 'attachment');
 
@@ -401,10 +409,10 @@ export function MailComposer({
     if (editor) saveSelection();
     let picked: readonly MailComposeFile[];
     try {
-      picked = await dela.mail.pickComposeFiles(kind);
+      picked = await mailClient.pickComposeFiles(kind);
     } catch (reason) {
       // 用户取消在主进程 resolve 空数组，不会走到这里；reject 均为真实失败。
-      showToast({ variant: 'error', title: '选择附件失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '选择附件失败', description: errorMessage(reason) });
       return;
     }
     if (!picked.length) return;
@@ -438,7 +446,7 @@ export function MailComposer({
     const reader = new FileReader();
     reader.addEventListener('load', () => {
       if (typeof reader.result !== 'string') return;
-      void dela.mail
+      void mailClient
         .addComposeImage(reader.result)
         .then((picked) => {
           const editor = editorRef.current;
@@ -462,7 +470,7 @@ export function MailComposer({
           showToast({
             variant: 'error',
             title: '插入图片失败',
-            description: errorText(pasteError),
+            description: errorMessage(pasteError),
           });
         });
     });
@@ -474,7 +482,7 @@ export function MailComposer({
     const editor = editorRef.current;
     editor?.querySelector(`img[data-dela-inline="${CSS.escape(id)}"]`)?.remove();
     setFiles((current) => current.filter((file) => file.id !== id));
-    void dela.mail.releaseComposeFiles([id]);
+    void mailClient.releaseComposeFiles([id]);
     setBodyHasContent(
       Boolean(editor?.innerText.trim()) || Boolean(editor?.querySelector('img[data-dela-inline]')),
     );
@@ -496,7 +504,7 @@ export function MailComposer({
       const removed = current.filter(
         (file) => file.kind === 'inline' && !activeInlineIds.has(file.id),
       );
-      if (removed.length) void dela.mail.releaseComposeFiles(removed.map((file) => file.id));
+      if (removed.length) void mailClient.releaseComposeFiles(removed.map((file) => file.id));
       return removed.length
         ? current.filter((file) => file.kind !== 'inline' || activeInlineIds.has(file.id))
         : current;
@@ -545,7 +553,7 @@ export function MailComposer({
     setError(null);
     try {
       const body = serializeBody(editor);
-      const result = await dela.mail.sendMessage({
+      const result = await mailClient.send({
         to: recipients,
         subject,
         text: body.text,
@@ -559,7 +567,7 @@ export function MailComposer({
       }
       if (savedId.current) {
         try {
-          await dela.mail.deleteDraft(savedId.current);
+          await mailClient.deleteDraft(savedId.current);
         } catch {
           onSent('邮件已发送，但本地草稿未能删除，请勿重复发送');
           return;
@@ -567,7 +575,7 @@ export function MailComposer({
       }
       onSent(result.warning);
     } catch (sendError) {
-      showToast({ variant: 'error', title: '发送邮件失败', description: errorText(sendError) });
+      showToast({ variant: 'error', title: '发送邮件失败', description: errorMessage(sendError) });
     } finally {
       setSending(false);
     }

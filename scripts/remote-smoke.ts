@@ -11,7 +11,6 @@ import { closeDatabase, getDatabase } from '../src/main/database';
 import { registerModuleIpc } from '../src/app/ipc';
 import { modules } from '../src/app/modules';
 import { registerAgentIpc } from '../src/app/agent-ipc';
-import { registerMailIpc } from '../src/main/mail/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { remoteBackend } from '../src/core/remote/operations';
 import { exec, probeRemote } from '../src/core/remote/transport';
@@ -61,7 +60,6 @@ app
     registerTerminalIpc();
     registerModuleIpc(modules);
     for (const module of modules) module.register?.();
-    registerMailIpc();
     registerPreviewProtocol();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     const win = new BrowserWindow({

@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import type { MailConfigureInput } from '../../../../shared/mail';
-import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
-import { MailAccountForm } from '../../mail/MailAccountForm';
-import { errorText } from '../../../workspace/store';
-import { StepButton, type StepButtonState } from '../../../../modules/onboarding/view';
+import type { MailConfigureInput } from '../contract';
+import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
+import { MailAccountForm } from './MailAccountForm';
+import { errorMessage } from '../../../core/protocol/contract';
+import { mailClient } from './use-mail';
+import { StepButton, type StepButtonState } from '../../onboarding/view';
 
 /** 向导 · 邮箱步骤：验证 IMAP 登录，成功后后台开始首次同步，按钮转为「下一步」。 */
-export function MailStep({ onDone }: { onDone: () => void }) {
+export function MailOnboardingStep({ onDone }: { onDone: () => void }) {
   const [state, setState] = useState<StepButtonState>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -22,22 +23,20 @@ export function MailStep({ onDone }: { onDone: () => void }) {
   const submit = async (input: MailConfigureInput) => {
     if (state === 'success') return onDone();
     if (state === 'busy') return;
-    const dela = window.dela;
-    if (!dela) return;
     setState('busy');
     setError(null);
     try {
-      const result = await dela.mail.configure(input);
+      const result = await mailClient.configure(input);
       if (!result.ok) {
         setError(result.error);
         setState('idle');
         return;
       }
-      // 同步进度由 mail:sync-status 事件展示，向导里不等它完成。
-      void dela.mail.syncNow().catch(() => {});
+      // 同步进度由 syncStatus 事件展示，向导里不等它完成。
+      void mailClient.sync().catch(() => {});
       setState('success');
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
       setState('idle');
     }
   };

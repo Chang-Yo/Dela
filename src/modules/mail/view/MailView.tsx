@@ -1,5 +1,5 @@
 import { leaveComposer } from './compose-close';
-import type { PreparedEmail, MailDraftSummary, MailConfigureInput } from '../../../shared/api';
+import type { PreparedEmail, MailDraftSummary, MailConfigureInput } from '../contract';
 import { FilePenLine, Trash2 } from 'lucide-react';
 import {
   useCallback,
@@ -11,13 +11,14 @@ import {
   type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
-import type {
-  MailFolderInfo,
-  MailMessageDetail,
-  MailMessageSummary,
-  MailState,
-  MailTrashItem,
-} from '../../../shared/api';
+import {
+  mailContract,
+  type MailFolderInfo,
+  type MailMessageDetail,
+  type MailMessageSummary,
+  type MailState,
+  type MailTrashItem,
+} from '../contract';
 import { MailAccountForm } from './MailAccountForm';
 import { MailFolders, type MailSelection } from './MailFolders';
 import { MailMessageList } from './MailMessageList';
@@ -29,9 +30,11 @@ import { Resizer } from '../../../ui/resizer';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { useMediaQuery } from '../../../ui/use-media-query';
-import { usePreferences } from '../../app/preferences';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
+import { useMobileDrawer } from '../../../renderer/lib/mobile-drawer';
+import { useMailPreferences } from './store';
+import { mailClient } from './use-mail';
+import { showToast } from '../../../renderer/app/toasts';
+import { errorMessage, subscribe } from '../../../core/protocol/contract';
 import { Callout, ErrorText } from '../../../ui/alert';
 
 const MESSAGE_LIMIT = 200;
@@ -71,8 +74,8 @@ const visibleFolders = (list: readonly MailFolderInfo[]) =>
   list.filter((folder) => folder.specialUse !== '\\Drafts' && folder.specialUse !== '\\Trash');
 
 type MailViewProps = {
-  openRequest?: { messageId: number };
-  /** 窄屏邮箱级抽屉是否展开,受控于 App 的 mobileDrawer。 */
+  openRequest?: { messageId?: number };
+  /** 窄屏邮箱级抽屉是否展开,受控于外壳的抽屉状态。 */
   mobileDrawerOpen?: boolean;
   onMobileDrawerClose?: () => void;
 };
@@ -106,12 +109,23 @@ export function MailView({
   );
 }
 
+/** 模块页面入口：跳转参数交给邮件定位，窄屏抽屉状态来自外壳。 */
+export function MailPage({ target }: { target: { messageId?: number } }) {
+  const drawer = useMobileDrawer((state) => state.drawer);
+  return (
+    <MailView
+      mobileDrawerOpen={drawer === 'mail'}
+      onMobileDrawerClose={() => useMobileDrawer.getState().setDrawer(null)}
+      openRequest={target}
+    />
+  );
+}
+
 function DesktopMailView({
   mobileDrawerOpen = false,
   onMobileDrawerClose,
   openRequest,
 }: MailViewProps) {
-  const dela = window.dela!;
   const [state, setState] = useState<MailState | null>(null);
   const [folders, setFolders] = useState<MailFolderInfo[]>([]);
   const [selection, setSelection] = useState<MailSelection | null>(null);
@@ -126,10 +140,9 @@ function DesktopMailView({
   const [configuring, setConfiguring] = useState(false);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [mobileReading, setMobileReading] = useState(false);
-  const foldersCollapsed = usePreferences((state) => state.mailFoldersCollapsed);
-  const setPreference = usePreferences((state) => state.setPreference);
+  const foldersCollapsed = useMailPreferences((state) => state.foldersCollapsed);
   const setFoldersCollapsed = (update: (value: boolean) => boolean) =>
-    setPreference('mailFoldersCollapsed', update(foldersCollapsed));
+    useMailPreferences.setState({ foldersCollapsed: update(foldersCollapsed) });
   const [listWidth, setListWidth] = useState(320);
   const [listResizing, setListResizing] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -154,15 +167,15 @@ function DesktopMailView({
   const trashRequest = useRef(0);
   const draftRequest = useRef(0);
   const navigationRequest = useRef(0);
-  const processedOpenRequest = useRef<{ messageId: number } | undefined>(undefined);
+  const processedOpenRequest = useRef<{ messageId?: number } | undefined>(undefined);
 
   const loadDrafts = useCallback(async (account: string) => {
     const request = ++draftRequest.current;
     try {
-      const loaded = await dela.mail.listDrafts(account);
+      const loaded = await mailClient.drafts(account);
       if (request === draftRequest.current) setLocalDrafts(loaded);
     } catch (reason) {
-      if (request === draftRequest.current) setDraftError(errorText(reason));
+      if (request === draftRequest.current) setDraftError(errorMessage(reason));
     }
   }, []);
 
@@ -170,13 +183,13 @@ function DesktopMailView({
     const request = ++trashRequest.current;
     setTrashLoading(true);
     try {
-      const loaded = await dela.mail.listTrash();
+      const loaded = await mailClient.trash();
       if (request === trashRequest.current) {
         setTrashItems([...loaded]);
         setTrashError(null);
       }
     } catch (reason) {
-      if (request === trashRequest.current) setTrashError(errorText(reason));
+      if (request === trashRequest.current) setTrashError(errorMessage(reason));
     } finally {
       if (request === trashRequest.current) setTrashLoading(false);
     }
@@ -221,10 +234,10 @@ function DesktopMailView({
     setOpeningDraft(true);
     setDraftError(null);
     try {
-      setDraft(await dela.mail.openDraft(id));
+      setDraft(await mailClient.openDraft(id));
       setComposing(true);
     } catch (reason) {
-      showToast({ variant: 'error', title: '打开草稿失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '打开草稿失败', description: errorMessage(reason) });
     } finally {
       setOpeningDraft(false);
     }
@@ -250,9 +263,9 @@ function DesktopMailView({
 
   const refreshFolders = useCallback(async () => {
     try {
-      setFolders([...visibleFolders(await dela.mail.listFolders())]);
+      setFolders([...visibleFolders(await mailClient.folders())]);
     } catch (reason) {
-      showToast({ variant: 'error', title: '刷新文件夹失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '刷新文件夹失败', description: errorMessage(reason) });
     }
   }, []);
 
@@ -261,11 +274,11 @@ function DesktopMailView({
     selectedFolderIdRef.current = folderId;
     setListLoading(true);
     try {
-      const loaded = await dela.mail.listMessages(folderId, MESSAGE_LIMIT);
+      const loaded = await mailClient.messages({ folderId, limit: MESSAGE_LIMIT });
       if (request === listRequest.current) setMessages([...loaded]);
     } catch (reason) {
       if (request === listRequest.current)
-        showToast({ variant: 'error', title: '加载邮件失败', description: errorText(reason) });
+        showToast({ variant: 'error', title: '加载邮件失败', description: errorMessage(reason) });
     } finally {
       if (request === listRequest.current) setListLoading(false);
     }
@@ -317,14 +330,14 @@ function DesktopMailView({
     setDetailError(null);
     setDetailLoading(true);
     try {
-      const loaded = await dela.mail.getMessage(messageId);
+      const loaded = await mailClient.message(messageId);
       if (request !== detailRequest.current) return;
       setDetail(loaded);
       // 只读阅读(回收站)不标记已读:恢复时保留原未读状态。
       if (!loaded.seen && !options?.readonly) {
         const folderId = selectedFolderIdRef.current;
         try {
-          const result = await dela.mail.markSeen(messageId);
+          const result = await mailClient.markSeen(messageId);
           if (result.ok) {
             if (selectedFolderIdRef.current === folderId) {
               setMessages((prev) =>
@@ -350,11 +363,15 @@ function DesktopMailView({
           }
         } catch (reason) {
           if (request === detailRequest.current)
-            showToast({ variant: 'error', title: '标记已读失败', description: errorText(reason) });
+            showToast({
+              variant: 'error',
+              title: '标记已读失败',
+              description: errorMessage(reason),
+            });
         }
       }
     } catch (error) {
-      if (request === detailRequest.current) setDetailError(errorText(error));
+      if (request === detailRequest.current) setDetailError(errorMessage(error));
     } finally {
       if (request === detailRequest.current) setDetailLoading(false);
     }
@@ -372,13 +389,13 @@ function DesktopMailView({
     let active = true;
     // 捕获导航计数:草稿/回收站按钮在 folders 到达前即可点击,加载完成后不得覆盖用户选择。
     const nav = navigationRequest.current;
-    void dela.mail
-      .getState()
+    void mailClient
+      .state()
       .then(async (initial) => {
         if (!active) return;
         setState(initial);
         if (!initial.account) return;
-        const folderList = [...visibleFolders(await dela.mail.listFolders())];
+        const folderList = [...visibleFolders(await mailClient.folders())];
         if (!active) return;
         setFolders(folderList);
         const inbox =
@@ -392,16 +409,16 @@ function DesktopMailView({
         void loadTrash();
         if (!autoSyncedRef.current) {
           autoSyncedRef.current = true;
-          void dela.mail.syncNow().catch(() => {
-            // 同步错误通过 mail:sync-status 事件展示。
+          void mailClient.sync().catch(() => {
+            // 同步错误通过 syncStatus 事件展示。
           });
         }
       })
       .catch((reason) => {
         if (active)
-          showToast({ variant: 'error', title: '邮箱加载失败', description: errorText(reason) });
+          showToast({ variant: 'error', title: '邮箱加载失败', description: errorMessage(reason) });
       });
-    const unsubscribe = dela.mail.onSyncStatus((status) => {
+    const unsubscribe = subscribe(mailContract, window.dela?.bridge, 'syncStatus', (status) => {
       setState((prev) => (prev ? { ...prev, sync: status } : prev));
       if (status.phase === 'idle' && status.finishedAt) void refreshAll();
     });
@@ -422,19 +439,19 @@ function DesktopMailView({
     setConfiguring(true);
     setConfigureError(null);
     try {
-      const result = await dela.mail.configure(input);
+      const result = await mailClient.configure(input);
       if (!result.ok) {
         setConfigureError(result.error);
         return;
       }
-      const next = await dela.mail.getState();
+      const next = await mailClient.state();
       setState(next);
       autoSyncedRef.current = true;
-      void dela.mail.syncNow().catch(() => {
-        // 同步错误通过 mail:sync-status 事件展示。
+      void mailClient.sync().catch(() => {
+        // 同步错误通过 syncStatus 事件展示。
       });
     } catch (reason) {
-      setConfigureError(errorText(reason));
+      setConfigureError(errorMessage(reason));
     } finally {
       setConfiguring(false);
     }
@@ -453,9 +470,9 @@ function DesktopMailView({
       return;
     setConfirmingDisconnect(false);
     try {
-      await dela.mail.disconnect();
+      await mailClient.disconnect();
     } catch (reason) {
-      showToast({ variant: 'error', title: '退出登录失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '退出登录失败', description: errorMessage(reason) });
       return;
     }
     setFolders([]);
@@ -467,13 +484,13 @@ function DesktopMailView({
     setDraftError(null);
     setTrashItems([]);
     setTrashError(null);
-    setState(await dela.mail.getState());
+    setState(await mailClient.state());
   }, [confirmingDisconnect]);
 
   // 阅读页删除:纯本地移入回收站,可恢复,无需确认。
   const handleDeleteMessage = async (target: MailMessageDetail) => {
     try {
-      const result = await dela.mail.deleteMessage(target.id);
+      const result = await mailClient.deleteMessage(target.id);
       if (!result.ok) {
         showToast({ variant: 'error', title: '删除邮件失败', description: result.error });
         return;
@@ -498,13 +515,13 @@ function DesktopMailView({
       showToast({ variant: 'success', title: '已移入已删除' });
       void loadTrash();
     } catch (reason) {
-      showToast({ variant: 'error', title: '删除邮件失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '删除邮件失败', description: errorMessage(reason) });
     }
   };
 
   const handleRestore = async (item: MailTrashItem) => {
     try {
-      const result = await dela.mail.restoreMessage(item.id);
+      const result = await mailClient.restoreMessage(item.id);
       if (!result.ok) {
         showToast({ variant: 'error', title: '恢复邮件失败', description: result.error });
         return;
@@ -514,7 +531,7 @@ function DesktopMailView({
       // 原文件夹列表与未读数可能变化。
       void refreshAll();
     } catch (reason) {
-      showToast({ variant: 'error', title: '恢复邮件失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '恢复邮件失败', description: errorMessage(reason) });
     }
   };
 
@@ -531,7 +548,7 @@ function DesktopMailView({
   const handlePurge = async (item: MailTrashItem) => {
     if (!window.confirm('彻底删除这封邮件？此操作不可恢复。')) return;
     try {
-      const result = await dela.mail.purgeMessage(item.id);
+      const result = await mailClient.purgeMessage(item.id);
       if (!result.ok) {
         showToast({ variant: 'error', title: '彻底删除失败', description: result.error });
         return;
@@ -539,14 +556,14 @@ function DesktopMailView({
       clearReading(item.id);
       setTrashItems((prev) => prev.filter((row) => row.id !== item.id));
     } catch (reason) {
-      showToast({ variant: 'error', title: '彻底删除失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '彻底删除失败', description: errorMessage(reason) });
     }
   };
 
   const handleEmptyTrash = async () => {
     if (!window.confirm('清空全部已删除邮件？此操作不可恢复。')) return;
     try {
-      const result = await dela.mail.emptyTrash();
+      const result = await mailClient.emptyTrash();
       if (!result.ok) {
         showToast({ variant: 'error', title: '清空回收站失败', description: result.error });
         return;
@@ -554,7 +571,7 @@ function DesktopMailView({
       if (selectedMessageId !== null) clearReading(selectedMessageId);
       setTrashItems([]);
     } catch (reason) {
-      showToast({ variant: 'error', title: '清空回收站失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '清空回收站失败', description: errorMessage(reason) });
     }
   };
 
@@ -615,12 +632,12 @@ function DesktopMailView({
 
   // 全局搜索已经由 App 通过既有草稿守卫放行；这里仅切换到目标邮件，避免重新挂载邮箱而丢失其他状态。
   useEffect(() => {
-    if (!openRequest || !account || !folders.length) return;
+    if (openRequest?.messageId === undefined || !account || !folders.length) return;
     if (processedOpenRequest.current === openRequest) return;
     processedOpenRequest.current = openRequest;
     const request = ++navigationRequest.current;
-    void dela.mail
-      .getMessage(openRequest.messageId)
+    void mailClient
+      .message(openRequest.messageId)
       .then((message) => {
         if (request !== navigationRequest.current) return;
         const folderId = message.folderId;
@@ -652,9 +669,9 @@ function DesktopMailView({
         apply();
       })
       .catch((reason) => {
-        if (request === navigationRequest.current) setDetailError(errorText(reason));
+        if (request === navigationRequest.current) setDetailError(errorMessage(reason));
       });
-  }, [account, dela.mail, folders, loadMessages, openMessage, openRequest, stacked]);
+  }, [account, folders, loadMessages, openMessage, openRequest, stacked]);
 
   if (state !== null && !account) {
     return (
@@ -747,7 +764,7 @@ function DesktopMailView({
                   title: '本地草稿删除失败',
                   description: warning,
                 });
-              void dela.mail.syncNow().catch(() => {});
+              void mailClient.sync().catch(() => {});
               void loadDrafts(account?.address ?? '');
             }}
           />
@@ -789,7 +806,7 @@ function DesktopMailView({
                     className="rounded p-2 hover:bg-hover-strong"
                     onClick={() => {
                       if (!window.confirm('删除这份本地草稿？')) return;
-                      void dela.mail
+                      void mailClient
                         .deleteDraft(item.id)
                         .then(() =>
                           setLocalDrafts((items) => items.filter((row) => row.id !== item.id)),
@@ -798,7 +815,7 @@ function DesktopMailView({
                           showToast({
                             variant: 'error',
                             title: '删除草稿失败',
-                            description: errorText(reason),
+                            description: errorMessage(reason),
                           }),
                         );
                     }}
@@ -837,7 +854,7 @@ function DesktopMailView({
                 setSearch={setSearch}
                 syncBusy={syncBusy}
                 syncLabel={syncLabel}
-                onSync={() => dela.mail.syncNow()}
+                onSync={() => mailClient.sync()}
                 onSelect={(id) => {
                   setMobileReading(stacked);
                   void openMessage(id);
@@ -863,7 +880,7 @@ function DesktopMailView({
               selectedMessageId={selectedMessageId}
               openMessage={openMessage}
               downloadAttachment={(messageId, part) =>
-                dela.mail.downloadAttachment(messageId, part)
+                mailClient.downloadAttachment({ messageId, part })
               }
               onReply={handleReply}
               onDelete={(target) => void handleDeleteMessage(target)}

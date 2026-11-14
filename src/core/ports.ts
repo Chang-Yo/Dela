@@ -122,7 +122,6 @@ export class CredentialDecryptionError extends Error {
 
 const secretLabels = new Map<SecretNamespace, string>([
   ['llm-providers', '模型服务配置'],
-  ['mail-credentials', '邮箱凭据'],
   ['mcp-servers', 'MCP 服务器配置'],
 ]);
 

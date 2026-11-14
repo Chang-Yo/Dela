@@ -280,14 +280,16 @@ async function run(window) {
   await wait(() => window.isVisible(), 'reopen after cancelled exit');
 
   await js(
-    'window.dela.mail.onRequestClose(quitting => { window.mailQuitRequested = quitting; }); window.dela.mail.setComposeActive(true)',
+    "window.dela.bridge.subscribe('mail:requestClose', quitting => { window.mailQuitRequested = quitting; }); window.dela.bridge.invoke('mail:setComposeActive', true)",
   );
   app.quit();
   await wait(() => js('window.mailQuitRequested === true'), 'mail receives quit request');
   await checkRuntime('AFTER_MAIL_CANCEL');
   window.close();
   assert.equal(window.isVisible(), false);
-  await js('window.onbeforeunload = null; window.dela.mail.setComposeActive(false)');
+  await js(
+    "window.onbeforeunload = null; window.dela.bridge.invoke('mail:setComposeActive', false)",
+  );
   console.log(
     'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, authorization window frame/reuse/bind after close, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves live PTY; no login registration.',
   );
