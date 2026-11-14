@@ -11,8 +11,7 @@ import {
   type ShortcutActionId,
 } from '../../../../shared/keybindings';
 import { useShortcuts } from '../../../app/shortcuts';
-import { SectionHeader } from '../SectionHeader';
-import { SettingsGroup } from '../SettingsGroup';
+import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { platform } from '../../../lib/platform';

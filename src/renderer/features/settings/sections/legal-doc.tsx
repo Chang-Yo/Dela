@@ -1,5 +1,5 @@
 import { LegalMarkdown } from '../../../components/legal-markdown';
-import { SectionHeader } from '../SectionHeader';
+import { SectionHeader } from '../../../../modules/settings/view';
 
 /**
  * 设置 › 条款页骨架：正文是仓库根目录 docs 下的 Markdown，构建时以 ?raw 内联，官网发布同一份文本。

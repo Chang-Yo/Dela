@@ -9,8 +9,7 @@ import { SegmentedControl } from '../../../../../ui/segmented-control';
 import { errorText, useWorkspaceStore } from '../../../../workspace/store';
 import { showToast } from '../../../../app/toasts';
 import { cn } from '../../../../../ui/cn';
-import { SectionHeader } from '../../SectionHeader';
-import { SettingsGroup } from '../../SettingsGroup';
+import { SectionHeader, SettingsGroup } from '../../../../../modules/settings/view';
 import { ErrorText } from '../../../../../ui/alert';
 import { Spinner } from '../../../../../ui/spinner';
 import {

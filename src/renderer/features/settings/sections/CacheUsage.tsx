@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { formatBytes } from '../../../lib/format-bytes';
-import { SettingRow } from '../../../../modules/settings/view';
-import { SettingsGroup } from '../SettingsGroup';
+import { SettingRow, SettingsGroup } from '../../../../modules/settings/view';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 

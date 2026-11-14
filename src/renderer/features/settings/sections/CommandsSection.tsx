@@ -4,8 +4,11 @@ import { agentClient, chatClient } from '../../../../modules/chat/view';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
 import type { ChatCommandView } from '../../../../shared/api';
-import { SectionHeader } from '../SectionHeader';
-import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
+import {
+  SectionHeader,
+  SettingsGroup,
+  SettingsGroupLabel,
+} from '../../../../modules/settings/view';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { ErrorText } from '../../../../ui/alert';

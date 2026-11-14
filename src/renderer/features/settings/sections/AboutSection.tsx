@@ -10,7 +10,7 @@ import {
   type SocialLinkKind,
   type SponsorChannelKind,
 } from '../credits';
-import { SectionHeader } from '../SectionHeader';
+import { SectionHeader } from '../../../../modules/settings/view';
 import {
   Dialog,
   DialogTrigger,

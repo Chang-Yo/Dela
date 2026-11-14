@@ -1,5 +1,4 @@
-import { SectionHeader } from '../SectionHeader';
-import { SettingsGroup } from '../SettingsGroup';
+import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { views } from '../../../../app/views';
 import { useNavigationStore } from '../../../navigation/view';
 

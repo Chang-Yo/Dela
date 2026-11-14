@@ -15,8 +15,7 @@ import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';
 import { useNavigationStore } from '../../../navigation/view';
-import { SectionHeader } from '../SectionHeader';
-import { SettingsGroup } from '../SettingsGroup';
+import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { Callout, ErrorText } from '../../../../ui/alert';
 
 /** 项目筛选哨兵：Radix Select 不接受空串，「全部」与「随聊」（无项目）各用一个哨兵值。 */
