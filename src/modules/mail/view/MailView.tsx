@@ -23,7 +23,7 @@ import { MailAccountForm } from './MailAccountForm';
 import { MailFolders, type MailSelection } from './MailFolders';
 import { MailMessageList } from './MailMessageList';
 import { MailReader } from './MailReader';
-import { MailComposer } from './MailComposer';
+import { MailComposer, type MailComposerHandle } from './MailComposer';
 import { MailTrashList } from './MailTrashList';
 import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
 import { Resizer } from '../../../ui/resizer';
@@ -150,7 +150,7 @@ function DesktopMailView({
   const [localDrafts, setLocalDrafts] = useState<MailDraftSummary[]>([]);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [openingDraft, setOpeningDraft] = useState(false);
-  const [composeDirty, setComposeDirty] = useState(false);
+  const composer = useRef<MailComposerHandle>(null);
   const [trashItems, setTrashItems] = useState<MailTrashItem[]>([]);
   const [trashLoading, setTrashLoading] = useState(false);
   const [trashError, setTrashError] = useState<string | null>(null);
@@ -199,7 +199,6 @@ function DesktopMailView({
 
   const closeComposer = useCallback(() => {
     const close = () => {
-      setComposeDirty(false);
       setComposing(false);
       setDraft(undefined);
       // 编辑器内可能保存过草稿,刷新侧栏草稿数。
@@ -309,9 +308,10 @@ function DesktopMailView({
     else openTrash();
   };
 
-  const handleCompose = useCallback(() => {
-    setComposing((current) => (current && composeDirty ? true : !current));
-  }, [composeDirty]);
+  const handleCompose = () => {
+    if (composing && composer.current?.dirty) return;
+    setComposing(!composing);
+  };
 
   const handleReply = useCallback((source: MailMessageDetail) => {
     const open = () => {
@@ -649,7 +649,6 @@ function DesktopMailView({
         // 走保存/放弃确认后再切换,不允许静默丢内容。
         const apply = () => {
           if (request !== navigationRequest.current) return;
-          setComposeDirty(false);
           setComposing(false);
           setDraft(undefined);
           setSearch('');
@@ -752,9 +751,8 @@ function DesktopMailView({
             draft={draft}
             accountAddress={account?.address ?? ''}
             onClose={() => void closeComposer()}
-            onDirtyChange={setComposeDirty}
+            ref={composer}
             onSent={(warning) => {
-              setComposeDirty(false);
               setComposing(false);
               setDraft(undefined);
               showToast({ variant: 'success', title: '邮件已发送' });

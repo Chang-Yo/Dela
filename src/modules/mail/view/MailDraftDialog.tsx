@@ -61,7 +61,6 @@ export function MailDraftDialog({
               embedded
               key={state.draft.id}
               onClose={close}
-              onDirtyChange={() => {}}
               onSent={(warning) => onSent(warning ?? null)}
             />
           )}

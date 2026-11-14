@@ -1,21 +1,24 @@
 import { Bold, ImagePlus, Italic, Link, Paperclip, Send, Save, X } from 'lucide-react';
 import { registerComposeClose, registerComposeSave, leaveComposer } from './compose-close';
 import {
-  useCallback,
   useEffect,
+  useEffectEvent,
+  useImperativeHandle,
   useRef,
   useState,
   type ClipboardEvent,
   type FormEvent,
   type KeyboardEvent,
+  type Ref,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { mailContract, type MailComposeFile, type PreparedEmail } from '../contract';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { formatSize } from './mail-format';
 import { showToast } from '../../../renderer/app/toasts';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
-import { mailClient } from './use-mail';
+import { draftsKey, mailClient } from './use-mail';
 // oxlint-disable-next-line no-restricted-imports -- 过渡：键位解析尚未移入 ui 或 renderer/lib
 import { acceleratorFromEvent } from '../../../shared/keybindings';
 import { platform } from '../../../renderer/lib/platform';
@@ -23,11 +26,14 @@ import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { IconButton } from '../../../ui/icon-button';
 
+/** 邮箱页据此决定再点「写邮件」是否收起撰写面板。 */
+export type MailComposerHandle = { dirty: boolean };
+
 type Props = {
+  ref?: Ref<MailComposerHandle>;
   draft?: PreparedEmail;
   accountAddress: string;
   onClose: () => void;
-  onDirtyChange: (dirty: boolean) => void;
   onSent: (warning?: string) => void;
   /** 邮箱 grid 的占位类,由 MailView 按布局档位传入;Dialog 等非网格场景无需传。 */
   className?: string;
@@ -132,167 +138,169 @@ function serializeBody(editor: HTMLDivElement): { html: string; text: string } {
   return { html: clone.innerHTML, text: text.replace(/\n+$/, '').replaceAll('\u00a0', ' ') };
 }
 
+function draftBody(draft: PreparedEmail): HTMLDivElement {
+  const body = document.createElement('div');
+  if (!draft.html) {
+    for (const [index, line] of draft.text.split(/\r?\n/).entries()) {
+      if (index) body.append(document.createElement('br'));
+      body.append(document.createTextNode(line));
+    }
+    return body;
+  }
+  // Reconstruct a small safe formatting subset; never insert stored HTML directly.
+  const parsed = new DOMParser().parseFromString(draft.html, 'text/html');
+  const append = (source: Node, target: Node) => {
+    if (source.nodeType === Node.TEXT_NODE) {
+      target.appendChild(document.createTextNode(source.textContent ?? ''));
+      return;
+    }
+    if (!(source instanceof Element)) return;
+    if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT'].includes(source.tagName)) return;
+    if (source.tagName === 'IMG') {
+      const file = draft.files.find(
+        (file) => source.getAttribute('src') === `cid:${file.id}@dela` && file.kind === 'inline',
+      );
+      if (file?.previewUrl) {
+        const image = document.createElement('img');
+        image.src = file.previewUrl;
+        image.dataset.delaInline = file.id;
+        image.alt = source.getAttribute('alt') ?? '';
+        target.appendChild(image);
+      }
+      return;
+    }
+    let destination = target;
+    if (['DIV', 'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'A'].includes(source.tagName)) {
+      const element = document.createElement(source.tagName.toLowerCase());
+      if (element instanceof HTMLAnchorElement) {
+        const href = normalizeLink(source.getAttribute('href') ?? '');
+        if (href) element.href = href;
+      }
+      target.appendChild(element);
+      destination = element;
+    }
+    for (const child of source.childNodes) append(child, destination);
+  };
+  for (const child of parsed.body.childNodes) append(child, body);
+  return body;
+}
+
+function composeContent(
+  account: string,
+  recipientText: string,
+  subject: string,
+  files: readonly MailComposeFile[],
+  body: HTMLDivElement | null,
+) {
+  return {
+    account,
+    recipientText,
+    subject,
+    ...(body ? serializeBody(body) : { text: '', html: '' }),
+    attachmentIds: files.filter((file) => file.kind === 'attachment').map((file) => file.id),
+    inlineImageIds: files.filter((file) => file.kind === 'inline').map((file) => file.id),
+  };
+}
+
 export function MailComposer({
+  ref,
   accountAddress,
   onClose,
-  onDirtyChange,
   onSent,
   draft,
   className,
   embedded = false,
 }: Props) {
   const dela = window.dela!;
+  const queryClient = useQueryClient();
   const editorRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<Range | null>(null);
-  const filesRef = useRef<MailComposeFile[]>([]);
   const [to, setTo] = useState(draft?.recipientText ?? draft?.to.join(', ') ?? '');
   const [subject, setSubject] = useState(draft?.subject ?? '');
   const [bodyHasContent, setBodyHasContent] = useState(Boolean(draft?.text));
   const [files, setFiles] = useState<MailComposeFile[]>(draft?.files ?? []);
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
-  const savingDraft = useRef(false);
   // 发送/保存期间尝试离开被闸门拒绝时给出可见反馈，避免"点了没反应"。
   const [leaveBlocked, setLeaveBlocked] = useState(false);
-  const savedId = useRef(draft?.savedLocally ? draft.id : undefined);
-  const savedContent = useRef('');
-  const allowUnload = useRef(false);
-  const latestClose = useRef<() => Promise<boolean>>(async () => true);
-  const latestSave = useRef<() => Promise<boolean>>(async () => true);
-  const releaseTimerRef = useRef<number | null>(null);
+  const [savedId, setSavedId] = useState(draft?.savedLocally ? draft.id : undefined);
+  const [savedContent, setSavedContent] = useState(() =>
+    draft?.savedLocally
+      ? JSON.stringify(composeContent(accountAddress, to, subject, files, draftBody(draft)))
+      : '',
+  );
   const [error, setError] = useState<string | null>(null);
   const [formatState, setFormatState] = useState({ bold: false, italic: false });
   const [hasLinkSelection, setHasLinkSelection] = useState(false);
   const [linkDraft, setLinkDraft] = useState<string | null>(null);
   const [linkInvalid, setLinkInvalid] = useState(false);
 
-  // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
-  filesRef.current = files;
-  const dirtyCallback = useRef(onDirtyChange);
-  // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
-  dirtyCallback.current = onDirtyChange;
-  const dirty = Boolean(
-    // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
-    to.trim() || subject.trim() || bodyHasContent || files.length || savedId.current,
-  );
+  const dirty = Boolean(to.trim() || subject.trim() || bodyHasContent || files.length || savedId);
+  useImperativeHandle(ref, () => ({ dirty }), [dirty]);
 
-  const snapshot = () => {
-    const body = editorRef.current ? serializeBody(editorRef.current) : { text: '', html: '' };
-    return {
-      account: accountAddress,
-      recipientText: to,
-      subject,
-      ...body,
-      attachmentIds: files.filter((file) => file.kind === 'attachment').map((file) => file.id),
-      inlineImageIds: files.filter((file) => file.kind === 'inline').map((file) => file.id),
-    };
-  };
-  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
+  const snapshot = () => composeContent(accountAddress, to, subject, files, editorRef.current);
   useEffect(() => {
     const editor = editorRef.current;
-    if (!draft || !editor) return;
-    if (!draft.html) {
-      editor.replaceChildren();
-      for (const [index, line] of draft.text.split(/\r?\n/).entries()) {
-        if (index) editor.append(document.createElement('br'));
-        editor.append(document.createTextNode(line));
-      }
-      if (draft.savedLocally) savedContent.current = JSON.stringify(snapshot());
-      return;
-    }
-    // Reconstruct a small safe formatting subset; never insert stored HTML directly.
-    const parsed = new DOMParser().parseFromString(draft.html, 'text/html');
-    const append = (source: Node, target: Node) => {
-      if (source.nodeType === Node.TEXT_NODE) {
-        target.appendChild(document.createTextNode(source.textContent ?? ''));
-        return;
-      }
-      if (!(source instanceof Element)) return;
-      if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT'].includes(source.tagName)) return;
-      if (source.tagName === 'IMG') {
-        const file = draft.files.find(
-          (file) => source.getAttribute('src') === `cid:${file.id}@dela` && file.kind === 'inline',
-        );
-        if (file?.previewUrl) {
-          const image = document.createElement('img');
-          image.src = file.previewUrl;
-          image.dataset.delaInline = file.id;
-          image.alt = source.getAttribute('alt') ?? '';
-          target.appendChild(image);
-        }
-        return;
-      }
-      let destination = target;
-      if (['DIV', 'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'A'].includes(source.tagName)) {
-        const element = document.createElement(source.tagName.toLowerCase());
-        if (element instanceof HTMLAnchorElement) {
-          const href = normalizeLink(source.getAttribute('href') ?? '');
-          if (href) element.href = href;
-        }
-        target.appendChild(element);
-        destination = element;
-      }
-      for (const child of source.childNodes) append(child, destination);
-    };
-    editor.replaceChildren();
-    for (const child of parsed.body.childNodes) append(child, editor);
-    if (draft.savedLocally) savedContent.current = JSON.stringify(snapshot());
+    if (draft && editor) editor.replaceChildren(...draftBody(draft).childNodes);
   }, [draft]);
 
-  const saveDraft = async () => {
-    if (sending || savingDraft.current) return false;
-    savingDraft.current = true;
+  const saveDraft = async (): Promise<string | null> => {
+    if (sending || saving) return null;
     setSaving(true);
     setError(null);
     try {
       const content = snapshot();
-      const result = await mailClient.saveDraft({ ...content, id: savedId.current });
-      savedId.current = result.id;
-      savedContent.current = JSON.stringify(content);
+      const result = await mailClient.saveDraft({ ...content, id: savedId });
+      const saved = JSON.stringify(content);
+      setSavedId(result.id);
+      setSavedContent(saved);
+      void queryClient.invalidateQueries({ queryKey: draftsKey });
       showToast({ variant: 'success', title: '草稿已保存' });
-      return true;
+      return saved;
     } catch (reason) {
       showToast({ variant: 'error', title: '保存草稿失败', description: errorMessage(reason) });
-      return false;
+      return null;
     } finally {
-      savingDraft.current = false;
       setSaving(false);
+      setLeaveBlocked(false);
     }
   };
-  // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
-  latestClose.current = async () => {
+  const confirmClose = useEffectEvent(async () => {
     if (sending || saving) {
       setLeaveBlocked(true);
       return false;
     }
-    if (!dirty || JSON.stringify(snapshot()) === savedContent.current) return true;
+    if (!dirty || JSON.stringify(snapshot()) === savedContent) return true;
     try {
       const choice = await mailClient.confirmDraftClose();
       if (choice === 'cancel') return false;
-      return choice === 'discard' || (await saveDraft());
+      return choice === 'discard' || (await saveDraft()) !== null;
     } catch (reason) {
       showToast({ variant: 'error', title: '保存草稿失败', description: errorMessage(reason) });
       return false;
     }
-  };
-  // oxlint-disable-next-line react/refs -- 过渡：T6 重写写信状态时移除
-  latestSave.current = async () => {
-    if (sending || savingDraft.current) return false;
-    if (!dirty || JSON.stringify(snapshot()) === savedContent.current) return true;
-    if (!(await saveDraft())) return false;
-    return JSON.stringify(snapshot()) === savedContent.current;
-  };
-  useEffect(() => registerComposeClose(() => latestClose.current()), []);
-  useEffect(() => registerComposeSave(() => latestSave.current()), []);
+  });
+  const saveBeforeUpdate = useEffectEvent(async () => {
+    if (sending || saving) return false;
+    if (!dirty || JSON.stringify(snapshot()) === savedContent) return true;
+    const saved = await saveDraft();
+    return saved !== null && JSON.stringify(snapshot()) === saved;
+  });
+  useEffect(() => registerComposeClose(() => confirmClose()), []);
+  useEffect(() => registerComposeSave(() => saveBeforeUpdate()), []);
+
+  const blocksUnload = useEffectEvent(() => dirty);
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- 过渡：T6 重写邮件页状态时移除
-    if (!sending && !saving) setLeaveBlocked(false);
-  }, [sending, saving]);
-  useEffect(() => {
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      if (!blocksUnload()) return;
+      event.preventDefault();
+      event.returnValue = false;
+    };
+    window.addEventListener('beforeunload', preventUnload);
     void mailClient.setComposeActive(true);
     const unsubscribe = subscribe(mailContract, dela.bridge, 'requestClose', (quitting) => {
       const close = () => {
-        allowUnload.current = true;
+        window.removeEventListener('beforeunload', preventUnload);
         void mailClient.setComposeActive(false).then(() => {
           if (quitting) dela.window.quit();
           else dela.window.close();
@@ -303,42 +311,25 @@ export function MailComposer({
     });
     return () => {
       unsubscribe();
+      window.removeEventListener('beforeunload', preventUnload);
       void mailClient.setComposeActive(false);
     };
   }, [dela]);
 
+  // 附件暂存仅在发送成功后由主进程释放，其余路径靠卸载释放；StrictMode 假卸载时编辑器仍在文档里，不释放。
+  const composeFileIds = useEffectEvent(() => files.map((file) => file.id));
   useEffect(() => {
-    const preventUnload = (event: BeforeUnloadEvent) => {
-      if (!dirty || allowUnload.current) return;
-      event.preventDefault();
-      event.returnValue = false;
-    };
-    window.addEventListener('beforeunload', preventUnload);
-    return () => window.removeEventListener('beforeunload', preventUnload);
-  }, [dirty]);
-
-  // 附件暂存仅在发送成功后由主进程释放，其余路径依赖卸载释放；开发模式 StrictMode 会假卸载一次，
-  // 推迟一个宏任务可避免重挂载后保存/发送报「所选文件已失效」，真卸载仍会全量释放。
-  useEffect(() => {
-    if (releaseTimerRef.current !== null) {
-      window.clearTimeout(releaseTimerRef.current);
-      releaseTimerRef.current = null;
-    }
+    const editor = editorRef.current;
     return () => {
-      const ids = filesRef.current.map((file) => file.id);
-      if (ids.length) {
-        releaseTimerRef.current = window.setTimeout(() => {
-          releaseTimerRef.current = null;
-          void mailClient.releaseComposeFiles(ids);
-        }, 0);
-      }
-      dirtyCallback.current(false);
+      if (editor?.isConnected) return;
+      const ids = composeFileIds();
+      if (ids.length) void mailClient.releaseComposeFiles(ids);
     };
   }, []);
 
   const attachments = files.filter((file) => file.kind === 'attachment');
 
-  const saveSelection = useCallback(() => {
+  const saveSelection = () => {
     const editor = editorRef.current;
     const selection = window.getSelection();
     if (!editor || !selection?.rangeCount) return;
@@ -359,12 +350,14 @@ export function MailComposer({
     } catch {
       /* 环境不支持 queryCommandState 时忽略。 */
     }
-  }, []);
+  };
 
+  const onSelectionChange = useEffectEvent(saveSelection);
   useEffect(() => {
-    document.addEventListener('selectionchange', saveSelection);
-    return () => document.removeEventListener('selectionchange', saveSelection);
-  }, [saveSelection]);
+    const listener = () => onSelectionChange();
+    document.addEventListener('selectionchange', listener);
+    return () => document.removeEventListener('selectionchange', listener);
+  }, []);
 
   const format = (command: 'bold' | 'italic') => {
     const editor = editorRef.current;
@@ -565,19 +558,21 @@ export function MailComposer({
         showToast({ variant: 'error', title: '发送邮件失败', description: result.error });
         return;
       }
-      if (savedId.current) {
+      if (savedId) {
         try {
-          await mailClient.deleteDraft(savedId.current);
+          await mailClient.deleteDraft(savedId);
         } catch {
           onSent('邮件已发送，但本地草稿未能删除，请勿重复发送');
           return;
         }
+        void queryClient.invalidateQueries({ queryKey: draftsKey });
       }
       onSent(result.warning);
     } catch (sendError) {
       showToast({ variant: 'error', title: '发送邮件失败', description: errorMessage(sendError) });
     } finally {
       setSending(false);
+      setLeaveBlocked(false);
     }
   };
 

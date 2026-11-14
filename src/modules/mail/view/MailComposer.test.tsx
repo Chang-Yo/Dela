@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -60,13 +61,14 @@ async function mount(html?: string, text = '正文', files: PreparedEmail['files
   };
   await act(async () =>
     root.render(
-      <MailComposer
-        accountAddress="sender@example.invalid"
-        draft={draft}
-        onClose={() => {}}
-        onDirtyChange={() => {}}
-        onSent={() => {}}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <MailComposer
+          accountAddress="sender@example.invalid"
+          draft={draft}
+          onClose={() => {}}
+          onSent={() => {}}
+        />
+      </QueryClientProvider>,
     ),
   );
   return container.querySelector<HTMLDivElement>('[contenteditable]')!;
