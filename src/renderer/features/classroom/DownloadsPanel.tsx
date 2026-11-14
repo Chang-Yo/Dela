@@ -25,7 +25,7 @@ export function DownloadsPanel() {
         <span className="relative inline-flex">
           <Button
             aria-label={`下载任务，${activeCount} 个进行中`}
-            className="hover:bg-hover-2"
+            className="hover:bg-hover-strong"
             size="icon-xs"
             title="下载任务"
             variant="ghost"
@@ -123,7 +123,7 @@ function DownloadRow({
       {download.state === 'progressing' && (
         <Button
           aria-label="取消下载"
-          className="hover:bg-hover-2"
+          className="hover:bg-hover-strong"
           onClick={onCancel}
           size="icon-xs"
           title="取消"
@@ -135,7 +135,7 @@ function DownloadRow({
       {download.state === 'completed' && (
         <Button
           aria-label="打开所在位置"
-          className="hover:bg-hover-2"
+          className="hover:bg-hover-strong"
           onClick={onReveal}
           size="icon-xs"
           title="打开位置"

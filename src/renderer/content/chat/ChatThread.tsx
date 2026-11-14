@@ -240,7 +240,7 @@ const UserMessage = memo(function UserMessage({
             onOpenSource ? (
               <button
                 key={source.key}
-                className="h-7 max-w-full truncate rounded-control bg-field px-2 text-xs leading-7 text-ink-2 shadow-hairline transition-colors hover:bg-hover-2 hover:text-ink"
+                className="h-7 max-w-full truncate rounded-control bg-field px-2 text-xs leading-7 text-ink-2 shadow-hairline transition-colors hover:bg-hover-strong hover:text-ink"
                 onClick={() => onOpenSource(source.key)}
               >
                 {source.title}
@@ -261,7 +261,7 @@ const UserMessage = memo(function UserMessage({
           {message.sessions.map((session) => (
             <button
               key={session.id}
-              className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field px-2 text-xs text-ink-2 shadow-hairline transition-colors enabled:hover:bg-hover-2 enabled:hover:text-ink"
+              className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field px-2 text-xs text-ink-2 shadow-hairline transition-colors enabled:hover:bg-hover-strong enabled:hover:text-ink"
               disabled={!onOpenSession}
               onClick={() => onOpenSession?.(session.id)}
               title={session.title}
@@ -730,7 +730,7 @@ export const ChatThread = memo(function ChatThread({
       {!atBottom && messages.length > 0 && (
         <button
           aria-label="回到底部"
-          className="absolute bottom-3 left-1/2 z-10 grid size-8 -translate-x-1/2 place-items-center rounded-full border border-line bg-surface text-ink-2 shadow-raised transition-colors hover:bg-hover-2 hover:text-ink"
+          className="absolute bottom-3 left-1/2 z-10 grid size-8 -translate-x-1/2 place-items-center rounded-full border border-line bg-surface text-ink-2 shadow-raised transition-colors hover:bg-hover-strong hover:text-ink"
           onClick={() => {
             followBottom.current = true;
             const el = scrollRef.current;

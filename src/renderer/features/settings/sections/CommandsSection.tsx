@@ -135,7 +135,7 @@ export function CommandsSection() {
                       key={command.id}
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-card bg-fill">
                           <Terminal className="size-4 text-ink-3" strokeWidth={1.8} />
                         </span>
                         <div className="grid min-w-0 gap-0.5">

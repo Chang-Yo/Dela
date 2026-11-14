@@ -31,7 +31,7 @@ export function TimetableConnectCard({ semester, onSuccess }: TimetableConnectCa
 
   return (
     <section className="grid w-full max-w-[30rem] justify-items-start gap-3 rounded-card border border-line bg-surface p-6">
-      <div className="grid size-10 place-items-center rounded-card bg-hover-2">
+      <div className="grid size-10 place-items-center rounded-card bg-fill">
         <CalendarDays className="size-5" />
       </div>
       <div className="grid gap-1">

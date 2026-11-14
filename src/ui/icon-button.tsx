@@ -11,8 +11,8 @@ const iconButtonVariants = cva(
    transition-[background-color,color,transform] duration-base
    hover:bg-hover hover:text-ink active:scale-[0.94]
    disabled:pointer-events-none disabled:opacity-50
-   aria-pressed:bg-hover-2 aria-pressed:text-ink
-   aria-[current=page]:bg-hover-2 aria-[current=page]:text-ink`,
+   aria-pressed:bg-selected aria-pressed:text-ink
+   aria-[current=page]:bg-selected aria-[current=page]:text-ink`,
   {
     variants: {
       size: {

@@ -223,7 +223,7 @@ export function SkillsTab() {
                 <div className="flex min-w-0 items-center gap-3">
                   <span
                     aria-hidden="true"
-                    className="grid size-8 shrink-0 place-items-center rounded-card bg-hover-2 text-sm font-medium uppercase text-ink-2"
+                    className="grid size-8 shrink-0 place-items-center rounded-card bg-fill text-sm font-medium uppercase text-ink-2"
                   >
                     {skill.name.charAt(0)}
                   </span>
@@ -440,7 +440,7 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
                   className={cn(
                     'flex w-full min-w-0 items-center gap-2.5 rounded-control border px-3 py-2 text-left transition-colors duration-base disabled:opacity-50',
                     entry.id === projectId
-                      ? 'border-line-strong bg-hover-2'
+                      ? 'border-line-strong bg-selected'
                       : 'border-line hover:bg-hover',
                   )}
                   disabled={busy}

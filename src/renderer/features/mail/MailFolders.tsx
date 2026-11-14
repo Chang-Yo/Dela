@@ -115,7 +115,9 @@ function SidebarRow({
         aria-label={hasCount ? `${label}，${countLabel}` : label}
         className={cn(
           'relative flex h-8 shrink-0 items-center rounded-control px-2 text-left text-sm transition-colors duration-base',
-          selected ? 'bg-hover-2 font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
+          selected
+            ? 'bg-selected font-medium text-ink'
+            : 'text-ink-2 hover:bg-hover hover:text-ink',
         )}
         onClick={onSelect}
         type="button"
@@ -282,7 +284,7 @@ export function MailFolders({
             className={cn(
               'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-sm transition-colors duration-base',
               composing
-                ? 'bg-hover-2 font-medium text-ink'
+                ? 'bg-selected font-medium text-ink'
                 : 'text-ink-2 hover:bg-hover hover:text-ink',
             )}
             onClick={onCompose}
@@ -318,7 +320,7 @@ export function MailFolders({
             className={cn(
               'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-sm transition-colors duration-base',
               confirmingDisconnect
-                ? 'bg-hover-2 font-medium text-danger'
+                ? 'bg-selected font-medium text-danger'
                 : 'text-ink-2 hover:bg-hover hover:text-danger',
             )}
             onClick={() => void handleDisconnect()}

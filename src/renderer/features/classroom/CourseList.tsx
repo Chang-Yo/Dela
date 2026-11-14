@@ -66,8 +66,8 @@ function VideoRowSkeleton() {
   return (
     <div className="flex items-center gap-2 px-2 py-1.5">
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="h-3.5 w-3/5 animate-pulse rounded-chip bg-hover-2" />
-        <div className="h-3 w-2/5 animate-pulse rounded-chip bg-hover-2" />
+        <div className="h-3.5 w-3/5 animate-pulse rounded-chip bg-fill" />
+        <div className="h-3 w-2/5 animate-pulse rounded-chip bg-fill" />
       </div>
     </div>
   );
@@ -81,7 +81,7 @@ function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVide
     <div
       className={cn(
         'flex items-center rounded-chip px-2 transition-colors duration-base',
-        selected ? 'bg-hover-2' : 'hover:bg-hover-2',
+        selected ? 'bg-selected' : 'hover:bg-hover-strong',
       )}
     >
       <button

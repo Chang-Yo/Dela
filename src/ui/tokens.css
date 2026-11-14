@@ -9,7 +9,7 @@
   --surface: oklch(1 0 0);
   --inset: oklch(0.979 0.002 247.839);
   --hover: oklch(0.97 0.002 247.839);
-  --hover-2: oklch(0.933 0.003 247.86);
+  --hover-strong: oklch(0.933 0.003 247.86);
 
   /* ink ramp */
   --ink: oklch(0.247 0.006 258.361);
@@ -108,7 +108,7 @@
   --surface: oklch(0.26 0.006 271.191);
   --inset: oklch(0.243 0.004 264.492);
   --hover: oklch(0.289 0.006 271.22);
-  --hover-2: oklch(0.318 0.007 274.747);
+  --hover-strong: oklch(0.318 0.007 274.747);
 
   --ink: oklch(0.964 0.002 247.839);
   --ink-2: oklch(0.731 0.008 260.731);
@@ -186,7 +186,10 @@
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-hover: var(--hover);
-  --color-hover-2: var(--hover-2);
+  /* 同一档灰按用途分三个名字，可以各自调值：加深的悬停、选中与按下、中性填充。 */
+  --color-hover-strong: var(--hover-strong);
+  --color-selected: var(--hover-strong);
+  --color-fill: var(--hover-strong);
   --color-field: var(--field);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);

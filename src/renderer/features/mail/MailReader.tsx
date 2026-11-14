@@ -55,7 +55,7 @@ function RecipientRow({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="inline-flex items-center rounded-control border border-line px-2 py-0.5 text-xs text-ink-3 transition-colors hover:bg-hover-2"
+                className="inline-flex items-center rounded-control border border-line px-2 py-0.5 text-xs text-ink-3 transition-colors hover:bg-hover-strong"
                 type="button"
               >
                 +{foldedCount} 收件者
@@ -134,7 +134,7 @@ export function MailReader({
     <section className={cn('@container flex min-h-0 min-w-0 flex-col bg-inset', className)}>
       <button
         className={cn(
-          'mx-4 mt-3 items-center self-start rounded-full border border-line px-3 py-1 text-xs text-ink-2 transition-colors hover:bg-hover-2',
+          'mx-4 mt-3 items-center self-start rounded-full border border-line px-3 py-1 text-xs text-ink-2 transition-colors hover:bg-hover-strong',
           showBackButton ? 'inline-flex' : 'hidden',
         )}
         onClick={() => setMobileReading(false)}
@@ -227,7 +227,7 @@ export function MailReader({
                   <span className="flex min-w-0 flex-1 flex-wrap gap-1.5">
                     {detail.attachments.map((attachment: MailAttachmentInfo) => (
                       <button
-                        className="inline-flex max-w-full items-center gap-1 rounded-control border border-line px-2 py-0.5 text-left text-xs transition-colors hover:bg-hover-2 disabled:cursor-wait disabled:opacity-60"
+                        className="inline-flex max-w-full items-center gap-1 rounded-control border border-line px-2 py-0.5 text-left text-xs transition-colors hover:bg-hover-strong disabled:cursor-wait disabled:opacity-60"
                         disabled={!attachment.part || downloadingPart === attachment.part}
                         key={`${attachment.filename}-${attachment.part}`}
                         onClick={() => void saveAttachment(attachment)}

@@ -17,7 +17,7 @@ export function StepGuide({ steps }: { steps: StepGuideItem[] }) {
             <span className="grid size-6 shrink-0 place-items-center rounded-full border border-line bg-inset text-xs font-medium text-ink-3">
               {index + 1}
             </span>
-            {index < steps.length - 1 && <span className="my-1.5 w-px flex-1 bg-hover-2" />}
+            {index < steps.length - 1 && <span className="my-1.5 w-px flex-1 bg-line" />}
           </div>
           <div className={cn('grid content-start gap-3', index < steps.length - 1 && 'pb-9')}>
             <h3 className="text-sm font-medium leading-6 text-ink">{step.title}</h3>

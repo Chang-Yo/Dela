@@ -87,7 +87,7 @@ function sessionRow(title: string): HTMLElement {
   return row(button);
 }
 
-const highlighted = (element: HTMLElement) => element.className.includes('bg-hover-2');
+const highlighted = (element: HTMLElement) => element.className.includes('bg-selected');
 
 it('hides the project background while a listed session is highlighted', async () => {
   await render('s-1');

@@ -159,7 +159,7 @@ export function GlobalSearchDialog({
                           aria-selected={selectedIndex === index}
                           className={cn(
                             'flex cursor-pointer items-center gap-2.5 rounded-card px-2.5 py-2 outline-none transition-colors',
-                            selectedIndex === index ? 'bg-hover-2 text-ink' : 'hover:bg-hover',
+                            selectedIndex === index ? 'bg-selected text-ink' : 'hover:bg-hover',
                           )}
                           id={optionId(index)}
                           key={`${group.id}-${hit.id}`}

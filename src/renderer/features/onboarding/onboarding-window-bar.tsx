@@ -19,7 +19,7 @@ export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
           <>
             <button
               aria-label="最小化"
-              className="grid h-full w-12 place-items-center text-ink-3 transition-colors hover:bg-hover-2 hover:text-ink"
+              className="grid h-full w-12 place-items-center text-ink-3 transition-colors hover:bg-hover-strong hover:text-ink"
               onClick={() => window.dela?.window.minimize()}
               type="button"
             >

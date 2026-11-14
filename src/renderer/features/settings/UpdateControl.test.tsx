@@ -142,8 +142,8 @@ it('检查按钮用「暂停通知 30 分钟」那一档的 secondary，不再�
     useUpdateState.setState({ snapshot: { ...readyState, phase: 'idle' } });
     root.render(<UpdateControl />);
   });
-  // secondary 的底色是 hover-2；ghost 完全没有底色。
-  expect(button('检查更新').className).toContain('bg-hover-2');
+  // secondary 的底色是 fill；ghost 完全没有底色。
+  expect(button('检查更新').className).toContain('bg-fill');
 });
 
 it('有更新可下载时升级成主色按钮', async () => {

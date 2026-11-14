@@ -368,7 +368,7 @@ export function WorkbenchExplorer({
                 <>
                   <Button
                     aria-label="预览远端端口"
-                    className="hover:bg-hover-2"
+                    className="hover:bg-hover-strong"
                     onClick={() => setPortsForProject(rootId)}
                     size="icon-xs"
                     title="预览远端端口"
@@ -378,7 +378,7 @@ export function WorkbenchExplorer({
                   </Button>
                   <Button
                     aria-label="上传本地文件"
-                    className="hover:bg-hover-2"
+                    className="hover:bg-hover-strong"
                     onClick={() => {
                       const directory = root?.path;
                       if (!directory) return;
@@ -400,7 +400,7 @@ export function WorkbenchExplorer({
                   <DropdownMenuTrigger asChild>
                     <Button
                       aria-label="新建"
-                      className="hover:bg-hover-2"
+                      className="hover:bg-hover-strong"
                       size="icon-xs"
                       title="新建"
                       variant="ghost"
@@ -439,7 +439,7 @@ export function WorkbenchExplorer({
               )}
               <Button
                 aria-label="全部收起"
-                className="hover:bg-hover-2"
+                className="hover:bg-hover-strong"
                 onClick={() => useTreeState.getState().collapseAll()}
                 size="icon-xs"
                 title="全部收起"
@@ -511,7 +511,7 @@ export function WorkbenchExplorer({
                     </button>
                     <Button
                       aria-label="刷新课程资料"
-                      className="hover:bg-hover-2"
+                      className="hover:bg-hover-strong"
                       disabled={!canvas.connected}
                       onClick={refreshCourses}
                       size="icon-xs"
@@ -524,7 +524,7 @@ export function WorkbenchExplorer({
                       <DropdownMenuTrigger asChild>
                         <Button
                           aria-label="Canvas 操作"
-                          className="hover:bg-hover-2"
+                          className="hover:bg-hover-strong"
                           size="icon-xs"
                           title="Canvas 操作"
                           variant="ghost"

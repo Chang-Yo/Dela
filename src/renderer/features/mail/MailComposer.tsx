@@ -775,7 +775,7 @@ export function MailComposer({
                 <span className="text-ink-3">{formatSize(file.size)}</span>
                 <button
                   aria-label={`移除 ${file.name}`}
-                  className="ml-1 grid size-4 place-items-center rounded-chip text-ink-3 hover:bg-hover-2 hover:text-ink"
+                  className="ml-1 grid size-4 place-items-center rounded-chip text-ink-3 hover:bg-hover-strong hover:text-ink"
                   onClick={() => removeFile(file.id)}
                   type="button"
                 >

@@ -150,7 +150,7 @@ export const TabBar = memo(function TabBar({
                     'group/tab relative flex h-8 min-w-32 max-w-56 shrink-0 select-none items-center gap-1.5 px-1.5 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
                     active
                       ? 'rounded-t-card bg-surface text-ink'
-                      : 'rounded-control bg-hover text-ink-3 hover:bg-hover-2 hover:text-ink',
+                      : 'rounded-control bg-hover text-ink-3 hover:bg-hover-strong hover:text-ink',
                     active &&
                       'before:absolute before:inset-x-1.5 before:top-0 before:h-0.5 before:rounded-full',
                     active && (unfocused ? 'before:bg-ink/25' : 'before:bg-ink'),

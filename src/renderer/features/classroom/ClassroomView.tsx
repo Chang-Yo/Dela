@@ -95,7 +95,7 @@ function DesktopClassroomView() {
                   {/* 连接不稳定时的主动出口：重开官方窗口登录并刷新课程。失败原因由 store 弹 toast。 */}
                   <Button
                     aria-label="重新登录交大视频"
-                    className="hover:bg-hover-2"
+                    className="hover:bg-hover-strong"
                     disabled={connectBusy}
                     onClick={() => void connect()}
                     size="icon-xs"
@@ -107,7 +107,7 @@ function DesktopClassroomView() {
                   <DownloadsPanel />
                   <Button
                     aria-label="刷新课程"
-                    className="hover:bg-hover-2"
+                    className="hover:bg-hover-strong"
                     disabled={coursesLoading}
                     onClick={() => void refresh()}
                     size="icon-xs"
@@ -209,7 +209,7 @@ function ConnectCard() {
   return (
     <div className="grid flex-1 place-items-center p-6">
       <section className="grid w-full max-w-[30rem] justify-items-start gap-3 rounded-card border border-line bg-surface p-6 shadow-hairline">
-        <div className="grid size-10 place-items-center rounded-card bg-hover-2">
+        <div className="grid size-10 place-items-center rounded-card bg-fill">
           <MonitorPlay className="size-5" />
         </div>
         <div className="grid gap-1">

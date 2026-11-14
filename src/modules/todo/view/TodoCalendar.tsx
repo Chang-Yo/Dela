@@ -43,7 +43,7 @@ function DayOverflow({
   const [open, setOpen] = useState(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-2 hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint">
+      <Popover.Trigger className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint">
         +{items.length - 3}
         <span className="@max-[320px]:hidden"> 更多</span>
       </Popover.Trigger>

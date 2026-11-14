@@ -64,7 +64,7 @@ function TopicRow({
     <button
       className={cn(
         'flex w-full items-start gap-3.5 rounded-card border border-line p-5 text-left shadow-hairline transition-colors max-md:p-4',
-        topic.pinned ? 'bg-inset hover:bg-hover-2' : 'bg-surface hover:bg-hover',
+        topic.pinned ? 'bg-inset hover:bg-hover-strong' : 'bg-surface hover:bg-hover',
       )}
       onClick={() => void openTopic(topic.id)}
       type="button"

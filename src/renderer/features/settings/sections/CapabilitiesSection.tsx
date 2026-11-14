@@ -207,7 +207,7 @@ export function CapabilitiesSection() {
                         </div>
                         {capability.lockedReason ? (
                           // 常驻徽标在容器底色上要再跳一级，否则和容器同色看不见。
-                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-hover-2 px-2 py-1 text-xs text-ink-3">
+                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-fill px-2 py-1 text-xs text-ink-3">
                             <Lock aria-hidden="true" className="size-3" />
                             常驻
                           </span>

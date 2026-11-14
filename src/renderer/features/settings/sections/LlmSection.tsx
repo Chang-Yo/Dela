@@ -50,7 +50,7 @@ function ProviderMonogram({ name, size }: { name: string; size: 'sm' | 'md' }) {
     <span
       aria-hidden="true"
       className={cn(
-        'grid shrink-0 place-items-center rounded-card bg-hover-2 font-medium text-ink-2',
+        'grid shrink-0 place-items-center rounded-card bg-fill font-medium text-ink-2',
         size === 'sm' ? 'size-6 text-xs' : 'size-8 text-sm',
       )}
     >
@@ -181,7 +181,7 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
             <div className="flex flex-wrap gap-1.5">
               {/* 文本输入固定开启：不是开关，是带锁的状态（学 ZCode 的 Text 锁定 chip）。 */}
               <span
-                className="flex items-center gap-1 rounded-control border border-transparent bg-hover-2 px-2 py-1 text-xs text-ink"
+                className="flex items-center gap-1 rounded-control border border-transparent bg-selected px-2 py-1 text-xs text-ink"
                 title="文本输入固定开启"
               >
                 文本
@@ -192,7 +192,9 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
                 aria-pressed={vision}
                 className={cn(
                   'rounded-control border border-line px-2 py-1 text-xs transition-colors',
-                  vision ? 'border-transparent bg-hover-2 text-ink' : 'text-ink-3 hover:bg-hover-2',
+                  vision
+                    ? 'border-transparent bg-selected text-ink'
+                    : 'text-ink-3 hover:bg-hover-strong',
                 )}
                 onClick={() => setVision((current) => !current)}
               >
@@ -212,8 +214,8 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
                   className={cn(
                     'rounded-control border border-line px-2 py-1 text-xs transition-colors',
                     effortLevels.includes(level)
-                      ? 'border-transparent bg-hover-2 text-ink'
-                      : 'text-ink-3 hover:bg-hover-2',
+                      ? 'border-transparent bg-selected text-ink'
+                      : 'text-ink-3 hover:bg-hover-strong',
                   )}
                   onClick={() =>
                     setEffortLevels((current) =>

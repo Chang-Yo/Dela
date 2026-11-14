@@ -243,7 +243,7 @@ export function DirectoryBrowser({
           <span className="shrink-0 text-ink-3">最近</span>
           {recent.map((item) => (
             <button
-              className="shrink-0 rounded-chip bg-hover px-1.5 py-0.5 font-mono text-ink-2 transition-colors duration-base hover:bg-hover-2 hover:text-ink"
+              className="shrink-0 rounded-chip bg-hover px-1.5 py-0.5 font-mono text-ink-2 transition-colors duration-base hover:bg-hover-strong hover:text-ink"
               key={item}
               onClick={() => onNavigate(item)}
               title={item}
@@ -315,7 +315,7 @@ export function DirectoryBrowser({
               className={cn(
                 'flex h-7 w-full min-w-0 items-center gap-2 px-3 text-left text-sm transition-colors duration-fast',
                 entry.path === selected
-                  ? 'bg-hover-2 text-ink'
+                  ? 'bg-selected text-ink'
                   : 'text-ink-2 hover:bg-hover hover:text-ink',
               )}
               onClick={() => onSelect(entry.path === selected ? null : entry.path)}

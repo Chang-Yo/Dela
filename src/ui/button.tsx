@@ -12,8 +12,8 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-ink text-surface shadow-inset-highlight hover:opacity-90',
         destructive: 'bg-danger text-on-accent shadow-inset-highlight hover:brightness-95',
-        outline: 'bg-surface text-ink shadow-btn hover:bg-hover aria-expanded:bg-hover-2',
-        secondary: 'bg-hover-2 text-ink hover:bg-line-strong',
+        outline: 'bg-surface text-ink shadow-btn hover:bg-hover aria-expanded:bg-selected',
+        secondary: 'bg-fill text-ink hover:bg-line-strong',
         ghost: 'text-ink-2 hover:bg-hover hover:text-ink aria-expanded:bg-hover',
         link: 'text-accent-ink underline-offset-4 hover:underline active:scale-100',
       },

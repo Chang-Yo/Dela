@@ -58,7 +58,7 @@ export function MailTrashList({
               <div
                 className={cn(
                   'flex w-full items-start gap-2.5 rounded-card px-2.5 py-2 transition-colors duration-base',
-                  selected ? 'bg-hover-2' : 'hover:bg-hover',
+                  selected ? 'bg-selected' : 'hover:bg-hover',
                 )}
                 key={item.id}
               >

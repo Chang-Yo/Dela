@@ -7,7 +7,7 @@ import { useRootFontSize } from '../../lib/root-font-size';
 
 const toolbarToggle = cn(
   'h-7 rounded-full px-3 text-xs transition-colors',
-  'aria-pressed:bg-hover-2 aria-pressed:font-medium aria-pressed:text-ink',
+  'aria-pressed:bg-selected aria-pressed:font-medium aria-pressed:text-ink',
   'aria-[pressed=false]:text-ink-3 aria-[pressed=false]:hover:bg-hover',
 );
 

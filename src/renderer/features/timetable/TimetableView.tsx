@@ -287,7 +287,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
             >
               <RefreshCw className={cn('size-3.5', busy && 'animate-spin')} />
             </Button>
-            <div className="flex items-center rounded-control bg-hover-2 p-0.5">
+            <div className="flex items-center rounded-control bg-fill p-0.5">
               {(['week', 'month'] as const).map((value) => (
                 <button
                   className={cn(
@@ -344,7 +344,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
             </Select>
           ) : null}
           <button
-            className="inline-flex h-8 items-center gap-1.5 rounded-control bg-hover-2 px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:bg-hover-2 focus-visible:ring-3 focus-visible:ring-accent-tint"
+            className="inline-flex h-8 items-center gap-1.5 rounded-control bg-fill px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:bg-hover-strong focus-visible:ring-3 focus-visible:ring-accent-tint"
             onClick={() => setSemesterDraft(true)}
             type="button"
           >

@@ -233,7 +233,7 @@ export function ProjectSessionNav({
             labelButton
           )}
           {!collapsed && (
-            <div className={cn(rowActions, rowActive ? 'bg-hover-2' : 'bg-hover')}>
+            <div className={cn(rowActions, rowActive ? 'bg-selected' : 'bg-hover')}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <IconButton size="sm" aria-label={`${label} 的项目菜单`} title="项目菜单">

@@ -4,7 +4,7 @@ import { cn } from '../../ui/cn';
 export const navRow = (active: boolean) =>
   cn(
     'flex h-8 min-w-0 items-center gap-2.5 rounded-control px-2 text-left text-sm transition-colors duration-base',
-    active ? 'bg-hover-2 font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
+    active ? 'bg-selected font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
   );
 
 export const navIcon = (active: boolean) =>
@@ -13,7 +13,7 @@ export const navIcon = (active: boolean) =>
 export const navSubRow = (active: boolean) =>
   cn(
     'group relative flex h-7 min-w-0 items-center rounded-control pl-8 pr-1.5 transition-colors duration-base',
-    active ? 'bg-hover-2 text-ink' : 'text-ink-3 hover:bg-hover hover:text-ink-2',
+    active ? 'bg-selected text-ink' : 'text-ink-3 hover:bg-hover hover:text-ink-2',
   );
 
 export const navSectionTitle = 'px-2 pb-1 text-xs font-medium text-ink-3';

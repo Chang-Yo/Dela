@@ -121,7 +121,7 @@ function WindowControls() {
     <div className="[-webkit-app-region:no-drag] flex h-full">
       <button
         aria-label="最小化"
-        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-base hover:bg-hover-2 hover:text-ink"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-base hover:bg-hover-strong hover:text-ink"
         onClick={() => window.dela?.window.minimize()}
         type="button"
       >
@@ -129,7 +129,7 @@ function WindowControls() {
       </button>
       <button
         aria-label={maximized ? '还原' : '最大化'}
-        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-base hover:bg-hover-2 hover:text-ink"
+        className="grid h-full w-12 place-items-center text-ink-2 transition-colors duration-base hover:bg-hover-strong hover:text-ink"
         onClick={() => window.dela?.window.toggleMaximize()}
         type="button"
       >
@@ -528,7 +528,7 @@ export function AppShell({
                   <DropdownMenuTrigger asChild>
                     <button
                       aria-label="选择项目打开方式"
-                      className="grid h-full w-6 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink data-[state=open]:bg-hover-2"
+                      className="grid h-full w-6 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink data-[state=open]:bg-selected"
                       title="选择项目打开方式"
                       type="button"
                     >
@@ -676,7 +676,7 @@ export function AppShell({
             <IconButton
               aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
               aria-current={view === 'notifications' ? 'page' : undefined}
-              className={cn('relative', view === 'notifications' && 'bg-hover-2 text-ink')}
+              className={cn('relative', view === 'notifications' && 'bg-selected text-ink')}
               onClick={() => navigate('notifications')}
               title="通知"
             >

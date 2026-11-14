@@ -485,9 +485,9 @@ export function Explorer({
               className={cn(
                 'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-chip pr-1 text-sm outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-chip before:transition-colors focus-visible:ring-2 focus-visible:ring-accent',
                 selected === item.id
-                  ? 'before:bg-hover-2 font-medium text-ink'
-                  : // 目录列底色为 inset，hover 用 hover-2 才与其拉开层次。
-                    'text-ink-2 hover:text-ink hover:before:bg-hover-2',
+                  ? 'before:bg-selected font-medium text-ink'
+                  : // 目录列底色为 inset，hover 用 hover-strong 才与其拉开层次。
+                    'text-ink-2 hover:text-ink hover:before:bg-hover-strong',
                 // 落点区域行去圆角，使目录子树区域连成一块整色；蓝色调与选中态的
                 // 中性灰区分（--drop-target，globals.css 三作用域定义）。
                 dropRegion && 'rounded-none bg-drop-target text-ink',

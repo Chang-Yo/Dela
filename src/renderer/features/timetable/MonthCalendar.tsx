@@ -182,7 +182,7 @@ export function MonthCalendar({
                 {items.length > 3 ? (
                   <Popover.Root>
                     <Popover.Trigger
-                      className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-2 hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint"
+                      className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint"
                       // 不让「更多」上的按下冒泡成日格拖拽的起点。
                       onMouseDown={(event) => event.stopPropagation()}
                     >

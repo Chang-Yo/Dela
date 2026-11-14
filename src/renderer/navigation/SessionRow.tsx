@@ -137,7 +137,7 @@ export function SessionRow({
           确认归档
         </Button>
       ) : (
-        <div className={cn(rowActions, active ? 'bg-hover-2' : 'bg-hover')}>
+        <div className={cn(rowActions, active ? 'bg-selected' : 'bg-hover')}>
           <IconButton
             size="sm"
             disabled={busy}

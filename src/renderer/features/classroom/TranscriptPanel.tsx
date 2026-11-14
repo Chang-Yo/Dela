@@ -139,12 +139,12 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
                   key={`${segment.startMs}-${index}`}
                   className={cn(
                     'mb-1 rounded-control px-2 py-2 text-sm leading-relaxed text-ink-2',
-                    active && 'bg-hover-2 text-ink',
+                    active && 'bg-selected text-ink',
                   )}
                 >
                   <button
                     type="button"
-                    className="mb-1 inline-flex items-center gap-1 rounded-chip px-1 py-0.5 text-xs tabular-nums text-ink-3 hover:bg-hover-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+                    className="mb-1 inline-flex items-center gap-1 rounded-chip px-1 py-0.5 text-xs tabular-nums text-ink-3 hover:bg-hover-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
                     aria-label={`跳转到 ${formatTime(segment.startMs / 1000)}`}
                     onClick={() => seekTo(video.id, segment.startMs / 1000)}
                   >

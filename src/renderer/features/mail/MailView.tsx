@@ -774,7 +774,7 @@ function DesktopMailView({
                 <div key={item.id} className="flex items-center gap-2 border-b py-3">
                   <button
                     disabled={openingDraft}
-                    className="min-w-0 flex-1 rounded text-left transition-colors hover:bg-hover-2"
+                    className="min-w-0 flex-1 rounded text-left transition-colors hover:bg-hover-strong"
                     onClick={() => void editDraft(item.id)}
                   >
                     <strong className="block truncate text-sm">{item.subject || '(无主题)'}</strong>
@@ -786,7 +786,7 @@ function DesktopMailView({
                   <button
                     aria-label="删除草稿"
                     title="删除草稿"
-                    className="rounded p-2 hover:bg-hover-2"
+                    className="rounded p-2 hover:bg-hover-strong"
                     onClick={() => {
                       if (!window.confirm('删除这份本地草稿？')) return;
                       void dela.mail
