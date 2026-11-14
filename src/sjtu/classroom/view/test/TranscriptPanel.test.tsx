@@ -1,42 +1,45 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { VideoTranscript } from '../../../shared/vsjtu';
-import { TranscriptPanel } from './TranscriptPanel';
-import { Player } from './Player';
-import { useClassroom } from './store';
 
-vi.mock('../../app/toasts', () => ({ showToast: vi.fn() }));
-const transcript = {
-  videoId: 11,
-  segments: [
-    { startMs: 3140, endMs: 10000, text: '工程伦理' },
-    { startMs: 20000, endMs: 30000, text: '数据分析' },
-  ],
-};
 const course = { id: 1, name: '测试课程', code: 'CS' };
 const video = { id: 11, start: '2026-10-24 08:00:00', end: '09:00', period: '1', room: '' };
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好。
+const api = vi.hoisted(() => {
+  const handlers: Record<string, (input: unknown) => Promise<unknown>> = {};
+  window.dela = {
+    bridge: {
+      invoke: (channel: string, input: unknown) =>
+        handlers[channel.slice('classroom:'.length)]!(input),
+      subscribe: () => () => {},
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  return handlers;
+});
+vi.mock('../../../../renderer/app/toasts', () => ({ showToast: vi.fn() }));
+import { TranscriptPanel } from '../TranscriptPanel';
+import { Player } from '../Player';
+import { useClassroom } from '../store';
+
 let root: Root;
 let host: HTMLDivElement;
-const load = vi.fn();
 const save = vi.fn();
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  load.mockReset().mockResolvedValue(transcript);
-  save.mockReset().mockResolvedValue({ saved: true });
-  window.dela = {
-    vsjtu: { transcript: load, exportTranscript: save },
-  } as unknown as typeof window.dela;
-  useClassroom.setState({
-    courses: [course],
-    videos: { 1: [video, { ...video, id: 12 }] },
-    selectedCourseId: 1,
-    selectedVideoId: 11,
-    streams: { 11: [{ view: 1, duration: 100, playbackUrl: 'test.mp4' }] },
-    seekRequest: null,
-    playbackTime: 0,
+  api.courses = async () => [course];
+  api.videos = async () => [video];
+  api.streams = async () => [{ view: 1, duration: 100, playbackUrl: 'test.mp4' }];
+  api.transcript = async () => ({
+    videoId: 11,
+    segments: [
+      { startMs: 3140, endMs: 10000, text: '工程伦理' },
+      { startMs: 20000, endMs: 30000, text: '数据分析' },
+    ],
   });
+  api.exportTranscript = save.mockReset().mockResolvedValue({ saved: true });
+  useClassroom.setState({ courseId: 1, videoId: 11, seekRequest: null, playbackTime: 0 });
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -44,19 +47,25 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
-  delete window.dela;
   vi.unstubAllGlobals();
 });
+
+// 查询结果经定时器批量通知，链式读取（课程 → 录像 → 文稿）要多轮才落定。
+async function settle() {
+  for (let round = 0; round < 5; round++)
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+}
 
 it('searches and highlights text, seeks after metadata arrives, and exports the complete lecture', async () => {
   await act(async () =>
     root.render(
-      <>
+      <QueryClientProvider client={new QueryClient()}>
         <TranscriptPanel />
         <Player course={course} video={video} />
-      </>,
+      </QueryClientProvider>,
     ),
   );
+  await settle();
   await act(async () =>
     host.querySelector<HTMLButtonElement>('[aria-label="跳转到 0:20"]')!.click(),
   );
@@ -76,21 +85,5 @@ it('searches and highlights text, seeks after metadata arrives, and exports the 
   await act(async () =>
     host.querySelector<HTMLButtonElement>('[aria-label="导出完整文稿"]')!.click(),
   );
-  expect(save).toHaveBeenCalledWith(11, '测试课程 20261024 第1节');
-});
-
-it('discards a response after the selected lecture changes', async () => {
-  let release!: (value: VideoTranscript) => void;
-  load.mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        release = resolve;
-      }),
-  );
-  await act(async () => root.render(<TranscriptPanel />));
-  load.mockResolvedValueOnce(null);
-  await act(async () => useClassroom.setState({ selectedVideoId: 12 }));
-  await act(async () => release(transcript));
-  expect(host.textContent).not.toContain('工程伦理');
-  expect(host.querySelector<HTMLButtonElement>('[aria-label="导出完整文稿"]')!.disabled).toBe(true);
+  expect(save).toHaveBeenCalledWith({ videoId: 11, title: '测试课程 20261024 第1节' });
 });

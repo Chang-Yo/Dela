@@ -5,7 +5,7 @@ import {
   readPlaybackProgress,
   resumePlaybackTime,
   savePlaybackProgress,
-} from './progress';
+} from '../progress';
 
 beforeEach(() => localStorage.clear());
 

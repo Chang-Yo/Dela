@@ -46,7 +46,10 @@ export interface ViewDefinition {
   /** 渲染端启动时调用一次，承载常驻的订阅，例如系统通知被点击后的跳转。 */
   start?(navigate: Navigate): void;
   /** 设置页各分区里属于本模块的行，按清单顺序汇总。 */
-  settings?: { credentials?: ComponentType<{ navigate: Navigate }> };
+  settings?: {
+    credentials?: ComponentType<{ navigate: Navigate }>;
+    storage?: ComponentType;
+  };
   /** 首启向导中本模块的一步，完成或跳过后调用 onDone。 */
   onboarding?: ComponentType<{ onDone: () => void }>;
 }

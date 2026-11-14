@@ -1,6 +1,6 @@
-// 课堂视频展示格式化：场次标题/副标题、下载文件名、时长与字节数。
+// 课堂视频展示格式化：场次标题/副标题、下载文件名与时长。
 // 交大视频的时间字段是 "YYYY-MM-DD HH:mm:ss" 文本，按容错解析，解析失败原样展示。
-import type { ClassroomVideo } from '../../../shared/vsjtu';
+import type { ClassroomVideo } from '../contract';
 
 /** "12:34" / "1:02:03"；无效值回退 0:00。 */
 export function formatTime(seconds: number): string {
@@ -12,20 +12,6 @@ export function formatTime(seconds: number): string {
   return hour > 0
     ? `${hour}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`
     : `${minute}:${String(second).padStart(2, '0')}`;
-}
-
-/** "404.6 MB"；非正数或无效回退 null。 */
-export function formatBytes(bytes: number): string | null {
-  if (!Number.isFinite(bytes) || bytes <= 0) return null;
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  const rounded = value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
-  return `${rounded} ${units[unit]}`;
 }
 
 function parseLectureDate(value: string): Date | null {

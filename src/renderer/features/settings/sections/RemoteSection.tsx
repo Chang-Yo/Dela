@@ -11,7 +11,7 @@ import { ConnectionForm } from '../../../workspace/remote/ConnectionForm';
 import { NewRemoteProjectDialog } from '../../../workspace/remote/NewRemoteProjectDialog';
 import { channelDot, useRemoteState } from '../../../workspace/remote/remote-state';
 import { SectionHeader } from '../SectionHeader';
-import { SettingRow } from '../SettingRow';
+import { SettingRow } from '../../../../modules/settings/view';
 import { SettingsGroup } from '../SettingsGroup';
 
 type Editing = { connection?: RemoteConnection } | null;

@@ -1,18 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { KeyRound, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
+import { ConnectCard } from '../../../ui/connect-card';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
-import { Resizer } from '../../../ui/resizer';
-import { usePreferenceWidth, usePreferences } from '../../app/preferences';
-import { useViewportWidth } from '../../workbench/explorer-state';
+import { Resizer, useResizerWidth } from '../../../ui/resizer';
+import { useViewportWidth } from '../../../renderer/lib/use-viewport-width';
 import { cn } from '../../../ui/cn';
 import { CourseList, CoursePicker } from './CourseList';
 import { TranscriptPanel } from './TranscriptPanel';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { DownloadsPanel } from './DownloadsPanel';
 import { Player } from './Player';
-import { useClassroom } from './store';
+import { useClassroomPreferences } from './store';
+import { useConnect, useCourses, useSelection } from './use-classroom';
 import { Spinner } from '../../../ui/spinner';
 
 export function ClassroomView() {
@@ -31,25 +32,20 @@ const SIDEBAR_MIN_WIDTH = 240;
 const SIDEBAR_MAX_WIDTH = 360;
 
 function DesktopClassroomView() {
-  const phase = useClassroom((state) => state.phase);
-  const coursesLoading = useClassroom((state) => state.coursesLoading);
-  const init = useClassroom((state) => state.init);
-  const refresh = useClassroom((state) => state.refresh);
-  const connect = useClassroom((state) => state.connect);
-  const connectBusy = useClassroom((state) => state.connectBusy);
+  const courses = useCourses();
+  const connect = useConnect();
+  // 没有数据时重读会回到 pending；失败过就停在登录卡，按钮显示读取进度。
+  const phase = courses.data ? 'ready' : courses.errorUpdateCount > 0 ? 'connect' : 'loading';
 
-  const { width, resizing, onChange, onResizingChange } =
-    usePreferenceWidth('classroomSidebarWidth');
-  const collapsed = usePreferences((state) => state.classroomSidebarCollapsed);
-  const setPreference = usePreferences((state) => state.setPreference);
+  const { width, resizing, onChange, onResizingChange } = useResizerWidth(
+    useClassroomPreferences((state) => state.sidebarWidth),
+    (sidebarWidth) => useClassroomPreferences.setState({ sidebarWidth }),
+  );
+  const collapsed = useClassroomPreferences((state) => state.sidebarCollapsed);
   const [sidebarTab, setSidebarTab] = useState<'节次' | '语音'>('节次');
   const viewportWidth = useViewportWidth();
 
-  useEffect(() => {
-    void init();
-  }, [init]);
-
-  const toggleSidebar = () => setPreference('classroomSidebarCollapsed', !collapsed);
+  const toggleSidebar = () => useClassroomPreferences.setState({ sidebarCollapsed: !collapsed });
 
   // 视口钳制：目录渲染宽度不超过视口约 30%（下限 240），偏好值仍按原值持久化。
   const effectiveWidth = Math.min(width, Math.max(240, Math.round(viewportWidth * 0.3)));
@@ -61,7 +57,13 @@ function DesktopClassroomView() {
           正在连接交大视频…
         </div>
       )}
-      {phase === 'connect' && <ConnectCard />}
+      {phase === 'connect' && (
+        <ClassroomConnect
+          coursesLoading={courses.isFetching}
+          connecting={connect.isPending}
+          onConnect={() => connect.mutate()}
+        />
+      )}
       {phase === 'ready' && (
         <>
           <aside
@@ -92,29 +94,29 @@ function DesktopClassroomView() {
                   课堂视频
                 </span>
                 <div className="flex shrink-0 items-center gap-0.5">
-                  {/* 连接不稳定时的主动出口：重开官方窗口登录并刷新课程。失败原因由 store 弹 toast。 */}
+                  {/* 连接不稳定时的主动出口：重开官方窗口登录并刷新课程。 */}
                   <Button
                     aria-label="重新登录交大视频"
                     className="hover:bg-hover-strong"
-                    disabled={connectBusy}
-                    onClick={() => void connect()}
+                    disabled={connect.isPending}
+                    onClick={() => connect.mutate()}
                     size="icon-xs"
-                    title={connectBusy ? '等待登录…' : '重新登录交大视频（更新会话）'}
+                    title={connect.isPending ? '等待登录…' : '重新登录交大视频（更新会话）'}
                     variant="ghost"
                   >
-                    {connectBusy ? <Spinner /> : <KeyRound className="size-4" />}
+                    {connect.isPending ? <Spinner /> : <KeyRound className="size-4" />}
                   </Button>
                   <DownloadsPanel />
                   <Button
                     aria-label="刷新课程"
                     className="hover:bg-hover-strong"
-                    disabled={coursesLoading}
-                    onClick={() => void refresh()}
+                    disabled={courses.isFetching}
+                    onClick={() => void courses.refetch()}
                     size="icon-xs"
                     title="刷新"
                     variant="ghost"
                   >
-                    <RefreshCw className={cn('size-4', coursesLoading && 'animate-spin')} />
+                    <RefreshCw className={cn('size-4', courses.isFetching && 'animate-spin')} />
                   </Button>
                 </div>
               </div>
@@ -163,12 +165,7 @@ function PlayerSection({
   collapsed: boolean;
   onExpandSidebar: () => void;
 }) {
-  const course = useClassroom((state) =>
-    state.courses.find((value) => value.id === state.selectedCourseId),
-  );
-  const video = useClassroom((state) =>
-    state.videos[state.selectedCourseId ?? -1]?.find((value) => value.id === state.selectedVideoId),
-  );
+  const { course, video } = useSelection();
 
   if (!course || !video) {
     return (
@@ -199,31 +196,30 @@ function PlayerSection({
   );
 }
 
-function ConnectCard() {
-  const connectBusy = useClassroom((state) => state.connectBusy);
-  const coursesLoading = useClassroom((state) => state.coursesLoading);
-  const connect = useClassroom((state) => state.connect);
+function ClassroomConnect({
+  connecting,
+  coursesLoading,
+  onConnect,
+}: {
+  connecting: boolean;
+  coursesLoading: boolean;
+  onConnect: () => void;
+}) {
   // 登录窗口阶段与登录后的课程拉取都算进行中：按钮停在对应文案，不再退回「登录」。
-  const busy = connectBusy || coursesLoading;
+  const busy = connecting || coursesLoading;
 
   return (
     <div className="grid flex-1 place-items-center p-6">
-      <section className="grid w-full max-w-[30rem] justify-items-start gap-3 rounded-card border border-line bg-surface p-6 shadow-hairline">
-        <div className="grid size-10 place-items-center rounded-card bg-fill">
-          <MonitorPlay className="size-5" />
-        </div>
-        <div className="grid gap-1">
-          <h2 className="text-lg font-semibold tracking-tight">登录交大视频</h2>
-          <p className="text-sm leading-relaxed text-ink-3">
-            登录后读取本学期课程与课堂录像。已连接 Canvas
-            时自动登录，否则在官方窗口完成，校园会话与课表共用。
-          </p>
-        </div>
-        <Button disabled={busy} onClick={() => void connect()}>
+      <ConnectCard
+        description="登录后读取本学期课程与课堂录像。已连接 Canvas 时自动登录，否则在官方窗口完成，校园会话与课表共用。"
+        icon={MonitorPlay}
+        title="登录交大视频"
+      >
+        <Button disabled={busy} onClick={onConnect}>
           {busy ? <Spinner /> : <LogIn className="size-4" />}
-          {connectBusy ? '等待登录…' : coursesLoading ? '正在获取视频列表…' : '登录'}
+          {connecting ? '等待登录…' : coursesLoading ? '正在获取视频列表…' : '登录'}
         </Button>
-      </section>
+      </ConnectCard>
     </div>
   );
 }

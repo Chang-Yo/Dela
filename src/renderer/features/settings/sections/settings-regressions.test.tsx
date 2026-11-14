@@ -46,7 +46,6 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
       getCampusNotifications: async () => true,
       getTaskNotifications: async () => ({ failed: true, completed: false }),
     },
-    vsjtu: { getDownloadDirectory: async () => '' },
   } as unknown as DelaApi;
   await act(async () =>
     root.render(

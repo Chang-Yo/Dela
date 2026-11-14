@@ -1,5 +1,4 @@
 // 侧栏下载任务面板：环形进度 + 名称与字节摘要；进行中可取消、完成可打开位置。
-// 进度事件来自 main 推送（vsjtu:download-changed），触发钮对齐侧栏头的 icon-xs 规格。
 import { useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Check, Download, FolderOpen, X } from 'lucide-react';
@@ -7,16 +6,13 @@ import { ProgressRing } from '../../../ui/progress-ring';
 import { Button } from '../../../ui/button';
 import { menuPanel } from '../../../ui/menu-styles';
 import { cn } from '../../../ui/cn';
-import type { VideoDownload } from '../../../shared/vsjtu';
-import { formatBytes } from './player-format';
-import { useClassroom } from './store';
+import { formatBytes } from '../../../renderer/lib/format-bytes';
+import type { VideoDownload } from '../contract';
+import { classroomClient, useDownloads } from './use-classroom';
 
 export function DownloadsPanel() {
-  const downloads = useClassroom((state) => state.downloads);
-  const cancelDownload = useClassroom((state) => state.cancelDownload);
-  const revealDownload = useClassroom((state) => state.revealDownload);
   const [open, setOpen] = useState(false);
-  const list = Object.values(downloads).reverse();
+  const list = [...(useDownloads().data ?? [])].reverse();
   const activeCount = list.filter((download) => download.state === 'progressing').length;
 
   return (
@@ -57,8 +53,8 @@ export function DownloadsPanel() {
                 <DownloadRow
                   download={download}
                   key={download.id}
-                  onCancel={() => cancelDownload(download.id)}
-                  onReveal={() => revealDownload(download.id)}
+                  onCancel={() => void classroomClient.cancelDownload(download.id).catch(() => {})}
+                  onReveal={() => void classroomClient.revealDownload(download.id).catch(() => {})}
                 />
               ))}
             </div>

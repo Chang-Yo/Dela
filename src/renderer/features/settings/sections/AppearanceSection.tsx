@@ -13,7 +13,7 @@ import { StepperControl } from '../../../../ui/stepper';
 import blackLogo from '../../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../../assets/Dela_white_bg.svg';
 import { SectionHeader } from '../SectionHeader';
-import { SettingRow } from '../SettingRow';
+import { SettingRow } from '../../../../modules/settings/view';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';

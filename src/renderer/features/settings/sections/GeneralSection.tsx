@@ -1,11 +1,10 @@
-import { Folder } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
+import { views } from '../../../../app/views';
 import { usePreferences } from '../../../app/preferences';
 import { navEntries } from '../../../navigation/entries';
 import { SectionHeader } from '../SectionHeader';
-import { SettingRow } from '../SettingRow';
+import { SettingRow } from '../../../../modules/settings/view';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
@@ -19,28 +18,8 @@ export function GeneralSection() {
   const [busy, setBusy] = useState(false);
   const hiddenEntries = usePreferences((state) => state.hiddenNavEntries);
   const setEntryVisible = usePreferences((state) => state.setNavEntryVisible);
-  // 空串 = 跟随系统默认；读失败保持空串不打扰用户。
-  const [downloadDirectory, setDownloadDirectory] = useState('');
-  const [directoryBusy, setDirectoryBusy] = useState(false);
-
-  const chooseDownloadDirectory = async () => {
-    if (directoryBusy) return;
-    setDirectoryBusy(true);
-    try {
-      const next = await window.dela?.vsjtu.chooseDownloadDirectory();
-      if (next !== undefined) setDownloadDirectory(next);
-    } catch (cause) {
-      showToast({ variant: 'error', title: '选择目录失败', description: errorText(cause) });
-    } finally {
-      setDirectoryBusy(false);
-    }
-  };
 
   useEffect(() => {
-    void window.dela?.vsjtu
-      .getDownloadDirectory()
-      .then(setDownloadDirectory)
-      .catch(() => {});
     void window.dela?.settings
       .getOpenAtLogin()
       .then(setOpenAtLogin)
@@ -91,27 +70,12 @@ export function GeneralSection() {
       <SystemNotifications />
       <UpdateControl />
       <div className="grid gap-2">
-        <SettingsGroup title="课堂视频">
-          <SettingRow
-            description="下载课堂录像的默认保存位置；每次下载仍可在保存对话框里改。"
-            settingId="video-download-directory"
-            title="视频默认下载目录"
-          >
-            <div className="flex items-center justify-end gap-3">
-              <span className="truncate text-xs text-ink-3" title={downloadDirectory || undefined}>
-                {downloadDirectory || '跟随系统默认'}
-              </span>
-              <Button
-                disabled={directoryBusy}
-                onClick={() => void chooseDownloadDirectory()}
-                size="sm"
-                variant="secondary"
-              >
-                <Folder />
-                选择
-              </Button>
-            </div>
-          </SettingRow>
+        {/* 第 7 步拆出「存储」分区前，模块的存储行暂放这里。 */}
+        <SettingsGroup title="存储">
+          {views.map(({ settings }, index) => {
+            const Storage = settings?.storage;
+            return Storage && <Storage key={index} />;
+          })}
         </SettingsGroup>
       </div>
       <CacheUsage />

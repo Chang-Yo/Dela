@@ -15,7 +15,7 @@ import type { NavTarget, NavTargets } from '../../app/module';
 import { pageOf } from '../../app/views';
 
 /** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
-export type ShellView = 'home' | 'workbench' | 'mail' | 'classroom' | 'shuiyuan' | 'settings';
+export type ShellView = 'home' | 'workbench' | 'mail' | 'shuiyuan' | 'settings';
 
 /** 由外壳自己分发的跳转目标：工作台里的标签与尚未迁移的页面。 */
 type ShellTarget = 'projects' | 'chat' | 'sources' | 'mail' | 'settings' | 'shuiyuan';

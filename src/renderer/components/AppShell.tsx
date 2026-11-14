@@ -39,7 +39,8 @@ import {
   type ShellView,
 } from '../navigation/view';
 import { useShortcuts } from '../app/shortcuts';
-import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
+import { useExplorerState } from '../workbench/explorer-state';
+import { useViewportWidth } from '../lib/use-viewport-width';
 import {
   ProjectSessionNav,
   type BusinessNavId,

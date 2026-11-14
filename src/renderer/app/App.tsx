@@ -5,7 +5,6 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { MailView } from '../features/mail';
-import { ClassroomView } from '../features/classroom';
 import { CompletionOverlay } from '../features/onboarding/CompletionOverlay';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
 import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboarding-state';
@@ -256,7 +255,9 @@ export default function App() {
           }}
           onOpenGeneralChat={() => void useNavigationStore.getState().openGeneralChat(false)}
           onNavigateBusiness={(id) =>
-            void useNavigationStore.getState().navigate(id === 'timetable' ? { page: id } : id)
+            void useNavigationStore
+              .getState()
+              .navigate(id === 'timetable' || id === 'classroom' ? { page: id } : id)
           }
         >
           <MotionConfig reducedMotion="user">
@@ -284,7 +285,6 @@ export default function App() {
                     />
                   )}
                   {view === 'shuiyuan' && <ShuiyuanView />}
-                  {view === 'classroom' && <ClassroomView />}
                   {target && <ModulePage target={target} />}
                   {view === 'settings' && (
                     <SettingsView

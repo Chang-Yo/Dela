@@ -27,8 +27,6 @@ it('旧键的值并入新 store，之后旧键被删', async () => {
     shellSidebarCollapsed: true,
     projectOpenTarget: 'explorer',
     mailFoldersCollapsed: false,
-    classroomSidebarWidth: 280,
-    classroomSidebarCollapsed: true,
     workspaceSidebarWidth: 220,
     workspaceSidebarCollapsed: true,
     hiddenNavEntries: ['mail'],
@@ -39,13 +37,11 @@ it('旧键的值并入新 store，之后旧键被删', async () => {
 });
 
 it('旧值不合法时取默认值', async () => {
-  localStorage.setItem('dela.classroom.sidebarWidth', '9999');
   localStorage.setItem('dela.workspace.sidebarWidth', 'abc');
   localStorage.setItem('dela.nav-entries', 'not json');
   localStorage.setItem('dela.remote.lastDirectory', '[1]');
 
   expect((await loadPreferences()).getState()).toMatchObject({
-    classroomSidebarWidth: 300,
     workspaceSidebarWidth: 300,
     hiddenNavEntries: [],
     remoteLastDirectory: {},

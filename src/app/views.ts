@@ -5,6 +5,7 @@ import type { NavTarget, Navigate, NoticeKind, ViewDefinition } from './module';
 import { notificationsView } from '../modules/notifications/view';
 import { todoView } from '../modules/todo/view';
 import { ShuiyuanIcon } from '../renderer/features/shuiyuan/shuiyuan-icon';
+import { classroomView } from '../sjtu/classroom/view';
 import { jwcView } from '../sjtu/jwc/view';
 import { timetableView } from '../sjtu/timetable/view';
 
@@ -15,7 +16,7 @@ const legacyNoticeKinds: Record<string, NoticeKind> = {
   canvas: { label: 'Canvas', icon: Megaphone },
 };
 
-const moduleViews = [todoView, timetableView, jwcView];
+const moduleViews = [todoView, timetableView, classroomView, jwcView];
 
 export const views: ViewDefinition[] = [
   ...moduleViews,

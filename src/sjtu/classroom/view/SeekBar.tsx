@@ -1,6 +1,6 @@
 // 播放进度条：缓冲层 + 已播层 + 拖拽预览与悬停时间气泡。
 // 拖拽期间只更新预览，松手才提交 seek，避免 timeupdate 与拖拽互相拉扯。
-import { useCallback, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { cn } from '../../../ui/cn';
 import { formatTime } from './player-format';
 
@@ -29,19 +29,16 @@ export function SeekBar({
   const bufferedRatio = duration > 0 ? Math.min(1, bufferedEnd / duration) : 0;
   const bubble = dragTime ?? hoverTime;
 
-  const timeAt = useCallback(
-    (clientX: number): number => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect || rect.width === 0 || duration <= 0) return 0;
-      return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) * duration;
-    },
-    [duration],
-  );
+  const timeAt = (clientX: number): number => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || duration <= 0) return 0;
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) * duration;
+  };
 
-  const endDrag = useCallback(() => {
+  const endDrag = () => {
     setDragTime(null);
     onScrub?.(null);
-  }, [onScrub]);
+  };
 
   return (
     <div

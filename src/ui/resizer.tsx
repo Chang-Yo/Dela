@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from './cn';
 
 type ResizerProps = {
@@ -106,4 +106,22 @@ export function Resizer({
       tabIndex={0}
     />
   );
+}
+
+/** 持久化的面板宽度：拖动中只改本地值，拖动结束或键盘调整时才调用 commit。 */
+export function useResizerWidth(stored: number, commit: (width: number) => void) {
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const [resizing, setResizing] = useState(false);
+  return {
+    width: dragWidth ?? stored,
+    resizing,
+    onChange: (width: number) => (resizing ? setDragWidth(width) : commit(width)),
+    onResizingChange: (next: boolean) => {
+      setResizing(next);
+      if (!next && dragWidth !== null) {
+        commit(dragWidth);
+        setDragWidth(null);
+      }
+    },
+  };
 }

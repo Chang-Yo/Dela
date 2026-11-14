@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TranscriptSegment, VideoTranscript } from '../../../shared/vsjtu';
+import type { TranscriptSegment, VideoTranscript } from '../contract';
 
 const segment = z
   .object({ bg: z.number().nonnegative(), ed: z.number().nonnegative(), res: z.string() })

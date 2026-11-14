@@ -19,12 +19,10 @@ import { terminal } from './terminal';
 import { update } from './update';
 import { windowApi } from './window';
 import { workspace } from './workspace';
-import { vsjtu } from './vsjtu';
 
 contextBridge.exposeInMainWorld('dela', {
   platform: process.platform,
   bridge,
-  vsjtu,
   version,
   updatedOnLaunch: process.argv.includes('--dela-updated'),
   terminal,

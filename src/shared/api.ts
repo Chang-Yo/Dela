@@ -13,7 +13,6 @@ import type { MailApi } from './mail';
 import type { RemoteApi } from './remotes';
 import type { SessionApi, SidechatApi } from './session';
 import type { SettingsApi } from './settings';
-import type { VsjtuApi } from './vsjtu';
 export type {
   AgentCapabilityView,
   CapabilityApi,
@@ -37,7 +36,6 @@ export interface DelaApi {
   /** 已迁入 modules/ 的模块经契约客户端调用主进程，见 core/protocol/contract。 */
   readonly bridge: Bridge;
   readonly platform: string;
-  readonly vsjtu: VsjtuApi;
   capability: CapabilityApi;
   readonly terminal: TerminalApi;
   readonly version: string;

@@ -1,6 +1,6 @@
 // 课堂视频播放器：常驻控制条（播放/进度/音量/倍速/全屏），多画面 SegmentedControl 切换。
 // 键盘：Space 播放暂停、←→ ±5s、↑↓ 音量（焦点在按钮/滑杆上时让位于原生行为）。
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type * as React from 'react';
 import { Popover } from 'radix-ui';
 import {
@@ -28,22 +28,24 @@ import {
 import { menuPanel } from '../../../ui/menu-styles';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
 import { cn } from '../../../ui/cn';
-import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
-import { formatTime, lectureMeta, lectureTitle } from './player-format';
+import { errorMessage } from '../../../core/protocol/contract';
+import { showToast } from '../../../renderer/app/toasts';
+import type { ClassroomVideo, VideoCourse } from '../contract';
+import { formatTime, lectureFileName, lectureMeta, lectureTitle } from './player-format';
 import {
   clearPlaybackProgress,
+  createProgressTracker,
   readPlaybackProgress,
   resumePlaybackTime,
-  savePlaybackProgress,
 } from './progress';
 import { SeekBar } from './SeekBar';
 import { useClassroom } from './store';
+import { classroomClient, useStreams } from './use-classroom';
 import { Spinner } from '../../../ui/spinner';
 
 const RATE_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
 const VOLUME_KEY = 'dela.classroom.volume';
 const RATE_KEY = 'dela.classroom.rate';
-const PROGRESS_SAVE_SECONDS = 5;
 const RESUME_NOTICE_MS = 5000;
 
 function readNumber(key: string, fallback: number): number {
@@ -77,11 +79,10 @@ export function Player({
   collapsedSidebar?: boolean;
   onExpandSidebar?: () => void;
 }) {
-  const streams = useClassroom((state) => state.streams[video.id]);
-  const streamsLoading = useClassroom((state) => state.streamsLoading === video.id);
-  const streamsError = useClassroom((state) => state.streamsError[video.id] || null);
-  const ensureStreams = useClassroom((state) => state.ensureStreams);
-  const download = useClassroom((state) => state.download);
+  const streamsQuery = useStreams(video.id);
+  const streams = streamsQuery.data;
+  const streamsLoading = !streams && streamsQuery.isFetching;
+  const streamsError = streamsQuery.error ? errorMessage(streamsQuery.error) : null;
   const seekRequest = useClassroom((state) => state.seekRequest);
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -96,40 +97,15 @@ export function Player({
   const [rate, setRate] = useState(() => readNumber(RATE_KEY, 1));
   const [fullscreen, setFullscreen] = useState(false);
   const [resumeNotice, setResumeNotice] = useState<number | null>(null);
+  // 续播提示每场只出现一次；切换画面会再次触发 loadedmetadata。
+  const [resumeOffered, setResumeOffered] = useState(false);
+  // 外层按场次加 key，换场次即重挂，进度记录随之新建。
+  const [progress] = useState(() => createProgressTracker(video.id));
   const rootRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const lastPositionRef = useRef(0);
-  const lastSavedRef = useRef(0);
-  const resumeNoticeShownRef = useRef(false);
-
-  const recordProgress = useCallback(
-    (time: number, force = false) => {
-      if (!Number.isFinite(time) || time < 0) return;
-      lastPositionRef.current = time;
-      if (!force && Math.abs(time - lastSavedRef.current) < PROGRESS_SAVE_SECONDS) return;
-      savePlaybackProgress(video.id, time);
-      lastSavedRef.current = time;
-    },
-    [video.id],
-  );
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const active = streams ? streams[Math.min(activeIndex, streams.length - 1)] : undefined;
   const playbackUrl = active?.playbackUrl;
-
-  // 切场次重置播放态并回到第一个画面；进页面时按需拉画面列表（行内下载可能已缓存）。
-  // 放在文稿 seek 之前，避免挂载时恢复出的进度被重置。
-  useEffect(() => {
-    setActiveIndex(0);
-    setFailed(false);
-    setReloadSeq(0);
-    setCurrentTime(0);
-    setDuration(0);
-    setBufferedEnd(0);
-    setResumeNotice(null);
-    lastPositionRef.current = 0;
-    lastSavedRef.current = 0;
-    resumeNoticeShownRef.current = false;
-  }, [video.id]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -143,13 +119,13 @@ export function Player({
       element.currentTime = time;
       setCurrentTime(time);
       setResumeNotice(null);
-      recordProgress(time, true);
+      progress.record(time, true);
       useClassroom.setState({ seekRequest: null, playbackTime: time });
     };
     if (element.readyState >= 1) applySeek();
     else element.addEventListener('loadedmetadata', applySeek, { once: true });
     return () => element.removeEventListener('loadedmetadata', applySeek);
-  }, [seekRequest, video.id, playbackUrl, reloadSeq, recordProgress]);
+  }, [seekRequest, video.id, playbackUrl, reloadSeq, progress]);
 
   // 续播提示按官方习惯短暂出现；自动消失，不挡住后续操作。
   useEffect(() => {
@@ -158,35 +134,19 @@ export function Player({
     return () => clearTimeout(timer);
   }, [resumeNotice]);
 
-  // 页面隐藏或播放器卸载前再落一次盘；timeupdate 只按 5 秒节流写入。
+  // 页面隐藏或播放器卸载前再落一次盘。
   useEffect(() => {
-    const flush = () => {
-      savePlaybackProgress(video.id, lastPositionRef.current);
-      lastSavedRef.current = lastPositionRef.current;
-    };
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') flush();
+      if (document.visibilityState === 'hidden') progress.flush();
     };
-    window.addEventListener('pagehide', flush);
+    window.addEventListener('pagehide', progress.flush);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('pagehide', progress.flush);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      flush();
+      progress.flush();
     };
-  }, [video.id]);
-
-  useEffect(() => {
-    if (!streams && !streamsError && !streamsLoading) void ensureStreams(video.id);
-  }, [streams, streamsError, streamsLoading, ensureStreams, video.id]);
-
-  // src 变化走 key 重挂元素，挂载后重放音量与倍速。
-  useEffect(() => {
-    const element = videoRef.current;
-    if (!element) return;
-    element.volume = volume;
-    element.playbackRate = rate;
-  }, [playbackUrl, volume, rate]);
+  }, [progress]);
 
   useEffect(() => {
     const onChange = () => setFullscreen(document.fullscreenElement === rootRef.current);
@@ -194,23 +154,23 @@ export function Player({
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
-  const applyVolume = useCallback((next: number) => {
+  const applyVolume = (next: number) => {
     const clamped = Math.min(1, Math.max(0, Math.round(next * 100) / 100));
     setVolume(clamped);
     writeNumber(VOLUME_KEY, clamped);
-  }, []);
+  };
 
   const applyRate = (next: number) => {
     setRate(next);
     writeNumber(RATE_KEY, next);
   };
 
-  const togglePlay = useCallback(() => {
+  const togglePlay = () => {
     const element = videoRef.current;
     if (!element) return;
     if (element.paused) void element.play().catch(() => {});
     else element.pause();
-  }, []);
+  };
 
   const seek = (time: number) => {
     const element = videoRef.current;
@@ -218,20 +178,31 @@ export function Player({
     element.currentTime = time;
     setCurrentTime(time);
     setResumeNotice(null);
-    recordProgress(time, true);
+    progress.record(time, true);
     useClassroom.setState({ playbackTime: time });
   };
 
   const restartFromBeginning = () => {
     clearPlaybackProgress(video.id);
-    lastPositionRef.current = 0;
-    lastSavedRef.current = 0;
+    progress.reset(0);
     setResumeNotice(null);
     seek(0);
   };
 
+  const download = async (view: number) => {
+    try {
+      await classroomClient.download({
+        videoId: video.id,
+        view,
+        name: lectureFileName(course.name, video),
+      });
+    } catch (error) {
+      showToast({ variant: 'error', title: '下载启动失败', description: errorMessage(error) });
+    }
+  };
+
   const selectView = (index: number) => {
-    recordProgress(videoRef.current?.currentTime ?? lastPositionRef.current, true);
+    progress.record(videoRef.current?.currentTime ?? progress.position(), true);
     setResumeNotice(null);
     setActiveIndex(index);
   };
@@ -266,30 +237,22 @@ export function Player({
     const nextDuration = element.duration || 0;
     setDuration(nextDuration);
     // 文稿跳转优先于本地续播，避免同一场录像的两个恢复来源互相覆盖。
-    if (seekRequest?.videoId === video.id) {
-      resumeNoticeShownRef.current = true;
-      return;
-    }
+    setResumeOffered(true);
+    if (seekRequest?.videoId === video.id) return;
     const saved = readPlaybackProgress(video.id);
     const resume = resumePlaybackTime(saved, nextDuration);
     if (resume === null) {
       if (saved !== null && nextDuration > 0) clearPlaybackProgress(video.id);
-      resumeNoticeShownRef.current = true;
       setCurrentTime(0);
-      lastPositionRef.current = 0;
-      lastSavedRef.current = 0;
+      progress.reset(0);
       useClassroom.setState({ playbackTime: 0 });
       return;
     }
     element.currentTime = resume;
     setCurrentTime(resume);
-    lastPositionRef.current = resume;
-    lastSavedRef.current = resume;
+    progress.reset(resume);
     useClassroom.setState({ playbackTime: resume });
-    if (!resumeNoticeShownRef.current) {
-      resumeNoticeShownRef.current = true;
-      setResumeNotice(resume);
-    }
+    if (!resumeOffered) setResumeNotice(resume);
   };
 
   const viewLabel = (index: number) => `画面${index + 1}`;
@@ -322,7 +285,7 @@ export function Player({
         <IconButton
           aria-label="下载当前画面"
           disabled={!active}
-          onClick={() => active && void download(course.name, video, active.view)}
+          onClick={() => active && void download(active.view)}
           title="下载当前画面"
         >
           {streamsLoading ? <Spinner /> : <Download />}
@@ -342,15 +305,15 @@ export function Player({
             onEnded={() => {
               setPlaying(false);
               clearPlaybackProgress(video.id);
-              lastPositionRef.current = 0;
-              lastSavedRef.current = 0;
+              progress.reset(0);
               setResumeNotice(null);
             }}
             onError={() => setFailed(true)}
             onLoadedMetadata={onLoadedMetadata}
             onPause={(event) => {
               setPlaying(false);
-              if (!event.currentTarget.ended) recordProgress(event.currentTarget.currentTime, true);
+              if (!event.currentTarget.ended)
+                progress.record(event.currentTarget.currentTime, true);
             }}
             onPlay={() => setPlaying(true)}
             onProgress={(event) => {
@@ -364,10 +327,16 @@ export function Player({
               const time = event.currentTarget.currentTime;
               setCurrentTime(time);
               useClassroom.setState({ playbackTime: time });
-              recordProgress(time);
+              progress.record(time);
             }}
             preload="metadata"
-            ref={videoRef}
+            // src 变化时元素按 key 重挂，挂上后套用当前音量与倍速。
+            ref={(element) => {
+              videoRef.current = element;
+              if (!element) return;
+              element.volume = volume;
+              element.playbackRate = rate;
+            }}
             src={playbackUrl}
           />
         ) : failed ? (
@@ -387,7 +356,7 @@ export function Player({
             ) : streamsError ? (
               <div className="flex flex-col items-center gap-2">
                 <p className="text-sm text-on-media/70">{streamsError}</p>
-                <Button onClick={() => void ensureStreams(video.id)} size="sm" variant="secondary">
+                <Button onClick={() => void streamsQuery.refetch()} size="sm" variant="secondary">
                   <RotateCcw className="size-3.5" />
                   重试
                 </Button>

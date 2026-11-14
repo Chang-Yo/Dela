@@ -1,12 +1,14 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import type { WebContents } from 'electron';
 import { z } from 'zod';
-import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../../shared/vsjtu';
+import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../contract';
 import {
   CampusAuthError,
   campusRequest,
   flushCampusSession,
   getCampusSession,
   hiddenCampusLogin,
+  openCampusLoginWindow,
 } from '../../campus/main/session';
 import { classroomLoginUrl } from '../../canvas/main/api';
 import { loadCanvasToken } from '../../canvas/main/credentials';
@@ -104,6 +106,28 @@ function checkIdentity(response: unknown): void {
 
 export async function checkVideoLogin(): Promise<void> {
   checkIdentity(await requestJson(ME));
+}
+
+export async function connectClassroom(parent: WebContents) {
+  if (loadCanvasToken())
+    try {
+      await loginWithCanvas();
+      await checkVideoLogin();
+      return { ok: true as const };
+    } catch {
+      // Canvas 登录失败时回落到官方登录窗口，由用户手动登录。
+    }
+  return openCampusLoginWindow({
+    sender: parent,
+    title: '登录交大视频',
+    url: VIDEO_HOME,
+    reached: (url) => url.startsWith(VIDEO_HOME),
+    retryProbe: true,
+    probe: async () => {
+      await checkVideoLogin();
+      await flushCampusSession();
+    },
+  });
 }
 
 function unwrap(payload: unknown): unknown {

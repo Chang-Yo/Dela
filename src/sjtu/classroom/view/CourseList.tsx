@@ -1,18 +1,21 @@
+import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
+import { Skeleton } from '../../../ui/skeleton';
 import { cn } from '../../../ui/cn';
-import type { ClassroomVideo, VideoCourse } from '../../../shared/vsjtu';
+import type { ClassroomVideo, VideoCourse } from '../contract';
 import { lectureMeta, lectureTitle } from './player-format';
 import { useClassroom } from './store';
+import { useCourses, useSelection } from './use-classroom';
 
 export function CoursePicker() {
-  const courses = useClassroom((state) => state.courses);
-  const selectedCourseId = useClassroom((state) => state.selectedCourseId);
+  const courses = useCourses().data ?? [];
+  const { course } = useSelection();
   const selectCourse = useClassroom((state) => state.selectCourse);
   return (
     <div className="px-3 pb-3 pt-2">
       <Select
-        value={selectedCourseId === null ? '' : String(selectedCourseId)}
+        value={course ? String(course.id) : ''}
         onValueChange={(value) => selectCourse(Number(value))}
         disabled={courses.length === 0}
       >
@@ -33,30 +36,26 @@ export function CoursePicker() {
 }
 
 export function CourseList() {
-  const course = useClassroom((state) =>
-    state.courses.find((course) => course.id === state.selectedCourseId),
-  );
-  const videos = useClassroom((state) => state.videos[state.selectedCourseId ?? -1]);
-  const loading = useClassroom((state) => state.videosLoading[state.selectedCourseId ?? -1]);
-  const error = useClassroom((state) => state.videosError[state.selectedCourseId ?? -1]);
-  const ensureVideos = useClassroom((state) => state.ensureVideos);
+  const { course, videos } = useSelection();
   if (!course)
     return <p className="px-3 py-6 text-center text-xs text-ink-3">本学期暂无课堂录像课程</p>;
   return (
     <nav aria-label="节次" className="flex flex-col gap-1 px-2 pb-2">
-      {loading && !videos ? (
-        [0, 1, 2].map((index) => <VideoRowSkeleton key={index} />)
-      ) : error && !videos ? (
+      {videos.data ? (
+        videos.data.length ? (
+          videos.data.map((video) => <VideoRow key={video.id} course={course} video={video} />)
+        ) : (
+          <p className="px-2 py-3 text-xs text-ink-3">暂无录像</p>
+        )
+      ) : videos.isError && !videos.isFetching ? (
         <div className="px-2 py-3 text-xs text-ink-3">
-          <p>{error}</p>
-          <Button size="sm" variant="ghost" onClick={() => void ensureVideos(course.id)}>
+          <p>{errorMessage(videos.error)}</p>
+          <Button size="sm" variant="ghost" onClick={() => void videos.refetch()}>
             重试
           </Button>
         </div>
-      ) : videos?.length ? (
-        videos.map((video) => <VideoRow key={video.id} course={course} video={video} />)
       ) : (
-        <p className="px-2 py-3 text-xs text-ink-3">暂无录像</p>
+        [0, 1, 2].map((index) => <VideoRowSkeleton key={index} />)
       )}
     </nav>
   );
@@ -66,15 +65,15 @@ function VideoRowSkeleton() {
   return (
     <div className="flex items-center gap-2 px-2 py-1.5">
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="h-3.5 w-3/5 animate-pulse rounded-chip bg-fill" />
-        <div className="h-3 w-2/5 animate-pulse rounded-chip bg-fill" />
+        <Skeleton className="h-3.5 w-3/5" />
+        <Skeleton className="h-3 w-2/5" />
       </div>
     </div>
   );
 }
 
 function VideoRow({ course, video }: { course: VideoCourse; video: ClassroomVideo }) {
-  const selected = useClassroom((state) => state.selectedVideoId === video.id);
+  const selected = useClassroom((state) => state.videoId === video.id);
   const selectVideo = useClassroom((state) => state.selectVideo);
 
   return (

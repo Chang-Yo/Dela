@@ -1,4 +1,4 @@
-import { formatBytes } from '../features/classroom/player-format';
+import { formatBytes } from '../lib/format-bytes';
 import { cn } from '../../ui/cn';
 
 /** 下载进度一行式（「软件更新」「Skills 组件」「能力拓展」共用）：左「已接收 / 总量」、

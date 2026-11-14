@@ -1,8 +1,8 @@
 // 只有界面用、主进程不读的偏好：一个持久化 store，写入只发生在 action 里。
-import { useState } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { z } from 'zod';
+import { useResizerWidth } from '../../ui/resizer';
 
 export type ProjectNavPreference = { pinned?: boolean; section?: string };
 
@@ -10,8 +10,6 @@ const defaults = {
   shellSidebarCollapsed: false,
   projectOpenTarget: 'vscode' as 'vscode' | 'explorer',
   mailFoldersCollapsed: true,
-  classroomSidebarWidth: 300,
-  classroomSidebarCollapsed: false,
   workspaceSidebarWidth: 300,
   workspaceSidebarCollapsed: false,
   hiddenNavEntries: [] as string[],
@@ -28,7 +26,6 @@ type PreferencesStore = PreferenceValues & {
 };
 
 const storageKey = 'dela.preferences';
-const classroomWidthRange = { min: 240, max: 360 };
 
 const legacyNavEntries = z.object({ state: z.object({ hidden: z.array(z.string()) }) });
 const legacyProjectNav = z.object({
@@ -77,12 +74,6 @@ function migrateLegacyPreferences(): string {
     projectOpenTarget:
       localStorage.getItem('dela.project.open-target') === 'explorer' ? 'explorer' : 'vscode',
     mailFoldersCollapsed: localStorage.getItem('dela.mail.folders-collapsed') !== 'false',
-    classroomSidebarWidth: legacyWidth(
-      'dela.classroom.sidebarWidth',
-      (value) => value >= classroomWidthRange.min && value <= classroomWidthRange.max,
-      defaults.classroomSidebarWidth,
-    ),
-    classroomSidebarCollapsed: localStorage.getItem('dela.classroom.sidebarCollapsed') === '1',
     workspaceSidebarWidth: legacyWidth(
       'dela.workspace.sidebarWidth',
       (value) => value > 0,
@@ -132,22 +123,8 @@ export const usePreferences = create<PreferencesStore>()(
   ),
 );
 
-/** 侧栏宽度：拖动中只改本地值，拖动结束或键盘调整时才写入偏好。 */
-export function usePreferenceWidth(key: 'classroomSidebarWidth' | 'workspaceSidebarWidth') {
+export function usePreferenceWidth(key: 'workspaceSidebarWidth') {
   const stored = usePreferences((state) => state[key]);
   const setPreference = usePreferences((state) => state.setPreference);
-  const [dragWidth, setDragWidth] = useState<number | null>(null);
-  const [resizing, setResizing] = useState(false);
-  return {
-    width: dragWidth ?? stored,
-    resizing,
-    onChange: (width: number) => (resizing ? setDragWidth(width) : setPreference(key, width)),
-    onResizingChange: (next: boolean) => {
-      setResizing(next);
-      if (!next && dragWidth !== null) {
-        setPreference(key, dragWidth);
-        setDragWidth(null);
-      }
-    },
-  };
+  return useResizerWidth(stored, (width) => setPreference(key, width));
 }

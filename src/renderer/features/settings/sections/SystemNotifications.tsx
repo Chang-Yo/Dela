@@ -4,7 +4,7 @@ import type { TaskNotificationPrefs } from '../../../../shared/api';
 import { notificationsClient, useNotificationState } from '../../../../modules/notifications/view';
 import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
-import { SettingRow } from '../SettingRow';
+import { SettingRow } from '../../../../modules/settings/view';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';

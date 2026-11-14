@@ -1,57 +1,33 @@
-import { useEffect, useState } from 'react';
-import { FileOutput, Play, RotateCcw, Search } from 'lucide-react';
-import type { ClassroomVideo, VideoCourse, VideoTranscript } from '../../../shared/vsjtu';
+import { useState } from 'react';
+import { FileOutput, Play, RotateCcw } from 'lucide-react';
+import { errorMessage } from '../../../core/protocol/contract';
+import { showToast } from '../../../renderer/app/toasts';
+import type { ClassroomVideo, VideoCourse } from '../contract';
 import { Button } from '../../../ui/button';
-import { Input } from '../../../ui/input';
+import { SearchInput } from '../../../ui/search-input';
 import { IconButton } from '../../../ui/icon-button';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
 import { cn } from '../../../ui/cn';
 import { formatTime, lectureFileName, lectureTitle } from './player-format';
 import { useClassroom } from './store';
+import { classroomClient, useSelection, useTranscript } from './use-classroom';
 import { Spinner } from '../../../ui/spinner';
 
 export function TranscriptPanel() {
-  const course = useClassroom((state) =>
-    state.courses.find((course) => course.id === state.selectedCourseId),
-  );
-  const video = useClassroom((state) =>
-    state.videos[state.selectedCourseId ?? -1]?.find((video) => video.id === state.selectedVideoId),
-  );
+  const { course, video } = useSelection();
   if (!course || !video)
     return <p className="px-3 py-6 text-center text-xs text-ink-3">请先在节次中选择一场录像</p>;
   return <TranscriptReader key={video.id} course={course} video={video} />;
 }
 
 function TranscriptReader({ course, video }: { course: VideoCourse; video: ClassroomVideo }) {
-  const [transcript, setTranscript] = useState<VideoTranscript | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const result = useTranscript(video.id);
+  const transcript = result.data;
+  const loading = !transcript && result.isFetching;
+  const error = result.error ? errorMessage(result.error) : '';
   const [query, setQuery] = useState('');
-  const [reload, setReload] = useState(0);
   const [exporting, setExporting] = useState(false);
   const time = useClassroom((state) => state.playbackTime);
   const seekTo = useClassroom((state) => state.seekTo);
-
-  useEffect(() => {
-    let disposed = false;
-    setLoading(true);
-    setError('');
-    void window
-      .dela!.vsjtu.transcript(video.id)
-      .then((value) => {
-        if (!disposed) setTranscript(value);
-      })
-      .catch((cause) => {
-        if (!disposed) setError(errorText(cause));
-      })
-      .finally(() => {
-        if (!disposed) setLoading(false);
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [video.id, reload]);
 
   const keyword = query.trim();
   const segments =
@@ -61,13 +37,13 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
   const exportText = async () => {
     setExporting(true);
     try {
-      const result = await window.dela!.vsjtu.exportTranscript(
-        video.id,
-        lectureFileName(course.name, video),
-      );
-      if (result.saved) showToast({ variant: 'success', title: '文稿已导出' });
+      const { saved } = await classroomClient.exportTranscript({
+        videoId: video.id,
+        title: lectureFileName(course.name, video),
+      });
+      if (saved) showToast({ variant: 'success', title: '文稿已导出' });
     } catch (cause) {
-      showToast({ variant: 'error', title: '导出失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '导出失败', description: errorMessage(cause) });
     } finally {
       setExporting(false);
     }
@@ -78,23 +54,17 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
       <div className="shrink-0 px-3 pb-2">
         <p className="mb-2 truncate text-xs text-ink-3">{lectureTitle(video)}</p>
         <div className="flex items-center gap-1">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute left-2.5 top-2 size-4 text-ink-3"
-            />
-            <Input
-              aria-label="搜索语音文稿"
-              className="pl-8"
-              placeholder="搜索文稿"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
+          <SearchInput
+            aria-label="搜索语音文稿"
+            className="flex-1"
+            placeholder="搜索文稿"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
           <IconButton
             aria-label="导出完整文稿"
             title="导出完整文稿"
-            disabled={loading || !!error || !transcript || exporting}
+            disabled={loading || !transcript || exporting}
             onClick={() => void exportText()}
           >
             {exporting ? <Spinner /> : <FileOutput />}
@@ -111,14 +81,14 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
             <Spinner />
             正在加载文稿…
           </div>
-        ) : error || !transcript ? (
+        ) : !transcript ? (
           <div className="px-1 py-4 text-xs text-ink-3">
             <p>{error || '该录像暂无语音文稿'}</p>
             <Button
               className="mt-2"
               size="sm"
               variant="ghost"
-              onClick={() => setReload((value) => value + 1)}
+              onClick={() => void result.refetch()}
             >
               <RotateCcw className="size-3.5" />
               重试

@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { DownloadProgressRow } from '../../components/download-progress';
-import { SettingRow } from './SettingRow';
+import { SettingRow } from '../../../modules/settings/view';
 import { SettingsGroup } from './SettingsGroup';
 import { useUpdateState, runUpdateAction, updateView } from './update';
 
