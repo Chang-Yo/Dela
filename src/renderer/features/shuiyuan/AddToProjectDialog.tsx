@@ -131,7 +131,7 @@ export function AddToProjectDialog({
               />
             </Field>
           ) : null}
-          {error ? <p className="text-xs text-red">{error}</p> : null}
+          {error ? <p className="text-xs text-danger">{error}</p> : null}
           <div className="flex justify-end">
             <Button disabled={busy} type="submit">
               {busy ? '添加中…' : '添加'}

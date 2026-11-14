@@ -84,8 +84,8 @@ function TurnFileReview({
         </span>
         <span className="shrink-0 text-xs text-ink-3">· {STATUS_TEXT[detail.status]}</span>
         <span className="ml-auto flex shrink-0 gap-1.5 font-mono text-xs">
-          {stat && stat.added > 0 && <span className="text-green">+{stat.added}</span>}
-          {stat && stat.deleted > 0 && <span className="text-red">-{stat.deleted}</span>}
+          {stat && stat.added > 0 && <span className="text-success">+{stat.added}</span>}
+          {stat && stat.deleted > 0 && <span className="text-danger">-{stat.deleted}</span>}
         </span>
       </header>
       {detail.note && (

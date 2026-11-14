@@ -243,7 +243,7 @@ export function ConnectionForm({
         <div className="flex items-center gap-2">
           {connection && onRemoved && !removeConfirm && (
             <Button
-              className="text-ink-3 hover:text-red"
+              className="text-ink-3 hover:text-danger"
               disabled={busy}
               onClick={() => setRemoveConfirm(true)}
               type="button"

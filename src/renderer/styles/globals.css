@@ -42,7 +42,7 @@
 @layer base {
   * {
     border-color: var(--line);
-    outline-color: color-mix(in oklch, var(--bui-accent) 50%, transparent);
+    outline-color: color-mix(in oklch, var(--accent) 50%, transparent);
   }
 
   html,
@@ -78,7 +78,7 @@
   button:focus-visible,
   textarea:focus-visible,
   input:focus-visible {
-    outline: 2px solid color-mix(in oklch, var(--bui-accent) 60%, transparent);
+    outline: 2px solid color-mix(in oklch, var(--accent) 60%, transparent);
     outline-offset: 2px;
   }
 
@@ -187,7 +187,7 @@
 
 /* 回复评论：写评论时标出被评论的原文（reply-comment.tsx）。 */
 ::highlight(dela-reply-comment) {
-  background-color: color-mix(in oklch, var(--bui-accent) 24%, transparent);
+  background-color: color-mix(in oklch, var(--accent) 24%, transparent);
 }
 
 /* 旁问面板：新建与关闭沿右边界整体进出（含 right-3 的 0.75rem）；收起与展开以右上角

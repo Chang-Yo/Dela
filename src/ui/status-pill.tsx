@@ -6,10 +6,10 @@ const statusPillVariants = cva(
   {
     variants: {
       tone: {
-        green: 'bg-green-tint text-green',
-        orange: 'bg-orange-tint text-orange',
-        red: 'bg-red-tint text-red',
-        accent: 'bg-bui-accent-tint text-bui-accent-ink',
+        green: 'bg-success-tint text-success',
+        orange: 'bg-warning-tint text-warning',
+        red: 'bg-danger-tint text-danger',
+        accent: 'bg-accent-tint text-accent-ink',
         neutral: 'bg-inset text-ink-2',
       },
     },
@@ -21,10 +21,10 @@ type Tone = NonNullable<VariantProps<typeof statusPillVariants>['tone']>;
 
 /* the leading dot lives on a separate element, so its color stays a small lookup */
 const dotColor: Record<Tone, string> = {
-  green: 'bg-green',
-  orange: 'bg-orange',
-  red: 'bg-red',
-  accent: 'bg-bui-accent',
+  green: 'bg-success',
+  orange: 'bg-warning',
+  red: 'bg-danger',
+  accent: 'bg-accent',
   neutral: 'bg-ink-3',
 };
 

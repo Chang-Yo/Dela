@@ -93,7 +93,7 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
               <span aria-hidden="true">·</span>
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded-chip outline-none transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-bui-accent"
+                className="inline-flex items-center gap-1 rounded-chip outline-none transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
                 onClick={() =>
                   attachmentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 }
@@ -106,7 +106,7 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
         </p>
       </header>
       {error ? (
-        <div role="alert" className="py-6 text-sm text-red">
+        <div role="alert" className="py-6 text-sm text-danger">
           <p>{error}</p>
           <Button className="mt-3" variant="outline" onClick={() => setRetry((value) => value + 1)}>
             重试
@@ -150,7 +150,7 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
                   <li key={file.id}>
                     <button
                       type="button"
-                      className="group flex w-full items-start gap-2 rounded-control px-2 py-1.5 text-left text-sm text-ink-2 outline-none transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-bui-accent"
+                      className="group flex w-full items-start gap-2 rounded-control px-2 py-1.5 text-left text-sm text-ink-2 outline-none transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
                       onClick={() => setAttachment(file)}
                     >
                       <Paperclip className="mt-0.5 size-3.5 shrink-0 text-ink-3" />

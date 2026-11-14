@@ -240,7 +240,7 @@ export function PdfReader({
           title="重置缩放到 100%"
           aria-label="重置缩放到 100%"
           disabled={!pageCount}
-          className="rounded-control px-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent"
+          className="rounded-control px-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           onClick={() => {
             if (viewer.current) viewer.current.currentScaleValue = '1';
           }}

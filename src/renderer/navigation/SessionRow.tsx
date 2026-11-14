@@ -20,11 +20,11 @@ export interface NavSessionSummary {
 }
 export type SessionRunBadge = RunStatus | null;
 const badgeVisual: Record<RunStatus, { className: string; label: string }> = {
-  pending: { className: 'bg-bui-accent animate-pulse', label: '等待运行' },
-  running: { className: 'bg-bui-accent animate-pulse', label: '运行中' },
-  waiting_input: { className: 'bg-orange', label: '等待输入' },
-  completed: { className: 'bg-green', label: '已完成' },
-  failed: { className: 'bg-red', label: '运行失败' },
+  pending: { className: 'bg-accent animate-pulse', label: '等待运行' },
+  running: { className: 'bg-accent animate-pulse', label: '运行中' },
+  waiting_input: { className: 'bg-warning', label: '等待输入' },
+  completed: { className: 'bg-success', label: '已完成' },
+  failed: { className: 'bg-danger', label: '运行失败' },
   stopped: { className: 'bg-ink-3', label: '已停止' },
   interrupted: { className: 'bg-ink-3', label: '已中断' },
 };

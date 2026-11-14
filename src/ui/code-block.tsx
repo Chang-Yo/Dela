@@ -67,7 +67,7 @@ const DIFF: Row[] = [
 ];
 
 const HATCH =
-  'repeating-linear-gradient(45deg, var(--red) 0, var(--red) 1.5px, transparent 1.5px, transparent 3px)';
+  'repeating-linear-gradient(45deg, var(--danger) 0, var(--danger) 1.5px, transparent 1.5px, transparent 3px)';
 
 const KEYWORDS = new Set([
   'import',
@@ -107,8 +107,8 @@ function highlight(text: string): ReactNode[] {
     if (idx > last) nodes.push(<span key={k++}>{text.slice(last, idx)}</span>);
     let color: string;
     let weight: number | undefined;
-    if (/^["'`]/.test(t) || /^\d/.test(t)) color = 'var(--orange)';
-    else if (KEYWORDS.has(t)) color = 'var(--bui-accent-ink)';
+    if (/^["'`]/.test(t) || /^\d/.test(t)) color = 'var(--warning)';
+    else if (KEYWORDS.has(t)) color = 'var(--accent-ink)';
     else {
       color = 'var(--ink)';
       weight = 500;
@@ -189,7 +189,7 @@ export type CodeBlockProps = {
   fill?: boolean;
   /** Dela 适配：追加到代码主体的类名（聊天内限高滚动等场景）。 */
   bodyClassName?: string;
-  /** Dela 适配：失败态——卡片左侧一条 --red 色条（沿用 Diff 视图增删色条的写法）。 */
+  /** Dela 适配：失败态——卡片左侧一条 --danger 色条（沿用 Diff 视图增删色条的写法）。 */
   tone?: 'error';
 };
 
@@ -230,7 +230,7 @@ export default function CodeBlock({
       {tone === 'error' && (
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[0.1875rem] bg-red"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[0.1875rem] bg-danger"
         />
       )}
       {/* Dela 适配：文件名保留正常行高；leading-none 的 1em 行盒会在字号调大后裁掉下划线与字形下缘。 */}
@@ -242,8 +242,8 @@ export default function CodeBlock({
 
         {isDiff ? (
           <span className="ml-auto inline-flex items-center gap-2 font-mono text-xs leading-none tabular-nums">
-            <span className="text-green">+{added}</span>
-            <span className="text-red">-{removed}</span>
+            <span className="text-success">+{added}</span>
+            <span className="text-danger">-{removed}</span>
           </span>
         ) : (
           <button
@@ -253,7 +253,7 @@ export default function CodeBlock({
             // Dela 适配：长路径下保留按钮宽度，避免继承聊天区换行规则后拆开 Copy / Copied。
             className={`-mr-1 ml-auto flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-1.5 text-xs
               font-medium transition-colors duration-fast hover:bg-hover
-              ${copied ? 'text-green' : 'text-ink-3 hover:text-ink'}`}
+              ${copied ? 'text-success' : 'text-ink-3 hover:text-ink'}`}
           >
             {copied ? (
               <svg
@@ -303,16 +303,16 @@ export default function CodeBlock({
                 <div
                   key={i}
                   className={`relative grid grid-cols-[1.25rem_minmax(0,1fr)] items-start
-                    ${add ? 'bg-green-tint' : del ? 'bg-red-tint' : ''}`}
+                    ${add ? 'bg-success-tint' : del ? 'bg-danger-tint' : ''}`}
                 >
                   {(add || del) && (
                     <span
                       className="absolute inset-y-0 left-0 w-[0.1875rem]"
-                      style={{ background: add ? 'var(--green)' : HATCH }}
+                      style={{ background: add ? 'var(--success)' : HATCH }}
                     />
                   )}
                   <span
-                    className={`select-none text-center text-xs ${add ? 'text-green' : del ? 'text-red' : 'text-ink-3'}`}
+                    className={`select-none text-center text-xs ${add ? 'text-success' : del ? 'text-danger' : 'text-ink-3'}`}
                   >
                     {num ?? ''}
                   </span>

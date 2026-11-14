@@ -9,15 +9,15 @@ const PAGE_ROWS = 500;
 
 const rowBackground: Record<string, string> = {
   hunk: 'bg-field text-ink-3',
-  add: 'bg-green-tint',
-  del: 'bg-red-tint',
+  add: 'bg-success-tint',
+  del: 'bg-danger-tint',
   context: '',
 };
 
 const rowText: Record<string, string> = {
   hunk: 'text-ink-3',
-  add: 'text-green',
-  del: 'text-red',
+  add: 'text-success',
+  del: 'text-danger',
   context: '',
 };
 

@@ -111,12 +111,12 @@ export function mcpStatusBadge(
     case 'connected':
       return {
         label: toolCount === null ? '已连接' : `已连接 · ${toolCount} 个工具`,
-        dotClass: 'bg-green',
+        dotClass: 'bg-success',
         spin: false,
       };
     case 'disconnected':
       return { label: '未连接', dotClass: 'bg-ink-3/40', spin: false };
     case 'error':
-      return { label: '连接失败', dotClass: 'bg-red', spin: false };
+      return { label: '连接失败', dotClass: 'bg-danger', spin: false };
   }
 }

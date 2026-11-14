@@ -23,17 +23,17 @@
   --field: oklch(0.961 0.001 286.375);
 
   /* accent */
-  --bui-accent: oklch(0.626 0.205 254.947);
-  --bui-accent-ink: oklch(0.556 0.187 255.617);
-  --bui-accent-tint: oklch(0.96 0.019 252.878);
+  --accent: oklch(0.626 0.205 254.947);
+  --accent-ink: oklch(0.556 0.187 255.617);
+  --accent-tint: oklch(0.96 0.019 252.878);
 
   /* semantic */
-  --green: oklch(0.603 0.155 150.883);
-  --green-tint: oklch(0.958 0.017 159.118);
-  --orange: oklch(0.689 0.179 49.902);
-  --orange-tint: oklch(0.964 0.021 67.581);
-  --red: oklch(0.621 0.192 23.042);
-  --red-tint: oklch(0.956 0.017 17.462);
+  --success: oklch(0.603 0.155 150.883);
+  --success-tint: oklch(0.958 0.017 159.118);
+  --warning: oklch(0.689 0.179 49.902);
+  --warning-tint: oklch(0.964 0.021 67.581);
+  --danger: oklch(0.621 0.192 23.042);
+  --danger-tint: oklch(0.956 0.017 17.462);
 
   --tooltip-bg: oklch(0.272 0.008 264.435);
   --tooltip-fg: oklch(0.976 0.002 247.839);
@@ -119,16 +119,16 @@
   --line-soft: oklch(0.278 0.006 258.354);
   --field: oklch(0.293 0.006 271.223);
 
-  --bui-accent: oklch(0.68 0.173 253.301);
-  --bui-accent-ink: oklch(0.788 0.113 248.33);
-  --bui-accent-tint: oklch(0.68 0.173 253.301 / 0.16);
+  --accent: oklch(0.68 0.173 253.301);
+  --accent-ink: oklch(0.788 0.113 248.33);
+  --accent-tint: oklch(0.68 0.173 253.301 / 0.16);
 
-  --green: oklch(0.705 0.154 153.814);
-  --green-tint: oklch(0.705 0.154 153.814 / 0.14);
-  --orange: oklch(0.746 0.156 55.642);
-  --orange-tint: oklch(0.746 0.156 55.642 / 0.14);
-  --red: oklch(0.666 0.18 21.433);
-  --red-tint: oklch(0.666 0.18 21.433 / 0.14);
+  --success: oklch(0.705 0.154 153.814);
+  --success-tint: oklch(0.705 0.154 153.814 / 0.14);
+  --warning: oklch(0.746 0.156 55.642);
+  --warning-tint: oklch(0.746 0.156 55.642 / 0.14);
+  --danger: oklch(0.666 0.18 21.433);
+  --danger-tint: oklch(0.666 0.18 21.433 / 0.14);
 
   --tooltip-bg: oklch(0.182 0.004 264.459);
   --tooltip-fg: oklch(0.964 0.002 247.839);
@@ -191,15 +191,15 @@
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-line-soft: var(--line-soft);
-  --color-bui-accent: var(--bui-accent);
-  --color-bui-accent-ink: var(--bui-accent-ink);
-  --color-bui-accent-tint: var(--bui-accent-tint);
-  --color-green: var(--green);
-  --color-green-tint: var(--green-tint);
-  --color-orange: var(--orange);
-  --color-orange-tint: var(--orange-tint);
-  --color-red: var(--red);
-  --color-red-tint: var(--red-tint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-tint: var(--accent-tint);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
   --color-code: var(--syntax-bg);
   --color-drop-target: var(--cal-blue-bg);
   --color-cal-rose-bg: var(--cal-rose-bg);
@@ -231,8 +231,8 @@
 
   --shadow-hairline: 0 0 0 1px var(--line);
   --shadow-hairline-strong: 0 0 0 1px var(--line-strong);
-  --shadow-focus: 0 0 0 1px var(--bui-accent), 0 0 0 3px var(--bui-accent-tint);
-  --shadow-invalid: 0 0 0 1px var(--red);
+  --shadow-focus: 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-tint);
+  --shadow-invalid: 0 0 0 1px var(--danger);
   --shadow-tooltip: 0 0 0 1px var(--tooltip-border);
   --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);

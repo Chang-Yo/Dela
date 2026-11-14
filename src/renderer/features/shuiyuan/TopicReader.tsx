@@ -62,7 +62,7 @@ function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsPr
         aria-label={post.liked ? '已喜爱（取消需到水源网页端）' : '喜爱'}
         className={cn(
           'flex h-7 items-center gap-1 rounded-control px-1.5 text-xs tabular-nums transition-colors hover:bg-hover',
-          post.liked ? 'cursor-default text-red' : 'text-ink-3 hover:text-ink',
+          post.liked ? 'cursor-default text-danger' : 'text-ink-3 hover:text-ink',
         )}
         disabled={post.liked}
         onClick={() => onLike(post.id, true)}
@@ -471,7 +471,7 @@ export function TopicReader() {
                 <article
                   className={cn(
                     'group flex gap-3 border-b border-line py-5 transition-colors last:border-0',
-                    highlight === post.postNumber && 'bg-bui-accent-tint',
+                    highlight === post.postNumber && 'bg-accent-tint',
                   )}
                   data-post-number={post.postNumber}
                   key={post.id}

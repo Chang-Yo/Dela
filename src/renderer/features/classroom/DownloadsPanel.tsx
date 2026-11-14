@@ -35,7 +35,7 @@ export function DownloadsPanel() {
           {activeCount > 0 && (
             <span
               aria-hidden
-              className="pointer-events-none absolute right-0.5 top-0.5 size-1.5 rounded-full bg-bui-accent"
+              className="pointer-events-none absolute right-0.5 top-0.5 size-1.5 rounded-full bg-accent"
             />
           )}
         </span>

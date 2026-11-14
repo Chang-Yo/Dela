@@ -144,7 +144,7 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
                 >
                   <button
                     type="button"
-                    className="mb-1 inline-flex items-center gap-1 rounded-chip px-1 py-0.5 text-xs tabular-nums text-ink-3 hover:bg-hover-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-bui-accent"
+                    className="mb-1 inline-flex items-center gap-1 rounded-chip px-1 py-0.5 text-xs tabular-nums text-ink-3 hover:bg-hover-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
                     aria-label={`跳转到 ${formatTime(segment.startMs / 1000)}`}
                     onClick={() => seekTo(video.id, segment.startMs / 1000)}
                   >
@@ -169,7 +169,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return text.split(new RegExp(`(${escaped})`, 'gi')).map((part, index) =>
     index % 2 ? (
-      <mark key={index} className="rounded-chip bg-bui-accent-tint text-ink">
+      <mark key={index} className="rounded-chip bg-accent-tint text-ink">
         {part}
       </mark>
     ) : (

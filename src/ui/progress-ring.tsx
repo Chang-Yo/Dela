@@ -15,10 +15,10 @@ export function ProgressRing({
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const tones = {
-    orange: 'var(--orange)',
-    green: 'var(--green)',
-    red: 'var(--red)',
-    accent: 'var(--bui-accent)',
+    orange: 'var(--warning)',
+    green: 'var(--success)',
+    red: 'var(--danger)',
+    accent: 'var(--accent)',
     // Dela 适配：中性墨色档。
     ink: 'var(--ink-2)',
   };

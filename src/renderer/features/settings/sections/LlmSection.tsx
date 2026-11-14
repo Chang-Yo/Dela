@@ -457,7 +457,7 @@ export function LlmSection() {
                             aria-hidden="true"
                             className={cn(
                               'ms-auto size-1.5 shrink-0 rounded-full',
-                              provider.enabled ? 'bg-green' : 'bg-line-strong',
+                              provider.enabled ? 'bg-success' : 'bg-line-strong',
                             )}
                           />
                         </button>
@@ -915,7 +915,7 @@ function ProviderDetail({
             <p
               className={cn(
                 'flex flex-wrap items-center gap-1.5 text-xs [overflow-wrap:anywhere]',
-                verifyResult.ok ? 'text-green' : 'text-red',
+                verifyResult.ok ? 'text-success' : 'text-danger',
               )}
               role="status"
             >
@@ -1009,7 +1009,7 @@ function ProviderDetail({
                     <p
                       className={cn(
                         'text-xs [overflow-wrap:anywhere]',
-                        result.ok ? 'text-green' : 'text-red',
+                        result.ok ? 'text-success' : 'text-danger',
                       )}
                       role="status"
                     >
@@ -1141,7 +1141,7 @@ function ProviderDetail({
                 </ul>
                 {verifyResult && (
                   <p
-                    className={cn('text-xs', verifyResult.ok ? 'text-green' : 'text-red')}
+                    className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-danger')}
                     role="status"
                   >
                     {verifyResult.message}

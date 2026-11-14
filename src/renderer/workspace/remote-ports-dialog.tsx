@@ -114,7 +114,7 @@ export function RemotePortsDialog({
                   </span>
                   {tunnel ? (
                     <>
-                      <span className="shrink-0 font-mono text-xs text-green tabular-nums">
+                      <span className="shrink-0 font-mono text-xs text-success tabular-nums">
                         → 127.0.0.1:{tunnel.localPort}
                       </span>
                       <Button
@@ -156,7 +156,7 @@ export function RemotePortsDialog({
                 <span className="min-w-0 flex-1 truncate text-ink-3">
                   端口 {tunnel.remotePort}（进程已退出）
                 </span>
-                <span className="shrink-0 font-mono text-xs text-green tabular-nums">
+                <span className="shrink-0 font-mono text-xs text-success tabular-nums">
                   → 127.0.0.1:{tunnel.localPort}
                 </span>
                 <Button

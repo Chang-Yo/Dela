@@ -171,7 +171,7 @@ export function SourcesTree({
                     {course.error && (
                       <p
                         role="status"
-                        className="max-w-64 break-words whitespace-pre-line px-2 py-1 text-xs text-red"
+                        className="max-w-64 break-words whitespace-pre-line px-2 py-1 text-xs text-danger"
                       >
                         {course.error}
                       </p>

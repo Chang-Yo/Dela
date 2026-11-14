@@ -166,7 +166,7 @@ export function SidechatPanel({
     <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-ink-2">
       <MessageCircleQuestion className="size-3.5 shrink-0" />
       <span className="truncate">旁问 · 关闭后不保留</span>
-      {view.running && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-green" />}
+      {view.running && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-success" />}
     </span>
   );
 

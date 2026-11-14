@@ -66,7 +66,7 @@ const MessageActions = memo(function MessageActions({
         }}
         title="复制"
       >
-        {copied ? <Check className="text-green" /> : <Copy />}
+        {copied ? <Check className="text-success" /> : <Copy />}
       </IconButton>
       {onSaveNote && (
         <IconButton aria-label="保存为笔记" onClick={() => onSaveNote(content)} title="保存为笔记">
@@ -283,7 +283,7 @@ const UserMessage = memo(function UserMessage({
             }}
             title="复制"
           >
-            {copied ? <Check className="text-green" /> : <Copy />}
+            {copied ? <Check className="text-success" /> : <Copy />}
           </IconButton>
         ) : null}
         {editable && (
@@ -320,9 +320,9 @@ function ErrorCard({ reason, onRetry }: { reason: string; onRetry?: () => void }
   return (
     <div
       role="alert"
-      className="my-3 flex items-start gap-2 rounded-card bg-red-tint px-3 py-2 text-sm leading-6 text-ink"
+      className="my-3 flex items-start gap-2 rounded-card bg-danger-tint px-3 py-2 text-sm leading-6 text-ink"
     >
-      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-red" />
+      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-danger" />
       <p className="min-w-0 flex-1 break-words">{reason}</p>
       {onRetry && (
         <button
@@ -475,7 +475,7 @@ function TaskNoticeMessage({ content, task }: { content: string; task: TaskNotic
     <div className="my-3 grid gap-1.5 rounded-card bg-inset px-3.5 py-2.5">
       <div className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
         <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={1.8} />
-        <span className={`shrink-0 font-medium ${task.status === 'failed' ? 'text-red' : ''}`}>
+        <span className={`shrink-0 font-medium ${task.status === 'failed' ? 'text-danger' : ''}`}>
           后台任务{TASK_STATUS[task.status]}
           {task.exitCode !== undefined && task.status === 'failed' && `（退出码 ${task.exitCode}）`}
         </span>

@@ -100,7 +100,7 @@ export function SetupProgress({
     <div className="grid gap-3 rounded-card border border-line bg-field p-3.5">
       {failure ? (
         <div className="grid gap-1" role="alert">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-danger">
             <X className="size-4 shrink-0" />
             {failureTitle(failedLine?.step)}
           </p>
@@ -123,7 +123,7 @@ export function SetupProgress({
           {running ? (
             <Spinner className="shrink-0 text-ink-3" />
           ) : (
-            <Check className="size-4 shrink-0 text-green" />
+            <Check className="size-4 shrink-0 text-success" />
           )}
           {running
             ? log.some((line) => line.step === 'upload')
@@ -145,18 +145,18 @@ export function SetupProgress({
                 status === 'running' && 'font-medium text-ink',
                 status === 'done' && 'text-ink-2',
                 status === 'skipped' && 'text-ink-3/60',
-                status === 'failed' && 'font-medium text-red',
+                status === 'failed' && 'font-medium text-danger',
               )}
               key={step}
             >
               {status === 'done' || status === 'skipped' ? (
-                <Check className="size-3 text-green" aria-hidden="true" />
+                <Check className="size-3 text-success" aria-hidden="true" />
               ) : status === 'failed' ? (
                 <X className="size-3" aria-hidden="true" />
               ) : status === 'running' ? (
                 <span
                   aria-hidden="true"
-                  className="size-1.5 animate-pulse rounded-full bg-orange motion-reduce:animate-none"
+                  className="size-1.5 animate-pulse rounded-full bg-warning motion-reduce:animate-none"
                 />
               ) : (
                 <span
@@ -217,7 +217,7 @@ export function SetupProgress({
             ) : (
               lines.map((line, index) => (
                 <p
-                  className={cn('flex min-w-0 gap-2', line.ok === false && 'text-red')}
+                  className={cn('flex min-w-0 gap-2', line.ok === false && 'text-danger')}
                   key={`${index}-${line.step}`}
                 >
                   <span className="w-7 shrink-0 text-ink-3">{stepLabels[line.step]}</span>

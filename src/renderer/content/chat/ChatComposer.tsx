@@ -557,7 +557,7 @@ export function ChatComposer({
                   }
                   title={selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'}
                 >
-                  <Globe className={selectedSearch ? 'text-green' : undefined} />
+                  <Globe className={selectedSearch ? 'text-success' : undefined} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Portal>
@@ -658,7 +658,7 @@ export function ChatComposer({
                   className={cn(
                     triggerButton,
                     '@max-[220px]:px-1.5',
-                    modelUnavailable && 'text-red hover:text-red',
+                    modelUnavailable && 'text-danger hover:text-danger',
                   )}
                   title={modelUnavailable ? `${model}（已停用或被移除，请另选模型）` : model}
                   type="button"
@@ -724,7 +724,7 @@ export function ChatComposer({
                               {provider.id === providerId && (
                                 <span
                                   aria-label="本会话使用"
-                                  className="ms-auto size-1.5 shrink-0 rounded-full bg-green"
+                                  className="ms-auto size-1.5 shrink-0 rounded-full bg-success"
                                   title="本会话使用"
                                 />
                               )}
@@ -1033,11 +1033,11 @@ function QueuedMessages({ messages, onWithdraw }: { messages: string[]; onWithdr
 function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
   return (
     <div
-      className="absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--red-tint),var(--red-tint))] px-3 py-1.5 text-sm leading-6 text-ink shadow-hairline"
+      className="absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--danger-tint),var(--danger-tint))] px-3 py-1.5 text-sm leading-6 text-ink shadow-hairline"
       role="alert"
       style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
     >
-      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-red" />
+      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-danger" />
       <p className="min-w-0 flex-1 break-words">{message}</p>
       {onDismiss && (
         <button
@@ -1154,7 +1154,7 @@ function BackgroundTaskList({
 function ContextIndicator({ usage }: { usage: ContextUsageView }) {
   const tone = usageTone(usage.percent);
   const color =
-    tone === 'red' ? 'var(--red)' : tone === 'orange' ? 'var(--orange)' : 'var(--ink-2)';
+    tone === 'red' ? 'var(--danger)' : tone === 'orange' ? 'var(--warning)' : 'var(--ink-2)';
   return (
     <Popover.Root>
       <Popover.Trigger asChild>

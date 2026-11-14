@@ -160,7 +160,7 @@ export function EventDetailDialog({
               </>
             ) : (
               <Button
-                className="text-red hover:text-red"
+                className="text-danger hover:text-danger"
                 onClick={() => setConfirming(true)}
                 size="sm"
                 variant="ghost"

@@ -471,7 +471,7 @@ export function AppShell({
                 title="TODO"
               >
                 <SquareCheckBig
-                  className={cn('size-4', todoUnreadCount > 0 && 'text-bui-accent')}
+                  className={cn('size-4', todoUnreadCount > 0 && 'text-accent')}
                   strokeWidth={1.8}
                 />
               </IconButton>
@@ -486,7 +486,7 @@ export function AppShell({
                 {notificationCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="absolute right-1 top-1 size-1.5 rounded-full bg-bui-accent ring-2 ring-page"
+                    className="absolute right-1 top-1 size-1.5 rounded-full bg-accent ring-2 ring-page"
                   />
                 )}
               </IconButton>
@@ -519,7 +519,7 @@ export function AppShell({
                   type="button"
                 >
                   {effectiveOpenTarget === 'vscode' ? (
-                    <CodeXml className="size-4 text-bui-accent" />
+                    <CodeXml className="size-4 text-accent" />
                   ) : (
                     <FolderOpen className="size-4" />
                   )}
@@ -544,7 +544,7 @@ export function AppShell({
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem onSelect={() => openProjectDirectory('vscode')}>
-                      <CodeXml className="text-bui-accent" />
+                      <CodeXml className="text-accent" />
                       {projectIsRemote ? 'VS Code（SSH）' : 'VS Code'}
                       {effectiveOpenTarget === 'vscode' && <Check className="ml-auto" />}
                     </DropdownMenuItem>
@@ -669,7 +669,7 @@ export function AppShell({
               title="TODO"
             >
               <SquareCheckBig
-                className={cn('size-4', todoUnreadCount > 0 && 'text-bui-accent')}
+                className={cn('size-4', todoUnreadCount > 0 && 'text-accent')}
                 strokeWidth={1.8}
               />
             </IconButton>
@@ -684,7 +684,7 @@ export function AppShell({
               {notificationCount > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute right-1 top-1 size-1.5 rounded-full bg-bui-accent ring-2 ring-page"
+                  className="absolute right-1 top-1 size-1.5 rounded-full bg-accent ring-2 ring-page"
                 />
               )}
             </IconButton>

@@ -174,7 +174,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         }}
       />
       {(error || draft.error) && (
-        <div role="alert" className="shrink-0 break-words border-b px-4 py-2 text-xs text-red">
+        <div role="alert" className="shrink-0 break-words border-b px-4 py-2 text-xs text-danger">
           {error ?? draft.error}
           {error && (
             <button className="ml-3 underline" onClick={runReload}>

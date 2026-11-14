@@ -318,8 +318,8 @@ export function MailFolders({
             className={cn(
               'flex h-8 shrink-0 items-center rounded-control px-2 text-left text-sm transition-colors duration-base',
               confirmingDisconnect
-                ? 'bg-hover-2 font-medium text-red'
-                : 'text-ink-2 hover:bg-hover hover:text-red',
+                ? 'bg-hover-2 font-medium text-danger'
+                : 'text-ink-2 hover:bg-hover hover:text-danger',
             )}
             onClick={() => void handleDisconnect()}
             data-mail-disconnect

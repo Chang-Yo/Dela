@@ -41,8 +41,8 @@ function loadTurn(
 const StatSpan = memo(function StatSpan({ stat }: { stat: DiffStat }) {
   return (
     <span className="flex shrink-0 gap-1.5 font-mono text-xs">
-      {stat.added > 0 && <span className="text-green">+{stat.added}</span>}
-      {stat.deleted > 0 && <span className="text-red">-{stat.deleted}</span>}
+      {stat.added > 0 && <span className="text-success">+{stat.added}</span>}
+      {stat.deleted > 0 && <span className="text-danger">-{stat.deleted}</span>}
     </span>
   );
 });
@@ -113,7 +113,7 @@ const TurnFileRow = memo(function TurnFileRow({
             <DropdownMenuItem
               onSelect={() => void window.dela?.chat.openInVsCode(sessionId, file.path).catch(fail)}
             >
-              <CodeXml className="text-bui-accent" />
+              <CodeXml className="text-accent" />
               VS Code
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -182,8 +182,8 @@ export const TurnChangesCard = memo(function TurnChangesCard({
         />
         <span className="shrink-0 text-xs text-ink-3">本轮改动 · {record.files.length} 个文件</span>
         <span className="flex min-w-0 gap-1.5 font-mono text-xs">
-          {total.added > 0 && <span className="text-green">+{total.added}</span>}
-          {total.deleted > 0 && <span className="text-red">-{total.deleted}</span>}
+          {total.added > 0 && <span className="text-success">+{total.added}</span>}
+          {total.deleted > 0 && <span className="text-danger">-{total.deleted}</span>}
         </span>
       </button>
       {open && (

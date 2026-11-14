@@ -123,7 +123,7 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
               <SliderPrimitive.Track className="relative w-px grow bg-line-strong">
                 <SliderPrimitive.Range className="absolute w-full bg-ink-3" />
               </SliderPrimitive.Track>
-              <SliderPrimitive.Thumb className="block h-8 w-1 rounded-full bg-ink outline-none focus-visible:ring-2 focus-visible:ring-bui-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface" />
+              <SliderPrimitive.Thumb className="block h-8 w-1 rounded-full bg-ink outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface" />
             </SliderPrimitive.Root>
             {/* Radix 把把手约束在轨道内：中心 = 比例 × (轨长 − 把手长) + 半个把手长（把手长 2rem）。 */}
             <div

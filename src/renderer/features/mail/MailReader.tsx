@@ -147,7 +147,7 @@ export function MailReader({
         <p className="m-auto text-sm text-ink-3">选择一封邮件查看正文</p>
       )}
       {!detailLoading && detailError && !detail && (
-        <div className="m-auto grid place-items-center gap-3 text-center text-sm text-red">
+        <div className="m-auto grid place-items-center gap-3 text-center text-sm text-danger">
           <p>{detailError}</p>
           {selectedMessageId !== null && (
             <Button

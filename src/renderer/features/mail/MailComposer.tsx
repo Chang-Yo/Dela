@@ -713,7 +713,7 @@ export function MailComposer({
               autoFocus
               className={cn(
                 'min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-ink-3',
-                linkInvalid && 'text-red',
+                linkInvalid && 'text-danger',
               )}
               onChange={(event) => {
                 setLinkDraft(event.target.value);
@@ -734,7 +734,9 @@ export function MailComposer({
               value={linkDraft}
             />
             {linkInvalid && (
-              <span className="min-w-0 shrink truncate text-xs text-red">请输入有效的链接地址</span>
+              <span className="min-w-0 shrink truncate text-xs text-danger">
+                请输入有效的链接地址
+              </span>
             )}
             <Button onClick={applyLink} size="sm" type="button">
               插入
@@ -748,7 +750,7 @@ export function MailComposer({
         <div
           aria-label="邮件正文"
           // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
-          className="min-h-0 flex-1 overflow-y-auto py-4 text-sm leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-bui-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-control"
+          className="min-h-0 flex-1 overflow-y-auto py-4 text-sm leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-control"
           contentEditable
           style={{ fontSynthesis: 'weight style' }}
           onInput={handleEditorInput}

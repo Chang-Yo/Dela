@@ -102,7 +102,7 @@ export function MailMessageList({
                 aria-hidden="true"
                 className={cn(
                   'mt-[0.4375rem] size-1.5 shrink-0 rounded-full',
-                  message.seen ? 'bg-transparent' : 'bg-bui-accent',
+                  message.seen ? 'bg-transparent' : 'bg-accent',
                 )}
               />
               <span className="grid min-w-0 flex-1 gap-0.5">

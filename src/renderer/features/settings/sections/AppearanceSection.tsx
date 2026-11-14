@@ -40,7 +40,7 @@ function ThemePreview({ mode }: { mode: ThemePreference }) {
   const bars = (
     <>
       <span className="h-2 w-[70%] rounded-full bg-ink" />
-      <span className="h-2 w-[46%] rounded-full bg-bui-accent" />
+      <span className="h-2 w-[46%] rounded-full bg-accent" />
       <span className="h-2 w-[58%] rounded-full bg-ink-3" />
     </>
   );

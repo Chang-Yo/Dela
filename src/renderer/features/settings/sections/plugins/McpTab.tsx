@@ -156,7 +156,7 @@ export function McpTab() {
                     </div>
                     {/* error=红点 + 摘要可见、完整消息悬停可见（依赖状态说明原因，§4.4）。 */}
                     {server.status === 'error' && server.error ? (
-                      <p className="truncate text-xs text-red" title={server.error}>
+                      <p className="truncate text-xs text-danger" title={server.error}>
                         {server.error}
                       </p>
                     ) : null}

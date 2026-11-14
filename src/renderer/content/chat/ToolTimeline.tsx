@@ -143,8 +143,8 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
       )}
       {stat && !running && !failed && (
         <span className="shrink-0 font-mono text-xs tabular-nums">
-          <span className="text-green">+{stat.added}</span>{' '}
-          <span className="text-red">−{stat.removed}</span>
+          <span className="text-success">+{stat.added}</span>{' '}
+          <span className="text-danger">−{stat.removed}</span>
         </span>
       )}
       {progress && (
@@ -152,7 +152,7 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
           · {verbOf(progress.name).doing} {progress.target}
         </span>
       )}
-      {failed && <span className="shrink-0 text-red">失败</span>}
+      {failed && <span className="shrink-0 text-danger">失败</span>}
       {interrupted && <span className="shrink-0">未完成</span>}
     </>
   );
@@ -203,7 +203,7 @@ function ToolGroup({ results, live }: { results: AgentToolResult[]; live: boolea
         head={
           <>
             <span className="min-w-0 truncate">{summarize(results)}</span>
-            {failed > 0 && <span className="shrink-0 text-red">有失败</span>}
+            {failed > 0 && <span className="shrink-0 text-danger">有失败</span>}
           </>
         }
       >

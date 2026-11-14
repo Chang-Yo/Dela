@@ -472,7 +472,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                     <p className="mt-1 text-xs text-ink-3">
                       {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
                     </p>
-                    <p className={cn('mt-1 text-xs', overdue ? 'text-red' : 'text-ink-3')}>
+                    <p className={cn('mt-1 text-xs', overdue ? 'text-danger' : 'text-ink-3')}>
                       {overdue ? '已过截止时间 · ' : ''}
                       {dateLabel(item.dueAt)}
                     </p>

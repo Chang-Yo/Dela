@@ -147,7 +147,7 @@ export const TabBar = memo(function TabBar({
                   role="tab"
                   tabIndex={active ? 0 : -1}
                   className={cn(
-                    'group/tab relative flex h-8 min-w-32 max-w-56 shrink-0 select-none items-center gap-1.5 px-1.5 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bui-accent',
+                    'group/tab relative flex h-8 min-w-32 max-w-56 shrink-0 select-none items-center gap-1.5 px-1.5 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
                     active
                       ? 'rounded-t-card bg-surface text-ink'
                       : 'rounded-control bg-hover text-ink-3 hover:bg-hover-2 hover:text-ink',

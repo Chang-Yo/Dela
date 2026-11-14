@@ -81,7 +81,7 @@ export function RemoteSection() {
                       {target} · {connection.keyPath ?? 'ssh 默认'}
                     </span>
                     {channel?.state === 'unavailable' && (
-                      <span className="block [overflow-wrap:anywhere] text-red" role="alert">
+                      <span className="block [overflow-wrap:anywhere] text-danger" role="alert">
                         {channel.reason}
                       </span>
                     )}

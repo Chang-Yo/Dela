@@ -127,7 +127,7 @@ export function ShortcutsSection() {
       />
       {error && <ErrorText>{error}</ErrorText>}
       {conflicts.length > 0 && (
-        <p className="text-xs text-orange" role="status">
+        <p className="text-xs text-warning" role="status">
           {conflicts
             .map((conflict) => {
               const labels = conflict.actionIds

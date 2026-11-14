@@ -56,7 +56,7 @@ function SnapshotStatus({
 
   return snapshotText ? (
     <div className="flex w-full items-center justify-between gap-2 border-t border-line pt-3">
-      <p className={cn('text-xs', snapshot?.status === 'failed' ? 'text-red' : 'text-ink-3')}>
+      <p className={cn('text-xs', snapshot?.status === 'failed' ? 'text-danger' : 'text-ink-3')}>
         {snapshotText}
       </p>
       {behind && reading ? (

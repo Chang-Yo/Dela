@@ -239,7 +239,7 @@ export function SkillsTab() {
                       skill.dependency.status !== 'ready' &&
                       (skill.dependency.status === 'error' ? (
                         <span
-                          className="truncate text-xs text-red"
+                          className="truncate text-xs text-danger"
                           role="status"
                           title={skill.dependency.error}
                         >

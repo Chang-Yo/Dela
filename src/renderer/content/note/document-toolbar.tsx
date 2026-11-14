@@ -64,7 +64,7 @@ export function DocumentToolbar({
         </span>
       )}
       <span
-        className={cn('flex shrink-0 items-center gap-1 text-ink-3', failed && 'text-red')}
+        className={cn('flex shrink-0 items-center gap-1 text-ink-3', failed && 'text-danger')}
         role="status"
         aria-live="polite"
       >

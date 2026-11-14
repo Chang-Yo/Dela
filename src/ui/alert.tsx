@@ -2,7 +2,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
 import { cn } from './cn';
 
-const errorTextVariants = cva('wrap-anywhere text-red', {
+const errorTextVariants = cva('wrap-anywhere text-danger', {
   variants: { size: { xs: 'text-xs', sm: 'text-sm' } },
   defaultVariants: { size: 'xs' },
 });
@@ -23,7 +23,7 @@ function ErrorText({
 }
 
 const calloutVariants = cva('flex items-center gap-2 rounded-card px-3 py-2 text-xs', {
-  variants: { tone: { error: 'bg-red-tint text-red', info: 'bg-inset text-ink-2' } },
+  variants: { tone: { error: 'bg-danger-tint text-danger', info: 'bg-inset text-ink-2' } },
   defaultVariants: { tone: 'error' },
 });
 

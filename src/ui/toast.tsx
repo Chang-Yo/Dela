@@ -12,8 +12,8 @@ export type ToastVariant = 'error' | 'success';
  * 外观遵循库浮岛惯例：rounded-card + hairline 阴影（shadow-overlay），语义 tint 圆底图标。 */
 
 const tone = {
-  error: { icon: CircleAlert, badge: 'bg-red-tint text-red', role: 'alert' },
-  success: { icon: CircleCheck, badge: 'bg-green-tint text-green', role: 'status' },
+  error: { icon: CircleAlert, badge: 'bg-danger-tint text-danger', role: 'alert' },
+  success: { icon: CircleCheck, badge: 'bg-success-tint text-success', role: 'status' },
   neutral: { icon: Sparkles, badge: 'bg-inset text-ink-2', role: 'group' },
 } as const;
 

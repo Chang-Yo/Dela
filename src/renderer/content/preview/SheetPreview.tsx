@@ -108,7 +108,7 @@ export function SheetPreview({ url }: { url: string }) {
         <button
           title="重置缩放到 100%"
           aria-label="重置缩放到 100%"
-          className="rounded-control px-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bui-accent"
+          className="rounded-control px-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           onClick={() => setZoom(1)}
         >
           {Math.round(zoom * 100)}%

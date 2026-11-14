@@ -106,7 +106,7 @@ function LikeGroupRow({
     <article className="relative rounded-card transition-colors duration-base hover:bg-hover">
       <button
         className={cn(
-          'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
+          'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
           unread && 'pr-14',
         )}
         onClick={() => onOpen(latest)}
@@ -369,7 +369,7 @@ export function NotificationsView({
             >
               <button
                 className={cn(
-                  'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bui-accent',
+                  'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
                   !item.readAt && 'pr-14',
                 )}
                 onClick={() => onOpen(item)}

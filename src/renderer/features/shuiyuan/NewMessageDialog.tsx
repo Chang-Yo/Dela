@@ -105,7 +105,7 @@ export function NewMessageDialog({
               />
             </div>
           </div>
-          {error ? <p className="text-xs text-red">{error}</p> : null}
+          {error ? <p className="text-xs text-danger">{error}</p> : null}
           <div className="flex justify-end gap-2">
             <Button disabled={busy} type="submit">
               <Send className="size-4" />

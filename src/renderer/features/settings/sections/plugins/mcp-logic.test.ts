@@ -139,7 +139,7 @@ describe('mcpStatusBadge', () => {
       spin: true,
     });
     expect(mcpStatusBadge('connected', 3).label).toBe('已连接 · 3 个工具');
-    expect(mcpStatusBadge('connected', 3).dotClass).toBe('bg-green');
+    expect(mcpStatusBadge('connected', 3).dotClass).toBe('bg-success');
     expect(mcpStatusBadge('connected', null).label).toBe('已连接');
     expect(mcpStatusBadge('disconnected', null)).toEqual({
       label: '未连接',
@@ -148,7 +148,7 @@ describe('mcpStatusBadge', () => {
     });
     expect(mcpStatusBadge('error', null)).toEqual({
       label: '连接失败',
-      dotClass: 'bg-red',
+      dotClass: 'bg-danger',
       spin: false,
     });
   });

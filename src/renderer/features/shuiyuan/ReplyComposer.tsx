@@ -282,14 +282,14 @@ export function ReplyComposer({
               key={item.key}
             >
               {item.error ? (
-                <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-red" />
+                <FileWarning aria-hidden="true" className="size-3.5 shrink-0 text-danger" />
               ) : (
                 <Spinner size="sm" className="shrink-0" />
               )}
               <span className="max-w-44 truncate">{item.name}</span>
               {item.error ? (
                 <>
-                  <span className="text-red">{item.error}</span>
+                  <span className="text-danger">{item.error}</span>
                   <button
                     aria-label={`移除 ${item.name}`}
                     className="grid size-4 shrink-0 place-items-center rounded transition-colors hover:text-ink"

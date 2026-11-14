@@ -251,7 +251,7 @@ it('keeps the row open with a red border on failure, and Escape cancels', async 
   await act(async () => type(input, 'a.md'));
   await act(async () => key(input, 'Enter'));
   expect(input.getAttribute('aria-invalid')).toBe('true');
-  expect(input.className).toContain('border-red');
+  expect(input.className).toContain('border-danger');
   expect(document.querySelector('[role="alert"]')?.textContent).toContain('已存在');
   expect(input.value).toBe('a.md');
 

@@ -112,7 +112,7 @@ export function CapabilitySetup({
                 action={
                   ready ? (
                     <span className="flex items-center gap-1.5 text-xs text-ink-3">
-                      <Check className="size-4 text-green" />
+                      <Check className="size-4 text-success" />
                       已启用
                     </span>
                   ) : (
@@ -160,7 +160,7 @@ export function CapabilitySetup({
           })}
       </div>
       {error && (
-        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-red">
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-danger">
           <span>{error}</span>
           {skills === null && (
             <Button

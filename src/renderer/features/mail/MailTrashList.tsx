@@ -39,7 +39,7 @@ export function MailTrashList({
         <div className="flex-1" />
         <IconButton
           aria-label="清空已删除邮件"
-          className="hover:text-red disabled:cursor-wait"
+          className="hover:text-danger disabled:cursor-wait"
           disabled={items.length === 0}
           onClick={onEmpty}
           title="清空已删除邮件"
@@ -107,7 +107,7 @@ export function MailTrashList({
                   </IconButton>
                   <IconButton
                     aria-label="彻底删除"
-                    className="hover:text-red"
+                    className="hover:text-danger"
                     onClick={() => onPurge(item)}
                     title="彻底删除"
                   >

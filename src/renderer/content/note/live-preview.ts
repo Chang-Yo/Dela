@@ -559,7 +559,7 @@ function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
   return builder.finish();
 }
 
-// 只引用基础变量（--inset、--red 等）和一定会输出的 theme 变量：Tailwind v4 会裁掉没被工具类
+// 只引用基础变量（--inset、--danger 等）和一定会输出的 theme 变量：Tailwind v4 会裁掉没被工具类
 // 用到的 --color-*，引用它们可能落空。标题用 em，跟随编辑器正文字号缩放。
 const theme = EditorView.theme({
   '.cm-md-h': { fontWeight: '600', color: 'var(--ink)' },
@@ -603,7 +603,7 @@ const theme = EditorView.theme({
     margin: '0 0.5ch 0 0',
     verticalAlign: 'middle',
     cursor: 'pointer',
-    accentColor: 'var(--bui-accent)',
+    accentColor: 'var(--accent)',
   },
   '.cm-md-table': { overflowX: 'auto', paddingBlock: 'calc(var(--spacing) * 2)' },
   '.cm-md-table table': { borderCollapse: 'collapse' },
@@ -632,7 +632,7 @@ const theme = EditorView.theme({
     color: 'var(--ink-3)',
   },
   '.cm-md-mermaid svg': { maxWidth: '100%', height: 'auto' },
-  '.cm-md-mermaid-error': { color: 'var(--red)', textAlign: 'left' },
+  '.cm-md-mermaid-error': { color: 'var(--danger)', textAlign: 'left' },
 });
 
 /** 粘贴或拖入图片：交给 save 落盘（同目录 assets/），在光标/落点插入相对路径引用。

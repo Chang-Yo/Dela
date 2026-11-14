@@ -93,7 +93,7 @@ export function TodoDetail({
             {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
           </span>
         </p>
-        <p className={cn('flex items-center gap-1.5', overdue && 'text-red')}>
+        <p className={cn('flex items-center gap-1.5', overdue && 'text-danger')}>
           <CalendarClock className="size-3.5 shrink-0" />
           截止：{dateLabel(item.dueAt)}
         </p>

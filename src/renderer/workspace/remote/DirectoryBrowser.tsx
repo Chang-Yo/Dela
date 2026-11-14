@@ -359,7 +359,7 @@ export function DirectoryBrowser({
           </li>
         )}
         {error && (
-          <li className="px-3 py-2 text-xs [overflow-wrap:anywhere] text-red" role="alert">
+          <li className="px-3 py-2 text-xs [overflow-wrap:anywhere] text-danger" role="alert">
             {error}
           </li>
         )}

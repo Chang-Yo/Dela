@@ -245,7 +245,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     {verifyResult && (
                       <p
                         className={`flex min-w-0 flex-1 items-start gap-1.5 text-xs leading-5 ${
-                          verifyResult.ok ? 'text-green' : 'text-red'
+                          verifyResult.ok ? 'text-success' : 'text-danger'
                         }`}
                         role="status"
                       >

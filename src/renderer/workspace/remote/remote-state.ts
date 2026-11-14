@@ -73,13 +73,13 @@ export function channelDot(state: RemoteChannelState | undefined): {
 } {
   switch (state?.state) {
     case 'ready':
-      return { className: 'bg-green', label: '可用' };
+      return { className: 'bg-success', label: '可用' };
     case 'connecting':
-      return { className: 'bg-orange animate-pulse motion-reduce:animate-none', label: '连接中' };
+      return { className: 'bg-warning animate-pulse motion-reduce:animate-none', label: '连接中' };
     case 'reconnecting':
-      return { className: 'bg-orange animate-pulse motion-reduce:animate-none', label: '重连中' };
+      return { className: 'bg-warning animate-pulse motion-reduce:animate-none', label: '重连中' };
     case 'unavailable':
-      return { className: 'bg-red', label: '不可用' };
+      return { className: 'bg-danger', label: '不可用' };
     default:
       return { className: 'bg-ink-3/50', label: '未连接' };
   }

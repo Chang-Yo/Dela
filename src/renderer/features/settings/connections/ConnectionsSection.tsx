@@ -250,7 +250,7 @@ export function ConnectionsSection({
                       aria-hidden="true"
                       className={cn(
                         'size-1.5 shrink-0 rounded-full',
-                        connected ? 'bg-green' : 'bg-ink-3',
+                        connected ? 'bg-success' : 'bg-ink-3',
                       )}
                     />
                     <span className="truncate">{state}</span>

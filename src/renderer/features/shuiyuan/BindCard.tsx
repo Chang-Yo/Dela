@@ -93,7 +93,7 @@ export function BindCard() {
             spellCheck={false}
             value={payload}
           />
-          {error ? <p className="text-xs text-red">{error}</p> : null}
+          {error ? <p className="text-xs text-danger">{error}</p> : null}
           <Button disabled={bindBusy || payload.trim().length === 0} type="submit">
             {bindBusy ? '正在绑定…' : '绑定'}
           </Button>
