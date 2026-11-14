@@ -2,15 +2,16 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type {
-  AgentToolResult,
-  ChatAskInput,
-  ChatQueuedDraft,
-  RunStatus,
-  TaskNoticeDetails,
-  WorkspaceChat,
+import {
+  agentContract,
+  type AgentToolResult,
+  type ChatAskInput,
+  type ChatQueuedDraft,
+  type RunStatus,
+  type TaskNoticeDetails,
+  type WorkspaceChat,
 } from '../../protocol/agent';
-import { hostPorts } from '../../ports';
+import { emit, hostPorts } from '../../ports';
 import { remoteBackend } from '../../remote/operations';
 import * as changes from '../changes';
 import { agentEnvironment } from '../environment';
@@ -175,7 +176,7 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
       publish(id);
       break;
     case 'queue_update':
-      hostPorts().broadcaster.send('session:on-queue', {
+      emit(agentContract, 'queue', {
         sessionId: id,
         queued: queuedTexts(event.steering),
       });
@@ -198,7 +199,7 @@ function stream(id: string, entry: Live) {
   );
   const last = messages.at(-1);
   if (last?.role === 'assistant')
-    hostPorts().broadcaster.send('session:on-stream', {
+    emit(agentContract, 'session-stream', {
       sessionId: id,
       message: withoutToolImages(last),
       activeTool: entry.run?.tool,
@@ -218,7 +219,7 @@ function runEvent(
   changesError?: string,
 ) {
   const entry = live.get(sessionId);
-  hostPorts().broadcaster.send('session:on-run-event', {
+  emit(agentContract, 'run-event', {
     sessionId,
     runId: finishedRunId ?? entry?.run?.id ?? '',
     status,

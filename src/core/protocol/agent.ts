@@ -305,80 +305,6 @@ const filePath = z.string().min(1).max(32_767);
 const empty = z.object({});
 const sidechatTarget = z.object({ parentId: uuid });
 
-export const agentContract = defineContract('agent', {
-  handshake: {
-    input: z.object({ protocolVersion: z.number().int() }),
-    output: z.object({ protocolVersion: z.number().int() }),
-  },
-  'list-sessions': {
-    input: z.object({ projectId, query: z.string().max(200).default('') }),
-    output: z.array(chatSessionSummarySchema),
-  },
-  'create-session': {
-    input: z.object({ projectId, scope: chatScopeSchema }),
-    output: workspaceChatSchema,
-  },
-  'open-session': { input: z.object({ sessionId }), output: workspaceChatSchema },
-  /** 运行中发送即插队。 */
-  ask: {
-    input: chatAskInputSchema.extend({ sessionId }),
-    output: workspaceChatSchema,
-  },
-  /** 停止本轮，未送达的插队消息一并撤回。 */
-  'cancel-run': { input: z.object({ sessionId }), output: chatQueuedDraftSchema.nullable() },
-  'withdraw-queued': { input: z.object({ sessionId }), output: chatQueuedDraftSchema.nullable() },
-  'stop-task': { input: z.object({ sessionId, taskId: uuid }), output: z.void() },
-  fork: {
-    input: z.object({ sessionId, entryId: z.string().min(1).max(64) }),
-    output: workspaceChatSchema,
-  },
-  'list-models': { input: empty, output: z.array(modelProviderViewSchema) },
-  'set-model': {
-    input: z.object({ sessionId, providerId: uuid, model: z.string().min(1).max(200) }),
-    output: workspaceChatSchema,
-  },
-  'set-effort': {
-    input: z.object({ sessionId, level: z.string().min(1).max(16) }),
-    output: workspaceChatSchema,
-  },
-  'list-commands': { input: empty, output: z.array(chatCommandViewSchema) },
-  'run-command': {
-    input: z.object({
-      sessionId,
-      name: z.enum(['compact', 'reload', 'name']),
-      args: z.string().max(2000),
-    }),
-    output: workspaceChatSchema,
-  },
-  'open-sidechat': { input: sidechatTarget, output: sidechatViewSchema },
-  'ask-sidechat': {
-    input: chatAskInputSchema.omit({ replaceLastUser: true }).extend({ parentId: uuid }),
-    output: sidechatViewSchema,
-  },
-  'cancel-sidechat': { input: sidechatTarget, output: z.void() },
-  'close-sidechat': { input: sidechatTarget, output: z.void() },
-  /** 把旁问保留为新会话，旁问随之关闭。 */
-  'keep-sidechat': { input: sidechatTarget, output: workspaceChatSchema },
-  'stage-media': {
-    input: z.object({
-      name: z.string().min(1).max(255),
-      bytes: z.union([z.instanceof(ArrayBuffer), z.instanceof(Uint8Array)]),
-    }),
-    output: chatMediaViewSchema,
-  },
-  'read-media-preview': { input: z.object({ id: uuid }), output: z.string().nullable() },
-  'release-media': { input: z.object({ ids: z.array(uuid).max(24) }), output: z.void() },
-  'list-turn-changes': { input: z.object({ sessionId }), output: z.array(turnChangesSchema) },
-  'read-turn-changes': {
-    input: z.object({ sessionId, turnId: uuid, includeStats: z.boolean().optional() }),
-    output: turnChangesSchema.nullable(),
-  },
-  'read-turn-file-change': {
-    input: z.object({ sessionId, turnId: uuid, path: filePath }),
-    output: fileChangeDetailSchema,
-  },
-});
-
 /** 服务端推送的事件，推给所有已连接的端。 */
 export const agentEvents = {
   'session-update': z.object({ sessionId: z.string(), chat: workspaceChatSchema }),
@@ -389,3 +315,81 @@ export const agentEvents = {
   'sidechat-stream': chatStreamEventSchema,
   'sidechat-closed': z.object({ parentId: z.string() }),
 };
+
+export const agentContract = defineContract(
+  'agent',
+  {
+    handshake: {
+      input: z.object({ protocolVersion: z.number().int() }),
+      output: z.object({ protocolVersion: z.number().int() }),
+    },
+    'list-sessions': {
+      input: z.object({ projectId, query: z.string().max(200).default('') }),
+      output: z.array(chatSessionSummarySchema),
+    },
+    'create-session': {
+      input: z.object({ projectId, scope: chatScopeSchema }),
+      output: workspaceChatSchema,
+    },
+    'open-session': { input: z.object({ sessionId }), output: workspaceChatSchema },
+    /** 运行中发送即插队。 */
+    ask: {
+      input: chatAskInputSchema.extend({ sessionId }),
+      output: workspaceChatSchema,
+    },
+    /** 停止本轮，未送达的插队消息一并撤回。 */
+    'cancel-run': { input: z.object({ sessionId }), output: chatQueuedDraftSchema.nullable() },
+    'withdraw-queued': { input: z.object({ sessionId }), output: chatQueuedDraftSchema.nullable() },
+    'stop-task': { input: z.object({ sessionId, taskId: uuid }), output: z.void() },
+    fork: {
+      input: z.object({ sessionId, entryId: z.string().min(1).max(64) }),
+      output: workspaceChatSchema,
+    },
+    'list-models': { input: empty, output: z.array(modelProviderViewSchema) },
+    'set-model': {
+      input: z.object({ sessionId, providerId: uuid, model: z.string().min(1).max(200) }),
+      output: workspaceChatSchema,
+    },
+    'set-effort': {
+      input: z.object({ sessionId, level: z.string().min(1).max(16) }),
+      output: workspaceChatSchema,
+    },
+    'list-commands': { input: empty, output: z.array(chatCommandViewSchema) },
+    'run-command': {
+      input: z.object({
+        sessionId,
+        name: z.enum(['compact', 'reload', 'name']),
+        args: z.string().max(2000),
+      }),
+      output: workspaceChatSchema,
+    },
+    'open-sidechat': { input: sidechatTarget, output: sidechatViewSchema },
+    'ask-sidechat': {
+      input: chatAskInputSchema.omit({ replaceLastUser: true }).extend({ parentId: uuid }),
+      output: sidechatViewSchema,
+    },
+    'cancel-sidechat': { input: sidechatTarget, output: z.void() },
+    'close-sidechat': { input: sidechatTarget, output: z.void() },
+    /** 把旁问保留为新会话，旁问随之关闭。 */
+    'keep-sidechat': { input: sidechatTarget, output: workspaceChatSchema },
+    'stage-media': {
+      input: z.object({
+        name: z.string().min(1).max(255),
+        bytes: z.union([z.instanceof(ArrayBuffer), z.instanceof(Uint8Array)]),
+      }),
+      output: chatMediaViewSchema,
+    },
+    'read-media-preview': { input: z.object({ id: uuid }), output: z.string().nullable() },
+    'release-media': { input: z.object({ ids: z.array(uuid).max(24) }), output: z.void() },
+    'list-turn-changes': { input: z.object({ sessionId }), output: z.array(turnChangesSchema) },
+    'read-turn-changes': {
+      input: z.object({ sessionId, turnId: uuid, includeStats: z.boolean().optional() }),
+      output: turnChangesSchema.nullable(),
+    },
+    'read-turn-file-change': {
+      input: z.object({ sessionId, turnId: uuid, path: filePath }),
+      output: fileChangeDetailSchema,
+    },
+  },
+  agentEvents,
+);

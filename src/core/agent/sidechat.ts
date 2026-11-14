@@ -5,7 +5,13 @@
  */
 import { existsSync } from 'node:fs';
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { AgentToolResult, ChatAskInput, SidechatView, WorkspaceChat } from '../protocol/agent';
+import {
+  agentContract,
+  type AgentToolResult,
+  type ChatAskInput,
+  type SidechatView,
+  type WorkspaceChat,
+} from '../protocol/agent';
 import { agentEnvironment } from './environment';
 import { releaseChatAttachments } from './media';
 import { loadPi, openPiSession, writeSessionFile } from './pi';
@@ -21,7 +27,7 @@ import {
 } from './session/projection';
 import { composePrompt } from './session/prompt';
 import { adoptSessionFile, readySelection, row, sessionCwd } from './session/store';
-import { hostPorts } from '../ports';
+import { emit } from '../ports';
 
 interface Side {
   session: AgentSession;
@@ -55,7 +61,7 @@ function view(parentId: string, side: Side): SidechatView {
 }
 
 function publish(parentId: string, side: Side) {
-  hostPorts().broadcaster.send('sidechat:on-update', view(parentId, side));
+  emit(agentContract, 'sidechat-update', view(parentId, side));
 }
 
 function stream(parentId: string, side: Side) {
@@ -70,7 +76,7 @@ function stream(parentId: string, side: Side) {
     true,
   ).at(-1);
   if (last?.role === 'assistant')
-    hostPorts().broadcaster.send('sidechat:on-stream', {
+    emit(agentContract, 'sidechat-stream', {
       sessionId: parentId,
       message: withoutToolImages(last),
       activeTool: side.run?.tool,
@@ -232,7 +238,7 @@ export async function closeSidechat(parentId: string): Promise<void> {
   }
   side.unsubscribe();
   side.session.dispose();
-  hostPorts().broadcaster.send('sidechat:on-closed', parentId);
+  emit(agentContract, 'sidechat-closed', { parentId });
 }
 
 /** 保留为新会话：借来的历史加旁问内容写成会话文件，标题加「旁问：」，然后关闭旁问。 */

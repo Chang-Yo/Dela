@@ -1,4 +1,3 @@
-import { ipcRenderer } from 'electron';
 import type {
   ChatAskInput,
   ChatQueueEvent,
@@ -35,18 +34,13 @@ export const session = {
   setModel: (sessionId: string, providerId: string, model: string) =>
     invoke('agent:set-model', { sessionId, providerId, model }),
   setEffort: (sessionId: string, level: string) => invoke('agent:set-effort', { sessionId, level }),
-  onSessionUpdate: (listener: (sessionId: string, chat: WorkspaceChat) => void) => {
-    // 双载荷订阅（sessionId + chat），同 workspace.onChatUpdate 不走 lib.on 的单载荷封装。
-    const subscription = (_event: unknown, sessionId: string, chat: WorkspaceChat) =>
-      listener(sessionId, chat);
-    ipcRenderer.on('session:on-update', subscription);
-    return () => {
-      ipcRenderer.removeListener('session:on-update', subscription);
-    };
-  },
-  onRunEvent: (listener: (event: RunEvent) => void) => on('session:on-run-event', listener),
-  onStream: (listener: (event: ChatStreamEvent) => void) => on('session:on-stream', listener),
-  onQueue: (listener: (event: ChatQueueEvent) => void) => on('session:on-queue', listener),
+  onSessionUpdate: (listener: (sessionId: string, chat: WorkspaceChat) => void) =>
+    on('agent:session-update', ({ sessionId, chat }: { sessionId: string; chat: WorkspaceChat }) =>
+      listener(sessionId, chat),
+    ),
+  onRunEvent: (listener: (event: RunEvent) => void) => on('agent:run-event', listener),
+  onStream: (listener: (event: ChatStreamEvent) => void) => on('agent:session-stream', listener),
+  onQueue: (listener: (event: ChatQueueEvent) => void) => on('agent:queue', listener),
 } satisfies SessionApi;
 
 export const sidechat = {
@@ -56,7 +50,8 @@ export const sidechat = {
   cancel: (parentId: string) => invoke('agent:cancel-sidechat', { parentId }),
   close: (parentId: string) => invoke('agent:close-sidechat', { parentId }),
   keep: (parentId: string) => invoke('agent:keep-sidechat', { parentId }),
-  onUpdate: (listener: (view: SidechatView) => void) => on('sidechat:on-update', listener),
-  onStream: (listener: (event: ChatStreamEvent) => void) => on('sidechat:on-stream', listener),
-  onClosed: (listener: (parentId: string) => void) => on('sidechat:on-closed', listener),
+  onUpdate: (listener: (view: SidechatView) => void) => on('agent:sidechat-update', listener),
+  onStream: (listener: (event: ChatStreamEvent) => void) => on('agent:sidechat-stream', listener),
+  onClosed: (listener: (parentId: string) => void) =>
+    on('agent:sidechat-closed', ({ parentId }: { parentId: string }) => listener(parentId)),
 } satisfies SidechatApi;

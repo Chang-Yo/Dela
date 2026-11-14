@@ -10,7 +10,8 @@ import type {
   TaskNoticeDetails,
   WorkspaceChat,
 } from '../../protocol/agent';
-import { hostPorts } from '../../ports';
+import { emit } from '../../ports';
+import { agentContract } from '../../protocol/agent';
 import { runningTasks } from '../tasks';
 import { live, liveSteps, type Live } from './live';
 import { modelChoice, requirePiSync, row, sessionCwd, type ModelChoice } from './store';
@@ -338,5 +339,5 @@ export function snapshot(id: string): WorkspaceChat {
 }
 
 export function publish(id: string) {
-  hostPorts().broadcaster.send('session:on-update', id, snapshot(id));
+  emit(agentContract, 'session-update', { sessionId: id, chat: snapshot(id) });
 }
