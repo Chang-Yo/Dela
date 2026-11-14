@@ -16,6 +16,7 @@ import type {
 } from '../../../shared/api';
 import { usePreferences } from '../../app/preferences';
 import { errorText, useWorkspaceStore } from '../store';
+import { workspaceClient } from '../../../modules/workspace/view';
 import { ConnectionForm } from './ConnectionForm';
 import { DirectoryBrowser, tildePath } from './DirectoryBrowser';
 import { SetupProgress } from './SetupProgress';
@@ -197,16 +198,15 @@ export function NewRemoteProjectDialog({
   );
 
   const importProject = async () => {
-    const dela = window.dela;
-    if (!dela || !connectionId || !target || importing) return;
+    if (!window.dela || !connectionId || !target || importing) return;
     setImporting(true);
     setError(null);
     try {
-      const created = await dela.workspace.importRemoteProject(
-        connectionId,
-        target,
-        name.trim() || undefined,
-      );
+      const created = await workspaceClient.importRemoteProject({
+        remoteId: connectionId,
+        path: target,
+        name: name.trim() || undefined,
+      });
       rememberDirectory(destination, path ?? target);
       await useWorkspaceStore.getState().refresh();
       onImported(created);

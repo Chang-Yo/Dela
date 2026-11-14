@@ -85,7 +85,7 @@ async function run(window) {
 
   projectId = (
     await js(
-      `window.dela.workspace.create({ parentId: null, name: '${PROJECT}', kind: 'project' })`,
+      `window.dela.bridge.invoke('workspace:create', { parentId: null, name: '${PROJECT}', kind: 'project' })`,
     )
   ).id;
   await new Promise((resolve) => {

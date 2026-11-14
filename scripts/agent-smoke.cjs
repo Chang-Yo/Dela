@@ -43,12 +43,12 @@ async function run(window) {
     })})`,
   );
   const alpha = await call(
-    `window.dela.workspace.create({ parentId: null, name: 'alpha', kind: 'project' })`,
+    `window.dela.bridge.invoke('workspace:create', { parentId: null, name: 'alpha', kind: 'project' })`,
   );
   const beta = await call(
-    `window.dela.workspace.create({ parentId: null, name: 'beta', kind: 'project' })`,
+    `window.dela.bridge.invoke('workspace:create', { parentId: null, name: 'beta', kind: 'project' })`,
   );
-  const state = await call(`window.dela.workspace.getState()`);
+  const state = await call(`window.dela.bridge.invoke('workspace:state')`);
   const dirOf = (id) => state.entries.find((entry) => entry.id === id).path;
   const alphaDir = dirOf(alpha.id);
   const betaDir = dirOf(beta.id);

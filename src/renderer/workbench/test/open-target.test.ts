@@ -24,10 +24,6 @@ const primary = () => findGroup(state().root, 'primary')!;
 
 beforeEach(() => {
   vi.useFakeTimers();
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: { dela: { layout: { get: vi.fn(async () => null), save: vi.fn(async () => {}) } } },
-  });
 });
 
 afterEach(() => {

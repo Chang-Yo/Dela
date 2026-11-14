@@ -1,15 +1,15 @@
 import { mkdir, readdir, stat } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { basename, dirname, join, relative, resolve, isAbsolute, sep } from 'node:path';
-import { getDatabase } from '../database';
-import { storageDirectory } from '../storage';
+import { getDatabase } from '../../../main/database';
+import { storageDirectory } from '../../../main/storage';
 import { entry, prepareStorage, remoteProjectOf } from './api';
 import {
   workspaceArchiveId,
   hiddenWorkspaceNames,
   type WorkspaceEntry,
   type WorkspaceState,
-} from '../../shared/workspace';
+} from '../contract';
 
 function storedEntries(): WorkspaceEntry[] {
   return getDatabase()

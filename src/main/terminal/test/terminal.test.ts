@@ -29,7 +29,7 @@ vi.mock('electron', () => ({
 }));
 vi.mock('node-pty', () => ({ spawn: mocks.spawn }));
 vi.mock('../../ipc', () => ({ checkWorkspaceSender: mocks.check }));
-vi.mock('../../workspace/api', async () => {
+vi.mock('../../../modules/workspace', async () => {
   const { z } = await import('zod');
   return {
     idSchema: z.uuid(),

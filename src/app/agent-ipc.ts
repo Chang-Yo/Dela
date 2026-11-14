@@ -53,8 +53,7 @@ import {
 } from '../main/documents/runtime';
 import { remoteById, targetOf } from '../main/remotes/api';
 import { uploadSkillToRemote } from '../core/remote/context';
-import { remoteProjectOf } from '../main/workspace/api';
-import { openInVsCode } from '../main/workspace/project';
+import { openInVsCode, remoteProjectOf } from '../modules/workspace';
 import {
   addMcpServer,
   listMcpServers,

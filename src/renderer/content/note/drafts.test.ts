@@ -1,23 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DocumentContent } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入 store 装好。
+const invoke = vi.hoisted(() => {
+  const invoke = vi.fn();
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { dela: { bridge: { invoke, subscribe: () => () => {} } } },
+  });
+  return invoke;
+});
 import { useNoteDrafts } from './drafts';
 
 const content: DocumentContent = { title: 'Note', format: 'markdown', text: 'old', revision: 'r1' };
 
 function installDela(
   read: (id: string) => Promise<DocumentContent>,
-  saveNote: (id: string, text: string, revision: string) => Promise<string>,
+  saveNote: (input: { id: string; text: string; revision: string }) => Promise<string>,
 ) {
   const readMock = vi.fn(read);
   const saveMock = vi.fn(saveNote);
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      dela: {
-        workspace: { read: readMock, readSource: vi.fn(), saveNote: saveMock },
-      },
-    },
-  });
+  invoke.mockImplementation((channel: string, input: never) =>
+    channel === 'workspace:read' ? readMock(input) : saveMock(input),
+  );
   return { readMock, saveMock };
 }
 
@@ -60,7 +65,7 @@ describe('draft debounce', () => {
     expect(saveMock).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(saveMock).toHaveBeenCalledTimes(1);
-    expect(saveMock).toHaveBeenCalledWith('debounce', 'b', 'r1');
+    expect(saveMock).toHaveBeenCalledWith({ id: 'debounce', text: 'b', revision: 'r1' });
     expect(useNoteDrafts.getState().drafts['debounce']).toMatchObject({
       text: 'b',
       saved: 'b',
@@ -103,11 +108,11 @@ describe('draft save mutex', () => {
     const second = store.save('mutex');
     expect(second).toBe(first);
     finishes.shift()!('r2');
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
     finishes.shift()!('r3');
     await first;
     expect(saveMock).toHaveBeenCalledTimes(2);
-    expect(saveMock).toHaveBeenLastCalledWith('mutex', 'latest', 'r2');
+    expect(saveMock).toHaveBeenLastCalledWith({ id: 'mutex', text: 'latest', revision: 'r2' });
     expect(useNoteDrafts.getState().drafts['mutex']).toMatchObject({
       text: 'latest',
       saved: 'latest',

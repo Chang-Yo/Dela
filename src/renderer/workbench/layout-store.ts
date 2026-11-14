@@ -24,7 +24,8 @@ import {
   walkGroups,
 } from './layout-schema';
 import type { EdgeZone } from './tab-dnd';
-import { relocateWorkspacePath } from '../../shared/workspace';
+import { relocateWorkspacePath } from '../../modules/workspace/contract';
+import { workspaceClient } from '../../modules/workspace/view';
 import { errorText } from '../workspace/store';
 import { showToast } from '../app/toasts';
 
@@ -73,11 +74,10 @@ type Store = {
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 const pendingSaves = new Set<Promise<boolean>>();
 function saveLayoutNow() {
-  const api = typeof window === 'undefined' ? undefined : window.dela?.layout;
-  if (!api) return Promise.resolve(false);
+  if (typeof window === 'undefined' || !window.dela) return Promise.resolve(false);
   const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
-  const pending = api
-    .save(projectId, { root, focus, maximized })
+  const pending = workspaceClient
+    .saveLayout({ projectId, layout: { root, focus, maximized } })
     .then(() => true)
     .catch(() => false);
   pendingSaves.add(pending);
@@ -148,9 +148,9 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     let saved: WorkbenchLayout | null = null;
     // 读取失败时保留磁盘上的已存布局：把默认布局写回会覆盖掉实际存在的保存。
     let loadFailed = false;
-    if (typeof window !== 'undefined' && window.dela?.layout) {
+    if (typeof window !== 'undefined' && window.dela) {
       try {
-        saved = await window.dela.layout.get(projectId);
+        saved = await workspaceClient.layout(projectId);
       } catch (cause) {
         loadFailed = true;
         showToast({ variant: 'error', title: '布局载入失败', description: errorText(cause) });

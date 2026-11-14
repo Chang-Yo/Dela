@@ -1,5 +1,5 @@
-import { likePattern, type SearchProvider } from '../../modules/search';
-import { getDatabase } from '../database';
+import { likePattern, type SearchProvider } from '../../search';
+import { getDatabase } from '../../../main/database';
 
 export const projectSearch: SearchProvider = {
   id: 'project',

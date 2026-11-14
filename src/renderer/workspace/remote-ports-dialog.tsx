@@ -5,6 +5,7 @@ import { ExternalLink, Globe, RefreshCw, Square } from 'lucide-react';
 import { Button } from '../../ui/button';
 import type { RemotePortsState } from '../../shared/api';
 import { errorText } from './store';
+import { workspaceClient } from '../../modules/workspace/view';
 import { ErrorText } from '../../ui/alert';
 import { Spinner } from '../../ui/spinner';
 import {
@@ -30,11 +31,10 @@ export function RemotePortsDialog({
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const workspace = window.dela?.workspace;
-    if (!workspace) return;
+    if (!window.dela) return;
     setWorking(true);
     try {
-      setState(await workspace.remotePorts(projectId));
+      setState(await workspaceClient.remotePorts(projectId));
       setError(null);
     } catch (cause) {
       setError(errorText(cause));
@@ -48,11 +48,10 @@ export function RemotePortsDialog({
   }, [open, reload]);
 
   const openPort = async (port: number) => {
-    const workspace = window.dela?.workspace;
-    if (!workspace || busyPort !== null) return;
+    if (!window.dela || busyPort !== null) return;
     setBusyPort(port);
     try {
-      await workspace.openRemotePort(projectId, port);
+      await workspaceClient.openRemotePort({ projectId, port });
       await reload();
     } catch (cause) {
       setError(errorText(cause));
@@ -62,11 +61,10 @@ export function RemotePortsDialog({
   };
 
   const stopPort = async (port: number) => {
-    const workspace = window.dela?.workspace;
-    if (!workspace || busyPort !== null) return;
+    if (!window.dela || busyPort !== null) return;
     setBusyPort(port);
     try {
-      await workspace.closeRemotePort(projectId, port);
+      await workspaceClient.closeRemotePort({ projectId, port });
       await reload();
     } catch (cause) {
       setError(errorText(cause));

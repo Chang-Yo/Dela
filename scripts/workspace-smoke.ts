@@ -30,18 +30,20 @@ import {
   getWorkspaceState,
   importWorkspaceFiles,
   readWorkspaceEntry,
+  registerPreviewProtocol,
+  registerPreviewScheme,
   saveWorkspaceNote,
   updateWorkspaceEntry,
-} from '../src/main/workspace/api';
-import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
-import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
+  workspaceModule,
+} from '../src/modules/workspace';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
+import { registerMailIpc } from '../src/main/mail/ipc';
 import { registerModuleIpc } from '../src/app/ipc';
 import { notificationsModule } from '../src/modules/notifications';
 import { canvasModule } from '../src/sjtu/canvas';
 import { registerUpdateIpc } from '../src/main/update';
-import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
+import { registerAgentIpc } from '../src/app/agent-ipc';
 import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
@@ -379,12 +381,12 @@ app
     });
 
     registerAgentIpc();
-    registerWorkspaceIpc(invalidateSessions);
     registerBuiltinCapabilities();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     registerSettingsIpc();
     registerRemoteIpc();
-    registerModuleIpc([notificationsModule, canvasModule]);
+    registerMailIpc();
+    registerModuleIpc([workspaceModule, notificationsModule, canvasModule]);
     registerUpdateIpc();
     const win = new BrowserWindow({
       show: false,
@@ -413,7 +415,7 @@ app
       maximized: null,
     };
     await invoke(
-      `await window.dela.layout.save(${JSON.stringify(promoted.id)}, ${JSON.stringify(layout)});`,
+      `await window.dela.bridge.invoke('workspace:saveLayout', { projectId: ${JSON.stringify(promoted.id)}, layout: ${JSON.stringify(layout)} });`,
     );
     const provider = await invoke(
       `return await window.dela.llm.save({ name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'] });`,
@@ -457,12 +459,14 @@ app
       join(process.cwd(), '.tools', 'agent-home.png'),
       (await win.webContents.capturePage()).toPNG(),
     );
-    await invoke(`await window.dela.workspace.remove(${JSON.stringify(moveTo)});`);
+    await invoke(`await window.dela.bridge.invoke('workspace:remove', ${JSON.stringify(moveTo)});`);
     assert.equal((await readWorkspaceEntry(ref2.id)).format, 'html');
     assert(existsSync(path));
     closeDatabase();
     assert.deepEqual(
-      await invoke(`return await window.dela.layout.get(${JSON.stringify(promoted.id)});`),
+      await invoke(
+        `return await window.dela.bridge.invoke('workspace:layout', ${JSON.stringify(promoted.id)});`,
+      ),
       layout,
     );
     assert.equal((await readWorkspaceEntry(moved.id)).text, '# 恢复测试');

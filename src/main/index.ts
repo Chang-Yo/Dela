@@ -21,8 +21,7 @@ import { runMigrations } from './migrations';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
 import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
-import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
-import { registerWorkspaceIpc } from './workspace/ipc';
+import { registerPreviewProtocol, registerPreviewScheme } from '../modules/workspace';
 import { registerTerminalIpc } from './terminal';
 import { locateBash, prependRuntimePath } from './terminal/mingit';
 import { closeHelper } from '../core/remote/helper';
@@ -34,7 +33,6 @@ import { registerSearchProvider } from '../modules/search';
 import { registerBuiltinCapabilities } from './agent/domain';
 import { registerModuleIpc } from '../app/ipc';
 import { modules } from '../app/modules';
-import { chatSearch, projectSearch } from './workspace/search';
 import { mailSearch } from './mail/search';
 import { settingsSearch } from './settings/search';
 import { registerMailNotices } from './mail/notice-source';
@@ -43,7 +41,6 @@ import {
   closeDomainBridge,
   gcChatMedia,
   hasLiveSessions,
-  invalidateSessions,
   loadPi,
   registerAgentIpc,
   shutdownSessions,
@@ -210,12 +207,10 @@ app
     registerCacheIpc();
     registerMailIpc();
     registerAgentIpc();
-    registerWorkspaceIpc(invalidateSessions);
     registerTerminalIpc();
     registerRemoteIpc();
     registerModuleIpc(modules);
-    for (const provider of [projectSearch, chatSearch, mailSearch])
-      registerSearchProvider(provider);
+    registerSearchProvider(mailSearch);
     registerBuiltinCapabilities();
     for (const module of modules) module.register?.();
     registerSearchProvider(settingsSearch);

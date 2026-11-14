@@ -9,6 +9,7 @@ import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
+import { workspaceClient } from '../../modules/workspace/view';
 import { useNoteDrafts } from '../content/note/drafts';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
@@ -121,7 +122,7 @@ export function EntryDialogs({
     setBusy(true);
     setModalError(null);
     try {
-      const created = await window.dela.workspace.importProjectFolder();
+      const created = await workspaceClient.importProjectFolder();
       if (!created) return;
       await useWorkspaceStore.getState().refresh();
       onClose();
@@ -142,14 +143,13 @@ export function EntryDialogs({
     setBusy(true);
     setModalError(null);
     try {
-      const api = window.dela.workspace;
       let created: WorkspaceEntry | undefined;
       if (request.action === 'rename') await updateEntry(request.id!, { name });
       else if (request.action === 'move')
         await updateEntry(request.id!, { parentId: target || null });
       else if (request.action === 'remove') {
-        await api.remove(request.id!);
-        const remaining = (await api.getState()).entries;
+        await workspaceClient.remove(request.id!);
+        const remaining = (await workspaceClient.state()).entries;
         onRemoved?.(new Set(remaining.map((e) => e.id)));
       } else if (request.action === 'link') {
         const sourceId = request.id!.startsWith('source:')
@@ -159,8 +159,8 @@ export function EntryDialogs({
         if (!linkTarget) throw new Error('请选择项目');
         let parentId = linkTarget;
         if (linkTarget === '__new__')
-          parentId = (await api.create({ name, parentId: null, kind: 'project' })).id;
-        created = await api.create({
+          parentId = (await workspaceClient.create({ name, parentId: null, kind: 'project' })).id;
+        created = await workspaceClient.create({
           name: titleOf(request.id!, queryClient),
           parentId,
           kind: 'source',
@@ -171,7 +171,7 @@ export function EntryDialogs({
         request.action === 'project' ||
         request.action === 'note'
       )
-        created = await api.create({
+        created = await workspaceClient.create({
           name,
           parentId: request.id,
           kind: request.action === 'note' ? 'file' : request.action,

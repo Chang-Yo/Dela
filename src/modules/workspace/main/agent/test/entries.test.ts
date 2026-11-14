@@ -2,7 +2,7 @@
 // list_workspace_entries 的浏览/过滤。
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../../workspace/api', () => ({
+vi.mock('../../api', () => ({
   createWorkspaceEntry: vi.fn(),
   getWorkspaceState: vi.fn(),
   updateWorkspaceEntry: vi.fn(),
@@ -14,8 +14,8 @@ import {
   getWorkspaceState,
   removeWorkspaceEntry,
   updateWorkspaceEntry,
-} from '../../../../workspace/api';
-import { workspaceArchiveId } from '../../../../../shared/workspace';
+} from '../../api';
+import { workspaceArchiveId } from '../../../contract';
 import { createEntryTool, removeEntryTool, updateEntryTool } from '../entries';
 import { listWorkspaceEntriesTool } from '../list-entries';
 

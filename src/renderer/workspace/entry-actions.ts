@@ -1,5 +1,5 @@
 // 条目动作：归档、升级为项目、导入、拖放移动。
-// 只经 preload workspace:* 写事实并刷新镜像，不碰视图状态；UI 后续由接线方经回调决定。
+// 只经工作区契约写事实并刷新镜像，不碰视图状态；UI 后续由接线方经回调决定。
 import type { QueryClient } from '@tanstack/react-query';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { sourceTitle } from '../../app/views';
@@ -7,7 +7,8 @@ import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from './store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore as useTreeState } from '../navigation/store';
-import { relocateWorkspacePath } from '../../shared/workspace';
+import { relocateWorkspacePath } from '../../modules/workspace/contract';
+import { localPathsOf, workspaceClient } from '../../modules/workspace/view';
 import { showToast } from '../app/toasts';
 
 /** 重命名前先冲盘，成功后一次迁移本窗口已知路径与草稿。 */
@@ -21,7 +22,7 @@ export async function updateEntry(
     if (key === from || relocateWorkspacePath(key, from, '') !== key)
       if (!(await useNoteDrafts.getState().save(key)))
         throw new Error('文件尚未保存成功，请先保存后再移动或重命名');
-  const result = await window.dela!.workspace.update(id, input);
+  const result = await workspaceClient.update({ id, patch: input });
   if (result?.fromPath && result.toPath) {
     useNoteDrafts.getState().relocatePaths(result.fromPath, result.toPath);
     useWorkbenchLayout.getState().relocatePaths(result.fromPath, result.toPath);
@@ -84,7 +85,9 @@ export function importDroppedFiles(
   onMoved?: (targetId: string | null) => void,
 ) {
   void runEntryWork(async () => {
-    await window.dela!.workspace.importDroppedFiles(targetId ?? rootId, files);
+    const paths = localPathsOf(files);
+    if (paths.length)
+      await workspaceClient.importDroppedFiles({ parentId: targetId ?? rootId, paths });
     await useWorkspaceStore.getState().refresh();
     onMoved?.(targetId);
   });
@@ -92,7 +95,7 @@ export function importDroppedFiles(
 
 export function importFromDialog(parentId: string | null) {
   void runEntryWork(async () => {
-    await window.dela!.workspace.importFiles(parentId);
+    await workspaceClient.importFiles(parentId);
     await useWorkspaceStore.getState().refresh();
   });
 }

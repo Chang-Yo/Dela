@@ -10,15 +10,14 @@ import { electronPorts } from '../src/app/host-electron';
 import { closeDatabase, getDatabase } from '../src/main/database';
 import { registerModuleIpc } from '../src/app/ipc';
 import { modules } from '../src/app/modules';
-import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
+import { registerAgentIpc } from '../src/app/agent-ipc';
 import { registerMailIpc } from '../src/main/mail/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { remoteBackend } from '../src/core/remote/operations';
 import { exec, probeRemote } from '../src/core/remote/transport';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerTerminalIpc } from '../src/main/terminal';
-import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
-import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
+import { registerPreviewProtocol, registerPreviewScheme } from '../src/modules/workspace';
 
 const host = process.env.DELA_REMOTE_HOST;
 if (!host) {
@@ -57,8 +56,6 @@ app
     await exec(target, `printf 'nested\\n' > ${root}/sub/nested.md`);
 
     registerRemoteIpc();
-    // 与生产一致：会话订阅与失效钩子由装配层注入。
-    registerWorkspaceIpc(invalidateSessions);
     registerSettingsIpc();
     registerAgentIpc();
     registerTerminalIpc();
@@ -182,7 +179,7 @@ app
       '远端目录树里的文件行',
     );
     const entry = await evaluate(`(async () => {
-      const state = await window.dela.workspace.getState();
+      const state = await window.dela.bridge.invoke('workspace:state');
       const item = state.entries.find(e => e.name === 'dela-gui-smoke');
       return item ? { id: item.id, remoteId: item.remoteId ?? null, path: item.path ?? null } : null;
     })()`);
@@ -243,7 +240,7 @@ app
     await evaluate(closeMenu);
 
     const references = await evaluate(
-      `(async () => (await window.dela.workspace.remoteReferences(${JSON.stringify(entry.id)})).map(r => r.title ?? r.key))()`,
+      `(async () => (await window.dela.bridge.invoke('workspace:remoteReferences', ${JSON.stringify(entry.id)})).map(r => r.title ?? r.key))()`,
     );
     assert.ok(references.includes('a b.txt'), `@ 候选缺少远端文件：${JSON.stringify(references)}`);
     assert.ok(

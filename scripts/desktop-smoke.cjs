@@ -196,15 +196,15 @@ async function run(window) {
       assert.equal(checked.reason, 'not-packaged');
       assert.deepEqual(await js('window.dela.update.getState()'), checked);
     }
-    const workspace = await js('window.dela.workspace.getState()');
+    const workspace = await js("window.dela.bridge.invoke('workspace:state')");
     console.log(
       '[EXPECTED] macOS PPTX export must reject the request. Electron will log the IPC error; the assertion below checks it.',
     );
     const exportError = await js(
-      "window.dela.workspace.exportOfficePdf({ type: 'canvas', id: 'file:smoke' }).then(() => '', error => error.message)",
+      "window.dela.bridge.invoke('workspace:exportOfficePdf', { type: 'canvas', id: 'file:smoke' }).then(() => '', error => error.message)",
     );
     assert.match(exportError, /当前平台暂不支持 PPTX 转 PDF/);
-    assert.deepEqual(await js('window.dela.workspace.getState()'), workspace);
+    assert.deepEqual(await js("window.dela.bridge.invoke('workspace:state')"), workspace);
     console.log('[PASS] macOS PPTX export rejected as expected; workspace unchanged.');
     assert.equal(
       await js('document.querySelector(\'header button[aria-label="关闭"]\') === null'),
@@ -244,7 +244,7 @@ async function run(window) {
   } else assert.equal(Menu.getApplicationMenu(), null);
 
   const project = await js(
-    "window.dela.workspace.create({ parentId: null, name: '生命周期测试', kind: 'project' })",
+    "window.dela.bridge.invoke('workspace:create', { parentId: null, name: '生命周期测试', kind: 'project' })",
   );
   const id = randomUUID();
   await js(`window.dela.terminal.create('${project.id}', '${id}')`);

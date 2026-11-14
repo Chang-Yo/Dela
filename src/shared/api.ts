@@ -6,7 +6,6 @@ import type { CacheApi } from './cache';
 import type { CapabilityApi } from './capabilities';
 import type { ChatApi } from './chat';
 import type { ConsentApi } from './consent';
-import type { LayoutApi } from './layout';
 import type { LlmApi } from './llm';
 import type { MailApi } from './mail';
 import type { RemoteApi } from './remotes';
@@ -28,12 +27,13 @@ export type {
 import type { TerminalApi } from './terminal';
 import type { UpdateApi } from './update';
 import type { WindowApi } from './window';
-import type { WorkspaceApi } from './workspace';
 
 export interface DelaApi {
   /** 已迁入 modules/ 的模块经契约客户端调用主进程，见 core/protocol/contract。 */
   readonly bridge: Bridge;
   readonly platform: string;
+  /** 拖进窗口的文件在本机磁盘上的路径；没有本地路径时为空字符串。 */
+  pathForFile(file: File): string;
   capability: CapabilityApi;
   readonly terminal: TerminalApi;
   readonly version: string;
@@ -49,11 +49,9 @@ export interface DelaApi {
   readonly llm: LlmApi;
   readonly chat: ChatApi;
   readonly mail: MailApi;
-  readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
   readonly sidechat: SidechatApi;
   readonly remotes: RemoteApi;
-  readonly layout: LayoutApi;
   readonly update: UpdateApi;
 }
 
@@ -159,9 +157,8 @@ export type {
   WorkspaceEntry,
   WorkspaceState,
   WorkspaceCreateInput,
-  WorkspaceApi,
-} from './workspace';
-export { workspaceArchiveId } from './workspace';
+} from '../modules/workspace/contract';
+export { workspaceArchiveId } from '../modules/workspace/contract';
 
 export type {
   AgentToolOutput,
@@ -195,7 +192,6 @@ export type {
   SplitNode,
   LayoutNode,
   WorkbenchLayout,
-  LayoutApi,
 } from './layout';
 
 export type { UpdateApi, UpdateSnapshot, UpdatePhase, UpdateReason } from './update';

@@ -109,9 +109,3 @@ export const workbenchLayoutSchema: z.ZodType<WorkbenchLayout> = z
     if (layout.maximized !== null && !groups.has(layout.maximized))
       ctx.addIssue({ code: 'custom', path: ['maximized'], message: '最大化组不存在' });
   });
-
-/** layout:* IPC 面。 */
-export interface LayoutApi {
-  get(projectId: string | null): Promise<WorkbenchLayout | null>;
-  save(projectId: string | null, state: WorkbenchLayout): Promise<void>;
-}

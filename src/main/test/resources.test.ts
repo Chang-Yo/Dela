@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { workspaceFilePath } from '../workspace/api';
+import { workspaceFilePath } from '../../modules/workspace';
 import { copyResourceToProject, openResourceFile } from '../resources';
 import { provideTestHostPorts } from '../../core/test/host-mock';
 import { hostPorts } from '../../core/ports';
@@ -8,7 +8,11 @@ import { registerResourceResolver, type ResourceResolver } from '../../core/capa
 
 vi.mock('node:fs/promises', () => ({ mkdtemp: vi.fn(), rm: vi.fn() }));
 vi.mock('../mail/api', () => ({ readMailMessage: vi.fn(), saveMailAttachment: vi.fn() }));
-vi.mock('../workspace/api', () => ({ importWorkspaceFiles: vi.fn(), workspaceFilePath: vi.fn() }));
+vi.mock('../../modules/workspace', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../modules/workspace')>()),
+  importWorkspaceFiles: vi.fn(),
+  workspaceFilePath: vi.fn(),
+}));
 vi.mock('../storage', () => ({ diskName: (name: string) => name.replace(/[/\\]/g, '_') }));
 
 for (const [type, resolver] of Object.entries(builtinResourceResolvers))

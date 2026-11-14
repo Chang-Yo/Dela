@@ -3,6 +3,19 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, RemotePortsState } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好。
+const api = vi.hoisted(() => {
+  const handlers: Record<string, (input: never) => unknown> = {};
+  window.dela = {
+    bridge: {
+      invoke: async (channel: string, input: never) =>
+        handlers[channel.slice('workspace:'.length)]!(input),
+      subscribe: () => () => {},
+    },
+  } as unknown as DelaApi;
+  return handlers;
+});
 import { RemotePortsDialog } from '../remote-ports-dialog';
 
 let container: HTMLDivElement;
@@ -26,7 +39,6 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  delete window.dela;
   vi.unstubAllGlobals();
 });
 
@@ -43,9 +55,7 @@ it('lists ports with process names and active tunnels, and wires open/stop to th
   const remotePorts = vi.fn(async () => snapshot);
   const openRemotePort = vi.fn(async () => ({ localPort: 45678 }));
   const closeRemotePort = vi.fn(async () => undefined);
-  window.dela = {
-    workspace: { remotePorts, openRemotePort, closeRemotePort },
-  } as unknown as DelaApi;
+  Object.assign(api, { remotePorts, openRemotePort, closeRemotePort });
 
   await renderDialog();
   await act(async () => {});
@@ -63,24 +73,20 @@ it('lists ports with process names and active tunnels, and wires open/stop to th
     button.textContent?.includes('打开'),
   )!;
   await act(async () => openButton.click());
-  expect(openRemotePort).toHaveBeenCalledWith('p-1', 5173);
+  expect(openRemotePort).toHaveBeenCalledWith({ projectId: 'p-1', port: 5173 });
   expect(remotePorts).toHaveBeenCalledTimes(2);
 
   const stopButton = [...document.querySelectorAll('button')].find((button) =>
     button.textContent?.includes('停止'),
   )!;
   await act(async () => stopButton.click());
-  expect(closeRemotePort).toHaveBeenCalledWith('p-1', 5173);
+  expect(closeRemotePort).toHaveBeenCalledWith({ projectId: 'p-1', port: 5173 });
 });
 
 it('shows the helper-missing reason as an error line instead of a port list', async () => {
-  window.dela = {
-    workspace: {
-      remotePorts: vi.fn(async () => {
-        throw new Error('端口预览需要 helper 通道：当前不可用，已退回一次性 ssh');
-      }),
-    },
-  } as unknown as DelaApi;
+  api.remotePorts = vi.fn(async () => {
+    throw new Error('端口预览需要 helper 通道：当前不可用，已退回一次性 ssh');
+  });
 
   await renderDialog();
   await act(async () => {});

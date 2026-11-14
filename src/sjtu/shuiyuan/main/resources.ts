@@ -1,6 +1,6 @@
 import { getDatabase } from '../../../main/database';
 import { freshness } from '../../../main/agent/domain/shared';
-import type { WorkspaceSource } from '../../../main/workspace/sources';
+import type { WorkspaceSource } from '../../../modules/workspace';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
 import type { ResourceRef } from '../../../shared/resources';
 import { getShuiyuanTopic } from './api';

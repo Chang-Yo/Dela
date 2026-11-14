@@ -4,7 +4,8 @@ import { create } from 'zustand';
 import type { DocumentContent } from '../../../shared/api';
 import { errorText } from '../../workspace/store';
 import { parseRemoteNodeId } from '../../../shared/remotes';
-import { relocateWorkspacePath } from '../../../shared/workspace';
+import { relocateWorkspacePath } from '../../../modules/workspace/contract';
+import { workspaceClient } from '../../../modules/workspace/view';
 
 export type NoteDraft = {
   content: DocumentContent;
@@ -64,14 +65,13 @@ export const useNoteDrafts = create<Store>((set, get) => ({
     if (pending) return pending;
     const started = get().drafts[key];
     const work = (async () => {
-      const api = window.dela!;
       const sourceId = key.startsWith('source:') ? key.slice(7) : null;
       const remote = parseRemoteNodeId(key);
       const content = remote
-        ? await api.workspace.readRemoteDocument(remote.projectId, remote.path)
+        ? await workspaceClient.readRemoteDocument(remote)
         : sourceId
-          ? await api.workspace.readSource(sourceId)
-          : await api.workspace.read(key);
+          ? await workspaceClient.readSource(sourceId)
+          : await workspaceClient.read(key);
       const current = get().drafts[key];
       // A refresh must never replace edits made while it was reading. A confirmed
       // reload may discard the snapshot that existed when it started, but a newer
@@ -172,7 +172,11 @@ export const useNoteDrafts = create<Store>((set, get) => ({
             : s.drafts,
         }));
         try {
-          const revision = await window.dela.workspace.saveNote(key, text, draft.content.revision);
+          const revision = await workspaceClient.saveNote({
+            id: key,
+            text,
+            revision: draft.content.revision,
+          });
           set((s) => {
             const current = s.drafts[key];
             if (!current) return s;

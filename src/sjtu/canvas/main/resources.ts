@@ -1,9 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { getDatabase } from '../../../main/database';
 import { readDocument } from '../../../main/agent/domain/read-resource';
-import { previewFileResponse } from '../../../main/workspace/preview';
+import { previewFileResponse, type WorkspaceSource } from '../../../modules/workspace';
 import type { ResourceContent } from '../../../main/resources';
-import type { WorkspaceSource } from '../../../main/workspace/sources';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
 import type { ResourceRef } from '../../../shared/resources';
 import {

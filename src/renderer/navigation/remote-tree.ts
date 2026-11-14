@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RemoteChannelState, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
 import { remoteNodeId } from '../../shared/remotes';
-import { hiddenWorkspaceNames } from '../../shared/workspace';
+import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
+import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 import type { ExplorerItem } from '../components/explorer';
 import { errorText } from '../workspace/store';
 import { useRemoteActivity } from './remote-activity';
@@ -133,8 +134,7 @@ export function useRemoteTree(
   // 展开的远端目录报给主进程做 watch：Dela 之外改的远端文件因此也能自己出现在树里。
   // 合并窗口内攒着发，序列化后没变就不重报；不再展开的项目补一次空集合取消监视。
   useEffect(() => {
-    const workspace = window.dela?.workspace;
-    if (!workspace?.watchRemoteDirectories) return;
+    if (!window.dela) return;
     // 只在没有待发窗口时起一个：这个 effect 每次渲染都会跑，反复重置会让它永远发不出去。
     if (watchTimer.current !== undefined) return;
     watchTimer.current = window.setTimeout(() => {
@@ -153,11 +153,13 @@ export function useRemoteTree(
         const serialized = wanted.join('\n');
         if (watching.current.get(projectId) === serialized) continue;
         watching.current.set(projectId, serialized);
-        void workspace.watchRemoteDirectories(projectId, wanted).catch((error: unknown) => {
-          // 报不上去只是少了实时刷新：工具改动那条路照常，不打扰用户，但留一条线索。
-          console.warn('[workspace] 上报远端监视目录失败', error);
-          watching.current.delete(projectId);
-        });
+        void workspaceClient
+          .watchRemoteDirectories({ projectId, paths: wanted })
+          .catch((error: unknown) => {
+            // 报不上去只是少了实时刷新：工具改动那条路照常，不打扰用户，但留一条线索。
+            console.warn('[workspace] 上报远端监视目录失败', error);
+            watching.current.delete(projectId);
+          });
       }
     }, WATCH_DEBOUNCE_MS);
   });
@@ -171,9 +173,9 @@ export function useRemoteTree(
         watchTimer.current = undefined;
       }
       listed.current.clear();
-      const workspace = window.dela?.workspace;
-      for (const projectId of watching.current.keys())
-        void workspace?.watchRemoteDirectories(projectId, []).catch(() => {});
+      if (window.dela)
+        for (const projectId of watching.current.keys())
+          void workspaceClient.watchRemoteDirectories({ projectId, paths: [] }).catch(() => {});
       watching.current.clear();
     },
     [],
@@ -182,9 +184,7 @@ export function useRemoteTree(
   // 远端工具写过文件、跑过 bash，或远端自己变了（watch）：丢掉受影响的清单（这层自己变了，
   // 或它下面的目录变了——新条目要现出来），缺清单的展开目录由下面那个 effect 自动重拉。
   useEffect(() => {
-    const workspace = window.dela?.workspace;
-    if (!workspace?.onRemoteChange) return;
-    return workspace.onRemoteChange((path) => {
+    return onWorkspaceEvent('remoteChange', (path) => {
       changed.current.add(trimSlash(path));
       if (flushTimer.current !== undefined) return;
       flushTimer.current = window.setTimeout(() => {
@@ -205,8 +205,7 @@ export function useRemoteTree(
   }, []);
 
   useEffect(() => {
-    const workspace = window.dela?.workspace;
-    if (!workspace) return;
+    if (!window.dela) return;
     for (const node of pending) {
       if (inFlight.current.has(node.key)) continue;
       inFlight.current.add(node.key);
@@ -218,8 +217,8 @@ export function useRemoteTree(
       // 面板只在「没有任何内容」时才画过渡，热通道那几十毫秒够不到 200ms 的门槛。
       const root = rootPaths.get(node.projectId) === node.path;
       if (root) setPhase(node.projectId, 'connecting');
-      void workspace
-        .listRemoteDirectory(node.projectId, node.path)
+      void workspaceClient
+        .listRemoteDirectory({ projectId: node.projectId, path: node.path })
         .then(
           (items) => {
             if (listed.current.get(node.key) !== marker) return;

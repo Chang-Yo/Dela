@@ -8,10 +8,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../workspace/api', () => ({ createWorkspaceEntry: vi.fn() }));
+vi.mock('../../../modules/workspace', () => ({ createWorkspaceEntry: vi.fn() }));
 vi.mock('../parse', () => ({ classifyOfficeFile: vi.fn(async () => 'pptx') }));
 import { getDatabase } from '../../database';
-import { createWorkspaceEntry } from '../../workspace/api';
+import { createWorkspaceEntry } from '../../../modules/workspace';
 import { registerResourceResolver } from '../../../core/capabilities/resources';
 import { exportOfficePdf } from '../export';
 import { readOfficeExportLink } from '../links';

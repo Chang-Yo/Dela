@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
-import { hiddenWorkspaceNames } from '../../shared/workspace';
+import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
 import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/explorer';
 import { sourceOf } from '../../app/views';
 import {
@@ -35,6 +35,7 @@ import { remoteAccent } from './remote-color';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../app/toasts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
+import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 import { ErrorText } from '../../ui/alert';
 import { Spinner } from '../../ui/spinner';
 import { IconButton } from '../../ui/icon-button';
@@ -110,7 +111,7 @@ export function ProjectFileTree({
   const searchKey = `${rootId ?? ''}\0${query.trim()}`;
   useEffect(() => {
     if (!query.trim()) return;
-    return window.dela?.workspace.onChanged?.(() => setSearchVersion((value) => value + 1));
+    return onWorkspaceEvent('changed', () => setSearchVersion((value) => value + 1));
   }, [query]);
   const entries = useMemo(() => {
     if (!query.trim() || search?.key !== searchKey) return baseEntries;
@@ -119,12 +120,12 @@ export function ProjectFileTree({
     ];
   }, [baseEntries, query, search, searchKey]);
   useEffect(() => {
-    if (!query.trim() || !window.dela?.workspace.searchLocal) return;
+    if (!query.trim() || !window.dela) return;
     let live = true;
     const timer = setTimeout(() => {
       setSearching(true);
       setLocalError(null);
-      void window.dela!.workspace.searchLocal(rootId, query.trim()).then(
+      void workspaceClient.searchLocal({ rootId, query: query.trim() }).then(
         (items) => {
           if (live) {
             setSearch({ key: searchKey, entries: items });
@@ -142,7 +143,7 @@ export function ProjectFileTree({
     return () => {
       live = false;
       clearTimeout(timer);
-      void window.dela?.workspace.searchLocal(rootId, '').catch(() => {});
+      void workspaceClient.searchLocal({ rootId, query: '' }).catch(() => {});
     };
   }, [rootId, query, searchKey, searchVersion]);
   const directoryIds = useMemo(() => {
@@ -445,7 +446,7 @@ export function ProjectFileTree({
                   <>
                     <DropdownMenuItem
                       onSelect={() =>
-                        runFileCommand('定位失败', () => window.dela?.workspace.openLocal(item.id))
+                        runFileCommand('定位失败', () => workspaceClient.openLocal(item.id))
                       }
                     >
                       <FolderOpen />
@@ -453,7 +454,7 @@ export function ProjectFileTree({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() =>
-                        runFileCommand('打开失败', () => window.dela?.workspace.openFile(item.id))
+                        runFileCommand('打开失败', () => workspaceClient.openFile(item.id))
                       }
                     >
                       <ExternalLink />

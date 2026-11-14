@@ -4,6 +4,22 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceEntry } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
+const { api, desktop } = vi.hoisted(() => {
+  const handlers: Record<string, (input: never) => unknown> = {};
+  const subscribe = () => () => {};
+  const desktop = {
+    bridge: {
+      invoke: async (channel: string, input: never) =>
+        handlers[channel.slice('workspace:'.length)]!(input),
+      subscribe,
+    },
+    session: { onSessionUpdate: subscribe, onStream: subscribe, onQueue: subscribe },
+  } as unknown as DelaApi;
+  window.dela = desktop;
+  return { api: handlers, desktop };
+});
 import { EntryDialogs, type EntryDialogRequest } from '../entry-dialogs';
 import { useWorkspaceStore } from '../store';
 
@@ -32,8 +48,9 @@ const workspace = {
 let root: Root;
 let container: HTMLDivElement;
 const create = vi.fn(async (input) => ({ ...entry('created', input.kind), ...input }));
-const getState = vi.fn(async () => workspace);
+const state = vi.fn(async () => workspace);
 const update = vi.fn(async () => undefined);
+Object.assign(api, { create, state, update });
 const scrollIntoView = Element.prototype.scrollIntoView;
 
 beforeEach(() => {
@@ -52,7 +69,7 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
   useWorkspaceStore.setState({ workspace, loaded: true, error: null });
-  window.dela = { workspace: { create, getState, update } } as unknown as DelaApi;
+  window.dela = desktop;
 });
 
 afterEach(async () => {
@@ -106,7 +123,7 @@ it('offers only local project entries without rescanning directories', async () 
   // 前四项是本地项目；文件夹与远端项目都不出现，只多一个新建入口。
   expect(options).toHaveLength(5);
   expect(options.slice(0, 4)).toEqual(['课程项目', '嵌套项目', '第二项目', '隐藏项目']);
-  expect(getState).not.toHaveBeenCalled();
+  expect(state).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -184,8 +201,11 @@ it('preserves folder and workspace-root destinations for moves', async () => {
     '课程项目 / 子文件夹 / 附件目录',
   );
   await submit();
-  expect(update).toHaveBeenLastCalledWith('source:file:123', { parentId: '附件目录' });
+  expect(update).toHaveBeenLastCalledWith({
+    id: 'source:file:123',
+    patch: { parentId: '附件目录' },
+  });
   await choose('我的内容');
   await submit();
-  expect(update).toHaveBeenLastCalledWith('source:file:123', { parentId: null });
+  expect(update).toHaveBeenLastCalledWith({ id: 'source:file:123', patch: { parentId: null } });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { relocateWorkspacePath } from './workspace';
+import { relocateWorkspacePath } from '../contract';
 
 describe('relocateWorkspacePath', () => {
   it('移动 POSIX 子树时保留文件名中的反斜杠，不改同前缀的兄弟文件', () => {

@@ -26,7 +26,7 @@ import {
   remoteFileIndex,
   writeRemoteFile,
 } from '../../../core/remote/operations';
-import { importRemoteProject, projectLocation } from '../../workspace/api';
+import { importRemoteProject, projectLocation } from '../../../modules/workspace';
 import { parentOf, targetOf } from '../api';
 
 const host = process.env.DELA_REMOTE_HOST!;

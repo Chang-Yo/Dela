@@ -5,7 +5,7 @@ import { userInfo } from 'node:os';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
-import { idSchema, projectLocation } from '../workspace/api';
+import { idSchema, projectLocation } from '../../modules/workspace';
 import { remoteById } from '../remotes/api';
 import { locateSsh, shellQuote } from '../../core/remote/transport';
 import type { TerminalEvent, TerminalSession } from '../../shared/terminal';

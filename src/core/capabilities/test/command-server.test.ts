@@ -115,7 +115,7 @@ it('停用的 Skill 对应的命令不出现在 help 中，也不能执行', asy
     }).then((response) => response.json())) as { ok: boolean; result?: { name: string }[] };
   try {
     const names = (await call('help')).result!.map((command) => command.name);
-    expect(names).toEqual(expect.arrayContaining(['query_todos', 'list_workspace_entries']));
+    expect(names).toEqual(expect.arrayContaining(['query_todos', 'read_resource']));
     expect(names).not.toEqual(expect.arrayContaining(['query_schedule']));
     expect(names).not.toEqual(expect.arrayContaining(['link_canvas_source']));
     expect(await call('query_schedule')).toMatchObject({ ok: false });

@@ -4,18 +4,23 @@ import { z } from 'zod';
 import { resourceRefSchema, type ResourceRef } from '../shared/resources';
 import { readMailMessage, saveMailAttachment } from './mail/api';
 import { resourceResolver } from '../core/capabilities/resources';
-import { entry, importWorkspaceFiles, workspaceFilePath } from './workspace/api';
-import { workspaceSource } from './workspace/sources';
+import {
+  entry,
+  importWorkspaceFiles,
+  localFileFormat,
+  textRevision,
+  workspaceFilePath,
+  workspaceSource,
+} from '../modules/workspace';
 import {
   TEXT_PREVIEW_MAX_BYTES,
   formatByName,
   imageMimeOf,
   isTextContent,
 } from '../core/protocol/files';
-import { localFileFormat, textRevision } from './workspace/files';
 import { diskName } from './storage';
 import { hostPorts } from '../core/ports';
-import { workspaceEntryIdSchema } from '../shared/workspace';
+import { workspaceEntryIdSchema } from '../modules/workspace/contract';
 import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
 
 export interface ResourceContent {

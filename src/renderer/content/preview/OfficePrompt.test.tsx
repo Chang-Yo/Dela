@@ -3,6 +3,13 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, OfficeExportInfo } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好。
+const bridge = vi.hoisted(() => {
+  const bridge = { invoke: vi.fn(), subscribe: vi.fn(() => () => {}) };
+  window.dela = { bridge } as unknown as DelaApi;
+  return bridge;
+});
 import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
 import { useToastStore } from '../../app/toasts';
 
@@ -12,18 +19,18 @@ const exported: OfficeExportInfo = {
   previewUrl: 'dela-resource://workspace/fixture',
   stale: false,
 };
-const convert = vi.fn(async () => {});
+const convert = vi.fn<(ref: unknown) => Promise<void>>(async () => {});
 const refresh = vi.fn();
-const openResourceFile = vi.fn(async () => {});
+const openResourceFile = vi.fn<(ref: unknown) => Promise<void>>(async () => {});
 let container: HTMLDivElement;
 let root: Root;
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  window.dela = {
-    platform: 'darwin',
-    workspace: { exportOfficePdf: convert, openResourceFile },
-  } as unknown as DelaApi;
+  bridge.invoke.mockImplementation((channel: string, ref: unknown) =>
+    channel === 'workspace:exportOfficePdf' ? convert(ref) : openResourceFile(ref),
+  );
+  window.dela = { platform: 'darwin', bridge } as unknown as DelaApi;
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);

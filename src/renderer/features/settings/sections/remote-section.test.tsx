@@ -10,6 +10,17 @@ import type {
   RemoteConnection,
   WorkspaceEntry,
 } from '../../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
+const invoke = vi.hoisted(() => {
+  const invoke = vi.fn();
+  const subscribe = () => () => {};
+  window.dela = {
+    bridge: { invoke, subscribe },
+    session: { onSessionUpdate: subscribe, onStream: subscribe, onQueue: subscribe },
+  } as unknown as DelaApi;
+  return invoke;
+});
 import { useRemoteState } from '../../../workspace/remote/remote-state';
 import { RemoteSection } from './RemoteSection';
 import { useNavigationStore } from '../../../navigation/view';
@@ -136,9 +147,11 @@ it('spells out what connection deletion takes with it before confirming', async 
       onHelperState: () => () => {},
       remove,
     },
-    // 级联移除项目后表单会拉一次工作区镜像。
-    workspace: { getState: async () => ({ entries: [], directory: '' }) },
   } as unknown as DelaApi;
+  // 级联移除项目后表单会拉一次工作区镜像。
+  invoke.mockImplementation(async (channel: string) =>
+    channel === 'workspace:state' ? { entries: [], directory: '' } : undefined,
+  );
 
   await act(async () => root.render(<RemoteSection />));
   await act(async () => button('编辑').click());

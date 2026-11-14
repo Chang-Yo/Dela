@@ -48,6 +48,7 @@ import { useRemoteActivity } from './remote-activity';
 import { RemoteConnectionTip } from './remote-connection-tip';
 import { useRemoteConnections } from './remote-connections';
 import { IconButton } from '../../ui/icon-button';
+import { workspaceClient } from '../../modules/workspace/view';
 import {
   Dialog,
   DialogContent,
@@ -298,9 +299,7 @@ export function ProjectSessionNav({
                   </Menu.Sub>
                   <DropdownMenuItem
                     onSelect={() =>
-                      void runAction('打开目录失败', async () =>
-                        window.dela?.workspace.openLocal(key),
-                      )
+                      void runAction('打开目录失败', async () => workspaceClient.openLocal(key))
                     }
                   >
                     <FolderOpen />在 {fileManagerName} 中显示

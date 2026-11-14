@@ -14,7 +14,7 @@ vi.mock('../todo', () => ({ getTodoState: () => ({ items: [] }) }));
 import { closeDatabase, getDatabase } from '../database';
 import type { SearchGroup } from '../../modules/search/contract';
 import { registerSearchProvider, searchModule } from '../../modules/search';
-import { chatSearch, projectSearch } from '../workspace/search';
+import { workspaceModule } from '../../modules/workspace';
 import { mailSearch } from '../mail/search';
 
 const timestamp = '2026-09-16T12:00:00.000Z';
@@ -28,7 +28,8 @@ const hitsOf = (query: string, group: string) =>
 
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-search-'));
-  for (const provider of [projectSearch, chatSearch, mailSearch]) registerSearchProvider(provider);
+  workspaceModule.register?.();
+  registerSearchProvider(mailSearch);
   run(
     "INSERT INTO mail_accounts (address, imap_host, imap_port, created_at) VALUES ('a@sjtu.edu.cn', 'imap', 993, ?)",
     timestamp,

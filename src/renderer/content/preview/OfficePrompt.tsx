@@ -4,6 +4,7 @@ import { ExternalLink, FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
+import { onWorkspaceEvent, workspaceClient } from '../../../modules/workspace/view';
 import type {
   OfficeExportEvent,
   OfficeExportInfo,
@@ -54,7 +55,7 @@ const useOfficeExports = create<{
         [key]: { progress: null, startedAt: Date.now(), opening: false, error: '' },
       },
     }));
-    window.dela?.workspace.exportOfficePdf(ref).then(
+    workspaceClient.exportOfficePdf(ref).then(
       // PowerShell 退出码 0 且输出文件存在即成功；这里保持动画直到重读翻转到 PDF，
       // 避免闪回按钮被误点而触发重复导出。
       async () => {
@@ -88,7 +89,7 @@ const useOfficeExports = create<{
 
 // 组件外常驻订阅：卸载期间到达的进度事件不丢，重挂载即恢复显示（按 ref 归属，并发导出互不串扰）。
 if (typeof window !== 'undefined' && window.dela)
-  window.dela.workspace.onOfficeExportProgress((event: OfficeExportEvent) => {
+  onWorkspaceEvent('officeExportProgress', (event: OfficeExportEvent) => {
     const key = exportKey(event.ref);
     useOfficeExports.setState((state) => {
       const run = state.runs[key];
@@ -138,7 +139,7 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
   );
   const openExternally = () => {
     if (!officeRef) return;
-    window.dela?.workspace.openResourceFile(officeRef).catch((cause) =>
+    workspaceClient.openResourceFile(officeRef).catch((cause) =>
       showToast({
         variant: 'error',
         title: '打开失败',

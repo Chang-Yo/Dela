@@ -4,6 +4,7 @@ import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { errorMessage } from '../../../core/protocol/contract';
 import { useWorkspaceStore } from '../../../renderer/workspace/store';
+import { workspaceClient } from '../../../modules/workspace/view';
 import { showToast } from '../../../renderer/app/toasts';
 import { shuiyuanClient, SOURCE_PREFIX } from './use-shuiyuan';
 import {
@@ -58,14 +59,14 @@ export function AddToProjectDialog({
       if (target === '__new__') {
         if (!name.trim()) throw new Error('请填写项目名称');
         parentId = (
-          await window.dela!.workspace.create({
+          await workspaceClient.create({
             name: name.trim(),
             parentId: null,
             kind: 'project',
           })
         ).id;
       }
-      await window.dela!.workspace.create({
+      await workspaceClient.create({
         name: topicTitle,
         parentId,
         kind: 'source',

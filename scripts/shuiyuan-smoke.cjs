@@ -95,7 +95,7 @@ let notifications = [
 const listCalls = [];
 
 const routes = {
-  'workspace:get-state': () => ({ entries: [], directory: '' }),
+  'workspace:state': () => ({ entries: [], directory: '' }),
   'canvas:state': () => ({ connected: false, courses: [], items: [] }),
   'window:get-state': () => ({ maximized: false }),
   'settings:get-theme': () => 'light',
@@ -103,8 +103,8 @@ const routes = {
   'settings:get-font-size': () => 16,
   // 应用壳启动时读取的跨域通道：给出未配置 / 默认值，让界面安静装载。
   'settings:get-keybindings': () => ({}),
-  'layout:get': () => null,
-  'layout:save': () => null,
+  'workspace:layout': () => null,
+  'workspace:saveLayout': () => null,
   'session:list': () => [],
   'remotes:list': () => [],
   'notifications:state': () => ({

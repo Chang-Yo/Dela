@@ -41,7 +41,6 @@ beforeEach(() => {
   useSessions.setState({ chats: {}, lists: {} });
   useWorkbenchLayout.setState({ ...createDefaultLayout(), projectId: null, ready: true });
   window.dela = {
-    layout: { get: async () => null, save: async () => {} },
     session: {
       create: async (projectId: string | null, scope: ChatScope) => {
         creates.push([projectId, scope]);

@@ -12,14 +12,20 @@ const state = vi.hoisted(() => ({
   locate: vi.fn(),
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: { openPath: vi.fn() } }));
-vi.mock('../../database', () => ({ getDatabase: () => state.db }));
-vi.mock('../../../core/remote/operations', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../core/remote/operations')>()),
+vi.mock('../../../../main/database', () => ({ getDatabase: () => state.db }));
+vi.mock('../../../../core/remote/operations', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../core/remote/operations')>()),
   locateRemote: state.locate,
 }));
 
-import { getDatabase } from '../../database';
-import { parentOf, remoteJoin, withinRemoteRoot, removeRemote, listRemotes } from '../api';
+import { getDatabase } from '../../../../main/database';
+import {
+  parentOf,
+  remoteJoin,
+  withinRemoteRoot,
+  removeRemote,
+  listRemotes,
+} from '../../../../main/remotes/api';
 import {
   createWorkspaceEntry,
   entry,
@@ -31,8 +37,8 @@ import {
   removeWorkspaceEntry,
   updateWorkspaceEntry,
   workspaceProjects,
-} from '../../workspace/api';
-import { provideTestHostPorts } from '../../../core/test/host-mock';
+} from '../api';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
 const remoteId = '11111111-1111-4111-8111-111111111111';
 

@@ -7,6 +7,7 @@ import { SettingRow } from '../../../../modules/settings/view';
 import { SettingsGroup } from '../SettingsGroup';
 import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
+import { workspaceClient } from '../../../../modules/workspace/view';
 
 /** 重置后的默认布局：单组空标签（workbench 的 createDefaultLayout 同构）。 */
 const defaultLayout: WorkbenchLayout = {
@@ -29,7 +30,8 @@ export function WorkspaceSection() {
   const [resetConfirm, setResetConfirm] = useState(false);
 
   const chooseDirectory = () => {
-    void window.dela?.workspace
+    if (!window.dela) return;
+    void workspaceClient
       .chooseDirectory()
       .then(() => useWorkspaceStore.getState().refresh())
       .catch((cause) =>
@@ -42,7 +44,7 @@ export function WorkspaceSection() {
     if (!window.dela || busy) return;
     setBusy(true);
     try {
-      await window.dela.layout.save(currentProjectId(), defaultLayout);
+      await workspaceClient.saveLayout({ projectId: currentProjectId(), layout: defaultLayout });
       setResetConfirm(false);
       showToast({ variant: 'success', title: '布局已重置', description: '下次进入该项目时生效。' });
     } catch (cause) {

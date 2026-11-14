@@ -12,6 +12,22 @@ import type {
   WorkspaceEntry,
   WorkspaceState,
 } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
+const { workspaceApi, bridge } = vi.hoisted(() => {
+  const handlers: Record<string, (input: never) => unknown> = {};
+  const subscribe = () => () => {};
+  const bridge = {
+    invoke: async (channel: string, input: never) =>
+      handlers[channel.slice('workspace:'.length)]!(input),
+    subscribe,
+  };
+  window.dela = {
+    bridge,
+    session: { onSessionUpdate: subscribe, onStream: subscribe, onQueue: subscribe },
+  } as unknown as DelaApi;
+  return { workspaceApi: handlers, bridge };
+});
 import { NewRemoteProjectDialog } from '../remote/NewRemoteProjectDialog';
 import { usePreferences } from '../../app/preferences';
 import { useRemoteState } from '../remote/remote-state';
@@ -116,10 +132,8 @@ function api(overrides: Partial<DelaApi['remotes']> = {}, workspace = {}) {
     ),
     ...overrides,
   };
-  window.dela = {
-    remotes,
-    workspace: { getState: async () => emptyState, ...workspace },
-  } as unknown as DelaApi;
+  Object.assign(workspaceApi, { state: async () => emptyState, ...workspace });
+  window.dela = { remotes, bridge } as unknown as DelaApi;
   return {
     remotes,
     emit: (progress: RemoteSetupProgress) => listeners.forEach((l) => l(progress)),
@@ -181,8 +195,8 @@ it('shows why the server failed, keeps the log open, and retries on demand', asy
 
 it('selects on click, enters on double click, and imports under a custom name', async () => {
   const importRemoteProject = vi.fn(async () => created);
-  const getState = vi.fn(async () => ({ ...emptyState, entries: [created] }));
-  api({}, { importRemoteProject, getState });
+  const state = vi.fn(async () => ({ ...emptyState, entries: [created] }));
+  api({}, { importRemoteProject, state });
   const onImported = await render();
 
   const row = () => [...document.querySelectorAll<HTMLButtonElement>('[role="option"] button')][0]!;
@@ -198,7 +212,11 @@ it('selects on click, enters on double click, and imports under a custom name', 
   expect(input('项目名称').value).toBe('我的实验');
 
   await act(async () => button('添加项目').click());
-  expect(importRemoteProject).toHaveBeenCalledWith('r-1', '/home/u/proj', '我的实验');
+  expect(importRemoteProject).toHaveBeenCalledWith({
+    remoteId: 'r-1',
+    path: '/home/u/proj',
+    name: '我的实验',
+  });
   expect(onImported).toHaveBeenCalledWith(created);
   // 下次打开这台服务器回到这里。
   expect(usePreferences.getState().remoteLastDirectory['gpu-box']).toBe('/home/u/proj');

@@ -13,30 +13,30 @@ import {
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { getDatabase } from '../database';
-import { hostPorts, type Projects } from '../../core/ports';
-import { remoteById, targetOf } from '../remotes/api';
-import { locateRemote } from '../../core/remote/operations';
+import { getDatabase } from '../../../main/database';
+import { hostPorts, type Projects } from '../../../core/ports';
+import { remoteById, targetOf } from '../../../main/remotes/api';
+import { locateRemote } from '../../../core/remote/operations';
 import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from './sources';
-import { availablePath, diskName, storageDirectory as directory } from '../storage';
-import { officeExportPreviewInfo, readOfficeExportLink } from '../documents/links';
-import { officeZipMime } from '../documents/parse';
-import { workspaceArchiveId } from '../../shared/api';
-import { parseRemoteNodeId } from '../../shared/remotes';
-import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../../shared/workspace';
-import { imageMimeOf } from '../../core/protocol/files';
+import { availablePath, diskName, storageDirectory as directory } from '../../../main/storage';
+import { officeExportPreviewInfo, readOfficeExportLink } from '../../../main/documents/links';
+import { officeZipMime } from '../../../main/documents/parse';
+import { workspaceArchiveId } from '../../../shared/api';
+import { parseRemoteNodeId } from '../../../shared/remotes';
+import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../contract';
+import { imageMimeOf } from '../../../core/protocol/files';
 import {
   decodeAssetPath,
   isRelativeAssetPath,
   matchMarkdownImageRefs,
-} from '../../shared/note-files';
+} from '../../../shared/note-files';
 import { localFileFormat, readLocalText, textRevision, writeLocalText } from './files';
 import type {
   DocumentContent,
   WorkspaceCreateInput,
   WorkspaceEntry,
   WorkspaceState,
-} from '../../shared/api';
+} from '../../../shared/api';
 
 export const idSchema = z.string().uuid();
 const nameSchema = z.string().trim().min(1).max(200);
@@ -805,8 +805,8 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     assertNoChildProjects(item.id);
     // 「移除项目」＝项目终结：名下会话（含归档）一并删除，目录与文件保留。
     // 动态导入避开 agent/session → workspace/api 的既有环；deleteSession 负责中止运行与清理 JSONL。
-    const { deleteSession } = await import('../../core/agent/session/commands');
-    const { invalidateSessions } = await import('../../core/agent/session/run');
+    const { deleteSession } = await import('../../../core/agent/session/commands');
+    const { invalidateSessions } = await import('../../../core/agent/session/run');
     const ids = getDatabase()
       .prepare('SELECT id FROM sessions WHERE project_id=? AND parent_id IS NULL')
       .all(item.id) as { id: string }[];

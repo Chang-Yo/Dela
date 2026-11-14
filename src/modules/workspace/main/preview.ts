@@ -3,10 +3,10 @@ import { createReadStream } from 'node:fs';
 import { stat as fileStat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { Readable } from 'node:stream';
-import { officeZipMime } from '../documents/parse';
-import { remoteById, targetOf, withinRemoteRoot } from '../remotes/api';
-import { readRemoteRange, statRemoteFile } from '../../core/remote/operations';
-import { remoteDocumentMime } from '../remotes/documents';
+import { officeZipMime } from '../../../main/documents/parse';
+import { remoteById, targetOf, withinRemoteRoot } from '../../../main/remotes/api';
+import { readRemoteRange, statRemoteFile } from '../../../core/remote/operations';
+import { remoteDocumentMime } from '../../../main/remotes/documents';
 import { projectLocation, resolveWorkspaceAsset, workspacePreviewPath } from './api';
 
 const previewScheme = 'dela-resource';

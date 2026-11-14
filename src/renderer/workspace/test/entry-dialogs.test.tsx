@@ -7,6 +7,22 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceEntry, WorkspaceState } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
+const { api, desktop } = vi.hoisted(() => {
+  const handlers: Record<string, (input: never) => unknown> = {};
+  const subscribe = () => () => {};
+  const desktop = {
+    bridge: {
+      invoke: async (channel: string, input: never) =>
+        handlers[channel.slice('workspace:'.length)]!(input),
+      subscribe,
+    },
+    session: { onSessionUpdate: subscribe, onStream: subscribe, onQueue: subscribe },
+  } as unknown as DelaApi;
+  window.dela = desktop;
+  return { api: handlers, desktop };
+});
 import { EntryDialogs, type EntryDialogRequest } from '../entry-dialogs';
 import { useWorkspaceStore } from '../store';
 
@@ -61,41 +77,40 @@ async function render(request: EntryDialogRequest, callbacks: object = {}) {
 
 it('imports an existing folder as a project and opens it', async () => {
   const importProjectFolder = vi.fn(async () => external);
-  const getState = vi.fn(async () => ({ ...emptyState, entries: [external] }));
-  window.dela = { workspace: { importProjectFolder, getState } } as unknown as DelaApi;
+  const state = vi.fn(async () => ({ ...emptyState, entries: [external] }));
+  Object.assign(api, { importProjectFolder, state });
+  window.dela = desktop;
   const onClose = vi.fn();
   const onOpenProject = vi.fn();
   await render({ action: 'project', id: null }, { onClose, onOpenProject });
   await act(async () => dialogButton('导入已有文件夹').click());
   expect(importProjectFolder).toHaveBeenCalledOnce();
-  expect(getState).toHaveBeenCalledOnce();
+  expect(state).toHaveBeenCalledOnce();
   expect(onOpenProject).toHaveBeenCalledWith('p-1');
   expect(onClose).toHaveBeenCalledOnce();
 });
 
 it('keeps the dialog open when the folder picker is cancelled', async () => {
-  const getState = vi.fn(async () => emptyState);
-  window.dela = {
-    workspace: { importProjectFolder: async () => null, getState },
-  } as unknown as DelaApi;
+  const state = vi.fn(async () => emptyState);
+  Object.assign(api, { importProjectFolder: async () => null, state });
+  window.dela = desktop;
   const onClose = vi.fn();
   const onOpenProject = vi.fn();
   await render({ action: 'project', id: null }, { onClose, onOpenProject });
   await act(async () => dialogButton('导入已有文件夹').click());
   expect(onOpenProject).not.toHaveBeenCalled();
   expect(onClose).not.toHaveBeenCalled();
-  expect(getState).not.toHaveBeenCalled();
+  expect(state).not.toHaveBeenCalled();
 });
 
 it('reports a rejected folder without closing', async () => {
-  window.dela = {
-    workspace: {
-      importProjectFolder: async () => {
-        throw new Error('请选择一个文件夹');
-      },
-      getState: async () => emptyState,
+  Object.assign(api, {
+    importProjectFolder: async () => {
+      throw new Error('请选择一个文件夹');
     },
-  } as unknown as DelaApi;
+    state: async () => emptyState,
+  });
+  window.dela = desktop;
   const onClose = vi.fn();
   await render({ action: 'project', id: null }, { onClose });
   await act(async () => dialogButton('导入已有文件夹').click());
@@ -105,14 +120,15 @@ it('reports a rejected folder without closing', async () => {
 
 it('hands the new-project dialog over to the remote project panel', async () => {
   const list = vi.fn(async () => []);
+  api.state = async () => emptyState;
   window.dela = {
+    ...desktop,
     remotes: {
       list,
       configHosts: async () => [],
       onHelperState: () => () => {},
       onSetupProgress: () => () => {},
     },
-    workspace: { getState: async () => emptyState },
   } as unknown as DelaApi;
   await render({ action: 'project', id: null });
   expect(list).not.toHaveBeenCalled();

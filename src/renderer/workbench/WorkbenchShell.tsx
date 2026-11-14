@@ -42,6 +42,7 @@ import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../ui/alert';
 import { referenceQueries, sourceOf, sourceOfLink } from '../../app/views';
+import { workspaceClient } from '../../modules/workspace/view';
 
 /** TabId → 旧文档键（entryId 或 source:{sourceId}）；chat 无对应文档。 */
 function tabDocumentKey(tabId: TabId | null): string | null {
@@ -125,11 +126,11 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
 
   const onCreated = async (entry: WorkspaceEntry) => {
     if (entry.kind === 'project') return; // EntryDialogs 已回调 onOpenProject。
-    if (window.dela?.workspace.localAncestors && entry.path) {
+    if (window.dela && entry.path) {
       try {
         useWorkspaceStore
           .getState()
-          .rememberEntries(await window.dela.workspace.localAncestors(entry.id));
+          .rememberEntries(await workspaceClient.localAncestors(entry.id));
       } catch (error) {
         useWorkspaceStore.getState().setError(error);
       }
@@ -253,8 +254,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     const loadDocument = async (tabKey: TabId): Promise<LoadedDocument> => {
       const target = parsePreviewTabId(tabKey);
       if (!target) throw new Error('无效的预览标签');
-      const dela = window.dela;
-      if (!dela) throw new Error('文件预览仅在桌面端可用');
+      if (!window.dela) throw new Error('文件预览仅在桌面端可用');
       const entries = useWorkspaceStore.getState().workspace.entries;
       let sourceId: string | null = null;
       let entry: WorkspaceEntry | undefined;
@@ -266,15 +266,15 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         const remote = parseRemoteNodeId(entryId);
         if (remote)
           return {
-            content: await dela.workspace.readRemoteDocument(remote.projectId, remote.path),
+            content: await workspaceClient.readRemoteDocument(remote),
             watchesDisk: false,
           };
         entry = entries.find((e) => e.id === entryId);
         sourceId = entry?.sourceId ?? null;
       }
       const content: DocumentContent = sourceId
-        ? await dela.workspace.readSource(sourceId)
-        : await dela.workspace.read(entryId!);
+        ? await workspaceClient.readSource(sourceId)
+        : await workspaceClient.read(entryId!);
       const document = sourceId ? sourceOf(sourceId)?.document : undefined;
       // pptx 的导出/快速预览定位：Canvas 资料用 sourceId，本地条目用条目 id。
       const officeRef: ResourceRef | undefined =

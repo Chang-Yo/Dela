@@ -53,6 +53,7 @@ import { useViewportWidth } from '../lib/use-viewport-width';
 import { cn } from '../../ui/cn';
 import { overlayFade } from '../../ui/motion';
 import { IconButton } from '../../ui/icon-button';
+import { localPathsOf, workspaceClient } from '../../modules/workspace/view';
 
 const SIDEBAR_MIN_WIDTH = 160;
 /** 目录宽度上界：再宽会明显挤占右侧内容栏。 */
@@ -180,7 +181,7 @@ export function WorkbenchExplorer({
     if (!projectId || !directory) return importDropped(files, targetId);
     if (targetId) expand(targetId, true);
     void runEntryWork(async () => {
-      await window.dela!.workspace.uploadRemoteFiles(projectId, directory, files);
+      await workspaceClient.uploadRemoteFiles({ projectId, directory, paths: localPathsOf(files) });
     });
   };
   // 远端动作的失败与本地条目动作同一个出口（entry-actions 的错误浮窗）。
@@ -189,10 +190,14 @@ export function WorkbenchExplorer({
     const remote = parseRemoteNodeId(id);
     if (!remote) return;
     void runEntryWork(async () => {
-      const workspace = window.dela!.workspace;
-      if (action === 'download') await workspace.downloadRemoteFile(remote.projectId, remote.path);
-      else if (action === 'open') await workspace.openRemoteFile(remote.projectId, remote.path);
-      else await workspace.uploadRemoteFiles(remote.projectId, remote.path, null);
+      if (action === 'download') await workspaceClient.downloadRemoteFile(remote);
+      else if (action === 'open') await workspaceClient.openRemoteFile(remote);
+      else
+        await workspaceClient.uploadRemoteFiles({
+          projectId: remote.projectId,
+          directory: remote.path,
+          paths: null,
+        });
     });
   };
   /** 新建文件/文件夹在树里行内输入（VS Code 式），不开弹窗；落点为 null 时落在当前树根。 */
@@ -209,7 +214,7 @@ export function WorkbenchExplorer({
     onCancel: () => useTreeState.getState().cancelCreate(),
     onSubmit: async (name) => {
       try {
-        const created = await window.dela!.workspace.create({
+        const created = await workspaceClient.create({
           name,
           parentId: pendingCreate.parentId,
           kind: pendingCreate.kind,
@@ -357,7 +362,11 @@ export function WorkbenchExplorer({
                       const directory = root?.path;
                       if (!directory) return;
                       void runEntryWork(async () => {
-                        await window.dela!.workspace.uploadRemoteFiles(rootId, directory, null);
+                        await workspaceClient.uploadRemoteFiles({
+                          projectId: rootId,
+                          directory,
+                          paths: null,
+                        });
                       });
                     }}
                     size="icon-xs"

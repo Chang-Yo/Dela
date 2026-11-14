@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 vi.mock('../../../../../main/mail/api', () => ({ readMailMessage: vi.fn() }));
 vi.mock('../../../../../main/settings/prefs', () => ({ assertShuiyuanEnabled: vi.fn() }));
 vi.mock('../../../../../main/resources', () => ({ readWorkspaceResource: vi.fn() }));
-vi.mock('../../../../../main/workspace/api', () => ({ workspaceFilePath: vi.fn() }));
+vi.mock('../../../../../modules/workspace', () => ({ workspaceFilePath: vi.fn() }));
 vi.mock('../../api', () => ({
   getShuiyuanTopic: vi.fn(),
   getShuiyuanState: () => ({ connected: true }),

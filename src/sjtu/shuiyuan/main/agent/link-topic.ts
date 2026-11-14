@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { addShuiyuanSourceRef } from '../sources';
-import { createWorkspaceEntry } from '../../../../main/workspace/api';
+import { createWorkspaceEntry } from '../../../../modules/workspace';
 import { tool, toolError, uuid } from '../../../../main/agent/domain/shared';
 import { requireShuiyuanBound, withShuiyuanErrors } from './helpers';
 

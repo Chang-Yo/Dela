@@ -6,6 +6,7 @@ import { useNavigationStore } from '../../navigation/view';
 import { showToast } from '../../app/toasts';
 import { errorText, useWorkspaceStore } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
+import { workspaceClient } from '../../../modules/workspace/view';
 
 const pill =
   'flex h-7 min-w-0 max-w-[15rem] items-center gap-1.5 rounded-control border border-line bg-surface px-2 text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink';
@@ -42,7 +43,7 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
     setCurrent(null);
     if (!projectId || remote || !window.dela) return;
     let active = true;
-    void window.dela.workspace
+    void workspaceClient
       .projectBranch(projectId)
       .then((branch) => {
         if (active) setCurrent(branch);
@@ -57,7 +58,7 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
   useEffect(() => {
     if (!branchOpen || !projectId || remote || !window.dela) return;
     let active = true;
-    void window.dela.workspace
+    void workspaceClient
       .projectBranches(projectId)
       .then((list) => {
         if (active) setBranches(list);
@@ -87,8 +88,8 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
   const switchBranch = (branch: string) => {
     setBranchOpen(false);
     if (!projectId || branch === current || !window.dela) return;
-    void window.dela.workspace
-      .switchProjectBranch(projectId, branch)
+    void workspaceClient
+      .switchProjectBranch({ id: projectId, branch })
       .then(() => setCurrent(branch))
       .catch((error: unknown) =>
         showToast({

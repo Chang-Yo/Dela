@@ -5,6 +5,7 @@ import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
 import type { TabId } from '../../../shared/layout';
 import { parseRemoteNodeId } from '../../../shared/remotes';
+import { workspaceClient } from '../../../modules/workspace/view';
 import { DocumentToolbar, type NoteMode } from './document-toolbar';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -17,11 +18,11 @@ const imageInsert = (entryId: string) =>
   markdownImageInsert(
     async (file) => {
       if (!window.dela) throw new Error('仅桌面应用支持插入本地图片');
-      return window.dela.workspace.saveNoteImage(
-        entryId,
-        file.name,
-        new Uint8Array(await file.arrayBuffer()),
-      );
+      return workspaceClient.saveNoteImage({
+        id: entryId,
+        name: file.name,
+        bytes: new Uint8Array(await file.arrayBuffer()),
+      });
     },
     (cause) =>
       showToast({ variant: 'error', title: '插入图片失败', description: errorText(cause) }),
@@ -118,7 +119,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         <Button
           variant="secondary"
           onClick={() =>
-            void window.dela?.workspace
+            void workspaceClient
               .openFile(entryId)
               .catch((cause) =>
                 showToast({ variant: 'error', title: '打开失败', description: errorText(cause) }),
@@ -143,7 +144,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   /* 定位入口交给系统文件管理器。 */
   const openInFolder = () => {
     if (window.dela)
-      void window.dela.workspace.openLocal(entryId).catch((cause) =>
+      void workspaceClient.openLocal(entryId).catch((cause) =>
         showToast({
           variant: 'error',
           title: '打开所在文件夹失败',

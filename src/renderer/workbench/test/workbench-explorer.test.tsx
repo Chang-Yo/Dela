@@ -6,6 +6,22 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import type { WorkspaceEntry, WorkspaceState } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
+const { api, desktop } = vi.hoisted(() => {
+  const handlers: Record<string, (input: never) => unknown> = {};
+  const subscribe = () => () => {};
+  const desktop = {
+    bridge: {
+      invoke: async (channel: string, input: never) =>
+        handlers[channel.slice('workspace:'.length)]?.(input),
+      subscribe,
+    },
+    session: { onSessionUpdate: subscribe, onStream: subscribe, onQueue: subscribe },
+  } as unknown as NonNullable<typeof window.dela>;
+  window.dela = desktop;
+  return { api: handlers, desktop };
+});
 import { useNavigationStore as useTreeState } from '../../navigation/store';
 import { useWorkspaceStore } from '../../workspace/store';
 
@@ -132,6 +148,8 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
+  delete window.dela;
+  for (const name of Object.keys(api)) delete api[name];
   useWorkspaceStore.setState({ workspace, loaded: true, error: null });
   useTreeState.setState({ expanded: [], query: '', selected: null, pendingCreate: null });
 });
@@ -139,7 +157,6 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  delete window.dela;
 });
 
 const newButton = () => document.querySelector<HTMLElement>('[aria-label="新建"]');
@@ -228,7 +245,9 @@ it('creates files inline: double-click shows a name row, Enter submits, no dialo
     kind: 'file',
   };
   const create = vi.fn(async () => created);
-  window.dela = { workspace: { create, getState: async () => workspace } } as never;
+  api.create = create;
+  api.state = async () => workspace;
+  window.dela = desktop;
   const { onAction, onCreated } = await render(localProject.id);
   expect(newButton()).toBeTruthy();
 
@@ -247,7 +266,9 @@ it('keeps the row open with a red border on failure, and Escape cancels', async 
   const create = vi.fn(async () => {
     throw new Error('「a.md」已存在');
   });
-  window.dela = { workspace: { create, getState: async () => workspace } } as never;
+  api.create = create;
+  api.state = async () => workspace;
+  window.dela = desktop;
   await render(localProject.id);
   await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
   const input = nameInput()!;
@@ -269,7 +290,9 @@ it('submits on blur when a name was typed, cancels on blur when empty', async ()
     name: 'x',
     kind: 'file' as const,
   }));
-  window.dela = { workspace: { create, getState: async () => workspace } } as never;
+  api.create = create;
+  api.state = async () => workspace;
+  window.dela = desktop;
   await render(localProject.id);
   await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
   await act(async () => nameInput()!.blur());

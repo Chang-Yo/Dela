@@ -18,10 +18,10 @@ import { EventEmitter } from 'node:events';
 
 const state = vi.hoisted(() => ({ root: '', execFile: vi.fn(), spawn: vi.fn() }));
 vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.spawn }));
-vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
+vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 
-import { getDatabase } from '../../database';
-import { workspaceArchiveId } from '../../../shared/workspace';
+import { getDatabase } from '../../../../main/database';
+import { workspaceArchiveId } from '../../contract';
 import {
   createWorkspaceEntry,
   linkProjectFolder,
@@ -37,8 +37,8 @@ import {
 } from '../api';
 import { registerWorkspaceSource } from '../sources';
 import { openProjectDirectory } from '../project';
-import { provideTestHostPorts } from '../../../core/test/host-mock';
-import { hostPorts } from '../../../core/ports';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import { hostPorts } from '../../../../core/ports';
 import {
   getLocalWorkspaceState,
   listLocalDirectory,

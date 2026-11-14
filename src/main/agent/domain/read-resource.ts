@@ -3,7 +3,7 @@ import { readMailMessage } from '../../mail/api';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
 import { readWorkspaceResource, withAttachmentFile, type ResourceContent } from '../../resources';
 import { mailAttachment } from '../../mail/api';
-import { workspaceFilePath } from '../../workspace/api';
+import { workspaceFilePath } from '../../../modules/workspace';
 import type { CommandDomain } from '../../../core/capabilities/commands';
 import { resourceResolver, type ResourceResolver } from '../../../core/capabilities/resources';
 import { freshness, offset, tool, toolError } from './shared';

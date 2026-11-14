@@ -11,10 +11,9 @@ import { documentDomain } from './document';
 import { mailDomain } from './mail';
 import { builtinResourceResolvers, resourceDomain } from './read-resource';
 import { todoDomain } from './todo';
-import { workspaceDomain } from './workspace';
 
 export function registerBuiltinCapabilities(): void {
-  for (const domain of [resourceDomain, documentDomain, mailDomain, todoDomain, workspaceDomain])
+  for (const domain of [resourceDomain, documentDomain, mailDomain, todoDomain])
     registerCommandDomain(domain);
   for (const [type, resolver] of Object.entries(builtinResourceResolvers))
     registerResourceResolver(type, resolver as ResourceResolver);

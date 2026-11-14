@@ -123,10 +123,10 @@ const workspace = {
 let ranges = 0;
 let failRange = false;
 const routes = {
-  'workspace:get-state': () => workspace,
+  'workspace:state': () => workspace,
   'canvas:state': () => canvas,
   'contract:subscribe': () => null,
-  'workspace:read-source': (_, id) => ({
+  'workspace:readSource': (_, id) => ({
     title: id,
     format: 'pdf',
     mime: 'application/pdf',

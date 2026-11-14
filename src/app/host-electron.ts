@@ -32,7 +32,7 @@ import { workspaceWindow } from '../main/ipc';
 import { notifyRunFinished } from '../main/settings/task-notify';
 import { storageDirectory } from '../main/storage';
 import { locateBash } from '../main/terminal/mingit';
-import { workspaceProjects } from '../main/workspace/api';
+import { workspaceProjects } from '../modules/workspace';
 
 const secretPath = (namespace: SecretNamespace) =>
   join(app.getPath('userData'), `${namespace}.bin`);

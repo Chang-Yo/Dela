@@ -7,8 +7,7 @@ import { registerSecretLabel } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { workspaceWindow } from '../../main/ipc';
 import { registerNoticeSource } from '../../modules/notifications';
-import { registerPreviewHost } from '../../main/workspace/preview';
-import { registerWorkspaceSource } from '../../main/workspace/sources';
+import { registerPreviewHost, registerWorkspaceSource } from '../../modules/workspace';
 import { shuiyuanContract } from './contract';
 import { shuiyuanDomain } from './main/agent';
 import {

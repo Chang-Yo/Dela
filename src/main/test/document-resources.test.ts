@@ -12,7 +12,8 @@ vi.mock('../documents/runtime', () => ({
   assertDocumentDependency: vi.fn(),
   documentPython: () => 'component/python.exe',
 }));
-vi.mock('../workspace/api', () => ({
+vi.mock('../../modules/workspace', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../modules/workspace')>()),
   workspaceFilePath: vi.fn(),
   importWorkspaceFiles: vi.fn(),
   entry: vi.fn(),
@@ -32,8 +33,12 @@ import {
   readWorkspaceResource,
   releaseDocumentResource,
 } from '../resources';
-import { entry, readWorkspaceEntry, workspaceFilePath } from '../workspace/api';
-import { registerWorkspaceSource } from '../workspace/sources';
+import {
+  entry,
+  readWorkspaceEntry,
+  registerWorkspaceSource,
+  workspaceFilePath,
+} from '../../modules/workspace';
 import { builtinResourceResolvers, readResourceTool } from '../agent/domain/read-resource';
 import { registerResourceResolver, type ResourceResolver } from '../../core/capabilities/resources';
 import { assertDocumentDependency } from '../documents/runtime';

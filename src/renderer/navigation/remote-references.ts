@@ -2,6 +2,7 @@
 // 缺失时退到 find）。成功后缓存到本次运行结束；失败不报错也不阻塞输入，候选为空仍可手打远端路径。
 import { useEffect, useState } from 'react';
 import type { WorkspaceEntry } from '../../shared/api';
+import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 
 export interface RemoteReference {
   key: string;
@@ -15,8 +16,7 @@ const noLocalFiles: WorkspaceEntry[] = [];
 export function useLocalReferences(cwd: string | null): WorkspaceEntry[] {
   const [result, setResult] = useState<{ cwd: string; files: WorkspaceEntry[] } | null>(null);
   useEffect(() => {
-    const api = window.dela?.workspace;
-    if (!cwd || !api?.localReferenceFiles) return;
+    if (!cwd || !window.dela) return;
     let live = true;
     let revision = 0;
     let running = false;
@@ -30,7 +30,7 @@ export function useLocalReferences(cwd: string | null): WorkspaceEntry[] {
       }
       running = true;
       const current = ++revision;
-      void api
+      void workspaceClient
         .localReferenceFiles(cwd)
         .then((files) => {
           if (live && current === revision) setResult({ cwd, files });
@@ -45,7 +45,7 @@ export function useLocalReferences(cwd: string | null): WorkspaceEntry[] {
         });
     };
     load();
-    const unsubscribe = api.onChanged((paths) => {
+    const unsubscribe = onWorkspaceEvent('changed', (paths) => {
       const normalized = (value: string) =>
         /^[a-z]:[\\/]/i.test(value) ? value.replaceAll('\\', '/').toLowerCase() : value;
       const root = normalized(cwd).replace(/\/$/, '');
@@ -79,10 +79,9 @@ export function useRemoteReferences(projectId: string | null): RemoteReference[]
       setEntries(cached);
       return;
     }
-    const workspace = window.dela?.workspace;
-    if (!workspace) return;
+    if (!window.dela) return;
     let live = true;
-    const request = pending.get(projectId) ?? workspace.remoteReferences(projectId);
+    const request = pending.get(projectId) ?? workspaceClient.remoteReferences(projectId);
     pending.set(projectId, request);
     void request.then(
       (items) => {

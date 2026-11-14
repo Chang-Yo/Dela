@@ -1,7 +1,9 @@
-import type { DocumentContent, OfficeExportEvent } from './documents';
-import type { RemoteDirectoryEntry, RemotePortsState } from './remotes';
-import type { ResourceRef } from './resources';
+import type { DocumentContent, OfficeExportEvent } from '../../shared/documents';
+import type { RemoteDirectoryEntry, RemotePortsState } from '../../shared/remotes';
+import { workbenchLayoutSchema, type WorkbenchLayout } from '../../shared/layout';
+import type { ResourceRef } from '../../shared/resources';
 import { z } from 'zod';
+import { defineContract } from '../../core/protocol/contract';
 
 /** 普通文件使用绝对磁盘路径；UUID 用于已登记的项目与资料条目。 */
 export const workspaceEntryIdSchema = z
@@ -61,69 +63,141 @@ export interface WorkspaceCreateInput {
   text?: string;
 }
 
-export interface WorkspaceApi {
-  getState(): Promise<WorkspaceState>;
-  listLocalDirectory(id: string | null): Promise<WorkspaceEntry[]>;
-  searchLocal(rootId: string | null, query: string): Promise<WorkspaceEntry[]>;
-  localReferenceFiles(cwd: string): Promise<WorkspaceEntry[]>;
-  localAncestors(id: string): Promise<WorkspaceEntry[]>;
-  create(input: WorkspaceCreateInput): Promise<WorkspaceEntry>;
-  update(
-    id: string,
-    input: { name?: string; parentId?: string | null; kind?: 'folder' | 'project' },
-  ): Promise<WorkspaceEntryUpdate>;
-  onChanged(listener: (paths: string[]) => void): () => void;
-  remove(id: string): Promise<void>;
-  read(id: string): Promise<DocumentContent>;
-  /** 来源资料（Canvas 课件、水源帖子等）的正文，由认领该 sourceId 的模块读取。 */
-  readSource(sourceId: string): Promise<DocumentContent>;
-  /** 原地覆写文本文件；revision 与磁盘不一致时拒绝。 */
-  saveNote(id: string, text: string, revision: string): Promise<string>;
-  /** 把新插入的本地图片存入 Markdown 文件同目录的 assets/，返回相对路径。 */
-  saveNoteImage(id: string, name: string, bytes: Uint8Array): Promise<string>;
-  /** 打开项目目录，main 验证项目身份并解析本地路径。 */
-  openProjectDirectory(id: string, target: 'vscode' | 'explorer'): Promise<void>;
-  /** 本地项目目录的当前 Git 分支；非仓库、目录不存在、git 缺失与远端项目都返回 null。 */
-  projectBranch(id: string): Promise<string | null>;
-  /** 本地项目的分支名列表（按名字排序）；非仓库与远端项目返回空数组。 */
-  projectBranches(id: string): Promise<string[]>;
-  /** 切换本地项目的分支；失败时抛出 git 的报错（工作区冲突、分支不存在）。 */
-  switchProjectBranch(id: string, branch: string): Promise<void>;
-  /** 把 pptx 经 PowerPoint 导出为 PDF（仅 Windows）：存入「预览导出」并建立关联。 */
-  exportOfficePdf(ref: ResourceRef): Promise<void>;
-  /** 用系统默认应用打开资源的本地源文件（如 PowerPoint 打开 pptx），仅限资料与我的资料条目。 */
-  openResourceFile(ref: ResourceRef): Promise<void>;
-  onOfficeExportProgress(listener: (event: OfficeExportEvent) => void): () => void;
-  importFiles(parentId: string | null): Promise<void>;
-  /** 选择电脑上已有的文件夹登记为项目（目录留在原处）；取消选择返回 null。 */
-  importProjectFolder(): Promise<WorkspaceEntry | null>;
-  /** 把远端目录登记为远程项目：local_path 存远端绝对路径，工具经 SSH 在远端执行。 */
-  /** name 缺省时用目录名。同一远端目录重复登记返回已有项目（名字不改）。 */
-  importRemoteProject(remoteId: string, path: string, name?: string): Promise<WorkspaceEntry>;
-  /** 远程目录的一层内容（懒加载，展开时才拉）。 */
-  listRemoteDirectory(projectId: string, path: string): Promise<RemoteDirectoryEntry[]>;
-  /** 远端文件的只读预览内容：文本给片段，PDF/Office 给按需分块的地址。 */
-  readRemoteDocument(projectId: string, path: string): Promise<DocumentContent>;
-  /** 下载远端文件到本地：弹保存对话框，取消返回 null。 */
-  downloadRemoteFile(projectId: string, path: string): Promise<string | null>;
-  /** 用系统默认程序打开远端文件（下载到临时目录后交给 shell）。 */
-  openRemoteFile(projectId: string, path: string): Promise<void>;
-  /** 上传本地文件到远端目录；files 为 null 时弹选择框。返回写好的远端路径。 */
-  uploadRemoteFiles(projectId: string, directory: string, files: File[] | null): Promise<string[]>;
-  /** 远端某个目录可能变了（工具写过文件或跑过 bash）；返回取消订阅。 */
-  onRemoteChange(listener: (path: string) => void): () => void;
-  /** 远端监听端口与已开隧道（端口预览面板一次拿全）；需要 helper 通道。 */
-  remotePorts(projectId: string): Promise<RemotePortsState>;
-  /** 开（或复用）一条远端端口隧道并在系统浏览器打开；返回本地端口。 */
-  openRemotePort(projectId: string, port: number): Promise<{ localPort: number }>;
-  closeRemotePort(projectId: string, port: number): Promise<void>;
-  /** 报上当前展开的远端目录做 watch（空数组 = 取消）；回报真正被监视的目录数。 */
-  watchRemoteDirectories(projectId: string, paths: string[]): Promise<{ watching: number }>;
-  /** 远程项目的 @ 候选：key 为远端绝对路径，title 为相对项目目录的路径。 */
-  remoteReferences(projectId: string): Promise<{ key: string; title: string }[]>;
-  importDroppedFiles(parentId: string | null, files: File[]): Promise<void>;
-  openLocal(id: string): Promise<void>;
-  /** 用系统默认程序打开本地文件（目录不适用；远端条目走远端打开）。 */
-  openFile(id: string): Promise<void>;
-  chooseDirectory(): Promise<string>;
-}
+const entryId = workspaceEntryIdSchema;
+const projectId = workspaceEntryIdSchema;
+const remotePath = z.string().min(1).max(4096);
+const localPaths = z.array(z.string().min(1).max(32_767)).max(100);
+const port = z.number().int().min(1).max(65535);
+const entries = z.custom<WorkspaceEntry[]>();
+const document = z.custom<DocumentContent>();
+/** 由主进程按 resourceRefSchema 校验：它依赖本文件的条目 id，放在这里会循环引用。 */
+const resourceRef = z.custom<ResourceRef>();
+
+export const workspaceContract = defineContract(
+  'workspace',
+  {
+    /** 读取工作区状态，并开始监视顶层目录的变化。 */
+    state: { input: z.undefined(), output: z.custom<WorkspaceState>() },
+    listLocalDirectory: { input: entryId.nullable(), output: entries },
+    /** 新的搜索会中止同一根目录上进行中的搜索；空查询返回空数组。 */
+    searchLocal: {
+      input: z.object({ rootId: entryId.nullable(), query: z.string().max(200) }),
+      output: entries,
+    },
+    localReferenceFiles: { input: entryId, output: entries },
+    localAncestors: { input: entryId, output: entries },
+    create: { input: z.custom<WorkspaceCreateInput>(), output: z.custom<WorkspaceEntry>() },
+    update: {
+      input: z.object({
+        id: entryId,
+        patch: z.custom<{ name?: string; parentId?: string | null; kind?: 'folder' | 'project' }>(),
+      }),
+      output: z.custom<WorkspaceEntryUpdate>(),
+    },
+    remove: { input: entryId, output: z.void() },
+    read: { input: entryId, output: document },
+    /** 来源资料（Canvas 课件、水源帖子等）的正文，由认领该 sourceId 的模块读取。 */
+    readSource: { input: z.string().max(512), output: document },
+    /** 原地覆写文本文件；revision 与磁盘不一致时拒绝。 */
+    saveNote: {
+      input: z.object({
+        id: entryId,
+        text: z.string().max(2_000_000),
+        revision: z.string().length(64),
+      }),
+      output: z.string(),
+    },
+    /** 把新插入的本地图片存入 Markdown 文件同目录的 assets/，返回相对路径。 */
+    saveNoteImage: {
+      input: z.object({
+        id: entryId,
+        name: z
+          .string()
+          .min(1)
+          .max(200)
+          .refine((value) => !value.includes('/') && !value.includes('\\')),
+        bytes: z.instanceof(Uint8Array).refine((value) => value.byteLength > 0),
+      }),
+      output: z.string(),
+    },
+    openProjectDirectory: {
+      input: z.object({ id: projectId, target: z.enum(['vscode', 'explorer']) }),
+      output: z.void(),
+    },
+    /** 本地项目的当前 Git 分支；非仓库、git 缺失与远端项目都返回 null。 */
+    projectBranch: { input: projectId, output: z.custom<string | null>() },
+    projectBranches: { input: projectId, output: z.custom<string[]>() },
+    /** 分支名会直接作为 git 的参数：不允许以 - 开头，避免被当成选项。 */
+    switchProjectBranch: {
+      input: z.object({
+        id: projectId,
+        branch: z
+          .string()
+          .min(1)
+          .max(255)
+          .refine((value) => !value.startsWith('-')),
+      }),
+      output: z.void(),
+    },
+    /** 把 pptx 经 PowerPoint 导出为 PDF（仅 Windows），进度经 officeExportProgress 推送。 */
+    exportOfficePdf: { input: resourceRef, output: z.void() },
+    openResourceFile: { input: resourceRef, output: z.void() },
+    importFiles: { input: entryId.nullable(), output: z.void() },
+    importDroppedFiles: {
+      input: z.object({ parentId: entryId.nullable(), paths: localPaths.min(1) }),
+      output: z.void(),
+    },
+    /** 选择已有文件夹登记为项目（目录留在原处）；取消返回 null。 */
+    importProjectFolder: { input: z.undefined(), output: z.custom<WorkspaceEntry | null>() },
+    /** 把远端目录登记为远程项目；同一目录重复登记返回已有项目。 */
+    importRemoteProject: {
+      input: z.object({ remoteId: z.string(), path: z.string(), name: z.string().optional() }),
+      output: z.custom<WorkspaceEntry>(),
+    },
+    listRemoteDirectory: {
+      input: z.object({ projectId, path: remotePath }),
+      output: z.custom<RemoteDirectoryEntry[]>(),
+    },
+    readRemoteDocument: { input: z.object({ projectId, path: remotePath }), output: document },
+    /** 弹保存对话框下载到本地，取消返回 null。 */
+    downloadRemoteFile: {
+      input: z.object({ projectId, path: remotePath }),
+      output: z.custom<string | null>(),
+    },
+    openRemoteFile: { input: z.object({ projectId, path: remotePath }), output: z.void() },
+    /** paths 为 null 时弹选择框；返回写好的远端路径。 */
+    uploadRemoteFiles: {
+      input: z.object({ projectId, directory: remotePath, paths: localPaths.nullable() }),
+      output: z.custom<string[]>(),
+    },
+    remotePorts: { input: projectId, output: z.custom<RemotePortsState>() },
+    openRemotePort: {
+      input: z.object({ projectId, port }),
+      output: z.custom<{ localPort: number }>(),
+    },
+    closeRemotePort: { input: z.object({ projectId, port }), output: z.void() },
+    /** 报上当前展开的远端目录做监视（空数组即取消），回报真正监视的目录数。 */
+    watchRemoteDirectories: {
+      input: z.object({ projectId, paths: z.array(remotePath).max(4096) }),
+      output: z.custom<{ watching: number }>(),
+    },
+    /** 远程项目的 @ 候选：key 为远端绝对路径，title 为相对项目目录的路径。 */
+    remoteReferences: { input: projectId, output: z.custom<{ key: string; title: string }[]>() },
+    openLocal: { input: entryId, output: z.void() },
+    openFile: { input: entryId, output: z.void() },
+    chooseDirectory: { input: z.undefined(), output: z.string() },
+    /** 工作台布局按项目保存（null 为首页）；损坏的数据按未保存处理。 */
+    layout: { input: z.uuid().nullable(), output: z.custom<WorkbenchLayout | null>() },
+    saveLayout: {
+      input: z.object({ projectId: z.uuid().nullable(), layout: workbenchLayoutSchema }),
+      output: z.void(),
+    },
+  },
+  {
+    /** 本地目录下有条目增删或改名。 */
+    changed: z.custom<string[]>(),
+    officeExportProgress: z.custom<OfficeExportEvent>(),
+    /** 远端某个目录可能变了（工具写过文件、跑过 bash 或远端监视报告）。 */
+    remoteChange: z.string(),
+  },
+);

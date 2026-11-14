@@ -1,6 +1,17 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入 store 装好；运行镜像也在加载时订阅推送。
+const invoke = vi.hoisted(() => {
+  const invoke = vi.fn();
+  const subscribe = () => () => {};
+  window.dela = {
+    bridge: { invoke, subscribe },
+    session: { onRunEvent: subscribe },
+  } as unknown as DelaApi;
+  return invoke;
+});
 import { useNoteDrafts } from '../../content/note/drafts';
 import { useChatDrafts, registerChatAttachmentCheck } from '../../content/chat/drafts';
 import { registerComposeSave } from '../mail/compose-close';
@@ -78,12 +89,10 @@ it('保存所有文件草稿和邮件、写入聊天与布局后才安装', asyn
         return {};
       },
     },
-    layout: {
-      save: async () => {
-        order.push('layout');
-      },
-    },
   } as unknown as DelaApi;
+  invoke.mockImplementation(async (channel: string) => {
+    if (channel === 'workspace:saveLayout') order.push('layout');
+  });
   expect(await runUpdateAction('install')).toBe(true);
   expect(order).toEqual(['a', 'b', 'mail1', 'mail2', 'layout', 'install']);
   expect(useUpdateState.getState().preparingInstall).toBe(false);
@@ -95,14 +104,9 @@ it.each(['mail', 'layout', 'storage', 'attachment', 'image', 'run'])(
     if (failure === 'mail') releases.push(registerComposeSave(async () => false));
     if (failure === 'layout') {
       useWorkbenchLayout.setState({ ready: true });
-      window.dela = {
-        ...window.dela,
-        layout: {
-          save: async () => {
-            throw new Error('disk');
-          },
-        },
-      } as unknown as DelaApi;
+      invoke.mockImplementation(async (channel: string) => {
+        if (channel === 'workspace:saveLayout') throw new Error('disk');
+      });
     }
     if (failure === 'storage')
       vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {

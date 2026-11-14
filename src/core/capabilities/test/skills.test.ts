@@ -14,7 +14,7 @@ vi.mock('electron', () => ({ app: { getPath: () => home }, shell: {} }));
 vi.mock('../../../main/database', () => ({ getDatabase: () => database }));
 
 import { provideTestHostPorts } from '../../test/host-mock';
-import { workspaceProjects } from '../../../main/workspace/api';
+import { workspaceProjects } from '../../../modules/workspace';
 import { registerCommandDomain } from '../commands';
 import { registerDocumentReader } from '../documents';
 import {

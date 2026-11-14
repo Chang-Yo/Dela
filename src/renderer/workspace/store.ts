@@ -1,6 +1,7 @@
 // 条目树镜像。视图持久化在 workbench 布局，笔记草稿生命周期在 ./drafts.ts。
 import { create } from 'zustand';
 import { workspaceArchiveId, type WorkspaceEntry, type WorkspaceState } from '../../shared/api';
+import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 
 type Store = {
   workspace: WorkspaceState;
@@ -93,10 +94,10 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
     set({ overview: next, workspace: mergeDirectories(next, get().directories, get().workspace) });
   },
   ensureDirectory: (id, force = false) => {
-    if (!window.dela?.workspace.listLocalDirectory) return Promise.resolve();
+    if (!window.dela) return Promise.resolve();
     if (!force && directoryRequests.has(id)) return directoryRequests.get(id)!;
     if (!force && get().directories[id]) return Promise.resolve();
-    const request = window.dela.workspace
+    const request = workspaceClient
       .listLocalDirectory(id)
       .then((items) => {
         if (directoryRequests.get(id) !== request) return;
@@ -129,11 +130,10 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
   error: null,
   setError: (error) => set({ error: error === null ? null : errorText(error) }),
   load: () => {
-    const dela = window.dela;
-    if (get().loaded || !dela) return Promise.resolve();
+    if (get().loaded || !window.dela) return Promise.resolve();
     if (!subscribedChanges) {
       subscribedChanges = true;
-      dela.workspace.onChanged((paths) => {
+      onWorkspaceEvent('changed', (paths) => {
         // 推送驱动的后台刷新失败不打扰用户，下一轮变更推送会重试。
         void get()
           .refresh(paths)
@@ -145,7 +145,7 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
     if (!loadPromise) {
       loadPromise = (async () => {
         try {
-          const workspace = await dela.workspace.getState();
+          const workspace = await workspaceClient.state();
           set({ workspace, overview: workspace, loaded: true });
         } catch (cause) {
           set({ error: errorText(cause) });
@@ -173,7 +173,7 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
           const changes = [...refreshPaths];
           refreshAll = false;
           refreshPaths.clear();
-          const overview = await window.dela!.workspace.getState();
+          const overview = await workspaceClient.state();
           set({
             overview,
             workspace: mergeDirectories(overview, get().directories, get().workspace),

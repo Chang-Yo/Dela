@@ -116,7 +116,7 @@ import { projectMessages, contextUsageView } from '../session/projection';
 import { askSession, invalidateSessions, cancelRun } from '../session/run';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
-import { removeWorkspaceEntry, workspaceProjects } from '../../../main/workspace/api';
+import { removeWorkspaceEntry, workspaceProjects } from '../../../modules/workspace';
 import { provideTestHostPorts } from '../../test/host-mock';
 import { registerDocumentReader } from '../../capabilities/documents';
 import { registerSessionScope } from '../scopes';

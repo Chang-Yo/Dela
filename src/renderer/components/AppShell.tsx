@@ -60,6 +60,7 @@ import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../features/settings/UpdateBadge';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';
 import { IconButton } from '../../ui/icon-button';
+import { workspaceClient } from '../../modules/workspace/view';
 import {
   Dialog,
   DialogClose,
@@ -273,8 +274,8 @@ export function AppShell({
     // 远端项目没有本地目录：入口只留 VS Code(SSH)，这里再兜一层，快捷图标不会掉进必然失败的路径。
     const effective: 'vscode' | 'explorer' = projectIsRemote ? 'vscode' : target;
     if (effective === target) setPreference('projectOpenTarget', target);
-    void window.dela.workspace
-      .openProjectDirectory(projectId, effective)
+    void workspaceClient
+      .openProjectDirectory({ id: projectId, target: effective })
       .catch((cause: unknown) => {
         showToast({
           variant: 'error',

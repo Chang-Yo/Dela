@@ -4,7 +4,7 @@ import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { getDatabase } from '../database';
 import { resourceResolver } from '../../core/capabilities/resources';
-import { createWorkspaceEntry } from '../workspace/api';
+import { createWorkspaceEntry } from '../../modules/workspace';
 import { availablePath } from '../storage';
 import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
 import { classifyOfficeFile } from './parse';

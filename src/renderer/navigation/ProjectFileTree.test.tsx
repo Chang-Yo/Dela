@@ -9,6 +9,23 @@ import type {
   RemoteDirectoryEntry,
   WorkspaceEntry,
 } from '../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好。
+const workspace = vi.hoisted(() => {
+  const handlers: Record<string, (input: never) => unknown> = {};
+  const listeners = new Map<string, (payload: unknown) => void>();
+  window.dela = {
+    bridge: {
+      invoke: async (channel: string, input: never) =>
+        handlers[channel.slice('workspace:'.length)]?.(input),
+      subscribe: (channel: string, listener: (payload: unknown) => void) => {
+        listeners.set(channel, listener);
+        return () => {};
+      },
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  return { handlers, listeners };
+});
 import { CONNECT_HINT_DELAY_MS, ProjectFileTree } from './ProjectFileTree';
 import { remoteAccent } from './remote-color';
 import { useRemoteActivity } from './remote-activity';
@@ -30,6 +47,8 @@ const remoteProject: WorkspaceEntry = {
 
 const entries: WorkspaceEntry[] = [remoteProject];
 
+type RemoteListInput = { projectId: string; path: string };
+
 /** jsdom 在第二个 root 里会莫名对 window 发 blur，Radix 收到就把刚打开的菜单收起：拦掉这个环境噪音。 */
 const suppressStrayWindowBlur = (event: Event) => event.stopImmediatePropagation();
 
@@ -45,6 +64,8 @@ beforeEach(() => {
     },
   );
   window.addEventListener('blur', suppressStrayWindowBlur, true);
+  for (const name of Object.keys(workspace.handlers)) delete workspace.handlers[name];
+  workspace.listeners.clear();
   // 取数状态是模块级 store：逐条用例清空，免得「正在连接」从上一条带过来。
   useRemoteActivity.setState({ byProject: {} });
   container = document.createElement('div');
@@ -171,7 +192,7 @@ it('reads only expanded local directories and releases children when their ances
 });
 
 it('loads one remote level when the project is expanded and browses without opening files', async () => {
-  const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>
+  const listRemoteDirectory = vi.fn(async ({ path }: RemoteListInput) =>
     path === '/home/u/proj'
       ? [
           { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
@@ -195,11 +216,11 @@ it('loads one remote level when the project is expanded and browses without open
   );
   window.dela = {
     remotes: { list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }] },
-    workspace: { listRemoteDirectory },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   const { onSelect, onExpand } = await renderTree(['p-remote']);
-  expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj');
+  expect(listRemoteDirectory).toHaveBeenCalledWith({ projectId: 'p-remote', path: '/home/u/proj' });
   expect(row('src')).toBeTruthy();
   expect(row('README.md').querySelector('[title]')?.getAttribute('title')).toBe(
     'user@10.0.0.5:/home/u/proj/README.md',
@@ -224,8 +245,8 @@ it('shows the unavailable hint only for projects on the failing destination', as
         return () => {};
       },
     },
-    workspace: { listRemoteDirectory: vi.fn(async () => []) },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = vi.fn(async () => []);
 
   await renderTree(['p-remote']);
   expect(document.body.textContent).not.toContain('user@10.0.0.5');
@@ -273,8 +294,8 @@ it('says the connection is reconnecting without alarming, and says nothing when 
         return () => {};
       },
     },
-    workspace: { listRemoteDirectory: vi.fn(async () => []) },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = vi.fn(async () => []);
 
   await renderTree(['p-remote']);
   const channel = { destination: 'user@10.0.0.5', reason: '', since: 0 };
@@ -292,7 +313,7 @@ it('says the connection is reconnecting without alarming, and says nothing when 
 it('shows no status line while a remote level is loading', async () => {
   const gate: { open?: () => void } = {};
   let secondReadStarted = false;
-  const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) => {
+  const listRemoteDirectory = vi.fn(async ({ path }: RemoteListInput) => {
     if (path === '/home/u/proj')
       return [
         { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
@@ -306,8 +327,8 @@ it('shows no status line while a remote level is loading', async () => {
   });
   window.dela = {
     remotes: { list: async () => [] },
-    workspace: { listRemoteDirectory },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await renderTree(['p-remote', 'p-remote:/home/u/proj/src']);
   expect(row('src')).toBeTruthy();
@@ -316,7 +337,10 @@ it('shows no status line while a remote level is loading', async () => {
   expect(document.querySelector('[role="status"]')).toBeNull();
 
   await act(async () => gate.open?.());
-  expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj/src');
+  expect(listRemoteDirectory).toHaveBeenCalledWith({
+    projectId: 'p-remote',
+    path: '/home/u/proj/src',
+  });
 });
 
 it('marks a remote project row with its connection colour and leaves local rows alone', async () => {
@@ -342,8 +366,8 @@ it('marks a remote project row with its connection colour and leaves local rows 
   ]);
   window.dela = {
     remotes: { list: async () => [] },
-    workspace: { listRemoteDirectory },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await act(async () =>
     root.render(
@@ -377,7 +401,7 @@ it('marks a remote project row with its connection colour and leaves local rows 
 });
 
 it('lists a subdirectory lazily and collapses it again', async () => {
-  const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>
+  const listRemoteDirectory = vi.fn(async ({ path }: RemoteListInput) =>
     path === '/home/u/proj'
       ? [{ name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null }]
       : [
@@ -392,8 +416,8 @@ it('lists a subdirectory lazily and collapses it again', async () => {
   );
   window.dela = {
     remotes: { list: async () => [] },
-    workspace: { listRemoteDirectory },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   const { onExpand } = await renderTree(['p-remote', 'p-remote:/home/u/proj/src']);
   expect(listRemoteDirectory).toHaveBeenCalledTimes(2);
@@ -410,8 +434,8 @@ it('refreshes a remote directory when it is collapsed and expanded again', async
   ]);
   window.dela = {
     remotes: { list: async () => [] },
-    workspace: { listRemoteDirectory },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await renderTree(['p-remote']);
   expect(listRemoteDirectory).toHaveBeenCalledTimes(1);
@@ -440,12 +464,12 @@ it('loads the remote root when the project itself is the open tree', async () =>
   ]);
   window.dela = {
     remotes: { list: async () => [] },
-    workspace: { listRemoteDirectory },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   // 打开的项目工作台：项目行不显示，也没有展开态，远端内容直接挂在顶层。
   await renderTree([], vi.fn(), vi.fn(), remoteProject.id);
-  expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj');
+  expect(listRemoteDirectory).toHaveBeenCalledWith({ projectId: 'p-remote', path: '/home/u/proj' });
   expect(row('src')).toBeTruthy();
 });
 
@@ -453,7 +477,7 @@ it('keeps two connections on the same remote path apart', async () => {
   // 两台服务器都开着 /home/u/proj：条目身份必须带项目，否则清单、展开态与选中态会串。
   const first: WorkspaceEntry = { ...remoteProject, id: 'p-a', name: 'a', remoteId: 'r-1' };
   const second: WorkspaceEntry = { ...remoteProject, id: 'p-b', name: 'b', remoteId: 'r-2' };
-  const listRemoteDirectory = vi.fn(async (projectId: string) =>
+  const listRemoteDirectory = vi.fn(async ({ projectId }: RemoteListInput) =>
     projectId === 'p-a'
       ? [
           {
@@ -490,8 +514,8 @@ it('keeps two connections on the same remote path apart', async () => {
   );
   window.dela = {
     remotes: { list: async () => [] },
-    workspace: { listRemoteDirectory },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
   const onExpand = vi.fn();
 
   await act(async () =>
@@ -509,8 +533,8 @@ it('keeps two connections on the same remote path apart', async () => {
     ),
   );
 
-  expect(listRemoteDirectory).toHaveBeenCalledWith('p-a', '/home/u/proj');
-  expect(listRemoteDirectory).toHaveBeenCalledWith('p-b', '/home/u/proj');
+  expect(listRemoteDirectory).toHaveBeenCalledWith({ projectId: 'p-a', path: '/home/u/proj' });
+  expect(listRemoteDirectory).toHaveBeenCalledWith({ projectId: 'p-b', path: '/home/u/proj' });
   expect(row('only-a.txt')).toBeTruthy();
   expect(row('only-b.txt')).toBeTruthy();
 
@@ -520,63 +544,63 @@ it('keeps two connections on the same remote path apart', async () => {
 
 it('refreshes a remote directory after the tools changed it', async () => {
   // 远端没有文件监听：AI 新建的文件只靠这条通知才会出现在树里。
-  let notify: ((path: string) => void) | undefined;
-  const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>
+  const listRemoteDirectory = vi.fn(async ({ path }: RemoteListInput) =>
     path === '/home/u/proj'
       ? [{ name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null }]
       : [{ name: 'new.txt', path: `${path}/new.txt`, directory: false, size: 1, modifiedAt: null }],
   );
   window.dela = {
     remotes: { list: async () => [] },
-    workspace: {
-      listRemoteDirectory,
-      onRemoteChange: (listener: (path: string) => void) => {
-        notify = listener;
-        return () => {};
-      },
-    },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await renderTree(['p-remote', 'p-remote:/home/u/proj/src']);
   expect(listRemoteDirectory).toHaveBeenCalledTimes(2);
-  expect(listRemoteDirectory).toHaveBeenLastCalledWith('p-remote', '/home/u/proj/src');
+  expect(listRemoteDirectory).toHaveBeenLastCalledWith({
+    projectId: 'p-remote',
+    path: '/home/u/proj/src',
+  });
 
   // 与已缓存目录无关的变化：一次都不重读。
   await act(async () => {
-    notify!('/elsewhere/dir');
+    workspace.listeners.get('workspace:remoteChange')!('/elsewhere/dir');
     await new Promise((resolve) => setTimeout(resolve, 350));
   });
   expect(listRemoteDirectory).toHaveBeenCalledTimes(2);
 
   // 子目录里多了文件（写入的是父目录）：只重读那一层。
   await act(async () => {
-    notify!('/home/u/proj/src');
+    workspace.listeners.get('workspace:remoteChange')!('/home/u/proj/src');
     await new Promise((resolve) => setTimeout(resolve, 350));
   });
   expect(listRemoteDirectory).toHaveBeenCalledTimes(3);
-  expect(listRemoteDirectory).toHaveBeenLastCalledWith('p-remote', '/home/u/proj/src');
+  expect(listRemoteDirectory).toHaveBeenLastCalledWith({
+    projectId: 'p-remote',
+    path: '/home/u/proj/src',
+  });
 
   // bash 的 cwd 是项目根：根这一层（以及已展开的子树）都要重读。
   await act(async () => {
-    notify!('/home/u/proj');
+    workspace.listeners.get('workspace:remoteChange')!('/home/u/proj');
     await new Promise((resolve) => setTimeout(resolve, 350));
   });
-  expect(listRemoteDirectory).toHaveBeenCalledWith('p-remote', '/home/u/proj');
+  expect(listRemoteDirectory).toHaveBeenCalledWith({ projectId: 'p-remote', path: '/home/u/proj' });
   expect(listRemoteDirectory).toHaveBeenCalledTimes(5);
 });
 
 it('reports the expanded remote directories to watch, and cancels them on unmount', async () => {
   // Dela 之外改的远端文件靠这条上报：远端只盯当前展开的目录。
   const watchRemoteDirectories = vi.fn(async () => ({ watching: 1 }));
-  const listRemoteDirectory = vi.fn(async (_projectId: string, path: string) =>
+  const listRemoteDirectory = vi.fn(async ({ path }: RemoteListInput) =>
     path === '/home/u/proj'
       ? [{ name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null }]
       : [],
   );
   window.dela = {
     remotes: { list: async () => [] },
-    workspace: { listRemoteDirectory, watchRemoteDirectories },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
+  workspace.handlers.watchRemoteDirectories = watchRemoteDirectories;
 
   await act(async () => {
     root.render(
@@ -596,10 +620,10 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 250));
   });
-  expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', [
-    '/home/u/proj',
-    '/home/u/proj/src',
-  ]);
+  expect(watchRemoteDirectories).toHaveBeenLastCalledWith({
+    projectId: 'p-remote',
+    paths: ['/home/u/proj', '/home/u/proj/src'],
+  });
 
   const calls = watchRemoteDirectories.mock.calls.length;
   await act(async () => {
@@ -638,10 +662,13 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 250));
   });
-  expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', ['/home/u/proj']);
+  expect(watchRemoteDirectories).toHaveBeenLastCalledWith({
+    projectId: 'p-remote',
+    paths: ['/home/u/proj'],
+  });
 
   await act(async () => root.unmount());
-  expect(watchRemoteDirectories).toHaveBeenLastCalledWith('p-remote', []);
+  expect(watchRemoteDirectories).toHaveBeenLastCalledWith({ projectId: 'p-remote', paths: [] });
   root = createRoot(container);
 });
 
@@ -690,8 +717,8 @@ it('shows the connecting hint while a remote root is still being read', async ()
   );
   window.dela = {
     remotes: { list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }] },
-    workspace: { listRemoteDirectory },
   } as unknown as DelaApi;
+  workspace.handlers.listRemoteDirectory = listRemoteDirectory;
   const slow: WorkspaceEntry = { ...remoteProject, id: 'p-slow', name: '慢项目' };
 
   await act(async () =>

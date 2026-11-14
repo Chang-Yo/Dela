@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../ipc';
-import { onRemoteChange } from '../../core/remote/events';
 import { helperSession, helperStates, onHelperState, retryHelper } from '../../core/remote/helper';
 import {
   browseRemote,
@@ -74,18 +73,13 @@ export function registerRemoteIpc() {
   handle('config-hosts', () => configHostCandidates());
   handle('pick-key', () => pickKeyFile());
   // 引导 helper 可能几秒到几十秒（第一次要传产物），进度只能推着走：
-  // 与 workspace:remote-change 同款，主进程不记任何状态。
+  // 主进程不记任何状态。
   handle('prepare', (draft) =>
     prepareRemote(remoteDraftSchema.parse(draft), (progress) => {
       for (const window of BrowserWindow.getAllWindows())
         if (!window.isDestroyed()) window.webContents.send('remotes:setup-progress', progress);
     }),
   );
-  // 远端工具动过文件系统 → 广播给窗口，目录树据此丢掉那层清单再自动重拉。
-  onRemoteChange((path) => {
-    for (const window of BrowserWindow.getAllWindows())
-      if (!window.isDestroyed()) window.webContents.send('workspace:remote-change', path);
-  });
   handle('tasks', (id) => helperSession(targetById(id)).listTasks());
   handle('cancel-task', (id, taskId) =>
     helperSession(targetById(id)).cancelTask(taskIdSchema.parse(taskId)),

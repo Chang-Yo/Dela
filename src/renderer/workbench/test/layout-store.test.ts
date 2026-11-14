@@ -1,19 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkbenchLayout } from '../../../shared/layout';
 import { createDefaultLayout, findGroup, splitDepth, walkGroups } from '../layout-schema';
+
+// 契约客户端在模块加载时取 bridge，须先于导入 store 装好。
+const bridge = vi.hoisted(() => {
+  const bridge = { invoke: vi.fn(), subscribe: () => () => {} };
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { dela: { bridge } } });
+  return bridge;
+});
 import { useWorkbenchLayout } from '../layout-store';
 
 const uuid = '00000000-0000-4000-8000-000000000002';
 
 function installLayoutApi(get: (projectId: string | null) => WorkbenchLayout | null) {
-  const save = vi.fn(async () => {});
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      dela: { layout: { get: vi.fn(async (projectId: string | null) => get(projectId)), save } },
-    },
-  });
-  return { save };
+  const layout = vi.fn(async (projectId: string | null) => get(projectId));
+  const save = vi.fn(async (_input: { projectId: string | null; layout: WorkbenchLayout }) => {});
+  bridge.invoke.mockImplementation((channel: string, input: never) =>
+    channel === 'workspace:layout' ? layout(input) : save(input),
+  );
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { dela: { bridge } } });
+  return { layout, save };
 }
 
 function resetStore() {
@@ -47,12 +53,12 @@ afterEach(() => {
 
 describe('init', () => {
   it('布局加载期间关闭 ready，防止导航提前消费聊天标签', async () => {
-    installLayoutApi(() => null);
+    const { layout } = installLayoutApi(() => null);
     let finish!: (layout: WorkbenchLayout | null) => void;
     const pending = new Promise<WorkbenchLayout | null>((resolve) => {
       finish = resolve;
     });
-    vi.spyOn(window.dela!.layout, 'get').mockReturnValue(pending);
+    layout.mockReturnValue(pending);
     const loading = state().init(uuid);
     expect(state().ready).toBe(false);
     finish(null);
@@ -361,10 +367,13 @@ describe('持久化', () => {
     expect(save).not.toHaveBeenCalled();
     vi.advanceTimersByTime(800);
     expect(save).toHaveBeenCalledTimes(1);
-    expect(save).toHaveBeenCalledWith(uuid, {
-      root: { type: 'group', id: 'primary', tabs: ['note:z', 'note:w'], active: 'note:w' },
-      focus: 'primary',
-      maximized: null,
+    expect(save).toHaveBeenCalledWith({
+      projectId: uuid,
+      layout: {
+        root: { type: 'group', id: 'primary', tabs: ['note:z', 'note:w'], active: 'note:w' },
+        focus: 'primary',
+        maximized: null,
+      },
     });
   });
 
@@ -378,17 +387,23 @@ describe('持久化', () => {
     await state().init(other);
     // 在途保存立即按旧项目落库；否则去抖结束后快照已是新项目状态，旧项目丢失该次变更。
     expect(save).toHaveBeenCalledTimes(2);
-    expect(save).toHaveBeenNthCalledWith(2, uuid, {
-      root: { type: 'group', id: 'primary', tabs: ['note:z'], active: 'note:z' },
-      focus: 'primary',
-      maximized: null,
+    expect(save).toHaveBeenNthCalledWith(2, {
+      projectId: uuid,
+      layout: {
+        root: { type: 'group', id: 'primary', tabs: ['note:z'], active: 'note:z' },
+        focus: 'primary',
+        maximized: null,
+      },
     });
     await vi.advanceTimersByTimeAsync(800);
     expect(save).toHaveBeenCalledTimes(3);
-    expect(save).toHaveBeenNthCalledWith(3, other, {
-      root: { type: 'group', id: 'primary', tabs: [], active: null },
-      focus: 'primary',
-      maximized: null,
+    expect(save).toHaveBeenNthCalledWith(3, {
+      projectId: other,
+      layout: {
+        root: { type: 'group', id: 'primary', tabs: [], active: null },
+        focus: 'primary',
+        maximized: null,
+      },
     });
   });
 });

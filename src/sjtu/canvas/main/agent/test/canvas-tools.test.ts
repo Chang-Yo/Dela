@@ -7,11 +7,11 @@ vi.mock('../../api', () => ({
   syncCanvasCourses: vi.fn(),
   syncCanvasCourse: vi.fn(),
 }));
-vi.mock('../../../../../main/workspace/api', () => ({ createWorkspaceEntry: vi.fn() }));
+vi.mock('../../../../../modules/workspace', () => ({ createWorkspaceEntry: vi.fn() }));
 vi.mock('../../actions', () => ({ publishCanvasState: vi.fn() }));
 
 import { getCanvasState, syncCanvasCourse, syncCanvasCourses } from '../../api';
-import { createWorkspaceEntry } from '../../../../../main/workspace/api';
+import { createWorkspaceEntry } from '../../../../../modules/workspace';
 
 const state = vi.mocked(getCanvasState);
 const syncCourses = vi.mocked(syncCanvasCourses);

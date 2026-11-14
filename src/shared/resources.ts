@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { workspaceEntryIdSchema } from './workspace';
+import { workspaceEntryIdSchema } from '../modules/workspace/contract';
 
 // Workspace references accept real file paths and registered entry UUIDs; other resources retain domain IDs.
 export const resourceRefSchema = z.discriminatedUnion('type', [

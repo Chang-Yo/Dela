@@ -6,7 +6,7 @@ import type {
   ShuiyuanTopicDetail,
   ShuiyuanTopicSummary,
 } from '../../../contract';
-import type { WorkspaceEntry } from '../../../../../shared/workspace';
+import type { WorkspaceEntry } from '../../../../../modules/workspace/contract';
 import { shuiyuanDomain } from '../index';
 
 vi.mock('../../api', () => ({
@@ -21,7 +21,7 @@ vi.mock('../../sources', () => ({
   shuiyuanTopicUrl: (id: number) => `https://shuiyuan.sjtu.edu.cn/t/topic/${id}`,
 }));
 import { addShuiyuanSourceRef } from '../../sources';
-vi.mock('../../../../../main/workspace/api', () => ({ createWorkspaceEntry: vi.fn() }));
+vi.mock('../../../../../modules/workspace', () => ({ createWorkspaceEntry: vi.fn() }));
 
 import {
   getShuiyuanSiteStructure,
@@ -30,7 +30,7 @@ import {
   listShuiyuanTopics,
   loadShuiyuanPosts,
 } from '../../api';
-import { createWorkspaceEntry } from '../../../../../main/workspace/api';
+import { createWorkspaceEntry } from '../../../../../modules/workspace';
 
 const state = vi.mocked(getShuiyuanState);
 const listTopics = vi.mocked(listShuiyuanTopics);

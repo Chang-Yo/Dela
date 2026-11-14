@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createWorkspaceEntry } from '../../../../main/workspace/api';
-import { workspaceEntryIdSchema } from '../../../../shared/workspace';
+import { createWorkspaceEntry } from '../../../../modules/workspace';
+import { workspaceEntryIdSchema } from '../../../../modules/workspace/contract';
 import { name, tool, toolError } from '../../../../main/agent/domain/shared';
 
 export const linkCanvasSourceTool = tool(
