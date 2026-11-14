@@ -67,9 +67,8 @@ export interface Network {
   fetch(url: string, init?: RequestInit): Promise<Response>;
 }
 
-/** 加密保存的凭据，每一类一个命名空间，互不覆盖。 */
-export type SecretNamespace =
-  'llm-providers' | 'mail-credentials' | 'canvas-token' | 'shuiyuan-key' | 'mcp-servers';
+/** 加密保存的凭据，每一类一个命名空间，互不覆盖；模块的命名空间经 registerSecretLabel 登记。 */
+export type SecretNamespace = string;
 
 export interface SecretStore {
   write(namespace: SecretNamespace, plaintext: string): void;
@@ -112,20 +111,23 @@ export interface Desktop {
 export class CredentialDecryptionError extends Error {
   constructor(namespace: SecretNamespace, cause: unknown) {
     super(
-      `本机无法解密${SECRET_LABELS[namespace]}，请在设置中重新配置。原加密文件仍保留，重新保存时会自动备份。`,
+      `本机无法解密${secretLabels.get(namespace) ?? '已保存的凭据'}，请在设置中重新配置。原加密文件仍保留，重新保存时会自动备份。`,
       { cause },
     );
     this.name = 'CredentialDecryptionError';
   }
 }
 
-const SECRET_LABELS: Record<SecretNamespace, string> = {
-  'llm-providers': '模型服务配置',
-  'mail-credentials': '邮箱凭据',
-  'canvas-token': 'Canvas 凭据',
-  'shuiyuan-key': '水源凭据',
-  'mcp-servers': 'MCP 服务器配置',
-};
+const secretLabels = new Map<SecretNamespace, string>([
+  ['llm-providers', '模型服务配置'],
+  ['mail-credentials', '邮箱凭据'],
+  ['mcp-servers', 'MCP 服务器配置'],
+]);
+
+/** 登记凭据的用户可见名称，用于解密失败的提示。 */
+export function registerSecretLabel(namespace: SecretNamespace, label: string): void {
+  secretLabels.set(namespace, label);
+}
 
 let ports: HostPorts | null = null;
 

@@ -1,16 +1,7 @@
 import { z } from 'zod';
 import { readMailMessage } from '../../mail/api';
-import { getShuiyuanTopic } from '../../shuiyuan/api';
-import { shuiyuanPostsHtml, shuiyuanTopicUrl } from '../../shuiyuan/sources';
-import { requireShuiyuanBound, withShuiyuanErrors } from './shuiyuan/helpers';
 import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
-import {
-  readCanvasResource,
-  readWorkspaceResource,
-  withAttachmentFile,
-  type ResourceContent,
-} from '../../resources';
-import { canvasFilePath } from '../../canvas/api';
+import { readWorkspaceResource, withAttachmentFile, type ResourceContent } from '../../resources';
 import { mailAttachment } from '../../mail/api';
 import { workspaceFilePath } from '../../workspace/api';
 import type { CommandDomain } from '../../../core/capabilities/commands';
@@ -18,7 +9,6 @@ import { resourceResolver, type ResourceResolver } from '../../../core/capabilit
 import { freshness, offset, tool, toolError } from './shared';
 
 type MailRef = Extract<ResourceRef, { type: 'mail' }>;
-type ShuiyuanOnlineRef = Extract<ResourceRef, { type: 'shuiyuan-online' }>;
 
 /** 业务层中文错误消息 → 统一错误码（消息保持原文）；未识别的错误原样抛出。 */
 function refineReadError(error: unknown): unknown {
@@ -54,28 +44,6 @@ async function readMailRef(ref: MailRef, offset: number, limit: number) {
   };
 }
 
-async function readShuiyuanOnlineRef(ref: ShuiyuanOnlineRef, offset: number, limit: number) {
-  requireShuiyuanBound();
-  const detail = await withShuiyuanErrors(() => getShuiyuanTopic(ref.id));
-  const text = shuiyuanPostsHtml(detail.posts);
-  return {
-    ref,
-    title: detail.title,
-    format: 'html',
-    revision: null,
-    url: shuiyuanTopicUrl(ref.id),
-    freshness: freshness('realtime', detail.lastPostedAt),
-    ...(detail.posts.length < detail.stream.length
-      ? {
-          note: `只读到前 ${detail.posts.length}/${detail.stream.length} 楼，用 read_shuiyuan_topic 与 read_shuiyuan_posts 续读`,
-        }
-      : {}),
-    text: text.slice(offset, offset + limit),
-    totalCharacters: text.length,
-    nextOffset: offset + limit < text.length ? offset + limit : null,
-  };
-}
-
 function documentHint(ref: ResourceRef, title: string, format: string) {
   return {
     ref,
@@ -88,7 +56,12 @@ function documentHint(ref: ResourceRef, title: string, format: string) {
   };
 }
 
-function readDocument(ref: ResourceRef, content: ResourceContent, offset: number, limit: number) {
+export function readDocument(
+  ref: ResourceRef,
+  content: ResourceContent,
+  offset: number,
+  limit: number,
+) {
   const cached = freshness('cached');
   // 图片直接作为图片消息附给视觉模型。
   if (content.format === 'image' && content.bytes && content.mime) {
@@ -142,19 +115,14 @@ export const readResourceTool = tool(
   },
 );
 
-// 过渡期各类引用的解析器：迁入各自模块后由模块注册。
+// 通用引用的解析器；交大来源的解析器由各自模块注册。
 export const builtinResourceResolvers: {
-  [Type in ResourceRef['type']]: ResourceResolver<Extract<ResourceRef, { type: Type }>>;
+  [Type in ResourceRef['type']]?: ResourceResolver<Extract<ResourceRef, { type: Type }>>;
 } = {
   workspace: {
     read: async (ref, offset, limit) =>
       readDocument(ref, await readWorkspaceResource(ref.id), offset, limit),
     path: (ref) => workspaceFilePath(ref.id),
-  },
-  canvas: {
-    read: async (ref, offset, limit) =>
-      readDocument(ref, await readCanvasResource(ref.id), offset, limit),
-    path: (ref) => canvasFilePath(ref.id),
   },
   attachment: {
     read: async (ref) =>
@@ -162,7 +130,6 @@ export const builtinResourceResolvers: {
     withFile: (ref, consume) => withAttachmentFile(ref.messageId, ref.part, consume),
   },
   mail: { read: readMailRef },
-  'shuiyuan-online': { read: readShuiyuanOnlineRef },
 };
 
 export const resourceDomain = {

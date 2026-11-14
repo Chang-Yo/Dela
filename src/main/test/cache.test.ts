@@ -42,7 +42,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 });
 
 import { session } from 'electron';
-import { CAMPUS_PARTITION } from '../campus';
 import { cacheSize, clearCaches } from '../cache';
 
 function write(path: string, size: number) {
@@ -106,7 +105,7 @@ it('清除只删缓存目录，其余文件原地不动', async () => {
   expect(vi.mocked(session.defaultSession.clearStorageData)).toHaveBeenCalledWith({
     storages: ['cachestorage', 'shadercache'],
   });
-  expect(vi.mocked(session.fromPartition)).toHaveBeenCalledWith(CAMPUS_PARTITION);
+  expect(vi.mocked(session.fromPartition)).toHaveBeenCalledWith('persist:dela-campus');
 });
 
 it('有文件删不掉时如实回报 blocked', async () => {

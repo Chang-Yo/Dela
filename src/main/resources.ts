@@ -2,11 +2,10 @@ import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/p
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { resourceRefSchema, type ResourceRef } from '../shared/resources';
-import { cachedFile, getSource, readCanvasPage } from './canvas/api';
 import { readMailMessage, saveMailAttachment } from './mail/api';
 import { resourceResolver } from '../core/capabilities/resources';
 import { entry, importWorkspaceFiles, workspaceFilePath } from './workspace/api';
-import { readShuiyuanSource } from './shuiyuan/sources';
+import { workspaceSource } from './workspace/sources';
 import {
   TEXT_PREVIEW_MAX_BYTES,
   formatByName,
@@ -29,42 +28,11 @@ export interface ResourceContent {
   url?: string;
 }
 
-// Canvas 只按 mime 认得出图片；与工作区图片同一套视觉模型可读的位图。
-const canvasImageMimes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-
-export async function readCanvasResource(id: string): Promise<ResourceContent> {
-  const source = getSource(id);
-  if (source.kind !== 'file') {
-    const page = await readCanvasPage(id);
-    return { ...page, format: page.format === 'html' ? 'html' : 'file' };
-  }
-  if (!canvasImageMimes.includes(source.mime ?? '')) return { title: source.title, format: 'file' };
-  const cached = await cachedFile(source);
-  return {
-    title: source.title,
-    format: 'image',
-    bytes: await readFile(cached.path),
-    mime: cached.mime,
-  };
-}
-
 /** Agent 的资源读取不生成预览地址、不查询 Office 导出，也不枚举解析格式。 */
 export async function readWorkspaceResource(id: string): Promise<ResourceContent> {
   const item = entry(id);
-  if (item.kind === 'source' && item.sourceId) {
-    if (item.sourceId.startsWith('shuiyuan-topic:')) {
-      const content = await readShuiyuanSource(
-        Number(item.sourceId.slice('shuiyuan-topic:'.length)),
-      );
-      return {
-        title: content.title,
-        format: content.format === 'text' ? 'text' : content.format === 'html' ? 'html' : 'file',
-        text: content.text,
-        url: content.url,
-      };
-    }
-    return readCanvasResource(item.sourceId);
-  }
+  if (item.kind === 'source' && item.sourceId)
+    return workspaceSource(item.sourceId).read(item.sourceId);
   if (item.kind !== 'file') throw new Error('请选择要读取的文件');
   // 名字已能判定的 PDF/Office 直接交给文档 skill，不碰文件；其余才读内容判定。
   const named = formatByName(item.path ?? item.name);

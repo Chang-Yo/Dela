@@ -19,14 +19,8 @@ import { tmpdir } from 'node:os';
 import { closeDatabase, getDatabase, SCHEMA_VERSION } from './database';
 import { runMigrations } from './migrations';
 import { registerMailIpc, hasMailComposer } from './mail/ipc';
-import { registerTimetableIpc } from './timetable/ipc';
-import { registerVsjtuIpc } from './vsjtu/ipc';
 import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
-import { registerCanvasIpc, refreshCanvasTrees } from './canvas/ipc';
-import { registerShuiyuanIpc } from './shuiyuan/ipc';
-import { resumeShuiyuanSnapshots } from './shuiyuan/snapshot';
-import { openShuiyuanLinkInApp } from './shuiyuan/links';
 import { registerPreviewProtocol, registerPreviewScheme } from './workspace/preview';
 import { registerWorkspaceIpc } from './workspace/ipc';
 import { registerTerminalIpc } from './terminal';
@@ -42,9 +36,7 @@ import { registerModuleIpc } from '../app/ipc';
 import { modules } from '../app/modules';
 import { chatSearch, projectSearch } from './workspace/search';
 import { mailSearch } from './mail/search';
-import { courseFileSearch } from './canvas/search';
-import { onTaskNotice, registerTaskSource, todoSearch } from '../modules/todo';
-import { canvasTaskSource } from './canvas/todo-source';
+import { onTaskNotice } from '../modules/todo';
 import { settingsSearch } from './settings/search';
 import {
   initializeNotifications,
@@ -121,12 +113,9 @@ if (smokeTest && !terminalSmokeTest) {
 // IMAP 沿用现有增量同步，每五分钟检查一次。
 const NOTIFICATION_REFRESH_MS = 2 * 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
-// Canvas 课件目录树只拉清单不下载文件，每小时同步一次足够。
-const CANVAS_REFRESH_MS = 60 * 60_000;
 let stopModules: (() => void)[] = [];
 let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
-let canvasTimer: ReturnType<typeof setInterval> | undefined;
 let stopUpdateCheck: (() => void) | undefined;
 let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
@@ -229,27 +218,17 @@ app
     registerBackupIpc();
     registerCacheIpc();
     registerMailIpc();
-    registerTimetableIpc();
-    registerVsjtuIpc();
-    registerCanvasIpc();
-    registerShuiyuanIpc();
     registerAgentIpc();
     registerWorkspaceIpc(invalidateSessions);
     registerTerminalIpc();
     registerRemoteIpc();
     registerModuleIpc(modules);
-    registerTaskSource(canvasTaskSource);
     onTaskNotice(systemNotifyItem);
-    for (const provider of [
-      projectSearch,
-      chatSearch,
-      mailSearch,
-      courseFileSearch,
-      todoSearch,
-      settingsSearch,
-    ])
+    for (const provider of [projectSearch, chatSearch, mailSearch])
       registerSearchProvider(provider);
     registerBuiltinCapabilities();
+    for (const module of modules) module.register?.();
+    registerSearchProvider(settingsSearch);
     registerNotificationsIpc();
     registerUpdateIpc();
     initializeNotifications();
@@ -268,19 +247,9 @@ app
           console.error('Mail background sync failed', error);
         }
       };
-      const syncCanvasTrees = () => {
-        void refreshCanvasTrees().catch((error: unknown) =>
-          console.error('Canvas tree sync failed', error),
-        );
-      };
       stopModules = modules.flatMap((module) => module.start?.() ?? []);
-      void resumeShuiyuanSnapshots().catch((error: unknown) =>
-        console.error('Shuiyuan snapshot resume failed', error),
-      );
       refresh();
       syncMail();
-      syncCanvasTrees();
-      canvasTimer = setInterval(syncCanvasTrees, CANVAS_REFRESH_MS);
       notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
       mailTimer = setInterval(syncMail, MAIL_REFRESH_MS);
       stopUpdateCheck = startBackgroundUpdateCheck();
@@ -348,13 +317,16 @@ async function createWindow(): Promise<void> {
     event.preventDefault();
     window.hide();
   });
+  const openLink = (url: string) => {
+    if (!modules.some((module) => module.openLink?.(url))) openExternalUrl(url);
+  };
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (!openShuiyuanLinkInApp(url)) openExternalUrl(url);
+    openLink(url);
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event, url) => {
     event.preventDefault();
-    if (!openShuiyuanLinkInApp(url)) openExternalUrl(url);
+    openLink(url);
   });
   window.webContents.on('will-prevent-unload', (event) => {
     const wasQuitting = quitting;
@@ -531,7 +503,6 @@ app.on('will-quit', () => {
   for (const stop of stopModules) stop();
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
-  clearInterval(canvasTimer);
   stopUpdateCheck?.();
   // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
   // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。

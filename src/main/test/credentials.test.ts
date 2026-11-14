@@ -11,7 +11,6 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { electronPorts } from '../../app/host-electron';
-import { loadCanvasToken, saveCanvasToken } from '../credentials';
 import { CredentialDecryptionError, provideHostPorts } from '../../core/ports';
 
 const storage = vi.hoisted(() => ({ directory: '', available: true }));
@@ -40,25 +39,25 @@ afterEach(() => {
 
 describe('sealed credential recovery', () => {
   it('retains readable credentials across saves', () => {
-    saveCanvasToken('first-test-token');
-    expect(loadCanvasToken()).toBe('first-test-token');
-    saveCanvasToken('second-test-token');
-    expect(loadCanvasToken()).toBe('second-test-token');
-    expect(readdirSync(storage.directory)).toEqual(['canvas-token.bin']);
+    electronPorts.secrets.write('test-secret', 'first-test-token');
+    expect(electronPorts.secrets.read('test-secret')).toBe('first-test-token');
+    electronPorts.secrets.write('test-secret', 'second-test-token');
+    expect(electronPorts.secrets.read('test-secret')).toBe('second-test-token');
+    expect(readdirSync(storage.directory)).toEqual(['test-secret.bin']);
   });
 
   it('preserves an unreadable file and gives an actionable error without leaking its content', () => {
-    const path = join(storage.directory, 'canvas-token.bin');
+    const path = join(storage.directory, 'test-secret.bin');
     writeFileSync(path, 'unreadable-test-ciphertext');
-    expect(() => loadCanvasToken()).toThrow(CredentialDecryptionError);
-    expect(() => loadCanvasToken()).toThrow('请在设置中重新配置');
+    expect(() => electronPorts.secrets.read('test-secret')).toThrow(CredentialDecryptionError);
+    expect(() => electronPorts.secrets.read('test-secret')).toThrow('请在设置中重新配置');
     expect(readFileSync(path).toString()).toBe('unreadable-test-ciphertext');
   });
 
   it('backs up unreadable ciphertext before replacing it, leaving no temporary files', () => {
-    writeFileSync(join(storage.directory, 'canvas-token.bin'), 'old-test-ciphertext');
-    saveCanvasToken('new-test-token');
-    expect(loadCanvasToken()).toBe('new-test-token');
+    writeFileSync(join(storage.directory, 'test-secret.bin'), 'old-test-ciphertext');
+    electronPorts.secrets.write('test-secret', 'new-test-token');
+    expect(electronPorts.secrets.read('test-secret')).toBe('new-test-token');
     const backups = readdirSync(storage.directory).filter((name) => name.endsWith('.bak'));
     expect(backups).toHaveLength(1);
     expect(readFileSync(join(storage.directory, backups[0]!)).toString()).toBe(
@@ -68,11 +67,13 @@ describe('sealed credential recovery', () => {
   });
 
   it('does not replace or back up files when encryption is unavailable', () => {
-    const path = join(storage.directory, 'canvas-token.bin');
+    const path = join(storage.directory, 'test-secret.bin');
     writeFileSync(path, 'old-test-ciphertext');
     storage.available = false;
-    expect(() => saveCanvasToken('new-test-token')).toThrow('当前系统不支持凭据加密存储');
+    expect(() => electronPorts.secrets.write('test-secret', 'new-test-token')).toThrow(
+      '当前系统不支持凭据加密存储',
+    );
     expect(existsSync(path)).toBe(true);
-    expect(readdirSync(storage.directory)).toEqual(['canvas-token.bin']);
+    expect(readdirSync(storage.directory)).toEqual(['test-secret.bin']);
   });
 });

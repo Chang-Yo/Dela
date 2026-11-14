@@ -247,6 +247,26 @@
       }
     },
     {
+      "files": ["src/sjtu/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/app/*", "!**/app/module"],
+                "message": "模块只能引用 app/module.ts。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/modules/*/view/**"],
       "rules": {
         "no-restricted-imports": [
@@ -361,7 +381,7 @@
       }
     },
     {
-      "files": ["src/{main,preload,renderer,shared}/**", "scripts/**"],
+      "files": ["src/{main,preload,renderer,shared}/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -381,7 +401,23 @@
       }
     },
     {
-      "files": ["src/main/{canvas,mail,shuiyuan,vsjtu,timetable,todo,notifications}/**"],
+      "files": ["scripts/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/main/{mail,notifications}/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -422,6 +458,27 @@
               {
                 "regex": "^(\\.\\./)+(core/)?(agent|capabilities)(/|$)",
                 "message": "远程执行后端不能依赖 Agent：只暴露 RemoteBackend，Pi 工具适配在 core/agent/remote-tools。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/app/modules.ts", "src/app/contracts.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/modules/*/main/**",
+                  "**/modules/*/view/*",
+                  "**/modules/*/data/**",
+                  "**/sjtu/*/*/**"
+                ],
+                "message": "清单只引用模块的 index.ts 或 contract.ts。"
               }
             ]
           }

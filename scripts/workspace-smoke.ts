@@ -24,8 +24,8 @@ import {
   readCanvasSource,
   syncCanvasCourse,
   syncCanvasCourses,
-} from '../src/main/canvas/api';
-import { registerCanvasIpc } from '../src/main/canvas/ipc';
+} from '../src/sjtu/canvas/main/api';
+import { registerCanvasIpc } from '../src/sjtu/canvas/main/ipc';
 import {
   createWorkspaceEntry,
   getWorkspaceState,

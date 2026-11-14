@@ -11,16 +11,13 @@ import { closeDatabase, getDatabase } from '../src/main/database';
 import { registerModuleIpc } from '../src/app/ipc';
 import { modules } from '../src/app/modules';
 import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
-import { registerCanvasIpc } from '../src/main/canvas/ipc';
 import { registerMailIpc } from '../src/main/mail/ipc';
 import { registerNotificationsIpc } from '../src/main/notifications';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { remoteBackend } from '../src/core/remote/operations';
 import { exec, probeRemote } from '../src/core/remote/transport';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
-import { registerShuiyuanIpc } from '../src/main/shuiyuan/ipc';
 import { registerTerminalIpc } from '../src/main/terminal';
-import { registerTimetableIpc } from '../src/main/timetable/ipc';
 import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
 
@@ -64,14 +61,12 @@ app
     // 与生产一致：会话订阅与失效钩子由装配层注入。
     registerWorkspaceIpc(invalidateSessions);
     registerSettingsIpc();
-    registerCanvasIpc();
     registerAgentIpc();
     registerTerminalIpc();
     registerModuleIpc(modules);
+    for (const module of modules) module.register?.();
     registerNotificationsIpc();
     registerMailIpc();
-    registerTimetableIpc();
-    registerShuiyuanIpc();
     registerPreviewProtocol();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     const win = new BrowserWindow({

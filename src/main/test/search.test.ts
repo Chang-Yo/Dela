@@ -16,7 +16,6 @@ import type { SearchGroup } from '../../modules/search/contract';
 import { registerSearchProvider, searchModule } from '../../modules/search';
 import { chatSearch, projectSearch } from '../workspace/search';
 import { mailSearch } from '../mail/search';
-import { courseFileSearch } from '../canvas/search';
 
 const timestamp = '2026-09-16T12:00:00.000Z';
 const run = (sql: string, ...values: unknown[]) =>
@@ -29,8 +28,7 @@ const hitsOf = (query: string, group: string) =>
 
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-search-'));
-  for (const provider of [projectSearch, chatSearch, mailSearch, courseFileSearch])
-    registerSearchProvider(provider);
+  for (const provider of [projectSearch, chatSearch, mailSearch]) registerSearchProvider(provider);
   run(
     "INSERT INTO mail_accounts (address, imap_host, imap_port, created_at) VALUES ('a@sjtu.edu.cn', 'imap', 993, ?)",
     timestamp,
@@ -42,8 +40,7 @@ afterAll(() => {
   rmSync(state.root, { recursive: true, force: true });
 });
 beforeEach(() => {
-  for (const table of ['sessions', 'mail_messages', 'canvas_sources', 'canvas_courses'])
-    run(`DELETE FROM ${table}`);
+  for (const table of ['sessions', 'mail_messages']) run(`DELETE FROM ${table}`);
   run("DELETE FROM workspace_entries WHERE kind='project'");
 });
 
@@ -94,23 +91,11 @@ describe('global search', () => {
     expect(hitsOf('', 'chat').map((hit) => hit.id)).not.toContain('child');
   });
 
-  it('课程资料只匹配缓存的文件名，已删除的邮件不出现', () => {
-    run(
-      'INSERT INTO canvas_courses (id, data) VALUES (1, ?)',
-      JSON.stringify({ name: '信号与系统' }),
-    );
-    for (const kind of ['file', 'assignment'])
-      run(
-        'INSERT INTO canvas_sources VALUES (?, 1, ?)',
-        `${kind}:1`,
-        JSON.stringify({ kind, title: 'lecture-notes.pdf' }),
-      );
+  it('已删除的邮件不出现', () => {
     insertMail(3, '已删除的 lecture-notes.pdf', timestamp);
-
-    const groups = querySearch('lecture-notes.pdf');
-    expect(groups.map((group) => group.id)).toEqual(['course-file']);
-    expect(groups[0]?.hits).toEqual([
-      expect.objectContaining({ id: 'file:1', subtitle: '信号与系统' }),
+    insertMail(4, '保留的 lecture-notes.pdf');
+    expect(hitsOf('lecture-notes.pdf', 'mail').map((hit) => hit.title)).toEqual([
+      '保留的 lecture-notes.pdf',
     ]);
   });
 

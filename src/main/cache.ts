@@ -2,7 +2,6 @@ import { app, ipcMain, session } from 'electron';
 import { lstat, readdir, rm } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
 import type { CacheClearResult } from '../shared/cache';
-import { CAMPUS_PARTITION } from './campus';
 import { checkWorkspaceSender } from './ipc';
 
 /**
@@ -89,10 +88,11 @@ async function removeCaches(directory: string): Promise<boolean> {
 /**
  * 先让 Chromium 自己放手：缓存目录里的索引文件由它持有，不先清掉，磁盘上的目录删不干净。
  * 三类调用与名单一一对应——HTTP 缓存、脚本缓存、CacheStorage 与着色器缓存；Cookie、Local Storage
- * 等真正属于用户的数据一律不碰。只有默认会话与校园分区两种会话。
+ * 等真正属于用户的数据一律不碰。持久分区（如校园登录）按 Partitions 目录逐个认。
  */
 async function releaseSessions() {
-  for (const partition of [undefined, CAMPUS_PARTITION]) {
+  const partitions = await readdir(join(app.getPath('userData'), 'Partitions')).catch(() => []);
+  for (const partition of [undefined, ...partitions.map((name) => `persist:${name}`)]) {
     const target = partition ? session.fromPartition(partition) : session.defaultSession;
     await Promise.all([
       target.clearCache(),

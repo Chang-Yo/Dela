@@ -21,7 +21,6 @@ vi.mock('electron', () => ({
   },
 }));
 vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('../../vsjtu/ipc', () => ({ cancelVideoDownloads: vi.fn() }));
 vi.mock('../prefs', () => ({ writeSetting: state.write, savedOpenAtLogin: () => false }));
 import { registerSettingsIpc } from '../ipc';
 

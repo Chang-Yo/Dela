@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { getDatabase } from '../database';
-import { canvasFilePath, getSource } from '../canvas/api';
-import { createWorkspaceEntry, workspaceFilePath } from '../workspace/api';
+import { resourceResolver } from '../../core/capabilities/resources';
+import { createWorkspaceEntry } from '../workspace/api';
 import { availablePath } from '../storage';
 import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
 import { classifyOfficeFile } from './parse';
@@ -46,38 +46,6 @@ const powerShellScript = [
   '}',
   'exit $code',
 ].join('\n');
-
-interface OfficeSource {
-  kind: 'canvas' | 'workspace';
-  id: string;
-  path: string;
-  /** 源文件版本：Canvas 用 updatedAt，本地文件用 mtime-size。 */
-  version: string;
-  title: string;
-}
-
-async function resolveSource(ref: ResourceRef): Promise<OfficeSource> {
-  if (ref.type === 'canvas') {
-    const source = getSource(ref.id);
-    return {
-      kind: 'canvas',
-      id: ref.id,
-      path: await canvasFilePath(ref.id),
-      version: source.updatedAt ?? '',
-      title: source.title,
-    };
-  }
-  if (ref.type !== 'workspace') throw new Error('仅支持资料文件与我的资料条目');
-  const path = await workspaceFilePath(ref.id);
-  const stats = statSync(path);
-  return {
-    kind: 'workspace',
-    id: ref.id,
-    path,
-    version: `${stats.mtimeMs}-${stats.size}`,
-    title: basename(path),
-  };
-}
 
 function convertToPdf(input: string, output: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -210,16 +178,18 @@ function enqueueConversion(run: () => Promise<void>): Promise<void> {
 }
 
 async function runOfficeExport(
-  ref: ResourceRef,
+  ref: Extract<ResourceRef, { id: unknown }>,
+  sourcePath: () => Promise<string>,
   onProgress: (progress: OfficeExportProgress) => void,
 ): Promise<void> {
   onProgress({ phase: 'preparing' });
-  const source = await resolveSource(ref);
-  if ((await classifyOfficeFile(source.path)) !== 'pptx')
+  const path = await sourcePath();
+  if ((await classifyOfficeFile(path)) !== 'pptx')
     throw new Error('仅支持导出 PowerPoint 演示文稿（pptx）');
+  const stats = statSync(path);
   const folder = ensureExportFolder();
-  const pdfName = `${basename(source.title, extname(source.title))}.pdf`;
-  const previous = readOfficeExportLink(source.kind, source.id);
+  const pdfName = `${basename(path, extname(path))}.pdf`;
+  const previous = readOfficeExportLink(ref.type, String(ref.id));
   // 重复导出覆盖同一文件（避免产生「A (2).pdf」）；首次落盘用 availablePath 防撞名。
   const target =
     previous && existsSync(previous.path) ? previous.path : availablePath(folder.path, pdfName);
@@ -238,7 +208,7 @@ async function runOfficeExport(
         }
       }, 1500);
       try {
-        await convertToPdf(source.path, temporary);
+        await convertToPdf(path, temporary);
       } finally {
         clearInterval(poll);
       }
@@ -256,10 +226,10 @@ async function runOfficeExport(
   const link: OfficeExportLink = {
     entryId,
     path: target,
-    version: source.version,
+    version: `${stats.mtimeMs}-${stats.size}`,
     exportedAt: new Date().toISOString(),
   };
-  writeOfficeExportLink(source.kind, source.id, link);
+  writeOfficeExportLink(ref.type, String(ref.id), link);
 }
 
 // 同一文件并发导出只跑一次（对齐 Canvas 下载的去重模式）。
@@ -272,12 +242,12 @@ export function exportOfficePdf(
   if (process.platform !== 'win32')
     return Promise.reject(new Error('当前平台暂不支持 PPTX 转 PDF，请用外部应用打开原文件。'));
   const parsed = resourceRefSchema.parse(ref);
-  if (parsed.type !== 'canvas' && parsed.type !== 'workspace')
-    throw new Error('仅支持资料文件与我的资料条目');
+  const { path } = resourceResolver(parsed.type);
+  if (!path || !('id' in parsed)) throw new Error('仅支持资料文件与我的资料条目');
   const key = `${parsed.type}:${parsed.id}`;
   const existing = inFlight.get(key);
   if (existing) return existing;
-  const work = runOfficeExport(parsed, onProgress ?? (() => {})).finally(() =>
+  const work = runOfficeExport(parsed, () => path(parsed), onProgress ?? (() => {})).finally(() =>
     inFlight.delete(key),
   );
   inFlight.set(key, work);

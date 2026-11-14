@@ -13,12 +13,6 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: { openPath: vi.fn() } }));
 vi.mock('../../database', () => ({ getDatabase: () => state.db }));
-vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
-vi.mock('../../shuiyuan/sources', () => ({ readShuiyuanSourcePreview: vi.fn() }));
-vi.mock('../../shuiyuan/snapshot', () => ({
-  collectShuiyuanSnapshots: vi.fn(),
-  ensureShuiyuanSnapshot: vi.fn(),
-}));
 vi.mock('../../../core/remote/operations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../core/remote/operations')>()),
   locateRemote: state.locate,

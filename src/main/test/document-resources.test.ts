@@ -12,15 +12,6 @@ vi.mock('../documents/runtime', () => ({
   assertDocumentDependency: vi.fn(),
   documentPython: () => 'component/python.exe',
 }));
-vi.mock('../canvas/api', () => ({
-  canvasFilePath: vi.fn(),
-  getSource: vi.fn(),
-  cachedFile: vi.fn(),
-  readCanvasPage: vi.fn(),
-  readCanvasSource: vi.fn(() => {
-    throw new Error('GUI preview must not be called');
-  }),
-}));
 vi.mock('../workspace/api', () => ({
   workspaceFilePath: vi.fn(),
   importWorkspaceFiles: vi.fn(),
@@ -29,8 +20,6 @@ vi.mock('../workspace/api', () => ({
     throw new Error('GUI preview must not be called');
   }),
 }));
-vi.mock('../shuiyuan/sources', () => ({ readShuiyuanSource: vi.fn() }));
-vi.mock('../settings/prefs', () => ({ assertShuiyuanEnabled: vi.fn() }));
 vi.mock('../mail/api', () => ({
   readMailMessage: vi.fn(async () => ({ attachments: [{ part: '1', filename: '报名.xlsx' }] })),
   saveMailAttachment: vi.fn(async (_id: number, _part: string, path: string) =>
@@ -44,8 +33,7 @@ import {
   releaseDocumentResource,
 } from '../resources';
 import { entry, readWorkspaceEntry, workspaceFilePath } from '../workspace/api';
-import { cachedFile, getSource, readCanvasPage, readCanvasSource } from '../canvas/api';
-import { readShuiyuanSource } from '../shuiyuan/sources';
+import { registerWorkspaceSource } from '../workspace/sources';
 import { builtinResourceResolvers, readResourceTool } from '../agent/domain/read-resource';
 import { registerResourceResolver, type ResourceResolver } from '../../core/capabilities/resources';
 import { assertDocumentDependency } from '../documents/runtime';
@@ -109,19 +97,6 @@ it.each(['slides.pptx', 'report.pdf'])(
   },
 );
 
-it('returns Canvas file metadata without downloading, identifying, or previewing it', async () => {
-  vi.mocked(getSource).mockReturnValue({
-    id: 'file:7',
-    kind: 'file',
-    courseId: 1,
-    title: '课件.pptx',
-  });
-  const result = await readResourceTool.execute({ ref: { type: 'canvas', id: 'file:7' } });
-  expect(result).toMatchObject({ title: '课件.pptx', format: 'file', readable: false });
-  expect(cachedFile).not.toHaveBeenCalled();
-  expect(readCanvasSource).not.toHaveBeenCalled();
-});
-
 it('classifies extensionless and dotfiles by content: text is readable, binary gets the skill hint', async () => {
   const text = join(profile.root, '.env');
   const binary = join(profile.root, 'core');
@@ -176,7 +151,7 @@ it('reads and paginates a note with its revision without querying GUI', async ()
   expect(readWorkspaceEntry).not.toHaveBeenCalled();
 });
 
-it('preserves inline images for workspace and Canvas files', async () => {
+it('preserves inline images for workspace files', async () => {
   const id = join(profile.root, 'picture.jpg');
   await writeFile(id, Buffer.from([1, 2, 3]));
   vi.mocked(entry).mockReturnValue({
@@ -189,62 +164,28 @@ it('preserves inline images for workspace and Canvas files', async () => {
     updatedAt: '',
   });
   vi.mocked(workspaceFilePath).mockResolvedValue(id);
-  vi.mocked(getSource).mockReturnValue({
-    id: 'file:8',
-    courseId: 1,
-    kind: 'file',
-    title: 'picture.jpg',
-    mime: 'image/jpeg',
+  expect(await readResourceTool.execute({ ref: { type: 'workspace', id } })).toMatchObject({
+    format: 'image',
+    images: [{ dataUrl: 'data:image/jpeg;base64,AQID', page: 1 }],
   });
-  vi.mocked(cachedFile).mockResolvedValue({ path: id, mime: 'image/jpeg' });
-  for (const ref of [
-    { type: 'workspace', id },
-    { type: 'canvas', id: 'file:8' },
-  ] as const) {
-    expect(await readResourceTool.execute({ ref })).toMatchObject({
-      format: 'image',
-      images: [{ dataUrl: 'data:image/jpeg;base64,AQID', page: 1 }],
-    });
-  }
   expect(readWorkspaceEntry).not.toHaveBeenCalled();
-  expect(readCanvasSource).not.toHaveBeenCalled();
 });
 
-it('reads linked Canvas pages and Shuiyuan sources through their body APIs', async () => {
+it('reads source entries through the owning module, and reports unowned sources', async () => {
+  const preview = vi.fn();
+  registerWorkspaceSource({
+    owns: (sourceId) => sourceId.startsWith('fake:'),
+    validate: () => {},
+    preview,
+    read: async () => ({ title: '来源', format: 'html', text: '<p>正文</p>' }),
+  });
   const id = join(profile.root, 'linked');
   const item = { id, name: 'linked', kind: 'source' as const, parentId: null, updatedAt: '' };
+  vi.mocked(entry).mockReturnValue({ ...item, sourceId: 'fake:1' });
+  expect(await readWorkspaceResource(id)).toMatchObject({ title: '来源', text: '<p>正文</p>' });
+  expect(preview).not.toHaveBeenCalled();
   vi.mocked(entry).mockReturnValue({ ...item, sourceId: 'page:1' });
-  vi.mocked(getSource).mockReturnValue({
-    id: 'page:1',
-    courseId: 1,
-    kind: 'page',
-    title: '课程页面',
-  });
-  vi.mocked(readCanvasPage).mockResolvedValue({
-    title: '课程页面',
-    format: 'html',
-    text: '<p>正文</p>',
-    url: 'https://oc.sjtu.edu.cn/page',
-    dueAt: undefined,
-    updatedAt: undefined,
-  });
-  expect(await readWorkspaceResource(id)).toMatchObject({
-    title: '课程页面',
-    text: '<p>正文</p>',
-  });
-  vi.mocked(entry).mockReturnValue({ ...item, sourceId: 'shuiyuan-topic:7' });
-  vi.mocked(readShuiyuanSource).mockResolvedValue({
-    title: '帖子',
-    format: 'text',
-    text: '缓存摘要',
-  });
-  expect(await readWorkspaceResource(id)).toMatchObject({
-    title: '帖子',
-    format: 'text',
-    text: '缓存摘要',
-  });
-  expect(readWorkspaceEntry).not.toHaveBeenCalled();
-  expect(readCanvasSource).not.toHaveBeenCalled();
+  await expect(readWorkspaceResource(id)).rejects.toThrow('该资料来源暂不可用');
 });
 
 it('returns attachment metadata without downloading it', async () => {

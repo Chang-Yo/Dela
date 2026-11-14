@@ -1,5 +1,5 @@
 // 工具层契约：remove_entry 的守卫与错误码映射、update_entry 的 kind 转换、
-// list_workspace_entries 的浏览/过滤、link_canvas_source 的 Canvas 收敛与错误映射。
+// list_workspace_entries 的浏览/过滤。
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../workspace/api', () => ({
@@ -17,7 +17,6 @@ import {
 } from '../../../../workspace/api';
 import { workspaceArchiveId } from '../../../../../shared/workspace';
 import { createEntryTool, removeEntryTool, updateEntryTool } from '../entries';
-import { linkCanvasSourceTool } from '../../canvas/link-source';
 import { listWorkspaceEntriesTool } from '../list-entries';
 
 const id = 'da21ec6f-71ae-414c-ae59-7618b0dac93e';
@@ -139,36 +138,5 @@ describe('list_workspace_entries', () => {
       total: 1,
       nextOffset: null,
     });
-  });
-});
-
-describe('link_canvas_source', () => {
-  it('以 kind=source 调用业务层，返回工作区引用', async () => {
-    vi.mocked(createWorkspaceEntry).mockReturnValue({
-      id,
-      parentId: null,
-      name: 'slides',
-      kind: 'source',
-      sourceId: 'file:1',
-      updatedAt: '2026-01-01T00:00:00Z',
-    });
-    await expect(
-      linkCanvasSourceTool.execute({ parentId: id, sourceId: 'file:1', name: 'slides' }),
-    ).resolves.toMatchObject({ ref: { type: 'workspace', id } });
-    expect(createWorkspaceEntry).toHaveBeenCalledWith({
-      parentId: id,
-      sourceId: 'file:1',
-      name: 'slides',
-      kind: 'source',
-    });
-  });
-
-  it('Canvas 资料不存在映射为 NOT_FOUND', async () => {
-    vi.mocked(createWorkspaceEntry).mockImplementation(() => {
-      throw new Error('资料不存在，请先同步课程');
-    });
-    await expect(
-      linkCanvasSourceTool.execute({ parentId: id, sourceId: 'file:1', name: 'slides' }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });

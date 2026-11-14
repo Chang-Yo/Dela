@@ -3,17 +3,21 @@ import { createReadStream } from 'node:fs';
 import { stat as fileStat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { Readable } from 'node:stream';
-import { canvasPreviewPath } from '../canvas/api';
 import { officeZipMime } from '../documents/parse';
-import { handleShuiyuanMediaRequest } from '../shuiyuan/media';
-import { handleShuiyuanSnapshotRequest } from '../shuiyuan/snapshot-files';
-import { handleVsjtuMediaRequest } from '../vsjtu/playback';
 import { remoteById, targetOf, withinRemoteRoot } from '../remotes/api';
 import { readRemoteRange, statRemoteFile } from '../../core/remote/operations';
 import { remoteDocumentMime } from '../remotes/documents';
 import { projectLocation, resolveWorkspaceAsset, workspacePreviewPath } from './api';
 
 const previewScheme = 'dela-resource';
+
+/** 模块经 dela-resource://<hostname>/… 提供的预览字节；失败统一回 404。 */
+type PreviewHost = (request: Request, url: URL) => Promise<Response>;
+const previewHosts = new Map<string, PreviewHost>();
+
+export function registerPreviewHost(hostname: string, host: PreviewHost): void {
+  previewHosts.set(hostname, host);
+}
 
 export function registerPreviewScheme(): void {
   protocol.registerSchemesAsPrivileged([
@@ -29,7 +33,7 @@ export function registerPreviewScheme(): void {
     },
   ]);
 }
-// 预览协议放行的文件类型与响应 content-type；路径放行由 canvasPreviewPath/workspacePreviewPath 决定。
+// 预览协议放行的文件类型与响应 content-type；路径放行由各 host 的解析函数决定。
 const previewContentType: Record<string, string> = {
   '.pdf': 'application/pdf',
   '.docx': officeZipMime.docx,
@@ -55,7 +59,7 @@ function rangePlan(
   return { headers, start: range.start, end: range.end, status: range.status };
 }
 
-async function fileResponse(path: string, request: Request): Promise<Response> {
+export async function previewFileResponse(path: string, request: Request): Promise<Response> {
   const size = (await fileStat(path)).size;
   const contentType = previewContentType[extname(path).toLowerCase()] ?? 'application/octet-stream';
   const plan = rangePlan(request, size, contentType);
@@ -158,11 +162,8 @@ export function registerPreviewProtocol(): void {
       if (request.method !== 'GET' && request.method !== 'HEAD')
         return new Response(null, { status: 405 });
       const url = new URL(request.url);
-      if (url.hostname === 'shuiyuan') return handleShuiyuanMediaRequest(request);
-      // 水源快照图片：dela-resource://shuiyuan-snapshot/<topicId>/<hash>.<ext>。
-      if (url.hostname === 'shuiyuan-snapshot') return await handleShuiyuanSnapshotRequest(url);
-      // 课堂视频播放：dela-resource://vsjtu/video/<videoId>/<view>?t=<token>（Range 透传）。
-      if (url.hostname === 'vsjtu') return handleVsjtuMediaRequest(request);
+      const host = previewHosts.get(url.hostname);
+      if (host) return await host(request, url);
       // 远端文档：dela-resource://remote/<projectId>?path=<远端绝对路径>（PDF/Office 按 Range 分块拉）；
       // remote-raw 同一实现，供 Markdown 里的相对图片取字节（都只放行项目根目录内的路径）。
       if (url.hostname === 'remote' || url.hostname === 'remote-raw') {
@@ -192,16 +193,8 @@ export function registerPreviewProtocol(): void {
         return new Response(body, { status: 200, headers });
       }
       const id = decodeURIComponent(url.pathname.slice(1));
-      if (!id || (url.hostname !== 'workspace' && (id.includes('/') || id.includes('\\'))))
-        throw new Error('无效的文档地址');
-      const path =
-        url.hostname === 'canvas'
-          ? await canvasPreviewPath(id)
-          : url.hostname === 'workspace'
-            ? workspacePreviewPath(id)
-            : null;
-      if (!path) throw new Error('无效的文档地址');
-      return await fileResponse(path, request);
+      if (url.hostname !== 'workspace' || !id) throw new Error('无效的文档地址');
+      return await previewFileResponse(workspacePreviewPath(id), request);
     } catch {
       return new Response(null, { status: 404 });
     }

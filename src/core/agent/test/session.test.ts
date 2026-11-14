@@ -42,10 +42,6 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));
 vi.mock('../../../main/database', () => ({ getDatabase: () => state.db }));
-vi.mock('../../../main/shuiyuan/snapshot', () => ({
-  collectShuiyuanSnapshots: vi.fn(),
-  ensureShuiyuanSnapshot: vi.fn(),
-}));
 vi.mock('../providers', () => ({
   llmProviders: () => (state.configured ? state.providers : []),
   usableLlmProviders: () =>

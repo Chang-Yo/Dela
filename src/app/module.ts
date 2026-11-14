@@ -15,8 +15,12 @@ export interface ModuleDefinition {
   id: string;
   /** 模块内部契约的主进程实现，由 app 注册到 IPC。 */
   ipc?: Implementation;
-  /** 应用就绪后调用：注册数据来源、启动后台同步；返回值在退出时调用。冒烟测试不调用。 */
+  /** 应用就绪后、窗口创建前调用：登记 IPC、命令域与各类注册口。冒烟测试同样调用。 */
+  register?(): void;
+  /** 应用就绪后调用：启动后台同步；返回值在退出时调用。冒烟测试不调用。 */
   start?(): (() => void) | void;
+  /** 主窗口要打开外部链接时依次询问；返回 true 表示模块已在应用内处理。 */
+  openLink?(url: string): boolean;
 }
 
 export function defineModule(definition: ModuleDefinition): ModuleDefinition {

@@ -3,7 +3,7 @@ import { basename } from 'node:path';
 import { getDatabase } from '../database';
 import type { OfficeExportInfo } from '../../shared/api';
 
-/** pptx 导出 PDF 的关联记录；version 为导出时的源文件版本（Canvas updatedAt / 本地 mtime-size）。 */
+/** pptx 导出 PDF 的关联记录，按资源引用（type + id）存取；version 为导出时源文件的 mtime-size。 */
 export interface OfficeExportLink {
   entryId: string;
   path: string;
@@ -11,14 +11,10 @@ export interface OfficeExportLink {
   exportedAt: string;
 }
 
-const officeExportKey = (kind: 'canvas' | 'workspace', id: string) =>
-  `preview-export:${kind}:${id}`;
+const officeExportKey = (kind: string, id: string) => `preview-export:${kind}:${id}`;
 
 /** 读取关联；键不存在或存储损坏时返回 null，文件是否仍存在由调用方判断。 */
-export function readOfficeExportLink(
-  kind: 'canvas' | 'workspace',
-  id: string,
-): OfficeExportLink | null {
+export function readOfficeExportLink(kind: string, id: string): OfficeExportLink | null {
   try {
     const row = getDatabase()
       .prepare('SELECT value FROM workspace_settings WHERE key=?')
@@ -30,11 +26,7 @@ export function readOfficeExportLink(
   }
 }
 
-export function writeOfficeExportLink(
-  kind: 'canvas' | 'workspace',
-  id: string,
-  link: OfficeExportLink,
-): void {
+export function writeOfficeExportLink(kind: string, id: string, link: OfficeExportLink): void {
   getDatabase()
     .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
     .run(officeExportKey(kind, id), JSON.stringify(link));

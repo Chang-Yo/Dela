@@ -19,12 +19,6 @@ import { EventEmitter } from 'node:events';
 const state = vi.hoisted(() => ({ root: '', execFile: vi.fn(), spawn: vi.fn() }));
 vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.spawn }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../canvas/api', () => ({ canvasFilePath: vi.fn(), readCanvasSource: vi.fn() }));
-vi.mock('../../shuiyuan/sources', () => ({ readShuiyuanSourcePreview: vi.fn() }));
-vi.mock('../../shuiyuan/snapshot', () => ({
-  collectShuiyuanSnapshots: vi.fn(),
-  ensureShuiyuanSnapshot: vi.fn(),
-}));
 
 import { getDatabase } from '../../database';
 import { workspaceArchiveId } from '../../../shared/workspace';
@@ -39,7 +33,9 @@ import {
   updateWorkspaceEntry,
   getWorkspaceState,
   entry,
+  workspaceFilePath,
 } from '../api';
+import { registerWorkspaceSource } from '../sources';
 import { openProjectDirectory } from '../project';
 import { provideTestHostPorts } from '../../../core/test/host-mock';
 import { hostPorts } from '../../../core/ports';
@@ -522,6 +518,54 @@ describe('createWorkspaceEntry', () => {
       text: '',
     });
     expect(isAbsolute(note.id)).toBe(true);
+  });
+});
+
+describe('资料来源条目', () => {
+  const fake = {
+    owns: (sourceId: string) => sourceId.startsWith('fake:'),
+    validate: vi.fn((sourceId: string) => {
+      if (sourceId === 'fake:missing') throw new Error('资料不存在');
+    }),
+    added: vi.fn(),
+    collect: vi.fn(async () => {}),
+    preview: vi.fn(async () => ({ title: '来源', format: 'text' as const, text: '正文' })),
+    read: vi.fn(),
+  };
+  registerWorkspaceSource(fake);
+
+  it('认领来源的模块负责校验、预览与回收；没有 filePath 的来源不是文件', async () => {
+    expect(() =>
+      createWorkspaceEntry({
+        parentId: null,
+        name: '缺失',
+        kind: 'source',
+        sourceId: 'fake:missing',
+      }),
+    ).toThrow('资料不存在');
+    const item = createWorkspaceEntry({
+      parentId: null,
+      name: '来源',
+      kind: 'source',
+      sourceId: 'fake:1',
+    });
+    expect(fake.added).toHaveBeenCalledWith('fake:1');
+    await expect(readWorkspaceEntry(item.id)).resolves.toMatchObject({ text: '正文' });
+    await expect(workspaceFilePath(item.id)).rejects.toThrow('条目不是文件');
+    await removeWorkspaceEntry(item.id);
+    expect(fake.collect).toHaveBeenCalled();
+  });
+
+  it('没有模块认领的来源（对应校园服务未启用）给出产品错误', async () => {
+    expect(() =>
+      createWorkspaceEntry({ parentId: null, name: '课件', kind: 'source', sourceId: 'file:1' }),
+    ).toThrow('该资料来源暂不可用');
+    const id = crypto.randomUUID();
+    db.prepare(
+      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, '课件', 'source', 'file:1', ?, NULL, 'now')",
+    ).run(id, workspaceRoot());
+    await expect(readWorkspaceEntry(id)).rejects.toThrow('该资料来源暂不可用');
+    await expect(workspaceFilePath(id)).rejects.toThrow('该资料来源暂不可用');
   });
 });
 
