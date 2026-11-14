@@ -3,6 +3,17 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WebSearchEntryInput } from '../../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入装好；用例按通道登记 handler。
+const { api, bridge } = vi.hoisted(() => {
+  const api: Record<string, (input: never) => unknown> = {};
+  const bridge = {
+    invoke: async (channel: string, input: never) => api[channel]!(input),
+    subscribe: () => () => {},
+  };
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
+  return { api, bridge };
+});
 import { SearchConfigDialog } from './SearchConfigDialog';
 
 let host: HTMLDivElement;
@@ -34,14 +45,13 @@ it('导入 DeepSeek 密钥后切换到 Brave，不应把 DeepSeek 密钥保存�
   const importedKey = 'sk-deepseek-regression-test-only';
   const saveWebSearchEntry = vi.fn(async (_entry: WebSearchEntryInput) => []);
   const readWebSearchKey = vi.fn(async () => importedKey);
-  window.dela = {
-    capability: {
-      listWebSearchEntries: async () => [],
-      listWebSearchKeySources: async () => [{ id: 'deepseek-model', name: '学校账号' }],
-      readWebSearchKey,
-      saveWebSearchEntry,
-    },
-  } as unknown as DelaApi;
+  api['capabilities:listWebSearchEntries'] = async () => [];
+  api['capabilities:listWebSearchKeySources'] = async () => [
+    { id: 'deepseek-model', name: '学校账号' },
+  ];
+  api['capabilities:readWebSearchKey'] = readWebSearchKey;
+  api['capabilities:saveWebSearchEntry'] = saveWebSearchEntry;
+  window.dela = { bridge } as unknown as DelaApi;
 
   await act(async () => root.render(<SearchConfigDialog onClose={() => {}} />));
   await act(async () => button('添加搜索服务').click());

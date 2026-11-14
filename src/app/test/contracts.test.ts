@@ -5,7 +5,9 @@ const state = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('electron', () => ({ ipcRenderer: { invoke: state.invoke } }));
 
 import { agentContract } from '../../core/protocol/agent';
+import { capabilitiesContract } from '../../core/protocol/capabilities';
 import { channelsOf } from '../../core/protocol/contract';
+import { llmContract } from '../../core/protocol/llm';
 import { bridge } from '../../preload/bridge';
 import { contracts } from '../contracts';
 import { modules } from '../modules';
@@ -13,6 +15,8 @@ import { modules } from '../modules';
 it('preload 放行的契约与主进程注册的模块契约一一对应', () => {
   expect(contracts).toEqual([
     agentContract,
+    llmContract,
+    capabilitiesContract,
     ...modules.flatMap((module) => (module.ipc ? [module.ipc.contract] : [])),
   ]);
 });

@@ -3,17 +3,28 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, SkillView } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入装好；按过程名分派到下面的 mock。
+const { api, bridge } = vi.hoisted(() => {
+  const api = {
+    listSkills: vi.fn(),
+    installSkillDependencies: vi.fn(),
+    cancelSkillInstallation: vi.fn(),
+    setSkillEnabled: vi.fn(),
+  };
+  const bridge = {
+    invoke: async (channel: string, input: unknown) =>
+      api[channel.replace('capabilities:', '') as keyof typeof api](input),
+    subscribe: () => () => {},
+  };
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
+  return { api, bridge };
+});
 import { CapabilitySetup } from './CapabilitySetup';
 
 let host: HTMLDivElement;
 let root: Root;
 let skill: SkillView;
-const api = {
-  listSkills: vi.fn(),
-  installSkillDependencies: vi.fn(),
-  cancelSkillInstallation: vi.fn(),
-  setSkillEnabled: vi.fn(),
-};
 const done = vi.fn();
 const button = (label: string) =>
   [...host.querySelectorAll('button')].find((node) => node.textContent?.trim() === label)!;
@@ -32,7 +43,7 @@ beforeEach(() => {
   };
   api.listSkills.mockImplementation(async () => [skill]);
   window.dela = {
-    capability: api,
+    bridge,
     window: { minimize: vi.fn(), close: vi.fn() },
   } as unknown as DelaApi;
   host = document.createElement('div');
@@ -85,7 +96,10 @@ it('enables an already installed component without downloading it again', async 
   api.setSkillEnabled.mockResolvedValue([{ ...skill, enabled: true }]);
   await render();
   await act(async () => button('启用').click());
-  expect(api.setSkillEnabled).toHaveBeenCalledWith('/skills/document-reading/SKILL.md', true);
+  expect(api.setSkillEnabled).toHaveBeenCalledWith({
+    id: '/skills/document-reading/SKILL.md',
+    enabled: true,
+  });
   expect(api.installSkillDependencies).not.toHaveBeenCalled();
 });
 

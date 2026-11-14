@@ -420,19 +420,24 @@ app
       `await window.dela.bridge.invoke('workspace:saveLayout', { projectId: ${JSON.stringify(promoted.id)}, layout: ${JSON.stringify(layout)} });`,
     );
     const provider = await invoke(
-      `return await window.dela.llm.save({ name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'] });`,
+      `return await window.dela.bridge.invoke('llm:save', { name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'] });`,
     );
-    const providers = await invoke(`return await window.dela.llm.list();`);
+    const providers = await invoke(`return await window.dela.bridge.invoke('llm:list');`);
     assert.equal(providers.length, 1);
     assert.equal(providers[0].enabled, true);
     assert.equal('apiKey' in providers[0], false);
     const verified = await invoke(
-      `return await window.dela.llm.verify({ id: ${JSON.stringify(providers[0].id)}, baseUrl: ${JSON.stringify(providers[0].baseUrl)} });`,
+      `return await window.dela.bridge.invoke('llm:verify', { id: ${JSON.stringify(providers[0].id)}, baseUrl: ${JSON.stringify(providers[0].baseUrl)} });`,
     );
     assert.equal(verified.ok, true, verified.message);
     assert.deepEqual(verified.models, ['qwen', 'minimax']);
-    await invoke(`await window.dela.llm.setEnabled(${JSON.stringify(provider.id)}, false);`);
-    assert.equal((await invoke(`return await window.dela.llm.list();`))[0].enabled, false);
+    await invoke(
+      `await window.dela.bridge.invoke('llm:setEnabled', { id: ${JSON.stringify(provider.id)}, enabled: false });`,
+    );
+    assert.equal(
+      (await invoke(`return await window.dela.bridge.invoke('llm:list');`))[0].enabled,
+      false,
+    );
     const email = prepareEmail({
       to: ['recipient@example.com'],
       subject: '报告草稿',

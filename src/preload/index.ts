@@ -5,8 +5,6 @@ import { cache } from './cache';
 import { consent } from './consent';
 import { backup } from './backup';
 import { bridge } from './bridge';
-import { llm } from './llm';
-import { capabilityApi as capability } from './capabilities';
 import { settings } from './settings';
 import { update } from './update';
 import { windowApi } from './window';
@@ -22,7 +20,5 @@ contextBridge.exposeInMainWorld('dela', {
   consent,
   backup,
   cache,
-  llm,
-  capability,
   update,
 } satisfies DelaApi);

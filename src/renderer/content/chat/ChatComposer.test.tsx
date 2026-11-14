@@ -3,6 +3,23 @@ import { act, useState, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ContextUsageView } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入装好；用例按通道登记 handler，
+// 并可直接触发记录下的搜索配置变化订阅。
+const { api, bridge, searchListeners } = vi.hoisted(() => {
+  const api: Record<string, (input: never) => unknown> = {};
+  const searchListeners = new Set<() => void>();
+  const bridge = {
+    invoke: async (channel: string, input: never) => api[channel]!(input),
+    subscribe: (channel: string, listener: () => void) => {
+      if (channel !== 'capabilities:webSearchChanged') return () => {};
+      searchListeners.add(listener);
+      return () => searchListeners.delete(listener);
+    },
+  };
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
+  return { api, bridge, searchListeners };
+});
 import { useNavigationStore } from '../../navigation/view';
 import { ChatComposer, cacheHitRateText } from './ChatComposer';
 import type { ComposerContext } from './composer-context';
@@ -139,6 +156,7 @@ beforeEach(() => {
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
+  for (const channel of Object.keys(api)) delete api[channel];
 });
 
 afterEach(async () => {
@@ -169,21 +187,13 @@ it('未配置思考强度时提供模型设置入口', async () => {
 it('分屏中选择搜索服务后，另一个已挂载输入框应同步显示开启', async () => {
   const entry = { id: 'search-a', name: '学校搜索', provider: 'brave' as const };
   let selectedId: string | null = null;
-  const listeners = new Set<() => void>();
   const selectWebSearchEntry = vi.fn(async (id: string | null) => {
     selectedId = id;
-    for (const listener of listeners) listener();
+    for (const listener of searchListeners) listener();
   });
-  window.dela = {
-    capability: {
-      listWebSearchOptions: async () => ({ entries: [entry], selectedId }),
-      selectWebSearchEntry,
-      onWebSearchChanged: (listener: () => void) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
-    },
-  } as unknown as NonNullable<typeof window.dela>;
+  api['capabilities:listWebSearchOptions'] = async () => ({ entries: [entry], selectedId });
+  api['capabilities:selectWebSearchEntry'] = selectWebSearchEntry;
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   await act(async () =>
     root.render(
       <>
@@ -216,7 +226,7 @@ it('分屏中选择搜索服务后，另一个已挂载输入框应同步显示�
   expect(first.querySelector('[aria-label="联网搜索：未开启"]')).not.toBeNull();
   expect(second.querySelector('[aria-label="联网搜索：未开启"]')).not.toBeNull();
   await act(async () => root.unmount());
-  expect(listeners.size).toBe(0);
+  expect(searchListeners.size).toBe(0);
   root = createRoot(host);
 });
 
@@ -227,23 +237,14 @@ it('搜索配置变化后，迟到的首次读取不能覆盖新状态', async (
   const initial = new Promise<Options>((resolve) => {
     resolveInitial = resolve;
   });
-  const listeners = new Set<() => void>();
-  const listWebSearchOptions = vi
+  api['capabilities:listWebSearchOptions'] = vi
     .fn()
     .mockReturnValueOnce(initial)
     .mockResolvedValue({ entries: [entry], selectedId: entry.id });
-  window.dela = {
-    capability: {
-      listWebSearchOptions,
-      onWebSearchChanged: (listener: () => void) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
-    },
-  } as unknown as NonNullable<typeof window.dela>;
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   await act(async () => root.render(<Harness contextUsage={usage()} />));
   await act(async () => {
-    for (const listener of listeners) listener();
+    for (const listener of searchListeners) listener();
   });
   expect(host.querySelector('[aria-label="联网搜索：学校搜索"]')).not.toBeNull();
   await act(async () => resolveInitial({ entries: [entry], selectedId: null }));
@@ -276,7 +277,7 @@ it('已配置思考强度时仅列出允许的档位，选择后关闭菜单', a
 
 it('拖入 PPTX 交给附件入口，不再被文本白名单拒绝', async () => {
   const add = vi.fn(async () => {});
-  window.dela = {} as NonNullable<typeof window.dela>;
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   await act(async () => root.render(<Harness contextUsage={usage()} onAddAttachmentFile={add} />));
   const file = new File(['binary document'], 'PRP结项汇报_v3(1).pptx.pptx');
   const event = new Event('drop', { bubbles: true, cancelable: true });

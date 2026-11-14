@@ -20,6 +20,7 @@ import { Switch } from '../../../../ui/switch';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
+import { capabilitiesClient } from '../../../../modules/chat/view';
 
 /** 各类型展示名（键序即表单类型按钮的排列顺序，DeepSeek 置首）。 */
 const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {
@@ -63,7 +64,7 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const load = () => {
-    void window.dela?.capability
+    void capabilitiesClient
       .listWebSearchEntries()
       .then((list) => {
         setEntries(list);
@@ -74,11 +75,10 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   useEffect(load, []);
 
   const remove = async (id: string) => {
-    const dela = window.dela;
-    if (!dela || busy) return;
+    if (!window.dela || busy) return;
     setBusy(true);
     try {
-      setEntries(await dela.capability.removeWebSearchEntry(id));
+      setEntries(await capabilitiesClient.removeWebSearchEntry(id));
     } catch (cause) {
       setError(errorText(cause));
     } finally {
@@ -227,14 +227,13 @@ function EntryForm({
   const sourceIdRef = useRef('');
 
   const save = async () => {
-    const dela = window.dela;
-    if (!dela || busy) return;
+    if (!window.dela || busy) return;
     onBusy(true);
     const base = { id: draft.id, name: name.trim() };
     try {
       if (provider === 'brave')
         onSaved(
-          await dela.capability.saveWebSearchEntry({
+          await capabilitiesClient.saveWebSearchEntry({
             ...base,
             provider: 'brave',
             apiKey: apiKey.trim(),
@@ -242,7 +241,7 @@ function EntryForm({
         );
       else if (provider === 'google')
         onSaved(
-          await dela.capability.saveWebSearchEntry({
+          await capabilitiesClient.saveWebSearchEntry({
             ...base,
             provider: 'google',
             apiKey: apiKey.trim(),
@@ -251,7 +250,7 @@ function EntryForm({
         );
       else if (provider === 'deepseek')
         onSaved(
-          await dela.capability.saveWebSearchEntry({
+          await capabilitiesClient.saveWebSearchEntry({
             ...base,
             provider: 'deepseek',
             apiKey: apiKey.trim(),
@@ -265,7 +264,7 @@ function EntryForm({
           return;
         }
         onSaved(
-          await dela.capability.saveWebSearchEntry({
+          await capabilitiesClient.saveWebSearchEntry({
             ...base,
             provider: 'custom',
             url: url.trim(),
@@ -283,12 +282,11 @@ function EntryForm({
 
   /** 从「模型供应商」预填 DeepSeek 密钥；命中多个时展开选择，默认第一个（启用的排在前面）。 */
   const importKey = async (id?: string) => {
-    const dela = window.dela;
-    if (!dela || busy) return;
+    if (!window.dela || busy) return;
     onBusy(true);
     onError(null);
     try {
-      const sources = keySources ?? (await dela.capability.listWebSearchKeySources());
+      const sources = keySources ?? (await capabilitiesClient.listWebSearchKeySources());
       setKeySources(sources);
       if (sources.length === 0) {
         onError('没有找到已配置密钥的 DeepSeek 模型供应商，请先在「模型供应商」中添加');
@@ -297,7 +295,7 @@ function EntryForm({
       const target = id ?? sources[0]!.id;
       sourceIdRef.current = target;
       setSourceId(target);
-      const key = await dela.capability.readWebSearchKey(target);
+      const key = await capabilitiesClient.readWebSearchKey(target);
       if (sourceIdRef.current !== target) return;
       if (!key) {
         onError('导入失败：该供应商没有可用的密钥');

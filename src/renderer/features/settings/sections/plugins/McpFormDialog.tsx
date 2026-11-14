@@ -10,6 +10,7 @@ import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
 import { ErrorText } from '../../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../../ui/dialog';
 import { Field } from '../../../../../ui/field';
+import { capabilitiesClient } from '../../../../../modules/chat/view';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
@@ -43,8 +44,7 @@ export function McpFormDialog({
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    const dela = window.dela;
-    if (!dela || busy) return;
+    if (!window.dela || busy) return;
     // 先本地校验，失败保留输入就地报错；通道错误同样保留输入。
     const parsed = parseMcpForm(
       { transport, name, command, argsText, envText, url, headersText },
@@ -58,8 +58,11 @@ export function McpFormDialog({
     setError(null);
     try {
       const views = isEdit
-        ? await dela.capability.updateMcpServer(editing.server.id, mcpUpdatePatch(parsed.value))
-        : await dela.capability.addMcpServer(parsed.value);
+        ? await capabilitiesClient.updateMcpServer({
+            id: editing.server.id,
+            patch: mcpUpdatePatch(parsed.value),
+          })
+        : await capabilitiesClient.addMcpServer(parsed.value);
       onSaved(views);
       onClose();
     } catch (cause) {

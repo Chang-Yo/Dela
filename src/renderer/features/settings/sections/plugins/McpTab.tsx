@@ -12,6 +12,7 @@ import { McpFormDialog, type McpEditState } from './McpFormDialog';
 import { ConfirmDialog } from '../../../../../ui/dialog';
 import { ErrorText } from '../../../../../ui/alert';
 import { Spinner } from '../../../../../ui/spinner';
+import { capabilitiesClient } from '../../../../../modules/chat/view';
 
 /** 设置 › MCP Server：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {
@@ -34,7 +35,7 @@ export function McpTab() {
     if (!window.dela) return;
     if (views.some((view) => view.status === 'connecting') && followUps < 2) {
       timerRef.current = window.setTimeout(() => {
-        void window.dela?.capability
+        void capabilitiesClient
           .listMcpServers()
           .then((next) => settle(next, followUps + 1))
           .catch((cause) => setError(errorText(cause)));
@@ -43,7 +44,7 @@ export function McpTab() {
   };
 
   useEffect(() => {
-    void window.dela?.capability
+    void capabilitiesClient
       .listMcpServers()
       .then((views) => settle(views))
       .catch((cause) => setError(errorText(cause)));
@@ -61,7 +62,7 @@ export function McpTab() {
       (previous ?? []).map((view) => (view.id === server.id ? { ...view, enabled: next } : view)),
     );
     try {
-      settle(await window.dela.capability.updateMcpServer(server.id, { enabled: next }));
+      settle(await capabilitiesClient.updateMcpServer({ id: server.id, patch: { enabled: next } }));
     } catch (cause) {
       setServers(previous);
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
@@ -74,7 +75,7 @@ export function McpTab() {
     if (!window.dela || busy) return;
     setBusy(true);
     try {
-      settle(await window.dela.capability.refreshMcpServer(id));
+      settle(await capabilitiesClient.refreshMcpServer(id));
     } catch (cause) {
       showToast({ variant: 'error', title: '重连失败', description: errorText(cause) });
     } finally {
@@ -86,7 +87,7 @@ export function McpTab() {
     if (!window.dela || busy) return;
     setBusy(true);
     try {
-      settle(await window.dela.capability.removeMcpServer(id));
+      settle(await capabilitiesClient.removeMcpServer(id));
       setConfirmId(null);
     } catch (cause) {
       // 删除失败也要让用户看到原因：关闭确认框，错误经 toast 提示。

@@ -3,13 +3,10 @@
 import type { Bridge } from '../core/protocol/contract';
 import type { BackupApi } from './backup';
 import type { CacheApi } from './cache';
-import type { CapabilityApi } from './capabilities';
 import type { ConsentApi } from './consent';
-import type { LlmApi } from './llm';
 import type { SettingsApi } from './settings';
 export type {
   AgentCapabilityView,
-  CapabilityApi,
   McpConnectionStatus,
   McpServerConfig,
   McpServerView,
@@ -29,7 +26,6 @@ export interface DelaApi {
   readonly platform: string;
   /** 拖进窗口的文件在本机磁盘上的路径；没有本地路径时为空字符串。 */
   pathForFile(file: File): string;
-  capability: CapabilityApi;
   readonly version: string;
   /** NSIS 更新安装完成后启动，供界面提示实际运行的版本。 */
   readonly updatedOnLaunch: boolean;
@@ -40,7 +36,6 @@ export interface DelaApi {
   readonly backup: BackupApi;
   /** 设置 › 通用 底部的缓存占用与清理。 */
   readonly cache: CacheApi;
-  readonly llm: LlmApi;
   readonly update: UpdateApi;
 }
 
@@ -76,7 +71,6 @@ export type {
   LlmSaveInput,
   LlmVerifyInput,
   LlmVerifyResult,
-  LlmApi,
 } from './llm';
 
 export type {

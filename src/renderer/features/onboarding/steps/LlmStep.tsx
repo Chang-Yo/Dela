@@ -14,6 +14,7 @@ import { Spinner } from '../../../../ui/spinner';
 import { IconButton } from '../../../../ui/icon-button';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
+import { llmClient } from '../../../../modules/chat/view';
 
 const CUSTOM = 'custom';
 
@@ -35,7 +36,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void window.dela?.llm
+    void llmClient
       .catalog()
       .then(setCatalog)
       .catch(() => setCatalog([]));
@@ -78,12 +79,12 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     try {
       setVerifyResult(
         vendor
-          ? await window.dela.llm.verifyModel({
+          ? await llmClient.verifyModel({
               piProvider: vendor.id,
               apiKey: apiKey || undefined,
               model: selected,
             })
-          : await window.dela.llm.verify({ baseUrl: baseUrl.trim(), apiKey: apiKey || undefined }),
+          : await llmClient.verify({ baseUrl: baseUrl.trim(), apiKey: apiKey || undefined }),
       );
     } catch (cause) {
       setVerifyResult({ ok: false, message: errorText(cause) });
@@ -107,7 +108,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     setError(null);
     try {
       // 引导里选的模型排到列表首位：还没有会话可以沿用时，新会话取第一个可用提供商的首个模型。
-      await window.dela.llm.save(
+      await llmClient.save(
         vendor
           ? {
               name: vendor.name,

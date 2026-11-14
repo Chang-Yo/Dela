@@ -35,7 +35,7 @@ async function run(window) {
   const js = (source) => window.webContents.executeJavaScript(source);
   const call = (expression) => js(`(async () => ${expression})()`);
   await call(
-    `window.dela.llm.save(${JSON.stringify({
+    `window.dela.bridge.invoke('llm:save', ${JSON.stringify({
       name: 'smoke',
       baseUrl: env.DELA_SMOKE_BASE_URL,
       apiKey: env.DELA_SMOKE_API_KEY,

@@ -1,4 +1,6 @@
 // 桌面私有的能力视图（Skills、MCP、联网搜索）：不进入 Agent 协议的 JSON Schema，也不带版本。
+import { z } from 'zod';
+import { defineContract } from './contract';
 
 /**
  * Skill 的来处：builtin 是 Dela 写进 ~/.dela/skills 的内置技能；user 是本机目录里用户自己放的
@@ -119,3 +121,80 @@ export interface WebSearchKeySource {
   id: string;
   name: string;
 }
+
+/** 上传本地 Skill 到远端项目的结果。 */
+export interface RemoteSkillUpload {
+  /** 远端目标目录，例如 /home/me/proj/.dela/skills/lint。 */
+  path: string;
+  /** 写入的文件数（含附属文件）。 */
+  files: number;
+}
+
+const id = z.uuid();
+const name = z.string().trim().min(1).max(100);
+/** Skill 的 id 是清单里的 SKILL.md 路径；主进程按清单解析，不接受清单外的路径。 */
+const skillId = z.string().min(1).max(32_767);
+const skills = z.custom<SkillView[]>();
+const mcpServers = z.custom<McpServerView[]>();
+const builtins = z.custom<AgentCapabilityView[]>();
+const webSearchEntries = z.custom<WebSearchEntry[]>();
+
+/** MCP 与联网搜索的配置由主进程按各自 schema 校验；改动后空闲会话按新配置重建。 */
+export const capabilitiesContract = defineContract(
+  'capabilities',
+  {
+    listSkills: { input: z.undefined(), output: skills },
+    setSkillEnabled: { input: z.object({ id: skillId, enabled: z.boolean() }), output: skills },
+    installSkillDependencies: { input: z.string(), output: skills },
+    cancelSkillInstallation: { input: z.string(), output: z.void() },
+    readSkill: { input: skillId, output: z.string() },
+    /** 在系统文件管理器中显示 SKILL.md 所在位置。 */
+    revealSkill: { input: skillId, output: z.void() },
+    /** 目标已存在且 overwrite 为 false 时抛「远端已存在：…」，供界面二次确认。 */
+    uploadSkillToRemote: {
+      input: z.object({
+        id: skillId,
+        remotePath: z.string().trim().min(1).max(4096),
+        overwrite: z.boolean(),
+      }),
+      output: z.custom<RemoteSkillUpload>(),
+    },
+    listMcpServers: { input: z.undefined(), output: mcpServers },
+    addMcpServer: { input: z.custom<McpServerInput>(), output: mcpServers },
+    /** 改配置会重连。 */
+    updateMcpServer: {
+      input: z.object({ id, patch: z.custom<McpServerPatch>() }),
+      output: mcpServers,
+    },
+    removeMcpServer: { input: id, output: mcpServers },
+    /** 显式重连并刷新工具列表。 */
+    refreshMcpServer: { input: id, output: mcpServers },
+    listBuiltinCapabilities: { input: z.undefined(), output: builtins },
+    setBuiltinCapability: { input: z.object({ name, enabled: z.boolean() }), output: builtins },
+    /** 按领域批量启停，跳过常驻能力。 */
+    setBuiltinDomain: { input: z.object({ domain: name, enabled: z.boolean() }), output: builtins },
+    /** 全应用同时运行的子 Agent 上限（同步与后台合计）。 */
+    subagentLimit: { input: z.undefined(), output: z.number() },
+    setSubagentLimit: { input: z.number(), output: z.number() },
+    listWebSearchEntries: { input: z.undefined(), output: webSearchEntries },
+    /** 聊天侧选择器：脱敏条目与当前选中（工具停用或悬空 id 视为未选）。 */
+    listWebSearchOptions: {
+      input: z.undefined(),
+      output: z.custom<{ entries: WebSearchEntrySummary[]; selectedId: string | null }>(),
+    },
+    /** 省略 id 为新建，新建即选中。 */
+    saveWebSearchEntry: { input: z.custom<WebSearchEntryInput>(), output: webSearchEntries },
+    /** 删的是选中项时回落到剩余第一条。 */
+    removeWebSearchEntry: { input: id, output: webSearchEntries },
+    /** 选择即启用 web_search 工具；null 表示关闭联网搜索。 */
+    selectWebSearchEntry: { input: id.nullable(), output: z.void() },
+    /** 可导入密钥的 DeepSeek 模型供应商（不含密钥），使用中的排最前。 */
+    listWebSearchKeySources: { input: z.undefined(), output: z.custom<WebSearchKeySource[]>() },
+    /** 表单预填用的静态副本，不随供应商换 Key 更新；供应商不可用时为 null。 */
+    readWebSearchKey: { input: id, output: z.custom<string | null>() },
+  },
+  {
+    /** 搜索配置或内置工具开关变了。 */
+    webSearchChanged: z.undefined(),
+  },
+);

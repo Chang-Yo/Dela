@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
+import { llmClient } from '../../../../modules/chat/view';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
@@ -345,7 +346,7 @@ export function LlmSection() {
 
   /** 读取最新列表；selectId 指定刷新后选中的提供商（保存时用，新建的此时才出现在列表里）。 */
   const refresh = (selectId?: string) => {
-    void window.dela?.llm
+    void llmClient
       .list()
       .then((views) => {
         setProviders(views);
@@ -368,7 +369,7 @@ export function LlmSection() {
 
   useEffect(() => {
     refresh();
-    void window.dela?.llm
+    void llmClient
       .catalog()
       .then(setCatalog)
       .catch((cause) => setError(errorText(cause)));
@@ -479,10 +480,10 @@ export function LlmSection() {
                 catalog={catalog}
                 key={detailProvider?.id ?? 'create'}
                 onCancelCreate={() => setDetail(defaultDetail(providers ?? []))}
-                onRemove={(id) => void run(() => window.dela!.llm.remove(id))}
+                onRemove={(id) => void run(() => llmClient.remove(id))}
                 onSaved={(saved) => handleSaved(saved, detail!)}
                 onSetEnabled={(id, enabled) =>
-                  void run(() => window.dela!.llm.setEnabled(id, enabled))
+                  void run(() => llmClient.setEnabled({ id, enabled }))
                 }
                 provider={detailProvider}
               />
@@ -636,7 +637,7 @@ function ProviderDetail({
     setVerifyResult(null);
     const version = connectionVersion.current;
     try {
-      const result = await window.dela.llm.verify({
+      const result = await llmClient.verify({
         id: provider?.id,
         baseUrl,
         apiKey: apiKey || undefined,
@@ -665,7 +666,7 @@ function ProviderDetail({
     modelCheckVersion.current[id] = modelVersion;
     setModelResults((current) => ({ ...current, [id]: 'pending' }));
     try {
-      const result = await window.dela.llm.verifyModel({
+      const result = await llmClient.verifyModel({
         id: provider?.id,
         piProvider,
         baseUrl: piProvider ? undefined : baseUrl,
@@ -704,7 +705,7 @@ function ProviderDetail({
     }
     setError(null);
     try {
-      const saved = await window.dela.llm.save(payload(d));
+      const saved = await llmClient.save(payload(d));
       if (d.apiKey) {
         d.apiKey = '';
         setApiKey('');
@@ -732,9 +733,7 @@ function ProviderDetail({
     setSaving(true);
     setError(null);
     try {
-      const saved = await window.dela.llm.save(
-        payload({ name, baseUrl, apiKey, models, modelConfigs }),
-      );
+      const saved = await llmClient.save(payload({ name, baseUrl, apiKey, models, modelConfigs }));
       // 新建即启用；创建成功切换到该提供商的编辑态（组件按 id 重挂载，无需手动同步字段）。
       onSaved(saved);
     } catch (cause) {

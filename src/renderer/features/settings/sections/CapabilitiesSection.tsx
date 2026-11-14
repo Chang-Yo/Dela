@@ -10,6 +10,7 @@ import { showToast } from '../../../app/toasts';
 import { SearchConfigDialog } from './SearchConfigDialog';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
+import { capabilitiesClient, onWebSearchChanged } from '../../../../modules/chat/view';
 
 /** 按领域聚拢能力（顺序取主进程返回的领域顺序，不依赖同名项相邻）。 */
 function groupByDomain(capabilities: AgentCapabilityView[]) {
@@ -32,17 +33,20 @@ function SubagentLimit() {
   const [saved, setSaved] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   useEffect(() => {
-    void window.dela?.capability.getSubagentLimit().then((limit) => {
-      setSaved(limit);
-      setDraft(String(limit));
-    });
+    void capabilitiesClient
+      .subagentLimit()
+      .then((limit) => {
+        setSaved(limit);
+        setDraft(String(limit));
+      })
+      .catch(() => {});
   }, []);
   if (saved === null) return null;
   const save = async () => {
     const limit = Number(draft);
     if (limit === saved) return;
     try {
-      const next = await window.dela!.capability.setSubagentLimit(limit);
+      const next = await capabilitiesClient.setSubagentLimit(limit);
       setSaved(next);
       setDraft(String(next));
     } catch {
@@ -92,7 +96,7 @@ export function CapabilitiesSection() {
     let request = 0;
     const refresh = () => {
       const current = ++request;
-      void window.dela?.capability
+      void capabilitiesClient
         .listBuiltinCapabilities()
         .then((list) => {
           if (current === request) setCapabilities(list);
@@ -101,10 +105,10 @@ export function CapabilitiesSection() {
           if (current === request) setError(errorText(cause));
         });
     };
-    const unsubscribe = window.dela?.capability.onWebSearchChanged?.(refresh);
+    const unsubscribe = onWebSearchChanged(refresh);
     refresh();
     return () => {
-      unsubscribe?.();
+      unsubscribe();
       request++;
     };
   }, []);
@@ -168,7 +172,10 @@ export function CapabilitiesSection() {
                             label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
                             onChange={(next) =>
                               void run(() =>
-                                window.dela!.capability.setBuiltinDomain(group.id, next),
+                                capabilitiesClient.setBuiltinDomain({
+                                  domain: group.id,
+                                  enabled: next,
+                                }),
                               )
                             }
                           />
@@ -217,7 +224,10 @@ export function CapabilitiesSection() {
                             label={capability.label}
                             onChange={(next) =>
                               void run(() =>
-                                window.dela!.capability.setBuiltinCapability(capability.name, next),
+                                capabilitiesClient.setBuiltinCapability({
+                                  name: capability.name,
+                                  enabled: next,
+                                }),
                               )
                             }
                           />

@@ -19,6 +19,7 @@ import {
   DialogFooter,
   DialogTitle,
 } from '../../../../../ui/dialog';
+import { capabilitiesClient } from '../../../../../modules/chat/view';
 
 const ORIGINS = ['builtin', 'user', 'project'] as const;
 const ORIGIN_LABELS: Record<SkillOrigin, string> = {
@@ -87,7 +88,7 @@ export function SkillsTab() {
   const [uploading, setUploading] = useState<SkillView | null>(null);
 
   const refresh = () => {
-    void window.dela?.capability
+    void capabilitiesClient
       .listSkills()
       .then(setSkills)
       .catch((cause) => setError(errorText(cause)));
@@ -110,7 +111,7 @@ export function SkillsTab() {
     cancelRequested.current = false;
     setInstalling(true);
     try {
-      setSkills(await window.dela.capability.installSkillDependencies(skill.name));
+      setSkills(await capabilitiesClient.installSkillDependencies(skill.name));
     } catch (cause) {
       refresh();
       if (!cancelRequested.current)
@@ -123,7 +124,7 @@ export function SkillsTab() {
   const cancelInstallation = async (name: string) => {
     cancelRequested.current = true;
     try {
-      await window.dela?.capability.cancelSkillInstallation(name);
+      await capabilitiesClient.cancelSkillInstallation(name);
     } catch (cause) {
       cancelRequested.current = false;
       showToast({ variant: 'error', title: '取消失败', description: errorText(cause) });
@@ -139,7 +140,7 @@ export function SkillsTab() {
       (previous ?? []).map((item) => (item.id === skill.id ? { ...item, enabled: next } : item)),
     );
     try {
-      setSkills(await window.dela.capability.setSkillEnabled(skill.id, next));
+      setSkills(await capabilitiesClient.setSkillEnabled({ id: skill.id, enabled: next }));
     } catch (cause) {
       setSkills(previous);
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
@@ -150,7 +151,7 @@ export function SkillsTab() {
 
   // 目录可能已被删除，reveal 失败要经 toast 提示。
   const reveal = (skill: SkillView) => {
-    void window.dela?.capability
+    void capabilitiesClient
       .revealSkill(skill.id)
       .catch((cause) =>
         showToast({ variant: 'error', title: '打开所在位置失败', description: errorText(cause) }),
@@ -344,7 +345,7 @@ function SkillContentView({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void window.dela?.capability
+    void capabilitiesClient
       .readSkill(skill.id)
       .then(setContent)
       .catch((cause) => setError(errorText(cause)));
@@ -400,11 +401,16 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
   const project = projects.find((entry) => entry.id === projectId);
 
   const upload = async (overwrite: boolean) => {
-    const dela = window.dela;
-    if (!dela || busy || !project) return;
+    if (!window.dela || busy || !project) return;
     setBusy(true);
     try {
-      setUploaded(await dela.capability.uploadSkillToRemote(skill.id, project.path, overwrite));
+      setUploaded(
+        await capabilitiesClient.uploadSkillToRemote({
+          id: skill.id,
+          remotePath: project.path,
+          overwrite,
+        }),
+      );
       setConflict(false);
     } catch (cause) {
       const message = errorText(cause);

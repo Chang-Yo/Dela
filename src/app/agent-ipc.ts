@@ -1,4 +1,4 @@
-// agent 域入口：注册 Agent 协议与桌面私有的 llm:* / capabilities:* 通道；会话的桌面操作在 modules/chat。
+// agent 域入口：注册 Agent 协议与桌面私有的 llm、capabilities 契约；会话的桌面操作在 modules/chat。
 import { ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../main/ipc';
@@ -11,7 +11,9 @@ import {
   verifyLlmModel,
 } from '../core/agent/providers';
 import { agentContract } from '../core/protocol/agent';
-import { channelsOf } from '../core/protocol/contract';
+import { capabilitiesContract } from '../core/protocol/capabilities';
+import { channelsOf, implement } from '../core/protocol/contract';
+import { llmContract } from '../core/protocol/llm';
 import { agentProtocol } from '../core/agent/protocol';
 import {
   hasLiveSessions as hasLiveMainSessions,
@@ -19,7 +21,7 @@ import {
   shutdownSessions as shutdownMainSessions,
 } from '../core/agent/session/run';
 import { preloadPi } from '../core/agent/session/store';
-import { hostPorts } from '../core/ports';
+import { emit, hostPorts } from '../core/ports';
 import { hasSidechats, shutdownSidechats } from '../core/agent/sidechat';
 import { gcChatMedia } from '../core/agent/media';
 import {
@@ -81,8 +83,6 @@ async function shutdownSessions(timeoutMs: number) {
   ]);
 }
 
-const uuid = z.string().uuid();
-
 /** 模型/能力配置写入后让空闲会话按新配置重建。 */
 function invalidating<T>(fn: () => T): T {
   const result = fn();
@@ -91,19 +91,97 @@ function invalidating<T>(fn: () => T): T {
   return result;
 }
 
+/** 搜索配置变更同时刷新会话工具与各窗口的选择器。 */
 function changingWebSearch<T>(fn: () => T): T {
   const result = invalidating(fn);
-  hostPorts().desktop.sendToWindows('capabilities:web-search-changed');
+  emit(capabilitiesContract, 'webSearchChanged', undefined);
   return result;
 }
 
+// 提供商配置只影响用它的会话；停用与删除也一样，那些会话下次使用时会提示另选模型。
+const llm = implement(llmContract, {
+  catalog: () => llmCatalog(),
+  list: () => listLlmProviders(),
+  save: async (input) => {
+    const saved = await saveLlmProvider(input);
+    invalidateSessions(saved.id);
+    return saved;
+  },
+  remove: (id) => {
+    removeLlmProvider(id);
+    invalidateSessions(id);
+  },
+  setEnabled: ({ id, enabled }) => {
+    setLlmProviderEnabled(id, enabled);
+    invalidateSessions(id);
+  },
+  verify: verifyLlm,
+  verifyModel: verifyLlmModel,
+});
+
+const capabilities = implement(capabilitiesContract, {
+  listSkills: () => listSkills(),
+  installSkillDependencies: (skill) => {
+    z.literal(DOCUMENT_SKILL).parse(skill);
+    return invalidating(async () => {
+      await installDocumentDependency();
+      await setGlobalSkillEnabled(DOCUMENT_SKILL, true);
+      return listSkills();
+    });
+  },
+  cancelSkillInstallation: (skill) => {
+    z.literal(DOCUMENT_SKILL).parse(skill);
+    cancelDocumentInstallation();
+  },
+  setSkillEnabled: ({ id, enabled }) => invalidating(() => setSkillEnabled(id, enabled)),
+  readSkill,
+  revealSkill,
+  uploadSkillToRemote: ({ id, remotePath, overwrite }) =>
+    invalidating(async () => {
+      const found = await findSkill(id);
+      const skillName = z
+        .string()
+        .trim()
+        .min(1)
+        .max(100)
+        .refine((value) => !/[/\\]/.test(value) && value !== '.' && value !== '..')
+        .parse(found.name);
+      if (skillName === DOCUMENT_SKILL) throw new Error('文档读取组件仅在本机使用');
+      const project = remoteProjectOf(remotePath);
+      if (!project) throw new Error('目标不是远端项目路径');
+      return uploadSkillToRemote({
+        target: targetOf(remoteById(project.remoteId)),
+        skillDir: skillDirectory(found),
+        name: skillName,
+        remoteDir: project.path,
+        overwrite,
+      });
+    }),
+  listMcpServers: () => listMcpServers(),
+  addMcpServer: (config) => invalidating(() => addMcpServer(mcpServerInputSchema.parse(config))),
+  updateMcpServer: ({ id, patch }) =>
+    invalidating(() => updateMcpServer(id, mcpServerPatchSchema.parse(patch))),
+  removeMcpServer: (id) => invalidating(() => removeMcpServer(id)),
+  refreshMcpServer: (id) => invalidating(() => refreshMcpServer(id)),
+  listBuiltinCapabilities: () => listBuiltinCapabilities(),
+  setBuiltinCapability: ({ name, enabled }) =>
+    changingWebSearch(() => setBuiltinCapabilities([name], enabled)),
+  setBuiltinDomain: ({ domain, enabled }) =>
+    changingWebSearch(() => setBuiltinCapabilities(domainTools(domain), enabled)),
+  subagentLimit: () => readSubagentLimit(),
+  setSubagentLimit,
+  listWebSearchEntries: () => listWebSearchEntries(),
+  listWebSearchOptions: () => listWebSearchOptions(),
+  saveWebSearchEntry: (entry) =>
+    changingWebSearch(() => saveWebSearchEntry(webSearchEntryInputSchema.parse(entry))),
+  removeWebSearchEntry: (id) => changingWebSearch(() => removeWebSearchEntry(id)),
+  selectWebSearchEntry: (id) => changingWebSearch(() => selectWebSearchEntry(id)),
+  listWebSearchKeySources: () => listWebSearchKeySources(),
+  readWebSearchKey,
+});
+
 export function registerAgentIpc() {
   void preloadPi();
-  const handle = (channel: string, fn: (...args: unknown[]) => unknown) =>
-    ipcMain.handle(channel, (event, ...args) => {
-      checkWorkspaceSender(event);
-      return fn(...args);
-    });
   // 调用过协议的窗口才收得到会话事件。
   for (const channel of channelsOf(agentContract)) {
     const name = channel.slice(agentContract.namespace.length + 1);
@@ -114,111 +192,10 @@ export function registerAgentIpc() {
       return agentProtocol.call(name, input);
     });
   }
-
-  handle('llm:catalog', () => llmCatalog());
-  handle('llm:list', () => listLlmProviders());
-  // 提供商配置只影响用它的会话；停用与删除也一样，那些会话下次使用时会提示另选模型。
-  handle('llm:save', async (input) => {
-    const saved = await saveLlmProvider(input);
-    invalidateSessions(saved.id);
-    return saved;
-  });
-  handle('llm:remove', (id) => {
-    const providerId = uuid.parse(id);
-    removeLlmProvider(providerId);
-    invalidateSessions(providerId);
-  });
-  handle('llm:set-enabled', (id, enabled) => {
-    const providerId = uuid.parse(id);
-    setLlmProviderEnabled(providerId, z.boolean().parse(enabled));
-    invalidateSessions(providerId);
-  });
-  handle('llm:verify-model', (input) => verifyLlmModel(input));
-  handle('llm:verify', (input) =>
-    verifyLlm(
-      z
-        .object({ id: uuid.optional(), baseUrl: z.string(), apiKey: z.string().optional() })
-        .parse(input),
-    ),
-  );
-
-  const name = z.string().trim().min(1).max(100);
-  handle('capabilities:list-skills', () => listSkills());
-  handle('capabilities:install-skill-dependencies', (skill) => {
-    z.literal(DOCUMENT_SKILL).parse(skill);
-    return invalidating(async () => {
-      await installDocumentDependency();
-      await setGlobalSkillEnabled(DOCUMENT_SKILL, true);
-      return listSkills();
-    });
-  });
-  handle('capabilities:cancel-skill-installation', (skill) => {
-    z.literal(DOCUMENT_SKILL).parse(skill);
-    cancelDocumentInstallation();
-  });
-  // Skill 的 id 是清单里的 SKILL.md 路径；主进程按清单解析，不接受清单外的路径。
-  const skillId = z.string().min(1).max(32_767);
-  handle('capabilities:set-skill-enabled', (skill, enabled) =>
-    invalidating(() => setSkillEnabled(skillId.parse(skill), z.boolean().parse(enabled))),
-  );
-  handle('capabilities:read-skill', (skill) => readSkill(skillId.parse(skill)));
-  handle('capabilities:reveal-skill', (skill) => revealSkill(skillId.parse(skill)));
-  handle('capabilities:upload-skill-to-remote', (skill, remotePath, overwrite) =>
-    invalidating(async () => {
-      const found = await findSkill(skillId.parse(skill));
-      const skillName = name
-        .refine((value) => !/[/\\]/.test(value) && value !== '.' && value !== '..')
-        .parse(found.name);
-      if (skillName === DOCUMENT_SKILL) throw new Error('文档读取组件仅在本机使用');
-      const project = remoteProjectOf(z.string().trim().min(1).max(4096).parse(remotePath));
-      if (!project) throw new Error('目标不是远端项目路径');
-      return uploadSkillToRemote({
-        target: targetOf(remoteById(project.remoteId)),
-        skillDir: skillDirectory(found),
-        name: skillName,
-        remoteDir: project.path,
-        overwrite: z.boolean().parse(overwrite),
+  for (const ipc of [llm, capabilities])
+    for (const name of Object.keys(ipc.contract.procedures))
+      ipcMain.handle(`${ipc.contract.namespace}:${name}`, (event, input: unknown) => {
+        checkWorkspaceSender(event);
+        return ipc.call(name, input);
       });
-    }),
-  );
-  handle('capabilities:list-mcp-servers', () => listMcpServers());
-  handle('capabilities:add-mcp-server', (config) =>
-    invalidating(() => addMcpServer(mcpServerInputSchema.parse(config))),
-  );
-  handle('capabilities:update-mcp-server', (id, patch) =>
-    invalidating(() => updateMcpServer(uuid.parse(id), mcpServerPatchSchema.parse(patch))),
-  );
-  handle('capabilities:remove-mcp-server', (id) =>
-    invalidating(() => removeMcpServer(uuid.parse(id))),
-  );
-  handle('capabilities:refresh-mcp-server', (id) =>
-    invalidating(() => refreshMcpServer(uuid.parse(id))),
-  );
-  handle('capabilities:list-builtin-capabilities', () => listBuiltinCapabilities());
-  handle('capabilities:set-builtin-capability', (tool, enabled) =>
-    changingWebSearch(() => setBuiltinCapabilities([name.parse(tool)], z.boolean().parse(enabled))),
-  );
-  handle('capabilities:set-builtin-domain', (domain, enabled) =>
-    changingWebSearch(() =>
-      setBuiltinCapabilities(domainTools(name.parse(domain)), z.boolean().parse(enabled)),
-    ),
-  );
-  handle('capabilities:get-subagent-limit', () => readSubagentLimit());
-  handle('capabilities:set-subagent-limit', (limit) => setSubagentLimit(limit));
-  handle('capabilities:list-web-search-entries', () => listWebSearchEntries());
-  handle('capabilities:list-web-search-options', () => listWebSearchOptions());
-  // 搜索配置变更同时刷新会话工具与各窗口的选择器。
-  handle('capabilities:save-web-search-entry', (entry) =>
-    changingWebSearch(() => saveWebSearchEntry(webSearchEntryInputSchema.parse(entry))),
-  );
-  handle('capabilities:remove-web-search-entry', (id) =>
-    changingWebSearch(() => removeWebSearchEntry(uuid.parse(id))),
-  );
-  handle('capabilities:select-web-search-entry', (id) =>
-    changingWebSearch(() => selectWebSearchEntry(id === null ? null : uuid.parse(id))),
-  );
-  handle('capabilities:list-web-search-key-sources', () => listWebSearchKeySources());
-  handle('capabilities:read-web-search-key', (providerId) =>
-    readWebSearchKey(uuid.parse(providerId)),
-  );
 }

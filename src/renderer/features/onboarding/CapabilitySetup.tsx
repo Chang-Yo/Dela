@@ -7,6 +7,7 @@ import { DownloadProgressRow } from '../../components/download-progress';
 import { errorText } from '../../workspace/store';
 import { StepButton } from '../../../modules/onboarding/view';
 import { ErrorText } from '../../../ui/alert';
+import { capabilitiesClient } from '../../../modules/chat/view';
 
 /** 首次引导的最后一步：安装并启用需要额外组件的 Skill。 */
 export function CapabilitySetup({
@@ -24,7 +25,7 @@ export function CapabilitySetup({
 
   const refresh = useCallback(async () => {
     try {
-      const next = await window.dela!.capability.listSkills();
+      const next = await capabilitiesClient.listSkills();
       if (active.current) setSkills(next);
     } catch (cause) {
       if (active.current) setError(errorText(cause));
@@ -55,8 +56,8 @@ export function CapabilitySetup({
     try {
       const next =
         skill.dependency?.status === 'ready'
-          ? await window.dela.capability.setSkillEnabled(skill.id, true)
-          : await window.dela.capability.installSkillDependencies(skill.name);
+          ? await capabilitiesClient.setSkillEnabled({ id: skill.id, enabled: true })
+          : await capabilitiesClient.installSkillDependencies(skill.name);
       if (active.current) setSkills(next);
     } catch (cause) {
       if (active.current && !cancelRequested.current) setError(errorText(cause));
@@ -69,7 +70,7 @@ export function CapabilitySetup({
   const cancel = async (name: string) => {
     cancelRequested.current = true;
     try {
-      await window.dela!.capability.cancelSkillInstallation(name);
+      await capabilitiesClient.cancelSkillInstallation(name);
     } catch (cause) {
       cancelRequested.current = false;
       if (active.current) setError(errorText(cause));

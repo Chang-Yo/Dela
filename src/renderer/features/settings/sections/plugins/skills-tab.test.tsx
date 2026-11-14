@@ -4,6 +4,17 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, SkillView, WorkspaceEntry, WorkspaceState } from '../../../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入装好；用例经 stubCapabilities 登记 handler。
+const { api, bridge } = vi.hoisted(() => {
+  const api: Record<string, (input: never) => unknown> = {};
+  const bridge = {
+    invoke: async (channel: string, input: never) => api[channel]!(input),
+    subscribe: () => () => {},
+  };
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
+  return { api, bridge };
+});
 import { useToastStore } from '../../../../app/toasts';
 import { useWorkspaceStore } from '../../../../workspace/store';
 import { SkillsTab } from './SkillsTab';
@@ -56,6 +67,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
+  for (const channel of Object.keys(api)) delete api[channel];
 });
 
 afterEach(async () => {
@@ -66,13 +78,20 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+function stubCapabilities(handlers: Record<string, (input: never) => unknown>) {
+  for (const [name, handler] of Object.entries(handlers)) api[`capabilities:${name}`] = handler;
+  window.dela = { bridge } as unknown as DelaApi;
+}
+
 async function openDialog(
-  uploadSkillToRemote: (n: string, p: string, o: boolean) => Promise<unknown>,
+  uploadSkillToRemote: (input: {
+    id: string;
+    remotePath: string;
+    overwrite: boolean;
+  }) => Promise<unknown>,
 ) {
   useWorkspaceStore.setState({ workspace: state([remoteProject, localProject]), loaded: true });
-  window.dela = {
-    capability: { listSkills: async () => [skill], uploadSkillToRemote },
-  } as unknown as DelaApi;
+  stubCapabilities({ listSkills: async () => [skill], uploadSkillToRemote });
   await act(async () => root.render(<SkillsTab />));
   const open = container.querySelector<HTMLButtonElement>('[aria-label="上传 lint 到远端项目"]')!;
   await act(async () => open.click());
@@ -80,9 +99,7 @@ async function openDialog(
 
 it('empty state without remote projects', async () => {
   useWorkspaceStore.setState({ workspace: state([localProject]), loaded: true });
-  window.dela = {
-    capability: { listSkills: async () => [skill], uploadSkillToRemote: vi.fn() },
-  } as unknown as DelaApi;
+  stubCapabilities({ listSkills: async () => [skill], uploadSkillToRemote: vi.fn() });
   await act(async () => root.render(<SkillsTab />));
   await act(async () =>
     container.querySelector<HTMLButtonElement>('[aria-label="上传 lint 到远端项目"]')!.click(),
@@ -95,7 +112,11 @@ it('uploads to the selected remote project', async () => {
   await openDialog(call);
   await act(async () => buttonByText('远端课题').click());
   await act(async () => buttonByText('上传').click());
-  expect(call).toHaveBeenCalledWith(skill.id, '/root/proj', false);
+  expect(call).toHaveBeenCalledWith({
+    id: skill.id,
+    remotePath: '/root/proj',
+    overwrite: false,
+  });
   expect(document.body.textContent).toContain('/root/proj/.agents/skills/lint');
 });
 
@@ -113,7 +134,11 @@ it('asks for overwrite when the remote skill exists', async () => {
   await act(async () => buttonByText('上传').click());
   expect(document.body.textContent).toContain('远端已有同名技能，覆盖吗？');
   await act(async () => buttonByText('覆盖').click());
-  expect(call).toHaveBeenLastCalledWith(skill.id, '/root/proj', true);
+  expect(call).toHaveBeenLastCalledWith({
+    id: skill.id,
+    remotePath: '/root/proj',
+    overwrite: true,
+  });
   expect(document.body.textContent).toContain('/root/proj/.agents/skills/lint');
 });
 
@@ -138,9 +163,7 @@ it('requires dependency installation before enabling document reading', async ()
   };
   const ready: SkillView = { ...missing, enabled: true, dependency: { status: 'ready' } };
   const installSkillDependencies = vi.fn(async () => [ready]);
-  window.dela = {
-    capability: { listSkills: async () => [missing], installSkillDependencies },
-  } as unknown as DelaApi;
+  stubCapabilities({ listSkills: async () => [missing], installSkillDependencies });
   await act(async () => root.render(<SkillsTab />));
   expect(container.querySelector('[role="switch"]')).toBeNull();
   await act(async () => buttonByText('安装并启用').click());
@@ -156,9 +179,7 @@ it('keeps a failed dependency disabled and offers retry', async () => {
     dependency: { status: 'error', error: '下载失败' },
   };
   const installSkillDependencies = vi.fn().mockRejectedValue(new Error('下载失败'));
-  window.dela = {
-    capability: { listSkills: async () => [failed], installSkillDependencies },
-  } as unknown as DelaApi;
+  stubCapabilities({ listSkills: async () => [failed], installSkillDependencies });
   await act(async () => root.render(<SkillsTab />));
   await act(async () => buttonByText('重试安装').click());
   expect(container.querySelector('[role="switch"]')).toBeNull();
@@ -179,13 +200,11 @@ it('cancels installation without presenting the user action as a failure', async
   const cancelSkillInstallation = vi.fn(async () => {
     rejectInstall(new Error('aborted'));
   });
-  window.dela = {
-    capability: {
-      listSkills: async () => [missing],
-      installSkillDependencies: () => pending,
-      cancelSkillInstallation,
-    },
-  } as unknown as DelaApi;
+  stubCapabilities({
+    listSkills: async () => [missing],
+    installSkillDependencies: () => pending,
+    cancelSkillInstallation,
+  });
   await act(async () => root.render(<SkillsTab />));
   await act(async () => buttonByText('安装并启用').click());
   await act(async () => buttonByText('取消安装').click());
@@ -212,12 +231,10 @@ it('groups skills by where they come from and toggles them by id', async () => {
       group: { id: 'p-beta', label: 'beta' },
     },
   ];
-  const setSkillEnabled = vi.fn(async (id: string, enabled: boolean) =>
+  const setSkillEnabled = vi.fn(async ({ id, enabled }: { id: string; enabled: boolean }) =>
     skills.map((item) => (item.id === id ? { ...item, enabled } : item)),
   );
-  window.dela = {
-    capability: { listSkills: async () => skills, setSkillEnabled },
-  } as unknown as DelaApi;
+  stubCapabilities({ listSkills: async () => skills, setSkillEnabled });
   await act(async () => root.render(<SkillsTab />));
 
   const titles = [...container.querySelectorAll('section')].map(
@@ -236,7 +253,10 @@ it('groups skills by where they come from and toggles them by id', async () => {
 
   // 两个项目的 lint 同名：只动 beta 那一个。
   await act(async () => switchFor('启用 lint')[1]!.click());
-  expect(setSkillEnabled).toHaveBeenCalledWith('/work/beta/.agents/skills/lint/SKILL.md', false);
+  expect(setSkillEnabled).toHaveBeenCalledWith({
+    id: '/work/beta/.agents/skills/lint/SKILL.md',
+    enabled: false,
+  });
 
   await act(async () => buttonByText('项目').click());
   expect(container.textContent).not.toContain('canvas');

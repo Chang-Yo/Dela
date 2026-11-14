@@ -1,4 +1,7 @@
 // 桌面私有的模型提供商视图：不进入 Agent 协议的 JSON Schema，也不带版本。
+import { z } from 'zod';
+import { defineContract } from './contract';
+
 /** 未填写的限制沿用运行时默认值。 */
 export interface LlmModelSettings {
   contextWindow?: number;
@@ -68,3 +71,35 @@ export interface LlmCatalogProvider {
   baseUrl: string;
   models: LlmCatalogModel[];
 }
+
+const providerId = z.uuid();
+
+/** 输入由主进程按提供商 schema 校验；写入后用到该提供商的会话按新配置重建。 */
+export const llmContract = defineContract('llm', {
+  /** 内置厂商与模型目录：随 Pi 发布，并定期从 pi.dev 更新。 */
+  catalog: { input: z.undefined(), output: z.custom<LlmCatalogProvider[]>() },
+  list: { input: z.undefined(), output: z.custom<LlmProviderView[]>() },
+  save: { input: z.custom<LlmSaveInput>(), output: z.custom<LlmProviderView>() },
+  remove: { input: providerId, output: z.void() },
+  setEnabled: { input: z.object({ id: providerId, enabled: z.boolean() }), output: z.void() },
+  verify: {
+    input: z.object({
+      id: providerId.optional(),
+      baseUrl: z.string(),
+      apiKey: z.string().optional(),
+    }),
+    output: z.custom<LlmVerifyResult>(),
+  },
+  /** 自定义服务按 baseUrl 检测；内置厂商按 piProvider 取目录里的模型。 */
+  verifyModel: {
+    input: z.custom<{
+      id?: string;
+      piProvider?: string | null;
+      baseUrl?: string;
+      apiKey?: string;
+      model: string;
+      settings?: LlmModelSettings;
+    }>(),
+    output: z.custom<LlmVerifyResult>(),
+  },
+});

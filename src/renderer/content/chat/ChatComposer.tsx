@@ -51,7 +51,13 @@ import {
 import type { ChatReference } from './use-chat';
 import { ComposerEditor, type ComposerEditorHandle } from './ComposerEditor';
 import { releaseChatMedia, setChatMediaPreview } from './media';
-import { agentClient, chatClient } from '../../../modules/chat/view';
+import {
+  agentClient,
+  capabilitiesClient,
+  chatClient,
+  llmClient,
+  onWebSearchChanged,
+} from '../../../modules/chat/view';
 
 const builtinCommands = [
   { name: '日程', prompt: '帮我查看本周的日程安排', hint: '课程与个人事件' },
@@ -207,8 +213,8 @@ export function ChatComposer({
     if (!window.dela) return;
     const request = ++searchRequest.current;
     setSearchFailed(false);
-    void window.dela.capability
-      ?.listWebSearchOptions()
+    void capabilitiesClient
+      .listWebSearchOptions()
       .then(({ entries, selectedId }) => {
         if (request !== searchRequest.current) return;
         setSearchEntries(entries);
@@ -221,10 +227,10 @@ export function ChatComposer({
   // 选中态是持久数据，挂载即读：发送首轮会从空态英雄布局切到会话布局重挂 composer，
   // 本地状态归零，不同步的话已开启的搜索会错显成灰色。
   useEffect(() => {
-    const unsubscribe = window.dela?.capability?.onWebSearchChanged?.(refreshSearch);
+    const unsubscribe = onWebSearchChanged(refreshSearch);
     refreshSearch();
     return () => {
-      unsubscribe?.();
+      unsubscribe();
       searchRequest.current++;
     };
   }, []);
@@ -425,7 +431,7 @@ export function ChatComposer({
     setModelPickerOpen(open);
     if (!open || !window.dela) return;
     setProvidersFailed(false);
-    window.dela.llm
+    llmClient
       .list()
       .then((views) => {
         const enabled = views.filter((view) => view.enabled);
@@ -443,7 +449,7 @@ export function ChatComposer({
   const selectSearchEntry = async (id: string | null) => {
     if (!window.dela) return;
     try {
-      await window.dela.capability.selectWebSearchEntry(id);
+      await capabilitiesClient.selectWebSearchEntry(id);
       refreshSearch();
       setSearchPickerOpen(false);
     } catch (cause) {
