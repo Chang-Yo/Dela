@@ -925,7 +925,7 @@ export function ChatComposer({
                 ) : item.session ? (
                   <span
                     className="min-w-0 flex-1 truncate text-sm font-semibold"
-                    style={{ color: 'var(--cal-blue-text)' }}
+                    style={{ color: 'var(--accent-ink)' }}
                   >
                     {item.title}
                   </span>
@@ -948,7 +948,7 @@ function MentionTitle({ title }: { title: string }) {
   const name = at < 0 ? title : title.slice(at + 1);
   return (
     <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-sm">
-      <span className="shrink-0 font-semibold" style={{ color: 'var(--cal-blue-text)' }}>
+      <span className="shrink-0 font-semibold" style={{ color: 'var(--accent-ink)' }}>
         {name}
       </span>
       {dir && <span className="min-w-0 truncate text-xs text-ink-3">{dir}</span>}

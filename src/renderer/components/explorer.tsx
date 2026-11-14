@@ -488,9 +488,9 @@ export function Explorer({
                   ? 'before:bg-selected font-medium text-ink'
                   : // 目录列底色为 inset，hover 用 hover-strong 才与其拉开层次。
                     'text-ink-2 hover:text-ink hover:before:bg-hover-strong',
-                // 落点区域行去圆角，使目录子树区域连成一块整色；蓝色调与选中态的
-                // 中性灰区分（--drop-target，globals.css 三作用域定义）。
-                dropRegion && 'rounded-none bg-drop-target text-ink',
+                // 落点区域行去圆角，使目录子树区域连成一块整色；强调色浅底与选中态的
+                // 中性灰区分。
+                dropRegion && 'rounded-none bg-accent-tint text-ink',
               )}
               style={
                 {

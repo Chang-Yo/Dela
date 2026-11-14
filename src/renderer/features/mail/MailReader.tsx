@@ -192,7 +192,7 @@ export function MailReader({
                 </>
               )}
             </div>
-            <div className="mt-3 grid gap-1.5 border-b border-line-soft pb-4">
+            <div className="mt-3 grid gap-1.5 border-b border-line pb-4">
               <div className="flex gap-3">
                 <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">发件人</span>
                 <span className="min-w-0 flex-1 break-all text-sm leading-5">

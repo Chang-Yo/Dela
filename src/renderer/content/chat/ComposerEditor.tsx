@@ -281,7 +281,7 @@ const composerTheme = EditorView.theme({
     cursor: 'pointer',
   },
   '.dela-chat-image button:hover': { color: 'var(--ink)' },
-  '.cm-ref-name': { color: 'var(--cal-blue-text)', fontWeight: 600 },
+  '.cm-ref-name': { color: 'var(--accent-ink)', fontWeight: 600 },
   '.dela-ref-icon': {
     display: 'inline-flex',
     alignItems: 'center',

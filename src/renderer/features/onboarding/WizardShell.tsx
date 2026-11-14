@@ -49,7 +49,7 @@ export function WizardShell({
                   aria-current={index === step ? 'step' : undefined}
                   className={cn(
                     'h-1.5 rounded-full transition-all duration-slower',
-                    index === step ? 'w-5 bg-cal-teal-text' : 'w-1.5 bg-line-strong',
+                    index === step ? 'w-5 bg-accent' : 'w-1.5 bg-line-strong',
                   )}
                   key={index}
                 />

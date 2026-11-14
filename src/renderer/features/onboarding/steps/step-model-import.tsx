@@ -85,7 +85,7 @@ function Picker({
             >
               <input
                 checked={checked.has(id)}
-                className="size-3.5 shrink-0 accent-cal-teal-text"
+                className="size-3.5 shrink-0 accent-accent"
                 onChange={() => toggle(id)}
                 type="checkbox"
               />

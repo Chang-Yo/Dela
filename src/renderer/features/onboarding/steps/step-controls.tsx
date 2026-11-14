@@ -35,7 +35,7 @@ export function StepButton({
 }: StepButtonProps) {
   return (
     <Button
-      className="w-full data-[state=success]:bg-cal-teal-text"
+      className="w-full data-[state=success]:bg-accent"
       data-state={state}
       disabled={disabled || state === 'busy'}
       onClick={onClick}

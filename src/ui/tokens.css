@@ -19,7 +19,6 @@
   /* borders — solid and crisp, not alpha */
   --line: oklch(0.946 0.003 264.542);
   --line-strong: oklch(0.912 0.005 258.326);
-  --line-soft: oklch(0.966 0.002 264.542);
   --field: oklch(0.961 0.001 286.375);
 
   /* accent */
@@ -53,7 +52,8 @@
     0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02),
     0 1.5px 3px 0 rgba(0, 0, 0, 0.02);
 
-  /* 日历候选色：低饱和灰调，浅底深字，供课程哈希分配与事件手动选择。 */
+  /* 日历候选色：低饱和灰调，浅底深字，供课程哈希分配与事件手动选择。
+     名字与数据库里的事件颜色 key 一一对应，只经 var() 取用，不生成工具类。 */
   --cal-rose-bg: oklch(0.941 0.024 18);
   --cal-rose-text: oklch(0.42 0.083 18);
   --cal-peach-bg: oklch(0.949 0.024 55);
@@ -116,7 +116,6 @@
 
   --line: oklch(0.308 0.006 258.354);
   --line-strong: oklch(0.356 0.007 264.474);
-  --line-soft: oklch(0.278 0.006 258.354);
   --field: oklch(0.293 0.006 271.223);
 
   --accent: oklch(0.68 0.173 253.301);
@@ -193,7 +192,6 @@
   --color-field: var(--field);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-line-soft: var(--line-soft);
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-tint: var(--accent-tint);
@@ -204,23 +202,6 @@
   --color-danger: var(--danger);
   --color-danger-tint: var(--danger-tint);
   --color-code: var(--syntax-bg);
-  --color-drop-target: var(--cal-blue-bg);
-  --color-cal-rose-bg: var(--cal-rose-bg);
-  --color-cal-rose-text: var(--cal-rose-text);
-  --color-cal-peach-bg: var(--cal-peach-bg);
-  --color-cal-peach-text: var(--cal-peach-text);
-  --color-cal-sand-bg: var(--cal-sand-bg);
-  --color-cal-sand-text: var(--cal-sand-text);
-  --color-cal-sage-bg: var(--cal-sage-bg);
-  --color-cal-sage-text: var(--cal-sage-text);
-  --color-cal-teal-bg: var(--cal-teal-bg);
-  --color-cal-teal-text: var(--cal-teal-text);
-  --color-cal-blue-bg: var(--cal-blue-bg);
-  --color-cal-blue-text: var(--cal-blue-text);
-  --color-cal-lilac-bg: var(--cal-lilac-bg);
-  --color-cal-lilac-text: var(--cal-lilac-text);
-  --color-cal-slate-bg: var(--cal-slate-bg);
-  --color-cal-slate-text: var(--cal-slate-text);
 
   /* 不随主题变化：遮罩、视频与外部文档（邮件正文、网页预览）的底色，以及压在它们上面的前景。 */
   --color-scrim: oklch(0 0 0 / 0.3);
