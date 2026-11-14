@@ -124,8 +124,9 @@ let ranges = 0;
 let failRange = false;
 const routes = {
   'workspace:get-state': () => workspace,
-  'canvas:get-state': () => canvas,
-  'canvas:read': (_, id) => ({
+  'canvas:state': () => canvas,
+  'contract:subscribe': () => null,
+  'workspace:read-source': (_, id) => ({
     title: id,
     format: 'pdf',
     mime: 'application/pdf',
@@ -196,6 +197,11 @@ app
     await evaluate(
       `const style = document.createElement('style'); style.textContent = '* { transition: none !important; animation: none !important; }'; document.head.append(style);`,
     );
+    for (const label of ['2026 秋季', '计算机视觉']) {
+      const item = `[...document.querySelectorAll('[role=treeitem]')].find(e => e.getAttribute('aria-label')?.startsWith(${JSON.stringify(label)}))`;
+      await wait(item);
+      await evaluate(`${item}.click()`);
+    }
     await wait('document.querySelector(\'[role=treeitem][aria-label="Lecture 1.pdf"]\')');
     assert.equal(await evaluate("document.body.innerText.includes('未标注学期')"), false);
     await click('归档');
@@ -219,9 +225,11 @@ app
     await wait(
       "document.querySelectorAll('[role=tab]').length === 2 && document.querySelector('.textLayer')?.textContent.includes('Lecture page 1')",
     );
-    await click('Lecture 1.pdf');
+    await evaluate(
+      "[...document.querySelectorAll('[role=tab]')].find(t => t.textContent.includes('Lecture 1.pdf')).click()",
+    );
     await wait(
-      `document.querySelector('[aria-label="PDF 页码"]').value === ${JSON.stringify(page)} && document.querySelector('.textLayer')?.textContent`,
+      `document.querySelector('[aria-label="PDF 页码"]')?.value === ${JSON.stringify(page)} && document.querySelector('.textLayer')?.textContent`,
     );
     // Exercise cancellation while old requests and Worker setup are pending.
     for (let i = 0; i < 20; i++) {
@@ -230,7 +238,7 @@ app
     }
     await open(1);
     await wait(
-      `document.querySelector('.textLayer')?.textContent && document.querySelector('[aria-label="PDF 页码"]').value === ${JSON.stringify(page)}`,
+      `document.querySelector('.textLayer')?.textContent && document.querySelector('[aria-label="PDF 页码"]')?.value === ${JSON.stringify(page)}`,
     );
     assert.equal(await evaluate("document.body.innerText.includes('PDF 打开失败')"), false);
     assert.equal(
@@ -329,7 +337,7 @@ app
       ),
     );
     await wait(
-      `document.querySelector('[aria-label="PDF 页码"]').value === ${JSON.stringify(page)}`,
+      `document.querySelector('[aria-label="PDF 页码"]')?.value === ${JSON.stringify(page)}`,
     );
     await wait(
       `document.querySelector('[data-page-number="${page}"]:not(.loading) .textLayer')?.textContent`,
