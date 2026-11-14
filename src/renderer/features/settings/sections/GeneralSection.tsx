@@ -3,12 +3,17 @@ import { Switch } from '../../../../ui/switch';
 import { views } from '../../../../app/views';
 import { usePreferences } from '../../../app/preferences';
 import { navEntries } from '../../../navigation/entries';
-import { SectionHeader, SettingRow, SettingsGroup } from '../../../../modules/settings/view';
+import {
+  SectionHeader,
+  SettingRow,
+  SettingsGroup,
+  settingsClient,
+} from '../../../../modules/settings/view';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { SystemNotifications } from './SystemNotifications';
 import { CacheUsage } from './CacheUsage';
-import { UpdateControl } from '../UpdateControl';
+import { UpdateControl } from '../../../../modules/update/view';
 
 export function GeneralSection() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
@@ -18,8 +23,9 @@ export function GeneralSection() {
   const setEntryVisible = usePreferences((state) => state.setNavEntryVisible);
 
   useEffect(() => {
-    void window.dela?.settings
-      .getOpenAtLogin()
+    if (!window.dela) return;
+    void settingsClient
+      .openAtLogin()
       .then(setOpenAtLogin)
       .catch(() => setOpenAtLogin(false));
   }, []);
@@ -29,7 +35,7 @@ export function GeneralSection() {
     if (busy) return;
     setBusy(true);
     try {
-      setOpenAtLogin(window.dela ? await window.dela.settings.setOpenAtLogin(next) : next);
+      setOpenAtLogin(window.dela ? await settingsClient.setOpenAtLogin(next) : next);
     } catch (cause) {
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {

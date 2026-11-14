@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { agentClient } from '../../modules/chat/view';
 import { leaveComposer } from '../../modules/mail/view';
 import { ancestorChainOf } from './store';
-import type { SettingsSectionId } from '../../shared/api';
+import type { SettingsSectionId } from '../../modules/settings/contract';
 import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { formatByName, opensInEditor } from '../../core/protocol/files';

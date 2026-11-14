@@ -1,7 +1,13 @@
 // 主题/缩放/字号的应用与 localStorage 镜像。
 import { useEffect, useState } from 'react';
-import type { ThemePreference, ZoomPreference } from '../../shared/api';
-import { fontSizeDefault, fontSizeMax, fontSizeMin } from '../../shared/api';
+import {
+  fontSizeDefault,
+  fontSizeMax,
+  fontSizeMin,
+  type ThemePreference,
+  type ZoomPreference,
+} from '../../modules/settings/contract';
+import { settingsClient } from '../../modules/settings/view';
 
 const themeStorageKey = 'dela.theme';
 const fontSizeStorageKey = 'dela.font-size';
@@ -56,16 +62,17 @@ export function useAppearance() {
   }, [zoom]);
 
   useEffect(() => {
-    void window.dela?.settings
-      .getTheme()
+    if (!window.dela) return;
+    void settingsClient
+      .theme()
       .then(setTheme)
       .catch(() => {});
-    void window.dela?.settings
-      .getZoom()
+    void settingsClient
+      .zoom()
       .then(setZoom)
       .catch(() => {});
-    void window.dela?.settings
-      .getFontSize()
+    void settingsClient
+      .fontSize()
       .then(setFontSize)
       .catch(() => {});
   }, []);
@@ -75,7 +82,7 @@ export function useAppearance() {
       setTheme(next);
       return;
     }
-    setTheme(await window.dela.settings.setTheme(next));
+    setTheme(await settingsClient.setTheme(next));
   };
 
   const changeZoom = async (next: ZoomPreference) => {
@@ -83,7 +90,7 @@ export function useAppearance() {
       setZoom(next);
       return;
     }
-    setZoom(await window.dela.settings.setZoom(next));
+    setZoom(await settingsClient.setZoom(next));
   };
 
   const changeFontSize = async (next: number) => {
@@ -91,7 +98,7 @@ export function useAppearance() {
       setFontSize(clampFontSize(next));
       return;
     }
-    setFontSize(await window.dela.settings.setFontSize(next));
+    setFontSize(await settingsClient.setFontSize(next));
   };
 
   return { theme, zoom, fontSize, changeTheme, changeZoom, changeFontSize };

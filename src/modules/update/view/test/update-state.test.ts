@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 // 更新快照的渲染层镜像：标题栏与设置页共用同一份，整个应用只挂一次订阅。
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DelaApi } from '../../../shared/api';
-import type { UpdateSnapshot } from '../../../shared/update';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import type { UpdateSnapshot } from '../../contract';
 
 const toast = vi.hoisted(() => vi.fn());
-vi.mock('../../app/toasts', () => ({ showToast: toast }));
+vi.mock('../../../../renderer/app/toasts', () => ({ showToast: toast }));
 
 const base: UpdateSnapshot = {
   phase: 'idle',
@@ -24,24 +23,28 @@ const available: UpdateSnapshot = { ...base, phase: 'available', version: '1.0.1
 
 let listeners: ((state: UpdateSnapshot) => void)[];
 let unsubscribe: ReturnType<typeof vi.fn>;
-let getState: ReturnType<typeof vi.fn>;
+let getState: Mock<() => Promise<UpdateSnapshot>>;
+let procedures: Record<string, () => Promise<unknown>>;
 
-/** 装一个 preload 桥；getState 的实现可替换，用来模拟读取失败。 */
+/** 装一个契约桥；读取快照的实现可替换，用来模拟读取失败。契约客户端在加载时取桥，须先于 load()。 */
 function mountApi(read: () => Promise<UpdateSnapshot> = async () => base) {
   getState = vi.fn(read);
+  procedures = {
+    'update:state': getState,
+    'update:check': async () => base,
+    'update:download': async () => base,
+    'update:install': async () => base,
+    'update:openDownloadPage': async () => {},
+  };
   window.dela = {
-    update: {
-      getState,
-      check: async () => base,
-      download: async () => base,
-      install: async () => base,
-      openDownloadPage: async () => {},
-      onState: (listener: (state: UpdateSnapshot) => void) => {
-        listeners.push(listener);
+    bridge: {
+      invoke: (channel: string) => procedures[channel]!(),
+      subscribe: (channel: string, listener: (state: UpdateSnapshot) => void) => {
+        if (channel === 'update:state') listeners.push(listener);
         return unsubscribe;
       },
     },
-  } as unknown as DelaApi;
+  } as unknown as NonNullable<typeof window.dela>;
 }
 
 beforeEach(() => {
@@ -53,7 +56,7 @@ beforeEach(() => {
 });
 
 async function load() {
-  const { useUpdateState } = await import('./update');
+  const { useUpdateState } = await import('../update');
   return useUpdateState;
 }
 
@@ -95,9 +98,9 @@ describe('useUpdateState', () => {
   });
 
   it('漏掉 ready 广播时使用下载回执补齐，随后能显示安装入口', async () => {
-    const { useUpdateState, runUpdateAction } = await import('./update');
+    const { useUpdateState, runUpdateAction } = await import('../update');
     const ready: UpdateSnapshot = { ...available, phase: 'ready', progress: 1 };
-    window.dela!.update.download = async () => ready;
+    procedures['update:download'] = async () => ready;
     useUpdateState.setState({ snapshot: { ...available, phase: 'downloading', progress: 1 } });
     expect(await runUpdateAction('download')).toBe(true);
     expect(useUpdateState.getState().snapshot).toEqual(ready);
@@ -107,7 +110,7 @@ describe('useUpdateState', () => {
   });
 
   it('安装器重启后只提示一次实际运行版本', async () => {
-    window.dela = { ...window.dela, version: '1.0.2', updatedOnLaunch: true } as DelaApi;
+    window.dela = { ...window.dela!, version: '1.0.2', updatedOnLaunch: true };
     const store = await load();
     store.getState().attach();
     store.getState().attach();

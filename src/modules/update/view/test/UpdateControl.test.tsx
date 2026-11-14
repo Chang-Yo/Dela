@@ -2,13 +2,24 @@
 // 通用页更新入口的行为测试：快照来自共享 store，这里只验证渲染与动作派发。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, DocumentContent } from '../../../shared/api';
-import type { UpdateSnapshot } from '../../../shared/update';
-import { useToastStore } from '../../app/toasts';
-import { useNoteDrafts, type NoteDraft } from '../../../modules/note/view';
-import { UpdateControl } from './UpdateControl';
-import { useUpdateState } from './update';
+import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest';
+import type { UpdateSnapshot } from '../../contract';
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好；各用例只替换通道实现。
+const bridge = vi.hoisted(() => {
+  const procedures = new Map<string, () => Promise<unknown>>();
+  const dela = {
+    bridge: {
+      invoke: async (channel: string) => procedures.get(channel)?.(),
+      subscribe: () => () => {},
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  window.dela = dela;
+  return { procedures, dela };
+});
+import { useToastStore } from '../../../../renderer/app/toasts';
+import { useNoteDrafts, type NoteDraft } from '../../../note/view';
+import { UpdateControl } from '../UpdateControl';
+import { useUpdateState } from '../update';
 
 const readyState: UpdateSnapshot = {
   phase: 'ready',
@@ -24,7 +35,7 @@ const readyState: UpdateSnapshot = {
 };
 
 const draft: NoteDraft = {
-  content: {} as unknown as DocumentContent,
+  content: {} as NoteDraft['content'],
   text: '还没落盘的正文',
   saved: '',
   saving: false,
@@ -33,21 +44,20 @@ const draft: NoteDraft = {
 
 let container: HTMLDivElement;
 let root: Root;
-let install: ReturnType<typeof vi.fn>;
+let install: Mock<() => Promise<unknown>>;
 let saveDraft: ReturnType<typeof vi.fn>;
 
-function mountUpdateApi(overrides: Partial<DelaApi['update']> = {}) {
-  window.dela = {
-    update: {
-      getState: async () => readyState,
-      check: async () => readyState,
-      download: async () => readyState,
-      install,
-      openDownloadPage: async () => {},
-      onState: () => () => {},
-      ...overrides,
-    },
-  } as unknown as DelaApi;
+function mountUpdateApi(overrides: Record<string, () => Promise<unknown>> = {}) {
+  const procedures = {
+    state: async () => readyState,
+    check: async () => readyState,
+    download: async () => readyState,
+    install,
+    openDownloadPage: async () => {},
+    ...overrides,
+  };
+  for (const [name, call] of Object.entries(procedures))
+    bridge.procedures.set(`update:${name}`, call);
 }
 
 function button(text: string): HTMLButtonElement {
@@ -82,7 +92,8 @@ afterEach(async () => {
   useUpdateState.setState({ snapshot: null, preparingInstall: false, dismissedVersion: null });
   useNoteDrafts.setState({ drafts: {} });
   useToastStore.setState({ toasts: [] });
-  delete window.dela;
+  bridge.procedures.clear();
+  window.dela = bridge.dela;
   vi.unstubAllGlobals();
 });
 

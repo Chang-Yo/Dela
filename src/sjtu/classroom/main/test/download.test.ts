@@ -18,7 +18,7 @@ vi.mock('electron', () => ({
 }));
 vi.mock('../../../../main/ipc', () => ({ workspaceWindow: () => null }));
 vi.mock('../../../../core/ports', () => ({ emit: boundary.notify }));
-vi.mock('../../../../main/settings/prefs', () => ({
+vi.mock('../../../../modules/settings', () => ({
   savedVideoDownloadDirectory: () => boundary.directory,
   setVideoDownloadDirectory: (value: string) => (boundary.directory = value),
 }));

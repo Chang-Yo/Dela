@@ -4,6 +4,7 @@ import terms from '../../../../docs/terms.md?raw';
 import { LegalMarkdown } from '../../components/legal-markdown';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 import { Button } from '../../../ui/button';
+import { settingsClient } from '../../../modules/settings/view';
 
 /** 正文顶部的「最后更新」就是这一版的日期，接受记录据此回溯同意的是哪一版。 */
 function revisionOf(markdown: string) {
@@ -79,7 +80,9 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
     if (!readToEnd) return;
     // 留证：只追加一行，版本由界面给，时间与应用版本由主进程盖章，写失败由主进程记日志，
     // 这里不拦住用户继续同意。
-    void window.dela?.consent.record(current.key, current.revision).catch(() => {});
+    void settingsClient
+      .recordConsent({ document: current.key, revision: current.revision })
+      .catch(() => {});
     if (isLast) {
       onAgree();
       return;
@@ -90,11 +93,10 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
   };
 
   const runBackup = async () => {
-    const api = window.dela;
-    if (!api || backup.kind === 'running') return;
+    if (!window.dela || backup.kind === 'running') return;
     setBackup({ kind: 'running' });
     try {
-      const result = await api.backup.exportData();
+      const result = await settingsClient.exportData();
       if (result.status === 'cancelled') setBackup({ kind: 'idle' });
       else if (result.status === 'failed') setBackup({ kind: 'failed', reason: result.reason });
       else setBackup({ kind: 'exported', path: result.path, skipped: result.skipped });

@@ -1,4 +1,6 @@
 // 应用内更新契约：主进程持有权威状态机，渲染层只读快照并派发动作。
+import { z } from 'zod';
+import { defineContract } from '../../core/protocol/contract';
 
 /** 不可用或失败的原因。取值稳定：渲染层据此选文案，不解析 detail 与原始错误码。 */
 export type UpdateReason =
@@ -50,17 +52,22 @@ export interface UpdateSnapshot {
   failedAt: UpdateStep | null;
 }
 
-export interface UpdateApi {
-  getState(): Promise<UpdateSnapshot>;
-  /** 检查 CDN 的正式版更新。已在检查中时不重复发起。 */
-  check(): Promise<UpdateSnapshot>;
-  /** 下载已发现的更新；应用保持运行。 */
-  download(): Promise<UpdateSnapshot>;
-  /** 打开已下载的 NSIS 安装向导并退出；完成后可重新启动。 */
-  install(): Promise<UpdateSnapshot>;
-  /** 记下「下次启动时提醒」：下次启动准备更新，等待用户确认安装。 */
-  deferInstall(): Promise<void>;
-  /** 兜底入口：打开安装包下载页。 */
-  openDownloadPage(): Promise<void>;
-  onState(listener: (state: UpdateSnapshot) => void): () => void;
-}
+const snapshot = z.custom<UpdateSnapshot>();
+
+export const updateContract = defineContract(
+  'update',
+  {
+    state: { input: z.undefined(), output: snapshot },
+    /** 检查 CDN 的正式版更新。已在检查中时不重复发起。 */
+    check: { input: z.undefined(), output: snapshot },
+    /** 下载已发现的更新；应用保持运行。 */
+    download: { input: z.undefined(), output: snapshot },
+    /** 打开已下载的 NSIS 安装向导并退出；完成后可重新启动。 */
+    install: { input: z.undefined(), output: snapshot },
+    /** 记下「下次启动时提醒」：下次启动准备更新，等待用户确认安装。 */
+    deferInstall: { input: z.undefined(), output: z.void() },
+    /** 兜底入口：打开安装包下载页。 */
+    openDownloadPage: { input: z.undefined(), output: z.void() },
+  },
+  { state: snapshot },
+);

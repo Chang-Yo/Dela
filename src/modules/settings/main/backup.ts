@@ -1,13 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, type BrowserWindow, dialog } from 'electron';
 import { cp, lstat, mkdir, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, isAbsolute, join, relative } from 'node:path';
-import type { BackupResult } from '../shared/backup';
-import { builtinSkillsDirectory } from '../core/capabilities/skills';
+import { builtinSkillsDirectory } from '../../../core/capabilities/skills';
+import { getDatabase } from '../../../main/database';
+import { availablePath, storageDirectory } from '../../../main/storage';
+import type { BackupResult } from '../contract';
 import { cacheDirectoryNames } from './cache';
-import { getDatabase } from './database';
-import { checkWorkspaceSender } from './ipc';
-import { availablePath, storageDirectory } from './storage';
 
 // 数据库走 VACUUM INTO 取一致快照；-wal/-shm 属于当前连接，跟着复制只会得到不自洽的副本。
 const databaseFiles = new Set(['dela.db', 'dela.db-wal', 'dela.db-shm', 'dela.db-journal']);
@@ -101,12 +100,4 @@ export async function exportUserData(window: BrowserWindow | null): Promise<Back
     }
   }
   return { status: 'exported', path: destination, skipped };
-}
-
-/** 导出只在条款接受页被调用：拒绝条款的用户也要能先把自己的数据拿走。 */
-export function registerBackupIpc() {
-  ipcMain.handle('backup:export', (event) => {
-    checkWorkspaceSender(event);
-    return exportUserData(BrowserWindow.fromWebContents(event.sender));
-  });
 }

@@ -4,7 +4,7 @@ import { registerCommandDomain } from '../../core/capabilities/commands';
 import { implement } from '../../core/protocol/contract';
 import { workspaceWindow } from '../../main/ipc';
 import { registerPreviewHost } from '../../modules/workspace';
-import { savedVideoDownloadDirectory } from '../../main/settings/prefs';
+import { savedVideoDownloadDirectory } from '../../modules/settings';
 import { classroomContract } from './contract';
 import { classroomDomain } from './main/agent';
 import { connectClassroom, getTranscript, listCourses, listVideos } from './main/api';

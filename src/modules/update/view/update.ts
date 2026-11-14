@@ -1,17 +1,20 @@
 // 更新相关的渲染层逻辑：快照的展示映射、快照镜像 store 与动作派发。
 import { create } from 'zustand';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
-import { useNoteDrafts } from '../../../modules/note/view';
-import { saveChatDrafts } from '../../content/chat/drafts';
-import { saveComposers } from '../../../modules/mail/view';
-import { saveWorkbenchLayout } from '../../workbench/layout-store';
-import { useRuns, runBadge } from '../../sessions/runs';
-import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../../../shared/update';
+import { errorMessage } from '../../../core/protocol/contract';
+import { showToast } from '../../../renderer/app/toasts';
+import { useNoteDrafts } from '../../note/view';
+import { saveComposers } from '../../mail/view';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的聊天草稿
+import { saveChatDrafts } from '../../../renderer/content/chat/drafts';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的工作台布局
+import { saveWorkbenchLayout } from '../../../renderer/workbench/layout-store';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的运行镜像
+import { useRuns, runBadge } from '../../../renderer/sessions/runs';
+import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../contract';
+import { onUpdateEvent, updateClient } from './client';
 
 // 渲染层不自行推断状态：文案与可用动作全部由快照的 phase / reason / failedAt 查表得到。
-// 后端的更新状态机（src/main/update/state.ts）新增阶段时，这里只有一个地方要跟上，
-// 而且漏掉分支会被 update-view.test.ts 的穷举报错。
+// 主进程状态机（main/state.ts）新增阶段时只有这里要跟上，漏掉分支会被 update-view.test.ts 报错。
 
 /** 更新那一条上可用的动作；组件负责把它映射到实际的 IPC 调用。 */
 export type UpdateAction = UpdateStep | 'open-download';
@@ -108,7 +111,7 @@ export function pendingUpdate(state: UpdateSnapshot): boolean {
   return state.phase === 'available' || state.phase === 'downloading' || state.phase === 'ready';
 }
 
-// 主进程是唯一真源（src/main/update/index.ts），这里只存最近一次快照给界面读。
+// 主进程是唯一真源（main/updater.ts），这里只存最近一次快照给界面读。
 // 标题栏提示与设置页那一条读的是同一个 store，所以订阅整个应用只挂一次：
 // 用户从没打开过设置页，标题栏也得能亮。
 
@@ -128,11 +131,10 @@ export const useUpdateState = create<UpdateState>((set, get) => ({
   dismissedVersion: null,
   attach: () => {
     if (attached) return;
-    const api = window.dela?.update;
     // 浏览器预览没有 preload，保持空快照即可。
-    if (!api) return;
+    if (!window.dela) return;
     attached = true;
-    if (window.dela?.updatedOnLaunch) {
+    if (window.dela.updatedOnLaunch) {
       showToast({ variant: 'success', title: `已更新至 Dela ${window.dela.version}` });
     }
     const receive = (snapshot: UpdateSnapshot) => {
@@ -153,11 +155,11 @@ export const useUpdateState = create<UpdateState>((set, get) => ({
     // 订阅挂在应用上而不是某个组件上：监听者只写 store，不存在写已卸载组件的问题，
     // 因此刻意不保存退订函数——单窗口桌面应用整个生命周期只需要这一份。
     let receivedPush = false;
-    api.onState((snapshot) => {
+    onUpdateEvent('state', (snapshot) => {
       receivedPush = true;
       receive(snapshot);
     });
-    void api.getState().then(
+    void updateClient.state().then(
       (snapshot) => {
         if (!receivedPush) receive(snapshot);
       },
@@ -198,8 +200,7 @@ async function saveWorkspace(): Promise<void> {
 
 /** 派发更新动作；缺少 API、保存失败或 IPC 失败时返回 false。 */
 export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
-  const api = window.dela?.update;
-  if (!api) return false;
+  if (!window.dela) return false;
   if (action === 'install') {
     if (useUpdateState.getState().preparingInstall) return false;
     useUpdateState.setState({ preparingInstall: true });
@@ -217,10 +218,10 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
   }
   try {
     // 打开下载页只借道系统浏览器，没有快照可回填。
-    if (action === 'open-download') await api.openDownloadPage();
+    if (action === 'open-download') await updateClient.openDownloadPage();
     // 广播为主；下载完成的 IPC 回执可补回漏掉的 ready，但不能覆盖后续安装状态。
     else {
-      const result = await api[action]();
+      const result = await updateClient[action]();
       const current = useUpdateState.getState().snapshot;
       if (
         action === 'download' &&
@@ -242,7 +243,7 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
     showToast({
       variant: 'error',
       title: '更新操作失败',
-      description: errorText(error),
+      description: errorMessage(error),
     });
     return false;
   } finally {
@@ -253,16 +254,15 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
 /** 记下「下次启动时提醒」。 */
 export async function deferInstall(): Promise<boolean> {
   try {
-    const api = window.dela?.update;
-    if (!api) return false;
-    await api.deferInstall();
+    if (!window.dela) return false;
+    await updateClient.deferInstall();
     return true;
   } catch (error) {
     console.error('Defer update install failed', error);
     showToast({
       variant: 'error',
       title: '设置提醒失败',
-      description: errorText(error),
+      description: errorMessage(error),
     });
     return false;
   }

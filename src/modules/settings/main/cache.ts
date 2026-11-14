@@ -1,8 +1,7 @@
-import { app, ipcMain, session } from 'electron';
+import { app, session } from 'electron';
 import { lstat, readdir, rm } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
-import type { CacheClearResult } from '../shared/cache';
-import { checkWorkspaceSender } from './ipc';
+import type { CacheClearResult } from '../contract';
 
 /**
  * Chromium 的可再生缓存目录名单：本机实测占应用数据目录的 97%。按名字在每一层认，分区里真正
@@ -119,15 +118,4 @@ export async function clearCaches(): Promise<CacheClearResult> {
   await releaseSessions();
   const blocked = await removeCaches(root);
   return { freed: Math.max(0, before - (await cacheSize())), blocked };
-}
-
-export function registerCacheIpc() {
-  ipcMain.handle('cache:get-size', (event) => {
-    checkWorkspaceSender(event);
-    return cacheSize();
-  });
-  ipcMain.handle('cache:clear', (event) => {
-    checkWorkspaceSender(event);
-    return clearCaches();
-  });
 }

@@ -4,6 +4,15 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import privacy from '../../../../docs/privacy.md?raw';
 import terms from '../../../../docs/terms.md?raw';
+
+// 契约客户端在模块加载时取 bridge，须先于导入页面装好；各用例替换 invoke 的实现。
+const invoke = vi.hoisted(() => {
+  const invoke = vi.fn();
+  window.dela = {
+    bridge: { invoke, subscribe: () => () => {} },
+  } as unknown as NonNullable<typeof window.dela>;
+  return invoke;
+});
 import { ConsentStep } from './ConsentStep';
 
 let container: HTMLDivElement;
@@ -15,6 +24,7 @@ let metrics: { content: number; viewport: number };
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  invoke.mockReset();
   observer = { observed: [], disconnects: 0 };
   vi.stubGlobal(
     'ResizeObserver',
@@ -158,14 +168,20 @@ it('两份条款都要各自滑到底并同意，第二次同意才放行', asyn
 
 it('接受每一份时都留下带版本的记录', async () => {
   const record = vi.fn().mockResolvedValue(undefined);
-  vi.stubGlobal('dela', { consent: { record } });
+  invoke.mockImplementation(record);
   await render(vi.fn());
 
   // 两份条款各自的「最后更新」日期随记录一起落库，日后回溯得到同意的是哪一版。
   await agreeOnce();
-  expect(record).toHaveBeenNthCalledWith(1, 'terms', '2026-10-23');
+  expect(record).toHaveBeenNthCalledWith(1, 'settings:recordConsent', {
+    document: 'terms',
+    revision: '2026-10-23',
+  });
   await agreeOnce();
-  expect(record).toHaveBeenNthCalledWith(2, 'privacy', '2026-10-23');
+  expect(record).toHaveBeenNthCalledWith(2, 'settings:recordConsent', {
+    document: 'privacy',
+    revision: '2026-10-23',
+  });
 });
 
 it('文本框与正文都在观察范围内，卸载时断开', async () => {
@@ -212,7 +228,7 @@ it('导出成功后显示保存位置', async () => {
     path: 'D:\\备份\\Dela 备份 2026-10-15 17-30',
     skipped: [],
   });
-  vi.stubGlobal('dela', { backup: { exportData } });
+  invoke.mockImplementation(exportData);
   await render(vi.fn(), true);
 
   await act(async () => button('导出本机数据').click());
@@ -223,7 +239,7 @@ it('导出成功后显示保存位置', async () => {
 it('导出期间两个按钮都锁住，连点不会重复导出', async () => {
   let finish: (value: unknown) => void = () => {};
   const exportData = vi.fn(() => new Promise((resolve) => (finish = resolve)));
-  vi.stubGlobal('dela', { backup: { exportData } });
+  invoke.mockImplementation(exportData);
   await render(vi.fn(), true);
 
   await act(async () => button('导出本机数据').click());
@@ -240,7 +256,7 @@ it('导出期间两个按钮都锁住，连点不会重复导出', async () => {
 
 it('用户取消导出后回到可导出状态；漏拷的条目如实列出', async () => {
   const exportData = vi.fn().mockResolvedValue({ status: 'cancelled' });
-  vi.stubGlobal('dela', { backup: { exportData } });
+  invoke.mockImplementation(exportData);
   await render(vi.fn(), true);
 
   await act(async () => button('导出本机数据').click());
@@ -260,7 +276,7 @@ it('保存位置不能用时说清原因，不让人反复重试', async () => {
     status: 'failed',
     reason: '不能保存到 Dela 的数据目录里，请另选一个位置',
   });
-  vi.stubGlobal('dela', { backup: { exportData } });
+  invoke.mockImplementation(exportData);
   await render(vi.fn(), true);
 
   await act(async () => button('导出本机数据').click());
@@ -270,7 +286,7 @@ it('保存位置不能用时说清原因，不让人反复重试', async () => {
 
 it('导出抛错后按钮不会卡死', async () => {
   const exportData = vi.fn().mockRejectedValue(new Error('磁盘已满'));
-  vi.stubGlobal('dela', { backup: { exportData } });
+  invoke.mockImplementation(exportData);
   await render(vi.fn(), true);
 
   await act(async () => button('导出本机数据').click());

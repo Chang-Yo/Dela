@@ -9,8 +9,10 @@ import { mailContract } from '../modules/mail/contract';
 import { notificationsContract } from '../modules/notifications/contract';
 import { remotesContract } from '../modules/remotes/contract';
 import { searchContract } from '../modules/search/contract';
+import { settingsContract } from '../modules/settings/contract';
 import { terminalContract } from '../modules/terminal/contract';
 import { todoContract } from '../modules/todo/contract';
+import { updateContract } from '../modules/update/contract';
 import { workspaceContract } from '../modules/workspace/contract';
 import { canvasContract } from '../sjtu/canvas/contract';
 import { classroomContract } from '../sjtu/classroom/contract';
@@ -27,6 +29,8 @@ export const contracts: Contract[] = [
   terminalContract,
   chatContract,
   mailContract,
+  settingsContract,
+  updateContract,
   searchContract,
   todoContract,
   notificationsContract,

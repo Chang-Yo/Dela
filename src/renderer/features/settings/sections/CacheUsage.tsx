@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { formatBytes } from '../../../lib/format-bytes';
-import { SettingRow, SettingsGroup } from '../../../../modules/settings/view';
+import { SettingRow, SettingsGroup, settingsClient } from '../../../../modules/settings/view';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 
@@ -16,10 +16,9 @@ export function CacheUsage() {
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const dela = window.dela;
-    if (!dela) return;
+    if (!window.dela) return;
     try {
-      setBytes(await dela.cache.getSize());
+      setBytes(await settingsClient.cacheSize());
     } catch {
       // 量不出来就保持「正在计算」，用户仍可点清除（清理本身不依赖这个数）。
       setBytes(null);
@@ -31,11 +30,10 @@ export function CacheUsage() {
   }, [refresh]);
 
   const clear = async () => {
-    const dela = window.dela;
-    if (!dela || busy) return;
+    if (!window.dela || busy) return;
     setBusy(true);
     try {
-      const result = await dela.cache.clear();
+      const result = await settingsClient.clearCache();
       setConfirming(false);
       void refresh();
       const freed = formatBytes(result.freed);

@@ -133,9 +133,9 @@ const routes = {
     previewUrl: `dela-resource://canvas/${id}`,
   }),
   'window:get-state': () => ({ maximized: false }),
-  'settings:get-theme': () => 'light',
-  'settings:get-zoom': () => 1,
-  'settings:get-font-size': () => 16,
+  'settings:theme': () => 'light',
+  'settings:zoom': () => 1,
+  'settings:fontSize': () => 16,
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
 app

@@ -15,7 +15,7 @@ import { TermsSection } from './sections/TermsSection';
 import { WorkspaceSection } from './sections/WorkspaceSection';
 import { ConnectionsSection } from './connections/ConnectionsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
-import type { ThemePreference, ZoomPreference } from '../../../shared/api';
+import type { ThemePreference, ZoomPreference } from '../../../modules/settings/contract';
 import { useNavigationStore } from '../../navigation/view';
 import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
 import { NewRemoteProjectDialog } from '../../workspace/remote/NewRemoteProjectDialog';

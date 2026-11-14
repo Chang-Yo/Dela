@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let database: DatabaseSync;
 
-vi.mock('../../database', () => ({ getDatabase: () => database }));
+vi.mock('../../../../main/database', () => ({ getDatabase: () => database }));
 
-import { provideTestHostPorts } from '../../../core/test/host-mock';
-import { getAgentInstruction, setAgentInstruction } from '../../../core/agent/instruction';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import { getAgentInstruction, setAgentInstruction } from '../../../../core/agent/instruction';
+import { settingsContract } from '../../contract';
 import {
   getKeybindingOverrides,
   getTaskNotificationPrefs,
@@ -78,7 +79,8 @@ describe('task notification prefs', () => {
   });
 
   it('rejects invalid shapes instead of persisting them', () => {
-    expect(() => setTaskNotificationPrefs({ completed: 'yes' })).toThrow();
+    const input = settingsContract.procedures.setTaskNotifications.input;
+    expect(() => input.parse({ completed: 'yes' })).toThrow();
     expect(getTaskNotificationPrefs()).toEqual({ completed: false, failed: true });
   });
 });
@@ -129,8 +131,9 @@ describe('keybinding overrides', () => {
   });
 
   it('rejects unknown action ids and invalid accelerators instead of persisting them', () => {
-    expect(() => setKeybindingOverrides({ 'not-an-action': 'Mod+K' })).toThrow();
-    expect(() => setKeybindingOverrides({ 'zoom-in': 'Nope' })).toThrow();
+    const input = settingsContract.procedures.setKeybindings.input;
+    expect(() => input.parse({ 'not-an-action': 'Mod+K' })).toThrow();
+    expect(() => input.parse({ 'zoom-in': 'Nope' })).toThrow();
     expect(getKeybindingOverrides()).toEqual({});
   });
 

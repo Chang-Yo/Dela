@@ -1,7 +1,8 @@
 import { ExternalLink } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { DownloadProgressRow } from '../../components/download-progress';
-import { SettingRow, SettingsGroup } from '../../../modules/settings/view';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：下载进度行尚未移入 ui
+import { DownloadProgressRow } from '../../../renderer/components/download-progress';
+import { SettingRow, SettingsGroup } from '../../settings/view';
 import { useUpdateState, runUpdateAction, updateView } from './update';
 
 /**

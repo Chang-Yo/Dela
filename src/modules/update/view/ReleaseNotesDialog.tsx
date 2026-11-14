@@ -1,14 +1,11 @@
 // 更新后首次启动的「更新内容」弹窗：内容取自 CHANGELOG 每个版本的条目，条数本身就是上限。
 import { useState } from 'react';
 import { Button } from '../../../ui/button';
-import { isSmokeTest } from '../onboarding/onboarding-state';
 import { takePendingReleaseNotes } from './notes';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../ui/dialog';
 
 export function ReleaseNotesDialog() {
-  const [notes] = useState(() =>
-    isSmokeTest || !window.dela ? [] : takePendingReleaseNotes(window.dela.version),
-  );
+  const [notes] = useState(() => (window.dela ? takePendingReleaseNotes(window.dela.version) : []));
   const [open, setOpen] = useState(notes.length > 0);
   if (!notes.length) return null;
 

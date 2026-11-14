@@ -1,10 +1,15 @@
 // 应用内更新：主进程持有状态，electron-updater 负责版本比较、校验、差分下载与 NSIS 安装。
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
-import { checkWorkspaceSender } from '../ipc';
-import { savedPendingInstall, setPendingInstall } from '../settings/prefs';
+import { emit } from '../../../core/ports';
+import { savedPendingInstall, setPendingInstall } from '../../settings';
+import {
+  updateContract,
+  type UpdateReason,
+  type UpdateSnapshot,
+  type UpdateStep,
+} from '../contract';
 import { failureEvent, initialUpdateState, reduceUpdate, type UpdateEvent } from './state';
-import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../../shared/update';
 
 const DOWNLOAD_PAGE_URL = 'https://openlist.frameneo.com/@s/Dela_latest_release';
 export const BACKGROUND_CHECK_INTERVAL = 2 * 60 * 60 * 1000;
@@ -18,7 +23,7 @@ function updatesAvailable(): boolean {
 let snapshot: UpdateSnapshot | null = null;
 let configured = false;
 
-function currentState(): UpdateSnapshot {
+export function currentState(): UpdateSnapshot {
   if (!snapshot) {
     snapshot = initialUpdateState({ currentVersion: app.getVersion() });
     if (!updatesAvailable()) {
@@ -36,11 +41,7 @@ function currentState(): UpdateSnapshot {
 function dispatch(event: UpdateEvent): UpdateSnapshot {
   const previous = currentState();
   snapshot = reduceUpdate(previous, event);
-  if (snapshot !== previous) {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send('update:state', snapshot);
-    }
-  }
+  if (snapshot !== previous) emit(updateContract, 'state', snapshot);
   return snapshot;
 }
 
@@ -86,7 +87,7 @@ function configureUpdater(): void {
   });
 }
 
-async function beginCheck(): Promise<UpdateSnapshot> {
+export async function beginCheck(): Promise<UpdateSnapshot> {
   const previous = currentState();
   if (previous.reason === 'platform-unsupported') return previous;
   const started = dispatch({ type: 'check/started' });
@@ -107,7 +108,7 @@ async function beginCheck(): Promise<UpdateSnapshot> {
   }
 }
 
-async function beginDownload(): Promise<UpdateSnapshot> {
+export async function beginDownload(): Promise<UpdateSnapshot> {
   const previous = currentState();
   const started = dispatch({ type: 'download/started' });
   if (started === previous) return started;
@@ -120,7 +121,7 @@ async function beginDownload(): Promise<UpdateSnapshot> {
   }
 }
 
-async function beginInstall(): Promise<UpdateSnapshot> {
+export async function beginInstall(): Promise<UpdateSnapshot> {
   const previous = currentState();
   const started = dispatch({ type: 'install/started' });
   if (started === previous) return started;
@@ -134,31 +135,12 @@ async function beginInstall(): Promise<UpdateSnapshot> {
   }
 }
 
-export function registerUpdateIpc(): void {
-  ipcMain.handle('update:get-state', (event) => {
-    checkWorkspaceSender(event);
-    return currentState();
-  });
-  ipcMain.handle('update:check', (event) => {
-    checkWorkspaceSender(event);
-    return beginCheck();
-  });
-  ipcMain.handle('update:download', (event) => {
-    checkWorkspaceSender(event);
-    return beginDownload();
-  });
-  ipcMain.handle('update:install', (event) => {
-    checkWorkspaceSender(event);
-    return beginInstall();
-  });
-  ipcMain.handle('update:defer-install', (event) => {
-    checkWorkspaceSender(event);
-    if (currentState().phase === 'ready') setPendingInstall(true);
-  });
-  ipcMain.handle('update:open-download-page', async (event) => {
-    checkWorkspaceSender(event);
-    if (updatesAvailable()) await shell.openExternal(DOWNLOAD_PAGE_URL);
-  });
+export function deferInstall(): void {
+  if (currentState().phase === 'ready') setPendingInstall(true);
+}
+
+export async function openDownloadPage(): Promise<void> {
+  if (updatesAvailable()) await shell.openExternal(DOWNLOAD_PAGE_URL);
 }
 
 function hasWindow(): boolean {

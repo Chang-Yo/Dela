@@ -1,10 +1,6 @@
 // 聚合出口：领域契约在同目录领域文件，本文件只 re-export，保证全仓既有 import 路径不变。
 // 领域类型变化请直接改对应文件，不在此处添加逻辑。
 import type { Bridge } from '../core/protocol/contract';
-import type { BackupApi } from './backup';
-import type { CacheApi } from './cache';
-import type { ConsentApi } from './consent';
-import type { SettingsApi } from './settings';
 export type {
   AgentCapabilityView,
   McpConnectionStatus,
@@ -17,7 +13,6 @@ export type {
   WebSearchEntrySummary,
   WebSearchKeySource,
 } from './capabilities';
-import type { UpdateApi } from './update';
 import type { WindowApi } from './window';
 
 export interface DelaApi {
@@ -30,29 +25,9 @@ export interface DelaApi {
   /** NSIS 更新安装完成后启动，供界面提示实际运行的版本。 */
   readonly updatedOnLaunch: boolean;
   readonly window: WindowApi;
-  readonly settings: SettingsApi;
-  /** 条款接受记录与导出本机数据只在引导的条款接受页使用（见 docs/DEVELOPMENT.md）。 */
-  readonly consent: ConsentApi;
-  readonly backup: BackupApi;
-  /** 设置 › 通用 底部的缓存占用与清理。 */
-  readonly cache: CacheApi;
-  readonly update: UpdateApi;
 }
 
 export type { WindowState, TrayAction, WindowApi } from './window';
-export type { BackupApi, BackupResult } from './backup';
-export type { CacheApi, CacheClearResult } from './cache';
-export type { ConsentApi, ConsentDocument } from './consent';
-
-export type {
-  ThemePreference,
-  IconPreference,
-  ZoomPreference,
-  TaskNotificationPrefs,
-  SettingsApi,
-  SettingsSectionId,
-} from './settings';
-export { zoomLevels, fontSizeMin, fontSizeMax, fontSizeDefault } from './settings';
 
 export type {
   KeybindingMap,
@@ -130,5 +105,3 @@ export type {
   LayoutNode,
   WorkbenchLayout,
 } from './layout';
-
-export type { UpdateApi, UpdateSnapshot, UpdatePhase, UpdateReason } from './update';

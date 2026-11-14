@@ -1,4 +1,74 @@
-// 设置域组装入口：main/index.ts 只经此处取得设置通道注册与启动期偏好读取。
-export { registerSettingsIpc } from './ipc';
-export { readSetting, savedTheme, savedIcon, savedZoom } from './prefs';
-export { applyTheme } from './ipc';
+// 设置：偏好读写、条款接受记录、导出本机数据与缓存清理。设置页本身仍在 renderer/features/settings。
+import { defineModule } from '../../app/module';
+import { getAgentInstruction, setAgentInstruction } from '../../core/agent/instruction';
+import { implement } from '../../core/protocol/contract';
+import { workspaceWindow } from '../../main/ipc';
+import { settingsContract } from './contract';
+import { exportUserData } from './main/backup';
+import { cacheSize, clearCaches } from './main/cache';
+import { recordConsent } from './main/consent';
+import {
+  getKeybindingOverrides,
+  getTaskNotificationPrefs,
+  normalizeFontSize,
+  resetKeybindingOverrides,
+  savedCampusNotifications,
+  savedFontSize,
+  savedIcon,
+  savedTheme,
+  savedZoom,
+  setCampusNotifications,
+  setKeybindingOverrides,
+  setTaskNotificationPrefs,
+  writeSetting,
+} from './main/prefs';
+import { openAtLogin, setOpenAtLogin, setTheme, setZoom } from './main/system';
+
+export {
+  savedIcon,
+  savedPendingInstall,
+  savedTheme,
+  savedVideoDownloadDirectory,
+  savedZoom,
+  setPendingInstall,
+  setVideoDownloadDirectory,
+} from './main/prefs';
+export { applyTheme } from './main/system';
+export { settingsSearch } from './main/search';
+export { notifyRunFinished } from './main/task-notify';
+
+export const settingsModule = defineModule({
+  id: 'settings',
+  ipc: implement(settingsContract, {
+    theme: savedTheme,
+    setTheme,
+    icon: savedIcon,
+    setIcon: (icon) => {
+      writeSetting('icon', icon);
+      return icon;
+    },
+    zoom: savedZoom,
+    setZoom,
+    fontSize: savedFontSize,
+    setFontSize: (value) => {
+      const size = normalizeFontSize(value);
+      writeSetting('font-size', String(size));
+      return size;
+    },
+    openAtLogin,
+    setOpenAtLogin,
+    campusNotifications: savedCampusNotifications,
+    setCampusNotifications,
+    taskNotifications: getTaskNotificationPrefs,
+    setTaskNotifications: setTaskNotificationPrefs,
+    keybindings: getKeybindingOverrides,
+    setKeybindings: setKeybindingOverrides,
+    resetKeybindings: resetKeybindingOverrides,
+    instruction: getAgentInstruction,
+    setInstruction: setAgentInstruction,
+    recordConsent: ({ document, revision }) => recordConsent(document, revision),
+    exportData: () => exportUserData(workspaceWindow()),
+    cacheSize,
+    clearCache: clearCaches,
+  }),
+});

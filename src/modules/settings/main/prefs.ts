@@ -1,21 +1,26 @@
 // workspace_settings 中的设置读写：读取时缺失或损坏的值回退默认，不向调用方抛错。
 import { z } from 'zod';
-import type { ThemePreference, IconPreference } from '../../shared/api';
-import { fontSizeDefault, fontSizeMax, fontSizeMin, zoomLevels } from '../../shared/api';
+import { getDatabase } from '../../../main/database';
 import {
   isAccelerator,
   isShortcutActionId,
   type KeybindingOverrides,
-} from '../../shared/keybindings';
-import { type TaskNotificationPrefs } from '../../shared/settings';
-import { getDatabase } from '../database';
+} from '../../../shared/keybindings';
+import {
+  fontSizeDefault,
+  fontSizeMax,
+  fontSizeMin,
+  iconSchema,
+  taskNotificationsSchema,
+  themeSchema,
+  zoomSchema,
+  type IconPreference,
+  type TaskNotificationPrefs,
+  type ThemePreference,
+  type ZoomPreference,
+} from '../contract';
 
-export const themeSchema = z.enum(['system', 'light', 'dark']);
-export const iconSchema = z.enum(['white', 'black']);
-export const zoomSchema = z
-  .number()
-  .refine((value) => (zoomLevels as readonly number[]).includes(value));
-export const openAtLoginSchema = z
+const openAtLoginSchema = z
   .string()
   .transform((value) => value === '1')
   .catch(false);
@@ -38,7 +43,7 @@ export function savedIcon(): IconPreference {
   return iconSchema.catch('white').parse(readSetting('icon'));
 }
 
-export function savedZoom(): number {
+export function savedZoom(): ZoomPreference {
   return zoomSchema.catch(1).parse(Number(readSetting('zoom')));
 }
 
@@ -61,7 +66,7 @@ export function savedOpenAtLogin(): boolean {
 // 校园消息系统提醒（键由通知中心的弹出守卫读取；默认开启维持既有行为）。
 // ---------------------------------------------------------------------------
 
-export const campusNotificationsSchema = z
+const campusNotificationsSchema = z
   .string()
   .transform((value) => value === '1')
   .catch(true);
@@ -81,11 +86,6 @@ export function setCampusNotifications(enabled: boolean): boolean {
 
 const taskNotificationsDefaults: TaskNotificationPrefs = { completed: false, failed: true };
 
-export const taskNotificationsSchema = z.object({
-  completed: z.boolean(),
-  failed: z.boolean(),
-});
-
 /** 键缺失或 JSON 损坏回退默认（failed 开、completed 关）。 */
 export function getTaskNotificationPrefs(): TaskNotificationPrefs {
   const raw = readSetting('task-notifications');
@@ -97,15 +97,10 @@ export function getTaskNotificationPrefs(): TaskNotificationPrefs {
   }
 }
 
-export function setTaskNotificationPrefs(input: unknown): TaskNotificationPrefs {
-  const prefs = taskNotificationsSchema.parse(input);
+export function setTaskNotificationPrefs(prefs: TaskNotificationPrefs): TaskNotificationPrefs {
   writeSetting('task-notifications', JSON.stringify(prefs));
   return prefs;
 }
-
-// ---------------------------------------------------------------------------
-// 工作现场偏好（启动恢复上次项目与标签）。
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // 快捷键覆盖项（只存用户改过的动作；默认键位留在 shared/keybindings.ts，
@@ -113,13 +108,6 @@ export function setTaskNotificationPrefs(input: unknown): TaskNotificationPrefs 
 // ---------------------------------------------------------------------------
 
 const keybindingOverridesDefaults: KeybindingOverrides = {};
-
-// 键须是目录内的动作 id（未知 id 报错而不是静默丢弃）；值要么是 null（显式解绑），
-// 要么是合法键位串。与默认值相同的覆盖项照原样保存，不裁剪（见下）。
-export const keybindingOverridesSchema = z.record(
-  z.string().refine(isShortcutActionId),
-  z.union([z.null(), z.string().refine(isAccelerator)]),
-);
 
 /** 键缺失或 JSON 损坏回退空覆盖；未知动作 id / 非法键位串逐条丢弃，合法兄弟项保留。 */
 export function getKeybindingOverrides(): KeybindingOverrides {
@@ -148,8 +136,7 @@ export function getKeybindingOverrides(): KeybindingOverrides {
  * 不做“与默认值相同就不存”的裁剪——那会让写入结果依赖当前默认表，
  * 默认值一改旧覆盖项的语义就变了；多存一条冗余项换来可预测的读写。
  */
-export function setKeybindingOverrides(input: unknown): KeybindingOverrides {
-  const patch = keybindingOverridesSchema.parse(input);
+export function setKeybindingOverrides(patch: KeybindingOverrides): KeybindingOverrides {
   const next = { ...getKeybindingOverrides(), ...patch };
   writeSetting('keybindings', JSON.stringify(next));
   return next;

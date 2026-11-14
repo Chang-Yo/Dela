@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // 更新内容弹窗的数据：取 CHANGELOG 每个版本的条目，按已看过的版本区间合并。
 import { beforeEach, expect, it } from 'vitest';
-import { notesBetween, parseReleaseNotes, takePendingReleaseNotes } from './notes';
+import { notesBetween, parseReleaseNotes, takePendingReleaseNotes } from '../notes';
 
 const sample = `# Changelog
 

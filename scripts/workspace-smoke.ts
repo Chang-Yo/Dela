@@ -35,12 +35,12 @@ import {
   updateWorkspaceEntry,
   workspaceModule,
 } from '../src/modules/workspace';
-import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerModuleIpc } from '../src/app/ipc';
 import { notificationsModule } from '../src/modules/notifications';
 import { remotesModule } from '../src/modules/remotes';
+import { settingsModule } from '../src/modules/settings';
+import { updateModule } from '../src/modules/update';
 import { canvasModule } from '../src/sjtu/canvas';
-import { registerUpdateIpc } from '../src/main/update';
 import { registerAgentIpc } from '../src/app/agent-ipc';
 import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 
@@ -381,15 +381,15 @@ app
     registerAgentIpc();
     registerBuiltinCapabilities();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
-    registerSettingsIpc();
     registerModuleIpc([
       workspaceModule,
       remotesModule,
       notificationsModule,
       mailModule,
+      settingsModule,
+      updateModule,
       canvasModule,
     ]);
-    registerUpdateIpc();
     const win = new BrowserWindow({
       show: false,
       webPreferences: {

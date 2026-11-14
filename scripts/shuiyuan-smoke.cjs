@@ -98,11 +98,11 @@ const routes = {
   'workspace:state': () => ({ entries: [], directory: '' }),
   'canvas:state': () => ({ connected: false, courses: [], items: [] }),
   'window:get-state': () => ({ maximized: false }),
-  'settings:get-theme': () => 'light',
-  'settings:get-zoom': () => 1,
-  'settings:get-font-size': () => 16,
+  'settings:theme': () => 'light',
+  'settings:zoom': () => 1,
+  'settings:fontSize': () => 16,
   // 应用壳启动时读取的跨域通道：给出未配置 / 默认值，让界面安静装载。
-  'settings:get-keybindings': () => ({}),
+  'settings:keybindings': () => ({}),
   'workspace:layout': () => null,
   'workspace:saveLayout': () => null,
   'agent:list-sessions': () => [],
@@ -114,7 +114,7 @@ const routes = {
     snoozedUntil: null,
     refresh: {},
   }),
-  'update:get-state': () => ({
+  'update:state': () => ({
     phase: 'idle',
     currentVersion: '0.0.0',
     version: null,

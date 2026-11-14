@@ -10,9 +10,6 @@ import {
   shell,
   Tray,
 } from 'electron';
-import { registerBackupIpc } from './backup';
-import { registerCacheIpc } from './cache';
-import { registerConsentIpc } from './consent';
 import { join } from 'node:path';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,7 +26,6 @@ import { registerSearchProvider } from '../modules/search';
 import { registerBuiltinCapabilities } from './agent/domain';
 import { registerModuleIpc } from '../app/ipc';
 import { modules } from '../app/modules';
-import { settingsSearch } from './settings/search';
 import { hasMailComposer } from '../modules/mail';
 import { mailContract } from '../modules/mail/contract';
 import {
@@ -42,8 +38,7 @@ import {
 } from '../app/agent-ipc';
 import { emit, provideHostPorts } from '../core/ports';
 import { electronPorts } from '../app/host-electron';
-import { applyTheme, registerSettingsIpc, savedIcon, savedTheme, savedZoom } from './settings';
-import { registerUpdateIpc, startBackgroundUpdateCheck } from './update';
+import { applyTheme, savedIcon, savedTheme, savedZoom, settingsSearch } from '../modules/settings';
 
 import Database from 'better-sqlite3';
 import { spawn as spawnPty } from 'node-pty';
@@ -96,7 +91,6 @@ if (smokeTest && !terminalSmokeTest) {
   app.setPath('home', profile);
 }
 let stopModules: (() => void)[] = [];
-let stopUpdateCheck: (() => void) | undefined;
 let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
 let quitting = false;
@@ -193,21 +187,15 @@ app
         nativeImage.createFromPath(join(__dirname, 'icons', `Dela_${savedIcon()}_bg.png`)),
       );
     }
-    registerSettingsIpc();
-    registerConsentIpc();
-    registerBackupIpc();
-    registerCacheIpc();
     registerAgentIpc();
     registerModuleIpc(modules);
     registerBuiltinCapabilities();
     for (const module of modules) module.register?.();
     registerSearchProvider(settingsSearch);
-    registerUpdateIpc();
     // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
     gcChatMedia();
     if (!smokeTest) {
       stopModules = modules.flatMap((module) => module.start?.() ?? []);
-      stopUpdateCheck = startBackgroundUpdateCheck();
     }
   })
   .catch((error: unknown) => {
@@ -356,7 +344,7 @@ async function createWindow(): Promise<void> {
       if (row.value !== 'ok') throw new Error('SQLite smoke check failed');
       await new Promise((resolve) => setTimeout(resolve, 300));
       const rendered = await window.webContents.executeJavaScript(
-        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.settings.getTheme === 'function' && typeof window.dela?.settings.getIcon === 'function' && typeof window.dela?.settings.getZoom === 'function' && typeof window.dela?.settings.getFontSize === 'function' && typeof window.require === 'undefined'`,
+        `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.bridge.invoke === 'function' && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
       // Pi 是纯 ESM 包，只能经动态 import 在 CJS 产物中加载（agent/pi.ts）；
@@ -457,7 +445,6 @@ app.on('will-quit', () => {
   closeDomainBridge();
   tray?.destroy();
   for (const stop of stopModules) stop();
-  stopUpdateCheck?.();
   // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
   // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。
   closeRemoteWatch();

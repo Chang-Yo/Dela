@@ -9,9 +9,7 @@ import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
 import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboarding-state';
 import { leaveComposer } from '../../modules/mail/view';
 import { SettingsView } from '../features/settings';
-import { UpdatePrompt } from '../features/settings/UpdatePrompt';
-import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog';
-import { useUpdateState } from '../features/settings/update';
+import { ReleaseNotesDialog, UpdatePrompt, useUpdateState } from '../../modules/update/view';
 import { GlobalSearchDialog } from '../../modules/search/view';
 import type { ChatSessionSummary } from '../../shared/api';
 import type { SearchHit } from '../../modules/search/contract';
@@ -297,7 +295,7 @@ export default function App() {
       )}
       {/* 下载完成的确认弹窗挂在应用层：下载在后台跑完时，用户可能已经离开设置页。 */}
       {appVisible && <UpdatePrompt />}
-      {launchStage === 'app' && <ReleaseNotesDialog />}
+      {launchStage === 'app' && !isSmokeTest && <ReleaseNotesDialog />}
       {launchStage === 'completion' && <CompletionOverlay onFinished={finishCompletion} />}
     </>
   );

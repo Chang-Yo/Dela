@@ -25,5 +25,5 @@ it('preload 只转发已登记的通道', async () => {
   const [channel] = contracts.flatMap(channelsOf);
   await bridge.invoke(channel!, 'x');
   expect(state.invoke).toHaveBeenCalledWith(channel, 'x');
-  await expect(bridge.invoke('backup:export', null)).rejects.toThrow('未启用');
+  await expect(bridge.invoke('legacy:unregistered', null)).rejects.toThrow('未启用');
 });

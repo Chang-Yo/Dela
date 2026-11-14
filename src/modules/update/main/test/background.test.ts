@@ -22,11 +22,10 @@ vi.mock('electron', () => ({
     getVersion: () => '1.0.0',
   },
   BrowserWindow: { getAllWindows: () => mocks.windows },
-  ipcMain: { handle: vi.fn() },
   shell: { openExternal: vi.fn() },
 }));
-vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('../../settings/prefs', () => ({
+vi.mock('../../../../core/ports', () => ({ emit: vi.fn() }));
+vi.mock('../../../settings', () => ({
   savedPendingInstall: () => mocks.pendingInstall,
   setPendingInstall: mocks.setPendingInstall,
 }));
@@ -71,7 +70,7 @@ describe('startBackgroundUpdateCheck', () => {
   it('Linux 不注册后台计时器，不恢复或清除待安装标记', async () => {
     vi.stubGlobal('process', { ...process, platform: 'linux' });
     mocks.pendingInstall = true;
-    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_INTERVAL } = await import('../index');
+    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_INTERVAL } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     expect(vi.getTimerCount()).toBe(0);
     await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_INTERVAL);
@@ -83,7 +82,7 @@ describe('startBackgroundUpdateCheck', () => {
   });
   it('Mac 与 Windows 一样注册后台计时器并检查更新', async () => {
     vi.stubGlobal('process', { ...process, platform: 'darwin' });
-    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('../index');
+    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY);
     expect(vi.getTimerCount()).toBeGreaterThan(0);
@@ -92,7 +91,7 @@ describe('startBackgroundUpdateCheck', () => {
   });
   it('等窗口就位后先查一次，之后按间隔查，停止后不再查', async () => {
     const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY, BACKGROUND_CHECK_INTERVAL } =
-      await import('../index');
+      await import('../updater');
     const stop = startBackgroundUpdateCheck();
     expect(mocks.check).not.toHaveBeenCalled();
 
@@ -111,7 +110,7 @@ describe('startBackgroundUpdateCheck', () => {
 
   it('开发运行不问CDN', async () => {
     mocks.isPackaged = false;
-    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('../index');
+    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY);
     expect(mocks.check).not.toHaveBeenCalled();
@@ -120,7 +119,7 @@ describe('startBackgroundUpdateCheck', () => {
 
   it('没有窗口时跳过后台检查', async () => {
     mocks.windows = [];
-    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('../index');
+    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY);
     expect(mocks.check).not.toHaveBeenCalled();
@@ -135,7 +134,7 @@ describe('准备上次推迟的更新', () => {
   it('启动后只检查和下载，并在准备前清除标记', async () => {
     mocks.pendingInstall = true;
     mocks.check.mockResolvedValue({ isUpdateAvailable: true, updateInfo: update });
-    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../index');
+    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
     expect(mocks.setPendingInstall).toHaveBeenCalledWith(false);
@@ -146,7 +145,7 @@ describe('准备上次推迟的更新', () => {
   });
 
   it('比普通后台检查更早准备上次推迟的更新', async () => {
-    const { PENDING_INSTALL_DELAY, BACKGROUND_CHECK_DELAY } = await import('../index');
+    const { PENDING_INSTALL_DELAY, BACKGROUND_CHECK_DELAY } = await import('../updater');
     expect(PENDING_INSTALL_DELAY).toBeLessThan(BACKGROUND_CHECK_DELAY);
   });
 
@@ -158,7 +157,7 @@ describe('准备上次推迟的更新', () => {
         complete = resolve;
       }),
     );
-    const { startBackgroundUpdateCheck } = await import('../index');
+    const { startBackgroundUpdateCheck } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(120_000);
     complete({ isUpdateAvailable: true, updateInfo: update });
@@ -169,7 +168,7 @@ describe('准备上次推迟的更新', () => {
   });
 
   it('没有标记时这一步什么都不做，只剩普通后台检查', async () => {
-    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../index');
+    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
     expect(mocks.check).not.toHaveBeenCalled();
@@ -180,7 +179,7 @@ describe('准备上次推迟的更新', () => {
 
   it('这次查下来已经是最新就停在检查，不空跑下载与安装', async () => {
     mocks.pendingInstall = true;
-    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../index');
+    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
     expect(mocks.check).toHaveBeenCalledTimes(1);
@@ -192,7 +191,7 @@ describe('准备上次推迟的更新', () => {
     mocks.pendingInstall = true;
     mocks.check.mockResolvedValue({ isUpdateAvailable: true, updateInfo: update });
     mocks.windows = [];
-    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../index');
+    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../updater');
     const stop = startBackgroundUpdateCheck();
     await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
     expect(mocks.check).not.toHaveBeenCalled();

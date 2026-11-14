@@ -43,7 +43,7 @@ import {
   type NavSessionSummary,
   type SessionRunBadge,
 } from '../navigation/ProjectSessionNav';
-import { zoomLevels, type ZoomPreference } from '../../shared/api';
+import { zoomLevels, type ZoomPreference } from '../../modules/settings/contract';
 import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../shared/keybindings';
 import {
   DropdownMenu,
@@ -53,7 +53,7 @@ import {
 } from '../../ui/dropdown-menu';
 import { drawerFromLeft, fadeIn, overlayFade } from '../../ui/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
-import { UpdateBadge } from '../features/settings/UpdateBadge';
+import { UpdateBadge } from '../../modules/update/view';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';
 import { IconButton } from '../../ui/icon-button';
 import { workspaceClient } from '../../modules/workspace/view';
@@ -462,7 +462,7 @@ export function AppShell({
             </div>
           )}
           {/* 更新提示固定排在左侧这一组的最右端：它是状态提示，不属于前进/后退那串导航动作。 */}
-          <UpdateBadge />
+          <UpdateBadge onOpen={() => useNavigationStore.getState().openSettings('general')} />
         </div>
         <div className="flex h-full items-center">
           {/* 侧栏折叠后铃铛/搜索随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}

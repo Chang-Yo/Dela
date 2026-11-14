@@ -5,8 +5,10 @@ import { mailModule } from '../modules/mail';
 import { notificationsModule } from '../modules/notifications';
 import { remotesModule } from '../modules/remotes';
 import { searchModule } from '../modules/search';
+import { settingsModule } from '../modules/settings';
 import { terminalModule } from '../modules/terminal';
 import { todoModule } from '../modules/todo';
+import { updateModule } from '../modules/update';
 import { workspaceModule } from '../modules/workspace';
 import { canvasModule } from '../sjtu/canvas';
 import { classroomModule } from '../sjtu/classroom';
@@ -20,6 +22,8 @@ export const modules: ModuleDefinition[] = [
   terminalModule,
   chatModule,
   mailModule,
+  settingsModule,
+  updateModule,
   searchModule,
   todoModule,
   notificationsModule,

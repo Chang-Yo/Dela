@@ -104,7 +104,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 
 ### 2.5 设置页
 
-设置页只暴露具体、已实现的操作；renderer 不读取已存凭据或数据库。分区与分组的契约在 `shared/settings.ts`，通道由各域自己注册，偏好落在 SQLite `workspace_settings`。
+设置页只暴露具体、已实现的操作；renderer 不读取已存凭据或数据库。分区与分组的契约在 `modules/settings/contract.ts`，通道由各域自己注册，偏好落在 SQLite `workspace_settings`。
 
 几条跨分区的约定：
 
@@ -171,7 +171,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 - **进度 100% 只表示传输完成**，仍要等校验与安装准备，界面此时应显示「正在校验并准备安装」。总大小未知显示「—」，百分比向下取整，避免未完成时提前显示 100%。
 - `autoDownload` 与 `autoInstallOnAppQuit` 都为 false：用户手动下载，下载完后自己选「退出并安装」或「下次启动时提醒」。推迟后手动安装要先清除推迟标记。安装前保存笔记、聊天草稿、邮件草稿与工作台布局；运行中的 Agent、未发送附件或保存失败都要阻止安装并保留确认入口。
 - 安装调用 `quitAndInstall`，终端任务会结束且**不能恢复**。
-- 更新后首次启动的「更新内容」弹窗（`renderer/features/release-notes/`）以 `?raw` 内联 `CHANGELOG.md`，取每个已发布版本的条目，跨版本升级合并显示区间内各版本。首次安装只记录不弹，冒烟模式不弹。**没有额外的小节或标记**——条目本身就是弹窗内容，这也是 CHANGELOG 要保持简短的原因。
+- 更新后首次启动的「更新内容」弹窗（`modules/update/view/`）以 `?raw` 内联 `CHANGELOG.md`，取每个已发布版本的条目，跨版本升级合并显示区间内各版本。首次安装只记录不弹，冒烟模式不弹。**没有额外的小节或标记**——条目本身就是弹窗内容，这也是 CHANGELOG 要保持简短的原因。
 - 尚未配置 Authenticode 签名。SHA-512 只验证文件与元数据一致，不能替代发布者签名。
 
 ## 7. 安全边界

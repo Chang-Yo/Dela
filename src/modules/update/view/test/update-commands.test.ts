@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi } from '../../../shared/api';
+import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest';
 
 // 契约客户端在模块加载时取 bridge，须先于导入 store 装好；运行镜像也在加载时订阅推送。
 const invoke = vi.hoisted(() => {
@@ -8,27 +7,41 @@ const invoke = vi.hoisted(() => {
   const subscribe = () => () => {};
   window.dela = {
     bridge: { invoke, subscribe },
-  } as unknown as DelaApi;
+  } as unknown as NonNullable<typeof window.dela>;
   return invoke;
 });
-import { useNoteDrafts } from '../../../modules/note/view';
-import { useChatDrafts, registerChatAttachmentCheck } from '../../content/chat/drafts';
-import { registerComposeSave } from '../../../modules/mail/view';
-import { useWorkbenchLayout } from '../../workbench/layout-store';
-import { useRuns } from '../../sessions/runs';
-import { useToastStore } from '../../app/toasts';
-import { useUpdateState, runUpdateAction, deferInstall } from './update';
-import { chatImageToken } from '../../../core/protocol/chat-input';
+import { useNoteDrafts } from '../../../note/view';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的聊天草稿
+import {
+  useChatDrafts,
+  registerChatAttachmentCheck,
+} from '../../../../renderer/content/chat/drafts';
+import { registerComposeSave } from '../../../mail/view';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的工作台布局
+import { useWorkbenchLayout } from '../../../../renderer/workbench/layout-store';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的运行镜像
+import { useRuns } from '../../../../renderer/sessions/runs';
+import { useToastStore } from '../../../../renderer/app/toasts';
+import { useUpdateState, runUpdateAction, deferInstall } from '../update';
+import { chatImageToken } from '../../../../core/protocol/chat-input';
 
 const originalSave = useNoteDrafts.getState().save;
-let install: ReturnType<typeof vi.fn>;
+let install: Mock<() => Promise<unknown>>;
+let defer: Mock<() => Promise<unknown>>;
+let saveLayout: () => Promise<unknown>;
 let releases: (() => void)[];
 
 beforeEach(() => {
   vi.resetAllMocks();
   releases = [];
   install = vi.fn(async () => ({}));
-  window.dela = { update: { install } } as unknown as DelaApi;
+  defer = vi.fn(async () => {});
+  saveLayout = async () => {};
+  invoke.mockImplementation(async (channel: string) => {
+    if (channel === 'update:install') return install();
+    if (channel === 'update:deferInstall') return defer();
+    if (channel === 'workspace:saveLayout') return saveLayout();
+  });
   useNoteDrafts.setState({ drafts: {} });
   useChatDrafts.setState({ drafts: { session: { prompt: '未发送文字' } } });
   useWorkbenchLayout.setState({ ready: false });
@@ -43,7 +56,6 @@ afterEach(() => {
   useRuns.setState({ bySession: {} });
   useToastStore.setState({ toasts: [] });
   useUpdateState.setState({ preparingInstall: false });
-  delete window.dela;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -77,21 +89,15 @@ it('保存所有文件草稿和邮件、写入聊天与布局后才安装', asyn
     }),
   );
   useWorkbenchLayout.setState({ ready: true });
-  window.dela = {
-    update: {
-      install: async () => {
-        expect(useUpdateState.getState().preparingInstall).toBe(true);
-        expect(JSON.parse(localStorage.getItem('dela.session.drafts')!)).toEqual({
-          session: { prompt: '未发送文字' },
-        });
-        order.push('install');
-        return {};
-      },
-    },
-  } as unknown as DelaApi;
-  invoke.mockImplementation(async (channel: string) => {
-    if (channel === 'workspace:saveLayout') order.push('layout');
+  install = vi.fn(async () => {
+    expect(useUpdateState.getState().preparingInstall).toBe(true);
+    expect(JSON.parse(localStorage.getItem('dela.session.drafts')!)).toEqual({
+      session: { prompt: '未发送文字' },
+    });
+    order.push('install');
+    return {};
   });
+  saveLayout = async () => order.push('layout');
   expect(await runUpdateAction('install')).toBe(true);
   expect(order).toEqual(['a', 'b', 'mail1', 'mail2', 'layout', 'install']);
   expect(useUpdateState.getState().preparingInstall).toBe(false);
@@ -103,9 +109,9 @@ it.each(['mail', 'layout', 'storage', 'attachment', 'image', 'run'])(
     if (failure === 'mail') releases.push(registerComposeSave(async () => false));
     if (failure === 'layout') {
       useWorkbenchLayout.setState({ ready: true });
-      invoke.mockImplementation(async (channel: string) => {
-        if (channel === 'workspace:saveLayout') throw new Error('disk');
-      });
+      saveLayout = async () => {
+        throw new Error('disk');
+      };
     }
     if (failure === 'storage')
       vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
@@ -157,7 +163,6 @@ it('更新动作 IPC 失败时提示且保留日志，不静默', async () => {
   install = vi.fn(async () => {
     throw new Error('ipc down');
   });
-  window.dela = { update: { install } } as unknown as DelaApi;
   expect(await runUpdateAction('install')).toBe(false);
   expect(errorSpy).toHaveBeenCalled();
   expect(useToastStore.getState().toasts[0]).toMatchObject({
@@ -169,13 +174,9 @@ it('更新动作 IPC 失败时提示且保留日志，不静默', async () => {
 
 it('推迟提醒失败时提示，不静默', async () => {
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  window.dela = {
-    update: {
-      deferInstall: async () => {
-        throw new Error('ipc down');
-      },
-    },
-  } as unknown as DelaApi;
+  defer = vi.fn(async () => {
+    throw new Error('ipc down');
+  });
   await deferInstall();
   expect(errorSpy).toHaveBeenCalled();
   expect(useToastStore.getState().toasts[0]).toMatchObject({
@@ -186,10 +187,6 @@ it('推迟提醒失败时提示，不静默', async () => {
 });
 
 it('安装器启动失败的返回快照不当作成功', async () => {
-  window.dela = {
-    update: {
-      install: async () => ({ phase: 'error', failedAt: 'install', reason: 'failed' }),
-    },
-  } as unknown as DelaApi;
+  install = vi.fn(async () => ({ phase: 'error', failedAt: 'install', reason: 'failed' }));
   expect(await runUpdateAction('install')).toBe(false);
 });

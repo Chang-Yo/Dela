@@ -29,7 +29,7 @@ import {
 } from '../core/ports';
 import { getDatabase } from '../main/database';
 import { workspaceWindow } from '../main/ipc';
-import { notifyRunFinished } from '../main/settings/task-notify';
+import { notifyRunFinished } from '../modules/settings';
 import { storageDirectory } from '../main/storage';
 import { locateBash } from '../modules/terminal';
 import { workspaceProjects } from '../modules/workspace';

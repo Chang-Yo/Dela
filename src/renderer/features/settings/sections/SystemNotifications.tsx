@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { BellOff } from 'lucide-react';
-import type { TaskNotificationPrefs } from '../../../../shared/api';
+import type { TaskNotificationPrefs } from '../../../../modules/settings/contract';
 import { notificationsClient, useNotificationState } from '../../../../modules/notifications/view';
 import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
-import { SettingRow, SettingsGroup } from '../../../../modules/settings/view';
+import { SettingRow, SettingsGroup, settingsClient } from '../../../../modules/settings/view';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { ErrorText } from '../../../../ui/alert';
@@ -31,10 +31,9 @@ export function SystemNotifications() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const dela = window.dela;
-    if (!dela) return;
+    if (!window.dela) return;
     let active = true;
-    void Promise.all([dela.settings.getCampusNotifications(), dela.settings.getTaskNotifications()])
+    void Promise.all([settingsClient.campusNotifications(), settingsClient.taskNotifications()])
       .then(([campusValue, taskValue]) => {
         if (!active) return;
         setCampus(campusValue);
@@ -55,7 +54,7 @@ export function SystemNotifications() {
     const previous = campus;
     setCampus(next);
     try {
-      setCampus(window.dela ? await window.dela.settings.setCampusNotifications(next) : next);
+      setCampus(window.dela ? await settingsClient.setCampusNotifications(next) : next);
     } catch (cause) {
       setCampus(previous);
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
@@ -71,7 +70,7 @@ export function SystemNotifications() {
     setTask({ ...task, [key]: next });
     try {
       const saved = window.dela
-        ? await window.dela.settings.setTaskNotifications({ ...task, [key]: next })
+        ? await settingsClient.setTaskNotifications({ ...task, [key]: next })
         : ({ ...task, [key]: next } satisfies TaskNotificationPrefs);
       setTask(saved);
     } catch (cause) {

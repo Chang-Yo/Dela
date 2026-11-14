@@ -4,10 +4,7 @@ import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { emit } from '../../../core/ports';
 import { workspaceWindow } from '../../../main/ipc';
-import {
-  savedVideoDownloadDirectory,
-  setVideoDownloadDirectory,
-} from '../../../main/settings/prefs';
+import { savedVideoDownloadDirectory, setVideoDownloadDirectory } from '../../../modules/settings';
 import { getCampusSession } from '../../campus/main/session';
 import { classroomContract, type VideoDownload } from '../contract';
 import { getStreams, getTranscript, formatTranscript } from './api';

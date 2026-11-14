@@ -21,6 +21,15 @@ const { api, bridge } = vi.hoisted(() => {
   return { api, bridge };
 });
 import { defaultKeybindings } from '../../../../shared/keybindings';
+
+// 设置的契约客户端在模块加载时取 bridge，须先于导入页面装好；各用例替换 invoke 的实现。
+const invoke = vi.hoisted(() => {
+  const invoke = vi.fn();
+  window.dela = {
+    bridge: { invoke, subscribe: () => () => {} },
+  } as unknown as NonNullable<typeof window.dela>;
+  return invoke;
+});
 import { useShortcuts } from '../../../app/shortcuts';
 import { LlmSection } from './LlmSection';
 import { ShortcutsSection } from './ShortcutsSection';
@@ -32,6 +41,7 @@ let root: Root;
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  invoke.mockReset();
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -50,15 +60,14 @@ afterEach(async () => {
 it('登录项等待系统批准时保持关闭、说明原因，批准后可重试开启', async () => {
   const message = '请在 macOS「系统设置 › 通用 › 登录项」中允许 Dela，然后返回重试。';
   const setOpenAtLogin = vi.fn().mockRejectedValueOnce(new Error(message)).mockResolvedValue(true);
-  window.dela = {
-    platform: 'darwin',
-    settings: {
-      getOpenAtLogin: async () => false,
-      setOpenAtLogin,
-      getCampusNotifications: async () => true,
-      getTaskNotifications: async () => ({ failed: true, completed: false }),
-    },
-  } as unknown as DelaApi;
+  const routes: Record<string, (input: unknown) => unknown> = {
+    'settings:openAtLogin': () => false,
+    'settings:setOpenAtLogin': setOpenAtLogin,
+    'settings:campusNotifications': () => true,
+    'settings:taskNotifications': () => ({ failed: true, completed: false }),
+  };
+  invoke.mockImplementation(async (channel: string, input: unknown) => routes[channel]?.(input));
+  window.dela = { platform: 'darwin' } as unknown as DelaApi;
   await act(async () =>
     root.render(
       <QueryClientProvider client={new QueryClient()}>
@@ -315,14 +324,12 @@ it('rewrites an existing provider to the API base the service actually serves', 
 
 it('rejects a digit-family recording that conflicts at other digits', async () => {
   const writes: unknown[] = [];
-  window.dela = {
-    settings: {
-      setKeybindings: async (patch: unknown) => {
-        writes.push(patch);
-        return patch;
-      },
-    },
-  } as unknown as DelaApi;
+  invoke.mockImplementation(async (channel: string, patch: unknown) => {
+    if (channel !== 'settings:setKeybindings') return undefined;
+    writes.push(patch);
+    return patch;
+  });
+  window.dela = {} as unknown as DelaApi;
   await act(async () => root.render(<ShortcutsSection />));
   await act(async () =>
     container

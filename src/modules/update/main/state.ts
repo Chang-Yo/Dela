@@ -1,6 +1,6 @@
 // 更新状态机：纯函数，主进程是唯一持有者，渲染层只读快照。
 // 唯一要防守的是迟到与乱序：结果事件只在对应的进行中阶段生效，其余丢弃并原样返回 state。
-import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../../shared/update';
+import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../contract';
 
 export type UpdateEvent =
   | { type: 'check/started' }

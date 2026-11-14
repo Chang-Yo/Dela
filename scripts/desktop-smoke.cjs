@@ -188,13 +188,13 @@ async function run(window) {
   }
   if (process.platform === 'darwin') {
     // 更新平台门已与 Windows 一致放开；打包冒烟停在初始状态，不触发真实联网检查。
-    const update = await js('window.dela.update.getState()');
+    const update = await js("window.dela.bridge.invoke('update:state')");
     assert.equal(update.phase, 'idle');
     if (!packaged) {
-      const checked = await js('window.dela.update.check()');
+      const checked = await js("window.dela.bridge.invoke('update:check')");
       assert.equal(checked.phase, 'unsupported');
       assert.equal(checked.reason, 'not-packaged');
-      assert.deepEqual(await js('window.dela.update.getState()'), checked);
+      assert.deepEqual(await js("window.dela.bridge.invoke('update:state')"), checked);
     }
     const workspace = await js("window.dela.bridge.invoke('workspace:state')");
     console.log(

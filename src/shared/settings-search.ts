@@ -1,6 +1,6 @@
 // 全局搜索 setting 入口的单一索引：每项 = 一个已实现的设置选项（含内置关键词，
 // 覆盖同义词与英文），按 section 聚合后由主进程的搜索来源匹配。
-import type { SettingsSectionId } from './settings';
+import type { SettingsSectionId } from '../modules/settings/contract';
 
 export interface SettingsSearchItem {
   /** 索引项 id（稳定键）。 */

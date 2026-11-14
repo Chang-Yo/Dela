@@ -7,6 +7,7 @@ import {
   type KeybindingMap,
   type ShortcutActionId,
 } from '../../shared/keybindings';
+import { settingsClient } from '../../modules/settings/view';
 
 type Store = {
   bindings: KeybindingMap;
@@ -22,24 +23,21 @@ export const useShortcuts = create<Store>((set) => ({
   bindings: defaultKeybindings(),
 
   load: async () => {
-    const dela = window.dela;
-    if (!dela) return;
+    if (!window.dela) return;
     try {
-      set({ bindings: mergeKeybindings(await dela.settings.getKeybindings()) });
+      set({ bindings: mergeKeybindings(await settingsClient.keybindings()) });
     } catch {
       /* 读取失败保持默认键位。 */
     }
   },
 
   setBinding: async (id, accelerator) => {
-    const dela = window.dela;
-    if (!dela) return;
-    set({ bindings: mergeKeybindings(await dela.settings.setKeybindings({ [id]: accelerator })) });
+    if (!window.dela) return;
+    set({ bindings: mergeKeybindings(await settingsClient.setKeybindings({ [id]: accelerator })) });
   },
 
   resetAll: async () => {
-    const dela = window.dela;
-    if (!dela) return;
-    set({ bindings: mergeKeybindings(await dela.settings.resetKeybindings()) });
+    if (!window.dela) return;
+    set({ bindings: mergeKeybindings(await settingsClient.resetKeybindings()) });
   },
 }));

@@ -8,6 +8,7 @@ import {
   SectionHeader,
   SettingsGroup,
   SettingsGroupLabel,
+  settingsClient,
 } from '../../../../modules/settings/view';
 import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
@@ -42,8 +43,9 @@ export function CommandsSection() {
   useEffect(refresh, []);
 
   useEffect(() => {
-    void window.dela?.settings
-      .getInstruction()
+    if (!window.dela) return;
+    void settingsClient
+      .instruction()
       .then((text) => {
         setInstruction(text);
         setDraft(text);
@@ -55,7 +57,7 @@ export function CommandsSection() {
     if (!window.dela || instructionBusy || instruction === null) return;
     setInstructionBusy(true);
     try {
-      const saved = await window.dela.settings.setInstruction(draft);
+      const saved = await settingsClient.setInstruction(draft);
       setInstruction(saved);
       setDraft(saved);
       showToast({ variant: 'success', title: '已保存' });

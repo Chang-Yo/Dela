@@ -13,7 +13,6 @@ import { modules } from '../src/app/modules';
 import { registerAgentIpc } from '../src/app/agent-ipc';
 import { remoteBackend } from '../src/core/remote/operations';
 import { exec, probeRemote } from '../src/core/remote/transport';
-import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from '../src/modules/workspace';
 
 const host = process.env.DELA_REMOTE_HOST;
@@ -52,7 +51,6 @@ app
     );
     await exec(target, `printf 'nested\\n' > ${root}/sub/nested.md`);
 
-    registerSettingsIpc();
     registerAgentIpc();
     registerModuleIpc(modules);
     for (const module of modules) module.register?.();

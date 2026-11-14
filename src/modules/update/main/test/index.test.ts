@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { UpdateSnapshot } from '../../../shared/update';
+import type { UpdateSnapshot } from '../../contract';
 
 const mocks = vi.hoisted(() => ({
-  handlers: new Map<string, () => Promise<UpdateSnapshot>>(),
   listeners: new Map<string, (value: unknown) => void>(),
   checkForUpdates: vi.fn(),
   downloadUpdate: vi.fn(),
@@ -18,13 +17,7 @@ vi.mock('electron', () => ({
     },
     getVersion: () => '1.0.0',
   },
-  BrowserWindow: {
-    getAllWindows: () => [{ isDestroyed: () => false, webContents: { send: vi.fn() } }],
-  },
-  ipcMain: {
-    handle: (name: string, handler: () => Promise<UpdateSnapshot>) =>
-      mocks.handlers.set(name, handler),
-  },
+  BrowserWindow: { getAllWindows: () => [] },
   shell: { openExternal: mocks.openExternal },
 }));
 vi.mock('electron-updater', () => ({
@@ -42,13 +35,13 @@ vi.mock('electron-updater', () => ({
     },
   },
 }));
-vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('../../settings/prefs', () => ({
+vi.mock('../../../../core/ports', () => ({ emit: vi.fn() }));
+vi.mock('../../../settings', () => ({
   savedPendingInstall: () => false,
   setPendingInstall: mocks.setPendingInstall,
 }));
 
-const invoke = (action: string) => mocks.handlers.get(`update:${action}`)!();
+let invoke: (action: string) => Promise<UpdateSnapshot>;
 function pending() {
   let resolve!: (result: unknown) => void;
   const promise = new Promise((done) => {
@@ -62,15 +55,14 @@ beforeEach(async () => {
   vi.resetAllMocks();
   vi.stubGlobal('process', { ...process, platform: 'win32' });
   mocks.isPackaged = true;
-  mocks.handlers.clear();
   mocks.listeners.clear();
   mocks.checkForUpdates.mockResolvedValue({
     isUpdateAvailable: true,
     updateInfo: { version: '1.0.1' },
   });
   mocks.downloadUpdate.mockResolvedValue(['installer.exe']);
-  const { registerUpdateIpc } = await import('../index');
-  registerUpdateIpc();
+  const { updateModule } = await import('../../index');
+  invoke = async (action) => (await updateModule.ipc!.call(action, undefined)) as UpdateSnapshot;
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -80,15 +72,15 @@ it.each([true, false])(
   async (packaged) => {
     vi.stubGlobal('process', { ...process, platform: 'linux' });
     mocks.isPackaged = packaged;
-    for (const action of ['get-state', 'check', 'download', 'install']) {
+    for (const action of ['state', 'check', 'download', 'install']) {
       expect(await invoke(action)).toMatchObject({
         phase: 'unsupported',
         reason: 'platform-unsupported',
         version: null,
       });
     }
-    await invoke('defer-install');
-    await invoke('open-download-page');
+    await invoke('deferInstall');
+    await invoke('openDownloadPage');
     expect(mocks.checkForUpdates).not.toHaveBeenCalled();
     expect(mocks.downloadUpdate).not.toHaveBeenCalled();
     expect(mocks.quitAndInstall).not.toHaveBeenCalled();
@@ -103,7 +95,7 @@ it('Mac packaged 与 Windows 同流程：可检查更新，打不开更新时给
   const state = await invoke('check');
   expect(state).toMatchObject({ phase: 'available', version: '1.0.1' });
   expect(mocks.checkForUpdates).toHaveBeenCalledTimes(1);
-  await invoke('open-download-page');
+  await invoke('openDownloadPage');
   expect(mocks.openExternal).toHaveBeenCalledTimes(1);
 });
 
@@ -143,8 +135,8 @@ it('下载进度、失败重试与缓存命中均由同一状态流程处理', a
   mocks.downloadUpdate.mockReturnValueOnce(operation.promise);
   const downloading = invoke('download');
   mocks.listeners.get('download-progress')!({ percent: 42, transferred: 42, total: 100 });
-  expect((await invoke('get-state')).progress).toBe(0.42);
-  expect(await invoke('get-state')).toMatchObject({ transferred: 42, total: 100 });
+  expect((await invoke('state')).progress).toBe(0.42);
+  expect(await invoke('state')).toMatchObject({ transferred: 42, total: 100 });
   operation.resolve(['cached-installer.exe']);
   expect((await downloading).phase).toBe('ready');
   expect(mocks.quitAndInstall).not.toHaveBeenCalled();
@@ -168,11 +160,11 @@ it('100% 不直接允许安装，正式完成事件在 Promise 收尾前就能�
   mocks.downloadUpdate.mockReturnValueOnce(operation.promise);
   const downloading = invoke('download');
   mocks.listeners.get('download-progress')!({ percent: 100, transferred: 100, total: 100 });
-  expect((await invoke('get-state')).phase).toBe('downloading');
+  expect((await invoke('state')).phase).toBe('downloading');
   mocks.listeners.get('update-downloaded')!({ version: '0.9.0' });
-  expect((await invoke('get-state')).phase).toBe('downloading');
+  expect((await invoke('state')).phase).toBe('downloading');
   mocks.listeners.get('update-downloaded')!({ version: '1.0.1' });
-  expect((await invoke('get-state')).phase).toBe('ready');
+  expect((await invoke('state')).phase).toBe('ready');
   operation.resolve(['installer.exe']);
   expect((await downloading).phase).toBe('ready');
 });
@@ -196,11 +188,11 @@ it('开发运行不联网检查', async () => {
 });
 
 it('推迟只在 ready 落盘，安装先清标记且只启动一次，不提前宣称成功', async () => {
-  await invoke('defer-install');
+  await invoke('deferInstall');
   expect(mocks.setPendingInstall).not.toHaveBeenCalled();
   await invoke('check');
   await invoke('download');
-  await invoke('defer-install');
+  await invoke('deferInstall');
   expect(mocks.setPendingInstall).toHaveBeenCalledWith(true);
   expect((await invoke('install')).phase).toBe('installing');
   expect(mocks.setPendingInstall).toHaveBeenLastCalledWith(false);
@@ -213,7 +205,7 @@ it('安装器异步启动失败会解除安装中状态', async () => {
   await invoke('download');
   await invoke('install');
   mocks.listeners.get('error')!(new Error('installer spawn failed'));
-  expect(await invoke('get-state')).toMatchObject({ phase: 'error', failedAt: 'install' });
+  expect(await invoke('state')).toMatchObject({ phase: 'error', failedAt: 'install' });
 });
 
 it('清除待装标记失败时不启动安装器', async () => {
@@ -227,7 +219,7 @@ it('清除待装标记失败时不启动安装器', async () => {
 });
 
 it('手动下载兜底指向 CDN 分享页', async () => {
-  await invoke('open-download-page');
+  await invoke('openDownloadPage');
   expect(mocks.openExternal).toHaveBeenCalledWith(
     'https://openlist.frameneo.com/@s/Dela_latest_release',
   );
