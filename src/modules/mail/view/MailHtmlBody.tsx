@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
 import { cn } from '../../../ui/cn';
@@ -23,11 +23,9 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
   const [bodyHeight, setBodyHeight] = useState(INITIAL_BODY_HEIGHT);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const rootSize = useRootFontSize();
-  const document = useMemo(() => {
-    const doc = sanitizeMailHtml(html, remoteImages);
-    injectFrameHeightReport(doc);
-    return renderMailHtml(doc, fitWidth, rootSize);
-  }, [html, remoteImages, fitWidth, rootSize]);
+  const doc = sanitizeMailHtml(html, remoteImages);
+  injectFrameHeightReport(doc);
+  const document = renderMailHtml(doc, fitWidth, rootSize);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {

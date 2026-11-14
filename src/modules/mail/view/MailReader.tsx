@@ -1,5 +1,5 @@
 import { Paperclip, Reply, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../../../ui/button';
 import type { MailMessageDetail, MailAttachmentInfo, MailAddress } from '../contract';
 import { formatMailAddress, formatFullDate, formatSize } from './mail-format';
@@ -18,7 +18,7 @@ type Props = {
   /** 当前账户地址,用于在收件人行识别"自己"并折叠其余收件人。 */
   accountAddress: string;
   selectedMessageId: number | null;
-  openMessage: (id: number, options?: { readonly?: boolean }) => Promise<void>;
+  openMessage: (id: number, readonly: boolean) => void;
   downloadAttachment: (messageId: number, part: string) => Promise<{ ok: boolean; error?: string }>;
   onReply: (detail: MailMessageDetail) => void;
   /** 移入本地回收站;readOnly 上下文(回收站阅读)不显示该按钮。 */
@@ -105,16 +105,13 @@ export function MailReader({
   showBackButton = false,
   setMobileReading,
 }: Props) {
-  const [downloadingPart, setDownloadingPart] = useState<string | null>(null);
-
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- 过渡：T6 重写邮件页状态时移除
-    setDownloadingPart(null);
-  }, [detail?.id]);
+  // 按邮件记下载中的附件：切到别的邮件后不再显示旧邮件的下载态。
+  const [downloading, setDownloading] = useState<{ messageId: number; part: string } | null>(null);
+  const downloadingPart = downloading?.messageId === detail?.id ? downloading?.part : null;
 
   const saveAttachment = async (attachment: MailAttachmentInfo) => {
     if (!detail || !attachment.part) return;
-    setDownloadingPart(attachment.part);
+    setDownloading({ messageId: detail.id, part: attachment.part });
     try {
       const result = await downloadAttachment(detail.id, attachment.part);
       if (!result.ok)
@@ -126,7 +123,7 @@ export function MailReader({
     } catch (reason) {
       showToast({ variant: 'error', title: '保存附件失败', description: errorMessage(reason) });
     } finally {
-      setDownloadingPart(null);
+      setDownloading(null);
     }
   };
 
@@ -152,9 +149,7 @@ export function MailReader({
           <p>{detailError}</p>
           {selectedMessageId !== null && (
             <Button
-              onClick={() =>
-                void openMessage(selectedMessageId, readOnly ? { readonly: true } : undefined)
-              }
+              onClick={() => openMessage(selectedMessageId, readOnly)}
               size="sm"
               variant="ghost"
             >

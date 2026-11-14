@@ -1,5 +1,5 @@
 import { Paperclip, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { MailFolderInfo, MailMessageSummary } from '../contract';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/cn';
@@ -37,14 +37,10 @@ export function MailMessageList({
   const [refreshRequested, setRefreshRequested] = useState(false);
   const spinning = syncBusy || refreshRequested;
 
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- 过渡：T6 重写邮件页状态时移除
-    if (!syncBusy) setRefreshRequested(false);
-  }, [syncBusy]);
-
   const refresh = () => {
     setRefreshRequested(true);
-    Promise.resolve(onSync()).catch(() => setRefreshRequested(false));
+    // 同步开始的状态推送先于 sync() 返回，此时 syncBusy 已接手转圈。
+    Promise.resolve(onSync()).finally(() => setRefreshRequested(false));
   };
 
   return (

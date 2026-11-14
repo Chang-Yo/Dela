@@ -1,16 +1,9 @@
 import { leaveComposer } from './compose-close';
-import type { PreparedEmail, MailDraftSummary, MailConfigureInput } from '../contract';
+import type { PreparedEmail, MailConfigureInput } from '../contract';
 import { FilePenLine, Trash2 } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   mailContract,
   type MailFolderInfo,
@@ -32,7 +25,7 @@ import { cn } from '../../../ui/cn';
 import { useMediaQuery } from '../../../ui/use-media-query';
 import { useMobileDrawer } from '../../../renderer/lib/mobile-drawer';
 import { useMailPreferences } from './store';
-import { mailClient } from './use-mail';
+import { draftsKey, mailBoxKey, mailClient, mailStateKey, useMailState } from './use-mail';
 import { showToast } from '../../../renderer/app/toasts';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
 import { Callout, ErrorText } from '../../../ui/alert';
@@ -121,20 +114,78 @@ export function MailPage({ target }: { target: { messageId?: number } }) {
   );
 }
 
+const foldersKey = [...mailBoxKey, 'folders'];
+const trashKey = [...mailBoxKey, 'trash'];
+const messagesPrefix = [...mailBoxKey, 'messages'];
+const messagesKey = (folderId: number | null | undefined) => [...messagesPrefix, folderId];
+const messageKey = (id: number | null, readonly: boolean) => [
+  ...mailBoxKey,
+  'message',
+  id,
+  readonly,
+];
+
+function toastFailure(title: string) {
+  return (reason: unknown): never => {
+    showToast({ variant: 'error', title, description: errorMessage(reason) });
+    throw reason;
+  };
+}
+
+function decrementUnread(client: QueryClient, folderId: number | undefined) {
+  client.setQueryData<MailFolderInfo[]>(foldersKey, (folders) =>
+    folders?.map((folder) =>
+      folder.id === folderId && folder.unread !== null
+        ? { ...folder, unread: Math.max(0, folder.unread - 1) }
+        : folder,
+    ),
+  );
+}
+
+/** 读正文即标记已读，同 IMAP 取正文的语义；回收站的只读阅读不标记，恢复时保留原未读状态。 */
+async function markSeen(client: QueryClient, message: MailMessageDetail) {
+  try {
+    const result = await mailClient.markSeen(message.id);
+    if (!result.ok) {
+      showToast({ variant: 'error', title: '标记已读失败', description: result.error });
+      return;
+    }
+  } catch (reason) {
+    showToast({ variant: 'error', title: '标记已读失败', description: errorMessage(reason) });
+    return;
+  }
+  client.setQueryData<MailMessageSummary[]>(messagesKey(message.folderId), (messages) =>
+    messages?.map((item) => (item.id === message.id ? { ...item, seen: true } : item)),
+  );
+  decrementUnread(client, message.folderId);
+  client.setQueryData<MailMessageDetail>(
+    messageKey(message.id, false),
+    (current) => current && { ...current, seen: true },
+  );
+}
+
+/** 同步结束、恢复邮件后，文件夹未读数、列表与回收站都可能变化。 */
+function refreshMailbox(client: QueryClient) {
+  void client.invalidateQueries({ queryKey: foldersKey });
+  void client.invalidateQueries({ queryKey: messagesPrefix });
+  void client.invalidateQueries({ queryKey: trashKey });
+}
+
 function DesktopMailView({
   mobileDrawerOpen = false,
   onMobileDrawerClose,
   openRequest,
 }: MailViewProps) {
-  const [state, setState] = useState<MailState | null>(null);
-  const [folders, setFolders] = useState<MailFolderInfo[]>([]);
-  const [selection, setSelection] = useState<MailSelection | null>(null);
-  const [messages, setMessages] = useState<MailMessageSummary[]>([]);
-  const [listLoading, setListLoading] = useState(false);
-  const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
-  const [detail, setDetail] = useState<MailMessageDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const state = useMailState();
+  const account = state?.account ?? null;
+  const accountAddress = account?.address ?? '';
+  // 用户选过的视图；未选时落到收件箱。
+  const [chosen, setChosen] = useState<MailSelection | null>(null);
+  const [opened, setOpened] = useState<{ id: number; readonly: boolean } | null>(null);
+  // 外部跳转（全局搜索、通知）要打开的邮件，用户在邮箱里另行导航即作废。
+  const [request, setRequest] = useState(openRequest);
+  const [pendingTarget, setPendingTarget] = useState(openRequest?.messageId ?? null);
   const [search, setSearch] = useState('');
   const [configureError, setConfigureError] = useState<string | null>(null);
   const [configuring, setConfiguring] = useState(false);
@@ -147,91 +198,134 @@ function DesktopMailView({
   const [listResizing, setListResizing] = useState(false);
   const [composing, setComposing] = useState(false);
   const [draft, setDraft] = useState<PreparedEmail | undefined>();
-  const [localDrafts, setLocalDrafts] = useState<MailDraftSummary[]>([]);
-  const [draftError, setDraftError] = useState<string | null>(null);
   const [openingDraft, setOpeningDraft] = useState(false);
   const composer = useRef<MailComposerHandle>(null);
-  const [trashItems, setTrashItems] = useState<MailTrashItem[]>([]);
-  const [trashLoading, setTrashLoading] = useState(false);
-  const [trashError, setTrashError] = useState<string | null>(null);
   const narrow = useMediaQuery(NARROW_MEDIA_QUERY);
-  const [drawerSlot, setDrawerSlot] = useState<HTMLElement | null>(null);
-  // 邮箱 grid 容器实测宽度;初始按最宽处理,挂载后在布局阶段同步测量并纠正,不产生可见闪烁。
-  const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
+  // 抽屉挂载点由 AppShell 的 aside 常驻渲染，抽屉打开时它一定已在文档里。
+  const drawerSlot = mobileDrawerOpen ? document.getElementById('mail-drawer-slot') : null;
+  // 邮箱 grid 容器实测宽度,挂载前按最宽处理。
   const [contentWidth, setContentWidth] = useState(Number.POSITIVE_INFINITY);
 
-  const selectedFolderIdRef = useRef<number | null>(null);
-  const autoSyncedRef = useRef(false);
-  const detailRequest = useRef(0);
-  const listRequest = useRef(0);
-  const trashRequest = useRef(0);
-  const draftRequest = useRef(0);
-  const navigationRequest = useRef(0);
-  const processedOpenRequest = useRef<{ messageId?: number } | undefined>(undefined);
-
-  const loadDrafts = useCallback(async (account: string) => {
-    const request = ++draftRequest.current;
-    try {
-      const loaded = await mailClient.drafts(account);
-      if (request === draftRequest.current) setLocalDrafts(loaded);
-    } catch (reason) {
-      if (request === draftRequest.current) setDraftError(errorMessage(reason));
+  if (request !== openRequest) {
+    setRequest(openRequest);
+    if (openRequest?.messageId !== undefined) {
+      setPendingTarget(openRequest.messageId);
+      setSearch('');
     }
-  }, []);
+  }
 
-  const loadTrash = useCallback(async () => {
-    const request = ++trashRequest.current;
-    setTrashLoading(true);
-    try {
-      const loaded = await mailClient.trash();
-      if (request === trashRequest.current) {
-        setTrashItems([...loaded]);
-        setTrashError(null);
-      }
-    } catch (reason) {
-      if (request === trashRequest.current) setTrashError(errorMessage(reason));
-    } finally {
-      if (request === trashRequest.current) setTrashLoading(false);
-    }
-  }, []);
+  const foldersQuery = useQuery({
+    queryKey: foldersKey,
+    queryFn: () =>
+      mailClient
+        .folders()
+        .then(visibleFolders)
+        .catch(
+          toastFailure(queryClient.getQueryData(foldersKey) ? '刷新文件夹失败' : '邮箱加载失败'),
+        ),
+    enabled: account !== null,
+  });
+  const folders = foldersQuery.data ?? [];
+  // 跳转目标先只读一次，确认所在文件夹可见、且不在写信时，按普通阅读呈现。
+  const targetQuery = useQuery({
+    queryKey: messageKey(pendingTarget, true),
+    queryFn: () => mailClient.message(pendingTarget!),
+    enabled: pendingTarget !== null && folders.length > 0,
+    gcTime: 0,
+  });
+  const targetFound = folders.some((folder) => folder.id === targetQuery.data?.folderId);
+  const target = pendingTarget !== null && targetFound && !composing ? targetQuery.data : undefined;
+  const targetFailure =
+    pendingTarget === null
+      ? null
+      : targetQuery.error
+        ? errorMessage(targetQuery.error)
+        : targetQuery.data && !targetFound
+          ? '目标邮件所在的文件夹不可用。'
+          : null;
 
-  const accountAddress = state?.account?.address ?? '';
+  const inbox = folders.find((folder) => folder.specialUse === '\\Inbox') ?? folders[0];
+  const selection: MailSelection | null = target
+    ? { kind: 'folder', id: target.folderId! }
+    : (chosen ?? (inbox ? { kind: 'folder', id: inbox.id } : null));
+  const reading = target ? { id: target.id, readonly: false } : opened;
+  const showingReader = mobileReading || target !== undefined;
+  const folderId = selection?.kind === 'folder' ? selection.id : null;
 
-  const closeComposer = useCallback(() => {
+  const messagesQuery = useQuery({
+    queryKey: messagesKey(folderId),
+    queryFn: () =>
+      mailClient
+        .messages({ folderId: folderId!, limit: MESSAGE_LIMIT })
+        .catch(toastFailure('加载邮件失败')),
+    enabled: account !== null && folderId !== null,
+    gcTime: 0,
+  });
+  const messages = messagesQuery.data ?? [];
+
+  const detailQuery = useQuery({
+    queryKey: messageKey(reading?.id ?? null, reading?.readonly ?? false),
+    queryFn: async () => {
+      const loaded = await mailClient.message(reading!.id);
+      if (!loaded.seen && !reading!.readonly) void markSeen(queryClient, loaded);
+      return loaded;
+    },
+    enabled: account !== null && reading !== null,
+    gcTime: 0,
+  });
+
+  const draftsQuery = useQuery({
+    queryKey: [...draftsKey, accountAddress],
+    queryFn: () => mailClient.drafts(accountAddress),
+    enabled: account !== null,
+  });
+  const localDrafts = draftsQuery.data ?? [];
+
+  const trashQuery = useQuery({
+    queryKey: trashKey,
+    queryFn: () => mailClient.trash(),
+    enabled: account !== null,
+  });
+  const trashItems = trashQuery.data ?? [];
+
+  // 用户在邮箱里另行导航时，以当前呈现的跳转目标为起点。
+  const settleTarget = () => {
+    setPendingTarget(null);
+    if (!target) return;
+    setChosen(selection);
+    setOpened(reading);
+    setMobileReading(true);
+  };
+
+  const closeComposer = () => {
     const close = () => {
+      setPendingTarget(null);
       setComposing(false);
       setDraft(undefined);
-      // 编辑器内可能保存过草稿,刷新侧栏草稿数。
-      void loadDrafts(accountAddress);
     };
-    if (!leaveComposer(close)) return false;
-    close();
-    return true;
-  }, [accountAddress, loadDrafts]);
+    if (leaveComposer(close)) close();
+  };
   const openDrafts = () => {
     if (!leaveComposer(openDrafts)) return;
-    navigationRequest.current += 1;
+    settleTarget();
     setComposing(false);
     setDraft(undefined);
-    setSelection({ kind: 'drafts' });
-    setDraftError(null);
+    setChosen({ kind: 'drafts' });
     onMobileDrawerClose?.();
-    void loadDrafts(accountAddress);
+    void queryClient.invalidateQueries({ queryKey: draftsKey });
   };
   const openTrash = () => {
     if (!leaveComposer(openTrash)) return;
-    navigationRequest.current += 1;
+    settleTarget();
     setComposing(false);
     setDraft(undefined);
-    setSelection({ kind: 'trash' });
-    setTrashError(null);
+    setChosen({ kind: 'trash' });
     onMobileDrawerClose?.();
-    void loadTrash();
+    void queryClient.invalidateQueries({ queryKey: trashKey });
   };
   const editDraft = async (id: string) => {
     if (openingDraft) return;
     setOpeningDraft(true);
-    setDraftError(null);
     try {
       setDraft(await mailClient.openDraft(id));
       setComposing(true);
@@ -242,65 +336,27 @@ function DesktopMailView({
     }
   };
 
-  // 容器宽度驱动分级降档;未配置账户时 grid 晚于首帧挂载,依赖 gridElement 触发本 effect 重跑。
-  useLayoutEffect(() => {
-    if (!gridElement) return;
-    // 挂载即同步测量一次,避免按旧宽度先渲染再闪烁;后续变化交给 ResizeObserver。
-    setContentWidth(gridElement.clientWidth);
+  // 容器宽度驱动分级降档;挂载时在提交阶段同步测量,避免按旧宽度先渲染再闪烁。
+  const observeGrid = (element: HTMLDivElement) => {
+    setContentWidth(element.clientWidth);
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width !== undefined) setContentWidth(width);
     });
-    observer.observe(gridElement);
+    observer.observe(element);
     return () => observer.disconnect();
-  }, [gridElement]);
+  };
 
-  // 抽屉挂载点由 AppShell 的 aside 常驻渲染,挂载后定位一次即可。
-  useEffect(() => {
-    setDrawerSlot(document.getElementById('mail-drawer-slot'));
-  }, []);
-
-  const refreshFolders = useCallback(async () => {
-    try {
-      setFolders([...visibleFolders(await mailClient.folders())]);
-    } catch (reason) {
-      showToast({ variant: 'error', title: '刷新文件夹失败', description: errorMessage(reason) });
-    }
-  }, []);
-
-  const loadMessages = useCallback(async (folderId: number) => {
-    const request = ++listRequest.current;
-    selectedFolderIdRef.current = folderId;
-    setListLoading(true);
-    try {
-      const loaded = await mailClient.messages({ folderId, limit: MESSAGE_LIMIT });
-      if (request === listRequest.current) setMessages([...loaded]);
-    } catch (reason) {
-      if (request === listRequest.current)
-        showToast({ variant: 'error', title: '加载邮件失败', description: errorMessage(reason) });
-    } finally {
-      if (request === listRequest.current) setListLoading(false);
-    }
-  }, []);
-
-  const selectFolder = useCallback(
-    (id: number) => {
-      if (!leaveComposer(() => selectFolder(id))) return;
-      navigationRequest.current += 1;
-      setComposing(false);
-      setDraft(undefined);
-      detailRequest.current += 1;
-      setDetailLoading(false);
-      setDetailError(null);
-      setSelection({ kind: 'folder', id });
-      setMessages([]);
-      setSelectedMessageId(null);
-      setDetail(null);
-      setMobileReading(false);
-      void loadMessages(id);
-    },
-    [loadMessages],
-  );
+  const selectFolder = (id: number) => {
+    if (!leaveComposer(() => selectFolder(id))) return;
+    setPendingTarget(null);
+    setComposing(false);
+    setDraft(undefined);
+    setChosen({ kind: 'folder', id });
+    setOpened(null);
+    setMobileReading(false);
+    void queryClient.resetQueries({ queryKey: messagesKey(id), exact: true });
+  };
 
   const handleSelect = (next: MailSelection) => {
     if (next.kind === 'folder') selectFolder(next.id);
@@ -310,132 +366,54 @@ function DesktopMailView({
 
   const handleCompose = () => {
     if (composing && composer.current?.dirty) return;
+    settleTarget();
     setComposing(!composing);
   };
 
-  const handleReply = useCallback((source: MailMessageDetail) => {
+  const handleReply = (source: MailMessageDetail) => {
     const open = () => {
+      settleTarget();
       setDraft(replyDraft(source));
       setComposing(true);
     };
     if (!leaveComposer(open)) return;
     open();
-  }, []);
+  };
 
-  const openMessage = useCallback(async (messageId: number, options?: { readonly?: boolean }) => {
-    navigationRequest.current += 1;
-    const request = ++detailRequest.current;
-    setSelectedMessageId(messageId);
-    setDetail(null);
-    setDetailError(null);
-    setDetailLoading(true);
-    try {
-      const loaded = await mailClient.message(messageId);
-      if (request !== detailRequest.current) return;
-      setDetail(loaded);
-      // 只读阅读(回收站)不标记已读:恢复时保留原未读状态。
-      if (!loaded.seen && !options?.readonly) {
-        const folderId = selectedFolderIdRef.current;
-        try {
-          const result = await mailClient.markSeen(messageId);
-          if (result.ok) {
-            if (selectedFolderIdRef.current === folderId) {
-              setMessages((prev) =>
-                prev.map((item) => (item.id === messageId ? { ...item, seen: true } : item)),
-              );
-            }
-            if (folderId !== null) {
-              setFolders((prev) =>
-                prev.map((folder) =>
-                  folder.id === folderId && folder.unread !== null
-                    ? { ...folder, unread: Math.max(0, folder.unread - 1) }
-                    : folder,
-                ),
-              );
-            }
-            if (request === detailRequest.current) {
-              setDetail((current) =>
-                current?.id === messageId ? { ...current, seen: true } : current,
-              );
-            }
-          } else if (request === detailRequest.current) {
-            showToast({ variant: 'error', title: '标记已读失败', description: result.error });
-          }
-        } catch (reason) {
-          if (request === detailRequest.current)
-            showToast({
-              variant: 'error',
-              title: '标记已读失败',
-              description: errorMessage(reason),
-            });
-        }
-      }
-    } catch (error) {
-      if (request === detailRequest.current) setDetailError(errorMessage(error));
-    } finally {
-      if (request === detailRequest.current) setDetailLoading(false);
-    }
-  }, []);
+  const openMessage = (id: number, readonly: boolean) => {
+    settleTarget();
+    setOpened({ id, readonly });
+    setMobileReading(stacked);
+    void queryClient.resetQueries({ queryKey: messageKey(id, readonly), exact: true });
+  };
 
-  const refreshAll = useCallback(async () => {
-    await refreshFolders();
-    const folderId = selectedFolderIdRef.current;
-    if (folderId !== null) await loadMessages(folderId);
-    // 同步结束/恢复邮件后回收站可能被自动清理或变化,刷新角标计数。
-    void loadTrash();
-  }, [loadMessages, loadTrash, refreshFolders]);
-
+  // 通知在邮箱页内跳转不经导航守卫：写信中等到目标时，先走保存/放弃确认再关闭写信。
   useEffect(() => {
-    let active = true;
-    // 捕获导航计数:草稿/回收站按钮在 folders 到达前即可点击,加载完成后不得覆盖用户选择。
-    const nav = navigationRequest.current;
-    void mailClient
-      .state()
-      .then(async (initial) => {
-        if (!active) return;
-        setState(initial);
-        if (!initial.account) return;
-        const folderList = [...visibleFolders(await mailClient.folders())];
-        if (!active) return;
-        setFolders(folderList);
-        const inbox =
-          folderList.find((folder) => folder.specialUse === '\\Inbox') ?? folderList[0] ?? null;
-        // 加载期间用户已切换草稿/回收站等视图时不再强制回到收件箱;后续草稿/回收站/自动同步仍需执行。
-        if (inbox && navigationRequest.current === nav) {
-          setSelection({ kind: 'folder', id: inbox.id });
-          await loadMessages(inbox.id);
-        }
-        void loadDrafts(initial.account.address);
-        void loadTrash();
-        if (!autoSyncedRef.current) {
-          autoSyncedRef.current = true;
-          void mailClient.sync().catch(() => {
-            // 同步错误通过 syncStatus 事件展示。
-          });
-        }
-      })
-      .catch((reason) => {
-        if (active)
-          showToast({ variant: 'error', title: '邮箱加载失败', description: errorMessage(reason) });
-      });
-    const unsubscribe = subscribe(mailContract, window.dela?.bridge, 'syncStatus', (status) => {
-      setState((prev) => (prev ? { ...prev, sync: status } : prev));
-      if (status.phase === 'idle' && status.finishedAt) void refreshAll();
+    if (pendingTarget === null || !targetFound || !composing) return;
+    leaveComposer(() => {
+      setComposing(false);
+      setDraft(undefined);
     });
-    return () => {
-      active = false;
-      navigationRequest.current += 1;
-      detailRequest.current += 1;
-      listRequest.current += 1;
-      trashRequest.current += 1;
-      draftRequest.current += 1;
-      unsubscribe();
-    };
-    // 仅在挂载时执行一次。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pendingTarget, targetFound, composing]);
 
-  const handleConfigure = useCallback(async (input: MailConfigureInput) => {
+  useEffect(
+    () =>
+      subscribe(mailContract, window.dela?.bridge, 'syncStatus', (status) => {
+        queryClient.setQueryData<MailState>(
+          mailStateKey,
+          (prev) => prev && { ...prev, sync: status },
+        );
+        if (status.phase === 'idle' && status.finishedAt) refreshMailbox(queryClient);
+      }),
+    [queryClient],
+  );
+
+  // 进入邮箱页或连上账号即后台同步一次，主进程合并重复请求；同步错误经 syncStatus 展示。
+  useEffect(() => {
+    if (accountAddress) void mailClient.sync().catch(() => {});
+  }, [accountAddress]);
+
+  const handleConfigure = async (input: MailConfigureInput) => {
     setConfiguring(true);
     setConfigureError(null);
     try {
@@ -444,20 +422,15 @@ function DesktopMailView({
         setConfigureError(result.error);
         return;
       }
-      const next = await mailClient.state();
-      setState(next);
-      autoSyncedRef.current = true;
-      void mailClient.sync().catch(() => {
-        // 同步错误通过 syncStatus 事件展示。
-      });
+      queryClient.setQueryData(mailStateKey, await mailClient.state());
     } catch (reason) {
       setConfigureError(errorMessage(reason));
     } finally {
       setConfiguring(false);
     }
-  }, []);
+  };
 
-  const handleDisconnect = useCallback(async () => {
+  const handleDisconnect = async () => {
     if (!confirmingDisconnect) {
       setConfirmingDisconnect(true);
       return;
@@ -475,45 +448,30 @@ function DesktopMailView({
       showToast({ variant: 'error', title: '退出登录失败', description: errorMessage(reason) });
       return;
     }
-    setFolders([]);
-    setMessages([]);
-    setDetail(null);
-    setSelection(null);
-    setSelectedMessageId(null);
-    setLocalDrafts([]);
-    setDraftError(null);
-    setTrashItems([]);
-    setTrashError(null);
-    setState(await mailClient.state());
-  }, [confirmingDisconnect]);
+    queryClient.setQueryData(mailStateKey, await mailClient.state());
+    queryClient.removeQueries({ queryKey: mailBoxKey });
+    setPendingTarget(null);
+    setChosen(null);
+    setOpened(null);
+  };
 
   // 阅读页删除:纯本地移入回收站,可恢复,无需确认。
-  const handleDeleteMessage = async (target: MailMessageDetail) => {
+  const handleDeleteMessage = async (message: MailMessageDetail) => {
     try {
-      const result = await mailClient.deleteMessage(target.id);
+      const result = await mailClient.deleteMessage(message.id);
       if (!result.ok) {
         showToast({ variant: 'error', title: '删除邮件失败', description: result.error });
         return;
       }
-      const folderId = selectedFolderIdRef.current;
-      detailRequest.current += 1;
-      setSelectedMessageId(null);
-      setDetail(null);
-      setDetailLoading(false);
-      setDetailError(null);
+      settleTarget();
+      setOpened(null);
       setMobileReading(false);
-      setMessages((prev) => prev.filter((message) => message.id !== target.id));
-      if (!target.seen && folderId !== null) {
-        setFolders((prev) =>
-          prev.map((folder) =>
-            folder.id === folderId && folder.unread !== null
-              ? { ...folder, unread: Math.max(0, folder.unread - 1) }
-              : folder,
-          ),
-        );
-      }
+      queryClient.setQueryData<MailMessageSummary[]>(messagesKey(message.folderId), (prev) =>
+        prev?.filter((item) => item.id !== message.id),
+      );
+      if (!message.seen) decrementUnread(queryClient, message.folderId);
       showToast({ variant: 'success', title: '已移入已删除' });
-      void loadTrash();
+      void queryClient.invalidateQueries({ queryKey: trashKey });
     } catch (reason) {
       showToast({ variant: 'error', title: '删除邮件失败', description: errorMessage(reason) });
     }
@@ -526,22 +484,20 @@ function DesktopMailView({
         showToast({ variant: 'error', title: '恢复邮件失败', description: result.error });
         return;
       }
-      setTrashItems((prev) => prev.filter((row) => row.id !== item.id));
+      queryClient.setQueryData<MailTrashItem[]>(trashKey, (prev) =>
+        prev?.filter((row) => row.id !== item.id),
+      );
       showToast({ variant: 'success', title: `已恢复到 ${item.folderName ?? '原文件夹'}` });
-      // 原文件夹列表与未读数可能变化。
-      void refreshAll();
+      refreshMailbox(queryClient);
     } catch (reason) {
       showToast({ variant: 'error', title: '恢复邮件失败', description: errorMessage(reason) });
     }
   };
 
+  const selectedMessageId = reading?.id ?? null;
   const clearReading = (messageId: number) => {
     if (selectedMessageId !== messageId) return;
-    detailRequest.current += 1;
-    setSelectedMessageId(null);
-    setDetail(null);
-    setDetailLoading(false);
-    setDetailError(null);
+    setOpened(null);
     setMobileReading(false);
   };
 
@@ -554,7 +510,9 @@ function DesktopMailView({
         return;
       }
       clearReading(item.id);
-      setTrashItems((prev) => prev.filter((row) => row.id !== item.id));
+      queryClient.setQueryData<MailTrashItem[]>(trashKey, (prev) =>
+        prev?.filter((row) => row.id !== item.id),
+      );
     } catch (reason) {
       showToast({ variant: 'error', title: '彻底删除失败', description: errorMessage(reason) });
     }
@@ -569,7 +527,7 @@ function DesktopMailView({
         return;
       }
       if (selectedMessageId !== null) clearReading(selectedMessageId);
-      setTrashItems([]);
+      queryClient.setQueryData<MailTrashItem[]>(trashKey, []);
     } catch (reason) {
       showToast({ variant: 'error', title: '清空回收站失败', description: errorMessage(reason) });
     }
@@ -586,7 +544,6 @@ function DesktopMailView({
     return () => document.removeEventListener('click', cancelDisconnect, true);
   }, [confirmingDisconnect]);
 
-  const account = state?.account ?? null;
   const sync = state?.sync ?? null;
 
   const selectedFolder =
@@ -595,15 +552,14 @@ function DesktopMailView({
       : null;
   const readingTrash = selection?.kind === 'trash';
 
-  const filteredMessages = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) return messages;
-    return messages.filter((message) =>
-      [message.subject, senderLabel(message), message.snippet]
-        .filter(Boolean)
-        .some((field) => (field as string).toLowerCase().includes(keyword)),
-    );
-  }, [messages, search]);
+  const keyword = search.trim().toLowerCase();
+  const filteredMessages = keyword
+    ? messages.filter((message) =>
+        [message.subject, senderLabel(message), message.snippet]
+          .filter(Boolean)
+          .some((field) => (field as string).toLowerCase().includes(keyword)),
+      )
+    : messages;
 
   const syncLabel = (() => {
     if (!sync) return '';
@@ -630,49 +586,15 @@ function DesktopMailView({
   // 单栏态下内容面板的网格占位:narrow 沿用第二行整行,非 narrow 单栏落到图标栏右侧一列。
   const stackedPlacement = narrow ? 'col-span-full row-start-2' : 'col-start-2';
 
-  // 全局搜索已经由 App 通过既有草稿守卫放行；这里仅切换到目标邮件，避免重新挂载邮箱而丢失其他状态。
-  useEffect(() => {
-    if (openRequest?.messageId === undefined || !account || !folders.length) return;
-    if (processedOpenRequest.current === openRequest) return;
-    processedOpenRequest.current = openRequest;
-    const request = ++navigationRequest.current;
-    void mailClient
-      .message(openRequest.messageId)
-      .then((message) => {
-        if (request !== navigationRequest.current) return;
-        const folderId = message.folderId;
-        if (!folderId || !folders.some((folder) => folder.id === folderId)) {
-          setDetailError('目标邮件所在的文件夹不可用。');
-          return;
-        }
-        // App 侧守卫只覆盖点击瞬间;folders 迟到时这里仍可能撞上脏编辑器,复用 leaveComposer
-        // 走保存/放弃确认后再切换,不允许静默丢内容。
-        const apply = () => {
-          if (request !== navigationRequest.current) return;
-          setComposing(false);
-          setDraft(undefined);
-          setSearch('');
-          selectedFolderIdRef.current = folderId;
-          setSelection({ kind: 'folder', id: folderId });
-          setMessages([]);
-          setSelectedMessageId(null);
-          setDetail(null);
-          setDetailError(null);
-          setMobileReading(stacked);
-          void loadMessages(folderId);
-          void openMessage(message.id);
-          // 确认对话框可能刚保存过草稿,刷新侧栏草稿数。
-          void loadDrafts(account.address);
-        };
-        if (!leaveComposer(apply)) return;
-        apply();
-      })
-      .catch((reason) => {
-        if (request === navigationRequest.current) setDetailError(errorMessage(reason));
-      });
-  }, [account, folders, loadMessages, openMessage, openRequest, stacked]);
+  const listLoading = messagesQuery.isFetching;
+  const detail = detailQuery.data ?? null;
+  const detailLoading = detailQuery.isFetching;
+  const trashLoading = trashQuery.isFetching;
+  const detailError = detailQuery.error ? errorMessage(detailQuery.error) : targetFailure;
+  const draftError = draftsQuery.error ? errorMessage(draftsQuery.error) : null;
+  const trashError = trashQuery.error ? errorMessage(trashQuery.error) : null;
 
-  if (state !== null && !account) {
+  if (state !== undefined && !account) {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
@@ -706,7 +628,7 @@ function DesktopMailView({
         </Callout>
       )}
       <div
-        ref={setGridElement}
+        ref={observeGrid}
         className={cn(
           'grid min-h-0 flex-1 transition-[grid-template-columns] duration-base ease-out',
           // narrow 维持单列 + AppShell 抽屉;非 narrow 单栏保留 48px 图标栏;宽布局维持可拖四列。
@@ -749,10 +671,11 @@ function DesktopMailView({
             key={draft?.id ?? 'new'}
             className={stacked ? stackedPlacement : 'col-span-3'}
             draft={draft}
-            accountAddress={account?.address ?? ''}
+            accountAddress={accountAddress}
             onClose={() => void closeComposer()}
             ref={composer}
             onSent={(warning) => {
+              setPendingTarget(null);
               setComposing(false);
               setDraft(undefined);
               showToast({ variant: 'success', title: '邮件已发送' });
@@ -763,7 +686,6 @@ function DesktopMailView({
                   description: warning,
                 });
               void mailClient.sync().catch(() => {});
-              void loadDrafts(account?.address ?? '');
             }}
           />
         ) : selection?.kind === 'drafts' ? (
@@ -807,7 +729,10 @@ function DesktopMailView({
                       void mailClient
                         .deleteDraft(item.id)
                         .then(() =>
-                          setLocalDrafts((items) => items.filter((row) => row.id !== item.id)),
+                          queryClient.setQueryData<typeof localDrafts>(
+                            [...draftsKey, accountAddress],
+                            (items) => items?.filter((row) => row.id !== item.id),
+                          ),
                         )
                         .catch((reason) =>
                           showToast({
@@ -828,22 +753,19 @@ function DesktopMailView({
           <>
             {readingTrash ? (
               <MailTrashList
-                className={cn(stacked && stackedPlacement, stacked && mobileReading && 'hidden')}
+                className={cn(stacked && stackedPlacement, stacked && showingReader && 'hidden')}
                 items={trashItems}
                 loading={trashLoading}
                 error={trashError}
                 selectedMessageId={selectedMessageId}
-                onOpen={(id) => {
-                  setMobileReading(stacked);
-                  void openMessage(id, { readonly: true });
-                }}
+                onOpen={(id) => openMessage(id, true)}
                 onRestore={(item) => void handleRestore(item)}
                 onPurge={(item) => void handlePurge(item)}
                 onEmpty={() => void handleEmptyTrash()}
               />
             ) : (
               <MailMessageList
-                className={cn(stacked && stackedPlacement, stacked && mobileReading && 'hidden')}
+                className={cn(stacked && stackedPlacement, stacked && showingReader && 'hidden')}
                 selectedFolder={selectedFolder}
                 filteredMessages={filteredMessages}
                 selectedMessageId={selectedMessageId}
@@ -853,10 +775,7 @@ function DesktopMailView({
                 syncBusy={syncBusy}
                 syncLabel={syncLabel}
                 onSync={() => mailClient.sync()}
-                onSelect={(id) => {
-                  setMobileReading(stacked);
-                  void openMessage(id);
-                }}
+                onSelect={(id) => openMessage(id, false)}
               />
             )}
             <Resizer
@@ -870,11 +789,11 @@ function DesktopMailView({
             />
 
             <MailReader
-              className={cn(stacked && stackedPlacement, stacked && !mobileReading && 'hidden')}
+              className={cn(stacked && stackedPlacement, stacked && !showingReader && 'hidden')}
               detail={detail}
               detailLoading={detailLoading}
               detailError={detailError}
-              accountAddress={account?.address ?? ''}
+              accountAddress={accountAddress}
               selectedMessageId={selectedMessageId}
               openMessage={openMessage}
               downloadAttachment={(messageId, part) =>
@@ -884,7 +803,10 @@ function DesktopMailView({
               onDelete={(target) => void handleDeleteMessage(target)}
               readOnly={readingTrash}
               showBackButton={stacked}
-              setMobileReading={setMobileReading}
+              setMobileReading={(value) => {
+                settleTarget();
+                setMobileReading(value);
+              }}
             />
           </>
         )}
