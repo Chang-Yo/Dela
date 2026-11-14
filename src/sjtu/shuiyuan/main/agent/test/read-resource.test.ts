@@ -1,7 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../../modules/mail', () => ({ readMailMessage: vi.fn() }));
-vi.mock('../../../../../main/settings/prefs', () => ({ assertShuiyuanEnabled: vi.fn() }));
 vi.mock('../../../../../main/resources', () => ({ readWorkspaceResource: vi.fn() }));
 vi.mock('../../../../../modules/workspace', () => ({ workspaceFilePath: vi.fn() }));
 vi.mock('../../api', () => ({
