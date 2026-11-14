@@ -28,7 +28,6 @@ export type {
   WebSearchKeySource,
 } from './capabilities';
 import type { ShuiyuanApi } from './shuiyuan';
-import type { TimetableApi } from './timetable';
 import type { TerminalApi } from './terminal';
 import type { UpdateApi } from './update';
 import type { WindowApi } from './window';
@@ -54,7 +53,6 @@ export interface DelaApi {
   readonly llm: LlmApi;
   readonly chat: ChatApi;
   readonly mail: MailApi;
-  readonly timetable: TimetableApi;
   readonly shuiyuan: ShuiyuanApi;
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
@@ -93,17 +91,6 @@ export type {
   MailSendInput,
   MailApi,
 } from './mail';
-
-export type {
-  TimetableLesson,
-  TimetableState,
-  CalendarEventColor,
-  CalendarEvent,
-  CalendarEventInput,
-  TimetableResult,
-  TimetableApi,
-} from './timetable';
-export { calendarEventColors } from './timetable';
 
 export type {
   ShuiyuanState,

@@ -4,7 +4,8 @@ import { Button } from '../../../ui/button';
 import { weekStartFor } from './timetable-format';
 import { formatMonthDay, dayMilliseconds } from '../../../modules/todo/view';
 import { dialogIn, overlayFade } from '../../../ui/motion';
-import { errorText } from '../../workspace/store';
+import { errorMessage } from '../../../core/protocol/contract';
+import { timetableClient } from './use-timetable';
 import { cn } from '../../../ui/cn';
 import { ErrorText } from '../../../ui/alert';
 
@@ -30,10 +31,10 @@ export function SemesterStartDialog({
     setSaving(true);
     setError(null);
     try {
-      await window.dela!.timetable.setSemesterStart(semester, value);
+      await timetableClient.setSemesterStart({ semester, value });
       onSaved();
     } catch (reason) {
-      setError(errorText(reason));
+      setError(errorMessage(reason));
       setSaving(false);
     }
   };

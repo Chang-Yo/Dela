@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
-import { connectAndSyncTimetable } from '../../timetable/timetable-connect';
-import { StepButton, type StepButtonState } from './step-controls';
-import { ErrorText } from '../../../../ui/alert';
+import { useQueryClient } from '@tanstack/react-query';
+import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
+import { ErrorText } from '../../../ui/alert';
+import { StepButton, type StepButtonState } from '../../../modules/onboarding/view';
+import { connectAndSyncTimetable } from './use-timetable';
 
 /** 向导 · 教学信息服务网步骤：独立窗口完成登录并同步课表，按钮转为「下一步」。 */
-export function CampusStep({ onDone }: { onDone: () => void }) {
+export function TimetableOnboardingStep({ onDone }: { onDone: () => void }) {
+  const queryClient = useQueryClient();
   const [state, setState] = useState<StepButtonState>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +31,7 @@ export function CampusStep({ onDone }: { onDone: () => void }) {
       setState('idle');
       return;
     }
+    void queryClient.invalidateQueries({ queryKey: ['timetable'] });
     setState('success');
   };
 

@@ -8,13 +8,14 @@ import {
   Trash2,
   User,
 } from 'lucide-react';
-import type { CalendarEvent } from '../../../shared/api';
+import { errorMessage } from '../../../core/protocol/contract';
+import type { CalendarEvent } from '../contract';
 import { Button } from '../../../ui/button';
 import { formatEventRange, formatMinuteOfDay, periodBoundary } from './timetable-format';
 import { calendarToneKey, colorFor, formatMonthDay, weekdayName } from '../../../modules/todo/view';
 import type { CalendarItemDetail } from './WeekCalendar';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
+import { showToast } from '../../../renderer/app/toasts';
+import { timetableClient } from './use-timetable';
 import {
   Dialog,
   DialogContent,
@@ -45,12 +46,12 @@ export function EventDetailDialog({
     if (typeof event.id !== 'number') return;
     setDeleting(true);
     try {
-      await window.dela!.timetable.deleteEvent(event.id);
+      await timetableClient.deleteEvent(event.id);
       onDeleted();
     } catch (reason) {
       setDeleting(false);
       setConfirming(false);
-      showToast({ variant: 'error', title: '删除事件失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '删除事件失败', description: errorMessage(reason) });
     }
   };
 

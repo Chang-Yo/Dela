@@ -1,6 +1,5 @@
-import { classPeriods } from '../../../shared/schedule';
+import { classPeriods, type CalendarEvent, type TimetableLesson } from '../contract';
 import type { CSSProperties } from 'react';
-import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
 import {
   addDays,
   dateKey,

@@ -5,7 +5,7 @@ import { ToastCard } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { DownloadProgressRow } from '../../components/download-progress';
 import { errorText } from '../../workspace/store';
-import { StepButton } from './steps/step-controls';
+import { StepButton } from '../../../modules/onboarding/view';
 import { ErrorText } from '../../../ui/alert';
 
 /** 首次引导的最后一步：安装并启用需要额外组件的 Skill。 */

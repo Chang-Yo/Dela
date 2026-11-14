@@ -6,6 +6,7 @@ import { notificationsView } from '../modules/notifications/view';
 import { todoView } from '../modules/todo/view';
 import { ShuiyuanIcon } from '../renderer/features/shuiyuan/shuiyuan-icon';
 import { jwcView } from '../sjtu/jwc/view';
+import { timetableView } from '../sjtu/timetable/view';
 
 // 邮件、Canvas 与水源迁入模块后，改由各自的 notices 声明。
 const legacyNoticeKinds: Record<string, NoticeKind> = {
@@ -14,7 +15,7 @@ const legacyNoticeKinds: Record<string, NoticeKind> = {
   canvas: { label: 'Canvas', icon: Megaphone },
 };
 
-const moduleViews = [todoView, jwcView];
+const moduleViews = [todoView, timetableView, jwcView];
 
 export const views: ViewDefinition[] = [
   ...moduleViews,

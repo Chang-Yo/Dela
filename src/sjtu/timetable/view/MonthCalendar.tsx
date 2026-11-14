@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Popover } from 'radix-ui';
-import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
+import type { CalendarEvent, TimetableLesson } from '../contract';
 import { activeInWeek, localEventsByDay, weekForDate } from './timetable-format';
 import {
   addDays,

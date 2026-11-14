@@ -1,14 +1,18 @@
 import type { WebContents } from 'electron';
 import { z } from 'zod';
+import { emit } from '../../../core/ports';
+import { getDatabase } from '../../../main/database';
+import { calendarEventColors } from '../../../modules/todo/contract';
 import {
-  calendarEventColors,
+  semesterSchema,
+  timetableContract,
+  type calendarEventInput,
   type CalendarEvent,
   type TimetableLesson,
   type TimetableResult,
   type TimetableState,
-} from '../../../shared/api';
-import { getDatabase } from '../../../main/database';
-import { lessonOccurrences } from '../../../shared/schedule';
+} from '../contract';
+import { lessonOccurrences } from './schedule';
 import {
   CampusAuthError,
   campusRequest,
@@ -46,20 +50,6 @@ const responseSchema = z
     rqazcList: z.array(z.unknown()).optional(),
   })
   .passthrough();
-const semesterSchema = z.string().regex(/^\d{4}-\d{4}-[123]$/);
-const dateTimeSchema = z.string().datetime();
-const calendarEventSchema = z
-  .object({
-    title: z.string().trim().min(1).max(120),
-    startAt: dateTimeSchema,
-    endAt: dateTimeSchema,
-    location: z.string().trim().max(120).optional(),
-    color: z.enum(calendarEventColors).optional(),
-  })
-  .refine(
-    (event) => new Date(event.endAt).getTime() > new Date(event.startAt).getTime(),
-    '结束时间必须晚于开始时间',
-  );
 
 type LessonRow = {
   id: number;
@@ -133,10 +123,6 @@ export function currentSemester(now = new Date()): string {
   if (month <= 2) return `${year - 1}-${year}-1`;
   if (month <= 7) return `${year - 1}-${year}-2`;
   return `${year - 1}-${year}-3`;
-}
-
-export function resolveSemester(requested: unknown): string {
-  return requested === undefined ? currentSemester() : semesterSchema.parse(requested);
 }
 
 function syncRow(
@@ -370,9 +356,7 @@ export function querySchedule(input: unknown) {
   };
 }
 
-export function listCalendarEvents(startValue: unknown, endValue: unknown) {
-  const startAt = dateTimeSchema.parse(startValue);
-  const endAt = dateTimeSchema.parse(endValue);
+export function listCalendarEvents(startAt: string, endAt: string) {
   return (
     getDatabase()
       .prepare(
@@ -383,8 +367,7 @@ export function listCalendarEvents(startValue: unknown, endValue: unknown) {
   ).map(mapEvent);
 }
 
-export function createCalendarEvent(input: unknown) {
-  const event = calendarEventSchema.parse(input);
+export function createCalendarEvent(event: z.output<typeof calendarEventInput>) {
   const result = getDatabase()
     .prepare(
       `INSERT INTO calendar_events (title, start_at, end_at, location, color, created_at)
@@ -398,6 +381,7 @@ export function createCalendarEvent(input: unknown) {
       event.color || null,
       new Date().toISOString(),
     );
+  emit(timetableContract, 'events', undefined);
   return mapEvent({
     id: Number(result.lastInsertRowid),
     title: event.title,
@@ -408,15 +392,14 @@ export function createCalendarEvent(input: unknown) {
   });
 }
 
-export function deleteCalendarEvent(id: unknown) {
+export function deleteCalendarEvent(id: number) {
   // 只删自建事件；课程在 timetable_lessons 表，不经此入口。
-  const eventId = z.number().int().positive().parse(id);
-  getDatabase().prepare('DELETE FROM calendar_events WHERE id = ?').run(eventId);
+  getDatabase().prepare('DELETE FROM calendar_events WHERE id = ?').run(id);
+  emit(timetableContract, 'events', undefined);
 }
 
 /** calendar_events 表只读视图；不存在返回 null。 */
-export function getCalendarEvent(idInput: unknown): CalendarEvent | null {
-  const id = z.number().int().positive().parse(idInput);
+export function getCalendarEvent(id: number): CalendarEvent | null {
   const row = getDatabase()
     .prepare(
       'SELECT id, title, start_at, end_at, location, color FROM calendar_events WHERE id = ?',
@@ -425,8 +408,7 @@ export function getCalendarEvent(idInput: unknown): CalendarEvent | null {
   return row ? mapEvent(row) : null;
 }
 
-export function getTimetableState(requested?: unknown): TimetableState {
-  const semester = resolveSemester(requested);
+export function getTimetableState(semester = currentSemester()): TimetableState {
   const row = syncRow(semester);
   return {
     semester,
@@ -435,19 +417,12 @@ export function getTimetableState(requested?: unknown): TimetableState {
   };
 }
 
-export function setSemesterStart(requested: unknown, value: unknown) {
-  const semester = semesterSchema.parse(requested);
+export function setSemesterStart(semester: string, value: string) {
   // 手动补设学期日期时可能还没有同步记录，先落到空串以满足 NOT NULL。
   getDatabase()
     .prepare(
       `INSERT INTO timetable_sync (semester, last_synced_at, semester_start) VALUES (?, '', ?)
        ON CONFLICT(semester) DO UPDATE SET semester_start = excluded.semester_start`,
     )
-    .run(
-      semester,
-      z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/)
-        .parse(value),
-    );
+    .run(semester, value);
 }

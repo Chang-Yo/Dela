@@ -5,10 +5,12 @@ import { notificationsContract } from '../modules/notifications/contract';
 import { searchContract } from '../modules/search/contract';
 import { todoContract } from '../modules/todo/contract';
 import { jwcContract } from '../sjtu/jwc/contract';
+import { timetableContract } from '../sjtu/timetable/contract';
 
 export const contracts: Contract[] = [
   searchContract,
   todoContract,
   notificationsContract,
+  timetableContract,
   jwcContract,
 ];

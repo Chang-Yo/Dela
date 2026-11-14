@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { CalendarDays, GraduationCap, Mail, type LucideIcon } from 'lucide-react';
+import { GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { ShuiyuanIcon } from '../../shuiyuan/shuiyuan-icon';
 import {
@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../../ui/select';
-import { cn } from '../../../../ui/cn';
 import type { MailTrashRetention } from '../../../../shared/api';
 import { CanvasTokenForm } from './CanvasTokenForm';
 import { SectionHeader } from '../SectionHeader';
@@ -18,11 +17,13 @@ import { errorText, useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
+import { CredentialRow } from '../../../../modules/settings/view';
+import { views } from '../../../../app/views';
+import { useNavigationStore } from '../../../navigation/view';
 
 type ConnectionsSectionProps = {
   onOpenMail: () => void;
   onOpenShuiyuan: () => void;
-  onOpenTimetable: () => void;
 };
 
 type Connection = {
@@ -40,16 +41,11 @@ type Connection = {
   extra?: ReactNode;
 };
 
-/** 设置 › 连接：Canvas、邮箱、教务、水源四张连接卡的容器。 */
-export function ConnectionsSection({
-  onOpenMail,
-  onOpenShuiyuan,
-  onOpenTimetable,
-}: ConnectionsSectionProps) {
+/** 设置 › 凭据：未迁移的连接写在这里，模块的凭据行由视图定义登记。 */
+export function ConnectionsSection({ onOpenMail, onOpenShuiyuan }: ConnectionsSectionProps) {
   const canvas = useWorkspaceStore((state) => state.canvas);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
-  const [timetableSyncedAt, setTimetableSyncedAt] = useState<string | null>(null);
   const [shuiyuanUser, setShuiyuanUser] = useState<string | null>(null);
   const [shuiyuanBusy, setShuiyuanBusy] = useState(false);
   const [shuiyuanConfirm, setShuiyuanConfirm] = useState(false);
@@ -61,11 +57,10 @@ export function ConnectionsSection({
     const dela = window.dela;
     if (!dela) return undefined;
     let active = true;
-    void Promise.all([dela.mail.getState(), dela.timetable.getState(), dela.shuiyuan.getState()])
-      .then(([mailState, timetableState, shuiyuanState]) => {
+    void Promise.all([dela.mail.getState(), dela.shuiyuan.getState()])
+      .then(([mailState, shuiyuanState]) => {
         if (!active) return;
         setMailAddress(mailState.account?.address ?? null);
-        setTimetableSyncedAt(timetableState.lastSyncedAt);
         setShuiyuanUser(shuiyuanState.connected ? shuiyuanState.username : null);
         if (mailState.account) {
           void dela.mail
@@ -173,15 +168,6 @@ export function ConnectionsSection({
         ),
     },
     {
-      itemId: 'timetable',
-      name: '教学信息服务网',
-      icon: CalendarDays,
-      state: timetableSyncedAt ? '已同步' : '未同步',
-      connected: Boolean(timetableSyncedAt),
-      actionLabel: '前往',
-      onClick: onOpenTimetable,
-    },
-    {
       itemId: 'shuiyuan',
       name: '水源社区',
       icon: ShuiyuanIcon,
@@ -202,7 +188,7 @@ export function ConnectionsSection({
 
   return (
     <div className="grid gap-10">
-      <SectionHeader title="连接" />
+      <SectionHeader title="凭据" />
       {loadError && <ErrorText>{loadError}</ErrorText>}
       <SettingsGroup>
         <ul className="grid">
@@ -210,7 +196,7 @@ export function ConnectionsSection({
             ({
               itemId,
               name,
-              icon: Icon,
+              icon,
               state,
               connected,
               description,
@@ -218,50 +204,30 @@ export function ConnectionsSection({
               onClick,
               extra,
             }) => (
-              <li
-                className="flex items-center justify-between gap-4 border-b py-3 last:border-0 max-md:items-start"
-                data-setting-id={itemId}
-                key={name}
+              <CredentialRow
+                connected={connected}
+                description={description}
+                icon={icon}
+                key={itemId}
+                name={name}
+                settingId={itemId}
+                status={state}
               >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-card bg-fill">
-                    <Icon className="size-4 text-ink-3" strokeWidth={1.8} />
-                  </span>
-                  <div className="grid min-w-0 gap-0.5">
-                    <strong className="text-sm">{name}</strong>
-                    {description && (
-                      <span className="truncate text-xs text-ink-3" title={description}>
-                        {description}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex min-w-0 items-center gap-2">
-                  {extra}
-                  {/* 状态用颜色说话：绿点=已连接，灰点=未连接；文字只补充细节。 */}
-                  <span
-                    className={cn(
-                      'flex min-w-[4.5rem] max-w-40 items-center gap-1.5 text-xs max-md:min-w-0',
-                      connected ? 'text-ink' : 'text-ink-3',
-                    )}
-                    title={state}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        'size-1.5 shrink-0 rounded-full',
-                        connected ? 'bg-success' : 'bg-ink-3',
-                      )}
-                    />
-                    <span className="truncate">{state}</span>
-                  </span>
-                  <Button className="shrink-0" onClick={onClick} size="sm" variant="secondary">
-                    {actionLabel}
-                  </Button>
-                </div>
-              </li>
+                {extra}
+                <Button className="shrink-0" onClick={onClick} size="sm" variant="secondary">
+                  {actionLabel}
+                </Button>
+              </CredentialRow>
             ),
           )}
+          {views.map(({ settings }, index) => {
+            const Credential = settings?.credentials;
+            return (
+              Credential && (
+                <Credential key={index} navigate={useNavigationStore.getState().navigate} />
+              )
+            );
+          })}
         </ul>
       </SettingsGroup>
       <Dialog

@@ -7,7 +7,7 @@ import {
   layoutDayColumns,
   minutesToRem,
   timelineStart,
-} from './timetable-format';
+} from '../timetable-format';
 
 // 时间用一天内的分钟数表示，样例不对应任何真实课程。
 describe('layoutDayColumns', () => {

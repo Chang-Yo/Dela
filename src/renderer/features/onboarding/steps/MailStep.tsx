@@ -3,7 +3,7 @@ import type { MailConfigureInput } from '../../../../shared/mail';
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { MailAccountForm } from '../../mail/MailAccountForm';
 import { errorText } from '../../../workspace/store';
-import { StepButton, type StepButtonState } from './step-controls';
+import { StepButton, type StepButtonState } from '../../../../modules/onboarding/view';
 
 /** 向导 · 邮箱步骤：验证 IMAP 登录，成功后后台开始首次同步，按钮转为「下一步」。 */
 export function MailStep({ onDone }: { onDone: () => void }) {

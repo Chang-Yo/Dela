@@ -344,7 +344,7 @@ export function AppShell({
           navigate('mail');
           break;
         case 'open-timetable':
-          navigate('timetable');
+          navigate({ page: 'timetable' });
           break;
         case 'open-settings':
           navigate('settings');

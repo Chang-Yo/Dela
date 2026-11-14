@@ -1,8 +1,8 @@
 import type { ComponentProps } from 'react';
 import { Check } from 'lucide-react';
-import { Button } from '../../../../ui/button';
-import { Select, SelectContent, SelectTrigger, SelectValue } from '../../../../ui/select';
-import { Spinner } from '../../../../ui/spinner';
+import { Button } from '../../../ui/button';
+import { Select, SelectContent, SelectTrigger, SelectValue } from '../../../ui/select';
+import { Spinner } from '../../../ui/spinner';
 
 // 向导步骤的统一控件：纯白画布上使用固定中性配色，不随明暗主题变化。
 // 所有主按钮全宽、同一高度与圆角，保证五个步骤的排版节奏一致。

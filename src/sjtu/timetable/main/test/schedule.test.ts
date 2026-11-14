@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { TimetableLesson } from './api';
-import { lessonOccurrences } from './schedule';
+import type { TimetableLesson } from '../../contract';
+import { lessonOccurrences } from '../schedule';
 
 const lesson: TimetableLesson = {
   id: 1,

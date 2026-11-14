@@ -22,7 +22,6 @@ type SettingsViewProps = {
   onFontSizeChange: (size: number) => Promise<void>;
   onOpenMail: () => void;
   onOpenShuiyuan: () => void;
-  onOpenTimetable: () => void;
   onThemeChange: (theme: ThemePreference) => Promise<void>;
   onZoomChange: (zoom: ZoomPreference) => Promise<void>;
   /** 全局搜索选中设置入口时的定位请求;对象每次新建,已在设置页也会触发切换。 */
@@ -36,7 +35,6 @@ export function SettingsView({
   onFontSizeChange,
   onOpenMail,
   onOpenShuiyuan,
-  onOpenTimetable,
   onThemeChange,
   onZoomChange,
   sectionRequest,
@@ -70,11 +68,7 @@ export function SettingsView({
           {section === 'workspace' && <WorkspaceSection />}
           {section === 'archived' && <ArchivedSection />}
           {section === 'connections' && (
-            <ConnectionsSection
-              onOpenMail={onOpenMail}
-              onOpenShuiyuan={onOpenShuiyuan}
-              onOpenTimetable={onOpenTimetable}
-            />
+            <ConnectionsSection onOpenMail={onOpenMail} onOpenShuiyuan={onOpenShuiyuan} />
           )}
           {section === 'providers' && <LlmSection />}
           {section === 'remotes' && <RemoteSection />}

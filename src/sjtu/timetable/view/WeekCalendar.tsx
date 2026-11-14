@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MapPin } from 'lucide-react';
-import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
+import type { CalendarEvent, TimetableLesson } from '../contract';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
   blockHeights,

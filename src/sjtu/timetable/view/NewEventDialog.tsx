@@ -1,13 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
-import type { CalendarEventColor } from '../../../shared/api';
+import type { CalendarEventColor } from '../../../modules/todo/contract';
+import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
-import { DateTimeStepper } from '../../../modules/todo/view';
-import { EventColorRow } from '../../../modules/todo/view';
-import { roundToMinute } from '../../../modules/todo/view';
+import { DateTimeStepper, EventColorRow, roundToMinute } from '../../../modules/todo/view';
 import { sheetUp } from '../../../ui/motion';
-import { errorText } from '../../workspace/store';
+import { timetableClient } from './use-timetable';
 import { cn } from '../../../ui/cn';
 import { ErrorText } from '../../../ui/alert';
 
@@ -49,7 +48,7 @@ export function NewEventDialog({
     setSaving(true);
     setError(null);
     try {
-      await window.dela!.timetable.createEvent({
+      await timetableClient.createEvent({
         title: title.trim(),
         startAt: startAt.toISOString(),
         endAt: endAt.toISOString(),
@@ -58,7 +57,7 @@ export function NewEventDialog({
       });
       onCreated();
     } catch (reason) {
-      setError(errorText(reason));
+      setError(errorMessage(reason));
     } finally {
       setSaving(false);
     }

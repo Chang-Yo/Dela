@@ -11,8 +11,9 @@
 
 - `defineContract(namespace, procedures, events)`：事件与入参一样用 zod 声明，只承载类型，不做运行时校验。主进程用 `emit(contract, name, payload)` 经 `ClientBroadcaster` 发送 `${namespace}:${name}`。
 - preload 的 bridge 增加 `subscribe(channel, listener)`，只放行已登记契约的事件；订阅时经 `contract:subscribe` 向主进程登记本窗口，此后主进程的事件才会送达。
-- 推送分两类：
+- 推送分三类：
   - **状态快照**（推送的是完整状态，如待办、通知、更新状态）：查询缓存是唯一副本。契约里用同名的过程与事件配对（`state` 过程读取、`state` 事件推送），`connectQueryEvents` 在渲染端启动时为配对的事件订阅一次，收到后先取消同键的在途查询再写入缓存。组件只用 `useQuery`。
+  - **失效通知**（过程带参数，快照推不出每个读取，如按时间段读取日程）：同名事件不带内容，`connectQueryEvents` 只让该过程带参数的读取过期重读。
   - **事件流**（推送的是增量，如会话运行事件、终端输出）：进入该领域的 store，同样只在 app 启动时订阅一次。
 - 组件里不再出现 `onUpdate` 订阅、alive 守卫与 version ref。模块迁移时，旧的 `window.dela.<domain>` 接口与推送通道一并删除。
 - 模块的后台同步（定时刷新等）写在 `ModuleDefinition.start()` 里，由 app 在就绪后启动、退出时停止（挂载点见 0005）。

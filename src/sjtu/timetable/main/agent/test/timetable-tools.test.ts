@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CalendarEvent } from '../../../../../shared/timetable';
+import type { CalendarEvent } from '../../../contract';
 import { timetableDomain } from '../index';
 
 vi.mock('../../api', async () => {

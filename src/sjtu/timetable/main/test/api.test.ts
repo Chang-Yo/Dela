@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Database } from 'better-sqlite3';
-import { deleteCalendarEvent, parseSemesterStart, parseWeekNumbers } from '../api';
+import { parseSemesterStart, parseWeekNumbers } from '../api';
+import { timetableModule } from '../..';
 import { getDatabase } from '../../../../main/database';
 
 vi.mock('electron', () => ({
@@ -32,17 +33,18 @@ describe('parseSemesterStart', () => {
   });
 });
 
-describe('deleteCalendarEvent', () => {
+describe('deleteEvent', () => {
   it('deletes only from calendar_events with a validated id', () => {
     const run = vi.fn();
     const prepare = vi.fn(() => ({ run }));
     vi.mocked(getDatabase).mockReturnValue({ prepare } as unknown as Database);
-    deleteCalendarEvent(7);
+    const deleteEvent = (id: unknown) => timetableModule.ipc!.call('deleteEvent', id);
+    deleteEvent(7);
     expect(prepare).toHaveBeenCalledWith('DELETE FROM calendar_events WHERE id = ?');
     expect(run).toHaveBeenCalledWith(7);
-    expect(() => deleteCalendarEvent(0)).toThrow();
-    expect(() => deleteCalendarEvent(2.5)).toThrow();
-    expect(() => deleteCalendarEvent('3')).toThrow();
+    expect(() => deleteEvent(0)).toThrow();
+    expect(() => deleteEvent(2.5)).toThrow();
+    expect(() => deleteEvent('3')).toThrow();
     expect(prepare).toHaveBeenCalledOnce();
   });
 });

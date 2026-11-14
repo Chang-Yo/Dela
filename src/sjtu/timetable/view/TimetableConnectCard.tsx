@@ -1,18 +1,13 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, LogIn } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { showToast } from '../../app/toasts';
-import { connectAndSyncTimetable } from './timetable-connect';
+import { showToast } from '../../../renderer/app/toasts';
+import { connectAndSyncTimetable } from './use-timetable';
 
-type TimetableConnectCardProps = {
-  /** 登录成功后要同步的学期；不传由主进程取默认学期。 */
-  semester?: string;
-  /** 登录并同步成功后的回调（宿主负责刷新自己的状态）。 */
-  onSuccess: () => void;
-};
-
-/** 无同步记录时的登录卡：登录在独立窗口完成，成功后同步课程。课表页与首启向导共用。 */
-export function TimetableConnectCard({ semester, onSuccess }: TimetableConnectCardProps) {
+/** 无同步记录时的登录卡：登录在独立窗口完成，成功后同步该学期的课程。 */
+export function TimetableConnectCard({ semester }: { semester: string }) {
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
 
   const connectAndSync = async () => {
@@ -23,7 +18,7 @@ export function TimetableConnectCard({ semester, onSuccess }: TimetableConnectCa
         showToast({ variant: 'error', title: '登录同步失败', description: failure });
         return;
       }
-      onSuccess();
+      await queryClient.invalidateQueries({ queryKey: ['timetable'] });
     } finally {
       setBusy(false);
     }

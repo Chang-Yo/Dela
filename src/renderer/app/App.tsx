@@ -17,7 +17,6 @@ import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog
 import { useUpdateState } from '../features/settings/update';
 import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../../modules/search/view';
-import { TimetableView } from '../features/timetable';
 import type { ChatSessionSummary } from '../../shared/api';
 import type { SearchHit } from '../../modules/search/contract';
 import type { NavTarget } from '../../app/module';
@@ -256,7 +255,9 @@ export default function App() {
             void useNavigationStore.getState().openChat(sessionId, owner);
           }}
           onOpenGeneralChat={() => void useNavigationStore.getState().openGeneralChat(false)}
-          onNavigateBusiness={(id) => void useNavigationStore.getState().navigate(id)}
+          onNavigateBusiness={(id) =>
+            void useNavigationStore.getState().navigate(id === 'timetable' ? { page: id } : id)
+          }
         >
           <MotionConfig reducedMotion="user">
             <AnimatePresence initial={false} mode="wait">
@@ -282,13 +283,6 @@ export default function App() {
                       openRequest={mailRequest ?? undefined}
                     />
                   )}
-                  {view === 'timetable' && (
-                    <TimetableView
-                      onOpenTodo={(todoId) =>
-                        void useNavigationStore.getState().navigate({ page: 'todo', todoId })
-                      }
-                    />
-                  )}
                   {view === 'shuiyuan' && <ShuiyuanView />}
                   {view === 'classroom' && <ClassroomView />}
                   {target && <ModulePage target={target} />}
@@ -299,9 +293,6 @@ export default function App() {
                       onThemeChange={changeTheme}
                       onOpenMail={() => void useNavigationStore.getState().navigate('mail')}
                       onOpenShuiyuan={() => void useNavigationStore.getState().navigate('shuiyuan')}
-                      onOpenTimetable={() =>
-                        void useNavigationStore.getState().navigate('timetable')
-                      }
                       onZoomChange={changeZoom}
                       sectionRequest={settingsRequest ?? undefined}
                       theme={theme}
