@@ -19,6 +19,7 @@
 | [0016](0016-core-host-boundary.md)  | 数据库与项目由宿主持有，core 经端口使用          | 已接受   |
 | [0017](0017-contract-events.md)     | 契约声明推送事件，状态快照进查询缓存             | 已接受   |
 | [0018](0018-design-token-freeze.md) | Design token 的名字定稿并冻结                    | 已接受   |
+| [0019](0019-view-manifest.md)       | 渲染端按清单装配模块的页面                       | 已接受   |
 
 新记录沿用下面的格式，控制在一屏以内：
 
