@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { TodoItem } from '../../../shared/api';
-import { colorFor, dateKey } from '../timetable/timetable-format';
-import { groupTodosByDay, monthGridDays, todoCalendarColor } from './todo-calendar';
+import type { TodoItem } from '../../contract';
+import { colorFor, dateKey } from '../calendar';
+import { groupTodosByDay, monthGridDays, todoCalendarColor } from '../todo-calendar';
 
 function todo(overrides: Partial<TodoItem> = {}): TodoItem {
   return {

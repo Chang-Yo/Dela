@@ -1,6 +1,6 @@
-import type { CalendarEventColor } from '../../../shared/api';
+import type { CalendarEventColor } from '../contract';
 import { cn } from '../../../ui/cn';
-import { eventPalette } from './timetable-format';
+import { eventPalette } from './calendar';
 
 /** 事件颜色选择行：日历新建事件与待办表单共用同一套候选色圆点。 */
 export function EventColorRow({

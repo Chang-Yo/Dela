@@ -1,3 +1,4 @@
+import type { CalendarEventColor } from '../modules/todo/contract';
 export interface TimetableLesson {
   readonly id: number;
   readonly semester: string;
@@ -23,19 +24,7 @@ export interface TimetableState {
   readonly semesterStart: string | null;
 }
 
-// 日历事件候选色 key，与 renderer 的 --cal-* 设计 token 一一对应。
-export const calendarEventColors = [
-  'rose',
-  'peach',
-  'sand',
-  'sage',
-  'teal',
-  'blue',
-  'lilac',
-  'slate',
-] as const;
-
-export type CalendarEventColor = (typeof calendarEventColors)[number];
+export { calendarEventColors, type CalendarEventColor } from '../modules/todo/contract';
 
 export interface CalendarEvent {
   /** 自建事件为数据库自增 id；来自个人待办的派生事件是 `todo:{todoId}` 字符串。 */

@@ -10,7 +10,6 @@ const defaults = {
   shellSidebarCollapsed: false,
   projectOpenTarget: 'vscode' as 'vscode' | 'explorer',
   mailFoldersCollapsed: true,
-  todoShowCompleted: true,
   classroomSidebarWidth: 300,
   classroomSidebarCollapsed: false,
   workspaceSidebarWidth: 300,
@@ -78,7 +77,6 @@ function migrateLegacyPreferences(): string {
     projectOpenTarget:
       localStorage.getItem('dela.project.open-target') === 'explorer' ? 'explorer' : 'vscode',
     mailFoldersCollapsed: localStorage.getItem('dela.mail.folders-collapsed') !== 'false',
-    todoShowCompleted: localStorage.getItem('dela.todo.show-completed') !== 'false',
     classroomSidebarWidth: legacyWidth(
       'dela.classroom.sidebarWidth',
       (value) => value >= classroomWidthRange.min && value <= classroomWidthRange.max,

@@ -27,7 +27,6 @@ it('旧键的值并入新 store，之后旧键被删', async () => {
     shellSidebarCollapsed: true,
     projectOpenTarget: 'explorer',
     mailFoldersCollapsed: false,
-    todoShowCompleted: false,
     classroomSidebarWidth: 280,
     classroomSidebarCollapsed: true,
     workspaceSidebarWidth: 220,
@@ -54,12 +53,11 @@ it('旧值不合法时取默认值', async () => {
 });
 
 it('新键已存在时不再读旧键', async () => {
-  localStorage.setItem('dela.preferences', '{"state":{"todoShowCompleted":false},"version":1}');
+  localStorage.setItem('dela.preferences', '{"state":{"mailFoldersCollapsed":true},"version":1}');
   localStorage.setItem('dela.mail.folders-collapsed', 'false');
 
   const state = (await loadPreferences()).getState();
 
-  expect(state.todoShowCompleted).toBe(false);
   expect(state.mailFoldersCollapsed).toBe(true);
   expect(localStorage.getItem('dela.mail.folders-collapsed')).toBe('false');
 });

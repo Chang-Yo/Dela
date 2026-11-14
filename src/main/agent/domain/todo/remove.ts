@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getTodoState, removeTodo } from '../../../todo';
+import { getTodoState, removeTodo } from '../../../../modules/todo';
 import { slimTodo, tool, toolError } from '../shared';
 
 export const removeTodoTool = tool(

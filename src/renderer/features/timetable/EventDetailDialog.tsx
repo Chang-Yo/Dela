@@ -10,15 +10,8 @@ import {
 } from 'lucide-react';
 import type { CalendarEvent } from '../../../shared/api';
 import { Button } from '../../../ui/button';
-import {
-  calendarToneKey,
-  colorFor,
-  formatEventRange,
-  formatMinuteOfDay,
-  formatMonthDay,
-  periodBoundary,
-  weekdayName,
-} from './timetable-format';
+import { formatEventRange, formatMinuteOfDay, periodBoundary } from './timetable-format';
+import { calendarToneKey, colorFor, formatMonthDay, weekdayName } from '../../../modules/todo/view';
 import type { CalendarItemDetail } from './WeekCalendar';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';

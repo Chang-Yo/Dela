@@ -1,6 +1,8 @@
 // 通知镜像订阅与跳转：镜像状态供通知中心与铃铛计数，
 // 跳转经 navigation/view 的定位脉冲分发。
 import { useEffect, useRef, useState } from 'react';
+import { subscribe } from '../../core/protocol/contract';
+import { todoContract } from '../../modules/todo/contract';
 import type { NotificationItem, NotificationState } from '../../shared/api';
 import { leaveComposer } from '../features/mail/compose-close';
 import { errorText } from '../workspace/store';
@@ -29,7 +31,8 @@ export function useNotifications(active: boolean) {
       setNow(Date.now);
       if (alive) setNotifications(state);
     });
-    const unsubscribeTodos = window.dela?.todo.onUpdate(() => {
+    // 通知里含待办提醒：待办变化后重读（通知迁入模块后改为查询失效）。
+    const unsubscribeTodos = subscribe(todoContract, window.dela?.bridge, 'state', () => {
       const requested = ++versionRef.current;
       void api
         .getState()
@@ -62,7 +65,7 @@ export function useNotifications(active: boolean) {
     return () => {
       alive = false;
       unsubscribe();
-      unsubscribeTodos?.();
+      unsubscribeTodos();
       window.clearInterval(timer);
     };
   }, [active]);

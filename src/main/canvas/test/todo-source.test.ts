@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { canvasTodoStatus, todoCompleted } from './todo';
+import { todoCompleted } from '../../../modules/todo/contract';
+import { canvasTodoStatus } from '../todo-source';
 
 describe('Canvas 作业完成事实', () => {
   it('缺少提交数据不猜测未完成', () => {

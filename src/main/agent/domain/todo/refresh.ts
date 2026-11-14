@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getTodoState, refreshTodos } from '../../../todo';
+import { getTodoState, refreshTodos } from '../../../../modules/todo';
 import { coverage, freshness, slimTodo, tool, toolError } from '../shared';
 
 export const refreshTodosTool = tool(

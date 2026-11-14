@@ -11,6 +11,8 @@ import { formatByName, opensInEditor } from '../../core/protocol/files';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { useSessions } from '../sessions/store';
 import { showToast } from '../app/toasts';
+import { createClient } from '../../core/protocol/contract';
+import { todoContract } from '../../modules/todo/contract';
 
 export type AppView =
   | 'home'
@@ -291,6 +293,11 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     openTodo: (id) => {
       if (!get().navigate('todo')) return false;
       set({ todoRequest: { id } });
+      void createClient(todoContract, window.dela?.bridge)
+        .markRead(id)
+        .catch((reason: unknown) =>
+          showToast({ variant: 'error', title: '标记已读失败', description: errorText(reason) }),
+        );
       return true;
     },
 

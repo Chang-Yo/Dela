@@ -3,29 +3,31 @@ import { MapPin } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
-  addDays,
   blockHeights,
-  colorFor,
-  dateKey,
-  dayMilliseconds,
-  eventColorStyle,
   eventDayEdges,
   eventStyle,
-  eventTone,
   formatEventRange,
-  formatMonthDay,
-  formatTime,
   layoutDayColumns,
   localEventsByDay,
   minuteOfDay,
   minutesToRem,
   periodBoundary,
-  startOfDay,
   timelineEnd,
   timelineStart,
-  weekDays,
   type DayColumnLayout,
 } from './timetable-format';
+import {
+  addDays,
+  colorFor,
+  dateKey,
+  dayMilliseconds,
+  eventColorStyle,
+  eventTone,
+  formatMonthDay,
+  formatTime,
+  startOfDay,
+  weekDays,
+} from '../../../modules/todo/view';
 import { cn } from '../../../ui/cn';
 
 // 当前时间线与「今天」高亮的刷新间隔：now 仅在渲染时取值，需定期重渲染保持新鲜。

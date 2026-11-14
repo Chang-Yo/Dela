@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { getTodoState } from '../../../todo';
-import type { TodoItem } from '../../../../shared/api';
-import { todoCompleted } from '../../../../shared/todo';
+import { getTodoState } from '../../../../modules/todo';
+import type { TodoItem } from '../../../../modules/todo/contract';
+import { todoCompleted } from '../../../../modules/todo/contract';
 import {
   coverage,
   freshness,

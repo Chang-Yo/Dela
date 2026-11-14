@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   CalendarCheck,
   CalendarDays,
@@ -15,24 +16,43 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import type { CalendarEventColor, TodoItem, TodoSaveInput, TodoState } from '../../../shared/api';
-import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
+import { createClient, errorMessage } from '../../../core/protocol/contract';
+import {
+  todoCompleted,
+  todoContract,
+  todoStatusLabels,
+  type CalendarEventColor,
+  type TodoItem,
+  type TodoSaveInput,
+  type TodoState,
+} from '../contract';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Switch } from '../../../ui/switch';
 import { cn } from '../../../ui/cn';
-import { usePreferences } from '../../app/preferences';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
-import { EventColorRow } from '../timetable/EventColorRow';
-import { formatTime, roundToMinute, startOfDay } from '../timetable/timetable-format';
+import { showToast } from '../../../renderer/app/toasts';
+import { EventColorRow } from './EventColorRow';
+import { formatTime, roundToMinute, startOfDay } from './calendar';
 import { DateTimeStepper } from './DateTimeStepper';
 import { TodoCalendar } from './TodoCalendar';
 import { monthLabel } from './todo-calendar';
 import { TodoDetail } from './TodoDetail';
 import { TodoSheet } from './TodoSheet';
+import { useTodoPreferences } from './preferences';
 import { dateLabel } from './todo-format';
 import { ErrorText } from '../../../ui/alert';
+
+const todo = createClient(todoContract, window.dela?.bridge);
+
+/** 待办状态的唯一副本：主进程推送 todo:state 时直接写入这一键（docs/adr/0017）。 */
+export function useTodoState() {
+  return useQuery({ queryKey: ['todo', 'state'], queryFn: () => todo.state() });
+}
+
+/** 外部链接交给主窗口的打开处理（能在应用内打开的会留在应用内）。 */
+function openLink(url: string) {
+  window.open(url, '_blank', 'noopener');
+}
 
 const inputClass =
   'w-full rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
@@ -203,48 +223,27 @@ export function TodoView({ request }: { request?: { id: string } }) {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
-  const [state, setState] = useState<TodoState | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const query = useTodoState();
+  const state = query.data ?? null;
+  const error = query.error ? errorMessage(query.error) : null;
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'all' | 'personal' | 'canvas'>('all');
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [month, setMonth] = useState(() => startOfDay(new Date()));
-  const showCompleted = usePreferences((state) => state.todoShowCompleted);
-  const setPreference = usePreferences((state) => state.setPreference);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const showCompleted = useTodoPreferences((state) => state.showCompleted);
+  const [detailId, setDetailId] = useState<string | null>(request?.id ?? null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  useEffect(() => {
-    const api = window.dela?.todo;
-    if (!api) return;
-    let active = true;
-    let updated = false;
-    const off = api.onUpdate((value) => {
-      updated = true;
-      if (active) setState(value);
-    });
-    void api
-      .getState()
-      .then((value) => {
-        if (active && !updated) setState(value);
-      })
-      .catch((error: unknown) => {
-        if (active) setError(errorText(error));
-      });
-    return () => {
-      active = false;
-      off();
-    };
-  }, []);
-  useEffect(() => {
-    if (!request) return;
-    setCreating(false);
-    setEditingId(null);
-    setDetailId(request.id);
-    void window.dela?.todo.markRead(request.id).catch((reason: unknown) => {
-      showToast({ variant: 'error', title: '标记已读失败', description: errorText(reason) });
-    });
-  }, [request]);
+  // 每次从外部定位待办都是新对象，据此在渲染中切到它的详情。
+  const [shownRequest, setShownRequest] = useState(request);
+  if (request !== shownRequest) {
+    setShownRequest(request);
+    if (request) {
+      setCreating(false);
+      setEditingId(null);
+      setDetailId(request.id);
+    }
+  }
   const run = async (
     operation: () => Promise<TodoState>,
     options?: { after?: () => void; failTitle?: string },
@@ -257,7 +256,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
       showToast({
         variant: 'error',
         title: options?.failTitle ?? '待办操作失败',
-        description: errorText(reason),
+        description: errorMessage(reason),
       });
     } finally {
       setBusy(false);
@@ -277,7 +276,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
     ).length;
   const openItem = (id: string) => {
     setDetailId(id);
-    void run(() => window.dela!.todo.markRead(id), { failTitle: '标记已读失败' });
+    void run(() => todo.markRead(id), { failTitle: '标记已读失败' });
   };
   // 月份导航放在页头标题右侧，日历网格只负责展示。
   const stepMonth = (amount: number) =>
@@ -326,13 +325,13 @@ export function TodoView({ request }: { request?: { id: string } }) {
               aria-label="同步作业"
               title="同步作业"
               disabled={busy || state?.syncing || !state?.connected}
-              onClick={() => void run(() => window.dela!.todo.refresh(), { failTitle: '同步失败' })}
+              onClick={() => void run(() => todo.refresh(), { failTitle: '同步失败' })}
             >
               <RefreshCw className={cn('size-4', state?.syncing && 'animate-spin')} />
             </Button>
             <Button
               size="sm"
-              disabled={!window.dela?.todo}
+              disabled={!window.dela}
               onClick={() => {
                 setCreating(true);
                 setEditingId(null);
@@ -376,7 +375,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
             <Switch
               checked={showCompleted}
               label="显示已完成"
-              onChange={(value) => setPreference('todoShowCompleted', value)}
+              onChange={(showCompleted) => useTodoPreferences.setState({ showCompleted })}
             />
             显示已完成
           </label>
@@ -409,7 +408,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
         {!state ? (
           <p className="py-8 text-center text-sm text-ink-3">
-            {window.dela?.todo ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
+            {window.dela ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
           </p>
         ) : view === 'calendar' ? (
           <TodoCalendar items={items} month={month} onOpenItem={(item) => openItem(item.id)} />
@@ -434,7 +433,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                       aria-label={done ? `重新打开 ${item.title}` : `完成 ${item.title}`}
                       onClick={() =>
                         void run(() =>
-                          window.dela!.todo.save({
+                          todo.save({
                             id: item.id,
                             title: item.title,
                             completed: !done,
@@ -492,7 +491,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                           title={item.calendar ? '取消写入日历' : '写入日历'}
                           onClick={() =>
                             void run(() =>
-                              window.dela!.todo.save({
+                              todo.save({
                                 id: item.id,
                                 title: item.title,
                                 calendar: !item.calendar,
@@ -516,7 +515,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                           onClick={() => {
                             setDetailId(null);
                             setEditingId(item.id);
-                            void run(() => window.dela!.todo.markRead(item.id), {
+                            void run(() => todo.markRead(item.id), {
                               failTitle: '标记已读失败',
                             });
                           }}
@@ -531,7 +530,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                           aria-label={`删除 ${item.title}`}
                           title="删除"
                           onClick={() =>
-                            void run(() => window.dela!.todo.remove(item.id), {
+                            void run(() => todo.remove(item.id), {
                               failTitle: '删除待办失败',
                             })
                           }
@@ -547,15 +546,7 @@ export function TodoView({ request }: { request?: { id: string } }) {
                           className={rowActionClass}
                           aria-label="在 Canvas 中打开"
                           title="在 Canvas 中打开"
-                          onClick={() =>
-                            void window.dela?.canvas.openLink(item.url!).catch((reason: unknown) =>
-                              showToast({
-                                variant: 'error',
-                                title: '打开链接失败',
-                                description: errorText(reason),
-                              }),
-                            )
-                          }
+                          onClick={() => openLink(item.url!)}
                         >
                           <ExternalLink className="size-4" />
                         </Button>
@@ -578,19 +569,11 @@ export function TodoView({ request }: { request?: { id: string } }) {
             setEditingId(detail.id);
           }}
           onDelete={() =>
-            void run(() => window.dela!.todo.remove(detail.id), {
+            void run(() => todo.remove(detail.id), {
               failTitle: '删除待办失败',
             })
           }
-          onOpenLink={(url) =>
-            void window.dela?.canvas.openLink(url).catch((reason: unknown) =>
-              showToast({
-                variant: 'error',
-                title: '打开链接失败',
-                description: errorText(reason),
-              }),
-            )
-          }
+          onOpenLink={openLink}
         />
       )}
       {(creating || editing) && (
@@ -605,14 +588,14 @@ export function TodoView({ request }: { request?: { id: string } }) {
           onDelete={
             editing
               ? () =>
-                  void run(() => window.dela!.todo.remove(editing.id), {
+                  void run(() => todo.remove(editing.id), {
                     after: () => setEditingId(null),
                     failTitle: '删除待办失败',
                   })
               : undefined
           }
           onSave={(input) =>
-            void run(() => window.dela!.todo.save(input), {
+            void run(() => todo.save(input), {
               after: () => {
                 setCreating(false);
                 setEditingId(null);

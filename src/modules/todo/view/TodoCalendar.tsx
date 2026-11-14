@@ -1,16 +1,10 @@
 import { useState } from 'react';
 import { Popover } from 'radix-ui';
-import type { TodoItem } from '../../../shared/api';
-import { todoCompleted } from '../../../shared/todo';
+import type { TodoItem } from '../contract';
+import { todoCompleted } from '../contract';
 import { menuPanel } from '../../../ui/menu-styles';
 import { cn } from '../../../ui/cn';
-import {
-  dateKey,
-  eventColorStyle,
-  formatMonthDay,
-  formatTime,
-  weekDays,
-} from '../timetable/timetable-format';
+import { dateKey, eventColorStyle, formatMonthDay, formatTime, weekDays } from './calendar';
 import { groupTodosByDay, monthGridDays, todoCalendarColor } from './todo-calendar';
 
 function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) => void }) {

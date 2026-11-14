@@ -1,10 +1,23 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TodoItem, TodoSaveInput, TodoState } from '../../../shared/api';
-import { usePreferences } from '../../app/preferences';
-import { TodoView } from './TodoView';
+import type { TodoItem, TodoSaveInput, TodoState } from '../../contract';
+import { useTodoPreferences } from '../preferences';
+
+// 契约客户端在模块加载时取 bridge，须先于导入视图装好。
+const api = vi.hoisted(() => {
+  const handlers: Record<string, (input: unknown) => Promise<unknown>> = {};
+  window.dela = {
+    bridge: {
+      invoke: (channel: string, input: unknown) => handlers[channel.slice('todo:'.length)]!(input),
+      subscribe: () => () => {},
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  return handlers;
+});
+import { TodoView } from '../TodoView';
 
 const dueAt = new Date(2026, 9, 21, 23, 59).toISOString();
 const items: TodoItem[] = [
@@ -55,35 +68,34 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   localStorage.clear();
-  usePreferences.setState({ todoShowCompleted: true });
+  useTodoPreferences.setState({ showCompleted: true });
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  window.dela = {
-    todo: {
-      getState: vi.fn(async () => state),
-      onUpdate: vi.fn(() => () => {}),
-      markRead: vi.fn(async () => state),
-      refresh: vi.fn(async () => state),
-      save: vi.fn(async () => state),
-      remove: vi.fn(async () => state),
-    },
-  } as unknown as NonNullable<typeof window.dela>;
+  for (const name of ['state', 'markRead', 'refresh', 'save', 'remove'])
+    api[name] = vi.fn(async () => state);
 });
+
+const view = () => (
+  <QueryClientProvider client={new QueryClient()}>
+    <TodoView />
+  </QueryClientProvider>
+);
+
+async function renderView() {
+  await act(async () => root.render(view()));
+  await vi.waitFor(() => expect(host.textContent).not.toContain('正在加载'));
+}
 
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
-  delete window.dela;
   vi.restoreAllMocks();
 });
 
 describe('TODO 视图', () => {
   it('默认显示月历，未完成待办数量常驻筛选页签，可切换列表查看', async () => {
-    await act(async () => {
-      root.render(<TodoView />);
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    await renderView();
 
     expect(host.querySelector('[aria-label="待办日历"]')).not.toBeNull();
     const findButton = (label: string) =>
@@ -116,16 +128,10 @@ describe('TODO 视图', () => {
       readAt: null,
       createdAt: dueAt,
     };
-    window.dela!.todo.getState = vi.fn(async () => ({ ...state, items: [...items, completed] }));
-    const render = async () => {
-      await act(async () => {
-        root.render(<TodoView />);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-    };
+    api.state = vi.fn(async () => ({ ...state, items: [...items, completed] }));
     const findSwitch = () => host.querySelector<HTMLButtonElement>('[aria-label="显示已完成"]')!;
 
-    await render();
+    await renderView();
     expect(findSwitch().getAttribute('aria-checked')).toBe('true');
     await act(async () => {
       [...host.querySelectorAll('button')]
@@ -138,22 +144,19 @@ describe('TODO 视图', () => {
       findSwitch().click();
     });
     expect(host.textContent).not.toContain('已完成的待办');
-    expect(usePreferences.getState().todoShowCompleted).toBe(false);
+    expect(useTodoPreferences.getState().showCompleted).toBe(false);
 
     act(() => root.unmount());
     root = createRoot(host);
-    await render();
+    await renderView();
     expect(findSwitch().getAttribute('aria-checked')).toBe('false');
     expect(host.textContent).not.toContain('已完成的待办');
   });
 
   it('新建待办保存时不会默认成已经过去的截止时间', async () => {
-    const save = vi.fn(async (_input: TodoSaveInput) => state);
-    window.dela!.todo.save = save;
-    await act(async () => {
-      root.render(<TodoView />);
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    const save = vi.fn(async (_input: unknown) => state);
+    api.save = save;
+    await renderView();
     await act(async () => {
       [...host.querySelectorAll('button')]
         .find((button) => button.textContent?.includes('新建待办'))!
@@ -175,7 +178,7 @@ describe('TODO 视图', () => {
     });
 
     expect(save).toHaveBeenCalled();
-    const saved = save.mock.calls[0]![0];
+    const saved = save.mock.calls[0]![0] as TodoSaveInput;
     expect(saved.dueAt == null || Date.parse(saved.dueAt) >= Date.now()).toBe(true);
   });
 });

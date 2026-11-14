@@ -1,11 +1,5 @@
-import type { CalendarEventColor, TodoItem } from '../../../shared/api';
-import {
-  addDays,
-  colorFor,
-  dateKey,
-  dayMilliseconds,
-  mondayOf,
-} from '../timetable/timetable-format';
+import type { CalendarEventColor, TodoItem } from '../contract';
+import { addDays, colorFor, dateKey, dayMilliseconds, mondayOf } from './calendar';
 
 /**
  * Canvas 作业用课程代码作为颜色键，与课表的课程条走同一套 `colorFor`；

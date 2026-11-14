@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react';
-import type { CalendarEvent, TimetableLesson, TimetableState, TodoItem } from '../../../shared/api';
+import type { CalendarEvent, TimetableLesson, TimetableState } from '../../../shared/api';
+import type { TodoItem } from '../../../modules/todo/contract';
 import { Button } from '../../../ui/button';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
@@ -13,17 +14,20 @@ import { WeekCalendar, type CalendarItemDetail } from './WeekCalendar';
 import { EventDetailDialog } from './EventDetailDialog';
 import {
   activeInWeek,
-  addDays,
-  formatMonthDay,
   formatSyncTime,
-  mondayOf,
   parseDate,
   semesterLabel,
   semesterOptions,
-  startOfDay,
   weekForDate,
   weekStartFor,
 } from './timetable-format';
+import {
+  addDays,
+  formatMonthDay,
+  mondayOf,
+  startOfDay,
+  useTodoState,
+} from '../../../modules/todo/view';
 import { cn } from '../../../ui/cn';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
@@ -32,6 +36,8 @@ import { Callout } from '../../../ui/alert';
 type CalendarMode = 'week' | 'month';
 
 /** 学期/事件请求序号：丢弃过期响应（与水源 store 的 request guard 同法）。 */
+/** 待办尚未载入时的稳定空数组，避免日历派生值每次渲染都重算。 */
+const emptyTodos: TodoItem[] = [];
 let semesterRequest = 0;
 let eventsRequest = 0;
 
@@ -52,7 +58,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   const [state, setState] = useState<TimetableState | null>(null);
   const [lessons, setLessons] = useState<TimetableLesson[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
+  const todoItems = useTodoState().data?.items ?? emptyTodos;
   const [semester, setSemester] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [month, setMonth] = useState(() => startOfDay(new Date()));
@@ -151,24 +157,6 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
       }),
     [loadEvents],
   );
-
-  // 写入日历的个人待办由待办状态广播驱动：增删改后无需手动刷新日历。
-  useEffect(() => {
-    const api = window.dela?.todo;
-    if (!api) return;
-    let active = true;
-    const off = api.onUpdate((value) => setTodoItems(value.items));
-    void api
-      .getState()
-      .then((value) => {
-        if (active) setTodoItems(value.items);
-      })
-      .catch((reason: unknown) => console.warn('[timetable] 加载个人待办失败', reason));
-    return () => {
-      active = false;
-      off();
-    };
-  }, []);
 
   const weeks = useMemo(() => {
     const found = [...new Set(lessons.flatMap((lesson) => lesson.weekNumbers))].sort(

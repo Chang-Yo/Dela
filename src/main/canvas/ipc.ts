@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { copyFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { broadcastTodos, refreshTodos } from '../todo';
+import { publishTodoState, refreshTodos } from '../../modules/todo';
 import { clearCanvasToken, loadCanvasToken } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
 import { isWorkspaceWindow } from '../notifications/system';
@@ -41,7 +41,7 @@ export function registerCanvasIpc() {
   handle('get-state', getCanvasState);
   handle('configure', async (token) => {
     await configureCanvas(z.string().parse(token));
-    broadcastTodos();
+    publishTodoState();
     void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
     void refreshCanvasTrees().catch((error: unknown) =>
       console.error('Canvas tree sync failed', error),
@@ -49,7 +49,7 @@ export function registerCanvasIpc() {
   });
   handle('disconnect', () => {
     clearCanvasToken();
-    broadcastTodos();
+    publishTodoState();
   });
   handle('sync-courses', syncCanvasCourses);
   handle('sync-course', (id) => syncCanvasCourse(z.number().int().positive().parse(id)));

@@ -1,4 +1,5 @@
-import { saveTodo, todoSaveSchema } from '../../../todo';
+import { saveTodo } from '../../../../modules/todo';
+import { todoSaveSchema } from '../../../../modules/todo/contract';
 import { slimTodo, tool, toolError } from '../shared';
 
 export const saveTodoTool = tool(

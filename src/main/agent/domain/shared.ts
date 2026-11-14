@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TodoItem } from '../../../shared/api';
+import type { TodoItem } from '../../../modules/todo/contract';
 
 export const uuid = z.string().uuid();
 export const query = z.string().max(500).default('');

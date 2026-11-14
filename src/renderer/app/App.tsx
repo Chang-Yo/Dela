@@ -19,7 +19,7 @@ import { useUpdateState } from '../features/settings/update';
 import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../../modules/search/view';
 import { TimetableView } from '../features/timetable';
-import { TodoView } from '../features/todo/TodoView';
+import { TodoView } from '../../modules/todo/view';
 import type { ChatSessionSummary } from '../../shared/api';
 import type { SearchHit } from '../../modules/search/contract';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';

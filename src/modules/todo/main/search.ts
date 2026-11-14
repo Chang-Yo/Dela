@@ -1,6 +1,6 @@
-import type { SearchProvider } from '../../modules/search';
-import { todoStatusLabels } from '../../shared/todo';
-import { getTodoState } from '.';
+import type { SearchProvider } from '../../search';
+import { todoStatusLabels } from '../contract';
+import { getTodoState } from './store';
 
 export const todoSearch: SearchProvider = {
   id: 'todo',

@@ -30,7 +30,6 @@ export type {
 } from './capabilities';
 import type { ShuiyuanApi } from './shuiyuan';
 import type { TimetableApi } from './timetable';
-import type { TodoApi } from './todo';
 import type { TerminalApi } from './terminal';
 import type { UpdateApi } from './update';
 import type { WindowApi } from './window';
@@ -42,7 +41,6 @@ export interface DelaApi {
   readonly platform: string;
   readonly vsjtu: VsjtuApi;
   capability: CapabilityApi;
-  readonly todo: TodoApi;
   readonly terminal: TerminalApi;
   readonly version: string;
   /** NSIS 更新安装完成后启动，供界面提示实际运行的版本。 */
@@ -259,7 +257,5 @@ export type {
   WorkbenchLayout,
   LayoutApi,
 } from './layout';
-
-export type { TodoStatus, TodoItem, TodoState, TodoSaveInput, TodoApi } from './todo';
 
 export type { UpdateApi, UpdateSnapshot, UpdatePhase, UpdateReason } from './update';

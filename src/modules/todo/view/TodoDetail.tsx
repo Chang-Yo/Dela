@@ -8,11 +8,11 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react';
-import type { TodoItem } from '../../../shared/api';
-import { todoCompleted, todoStatusLabels } from '../../../shared/todo';
+import type { TodoItem } from '../contract';
+import { todoCompleted, todoStatusLabels } from '../contract';
 import { Button } from '../../../ui/button';
-import { useRootFontSize } from '../../lib/root-font-size';
-import { sanitizeHtml } from '../../lib/sanitize-html';
+import { useRootFontSize } from '../../../renderer/lib/root-font-size';
+import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
 import { cn } from '../../../ui/cn';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';

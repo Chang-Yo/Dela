@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { formatMonthDay, dayMilliseconds, weekStartFor } from './timetable-format';
+import { weekStartFor } from './timetable-format';
+import { formatMonthDay, dayMilliseconds } from '../../../modules/todo/view';
 import { dialogIn, overlayFade } from '../../../ui/motion';
 import { errorText } from '../../workspace/store';
 import { cn } from '../../../ui/cn';

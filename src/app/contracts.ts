@@ -2,5 +2,6 @@
 // 与 modules.ts 中的 ipc 一一对应，由测试保证。
 import type { Contract } from '../core/protocol/contract';
 import { searchContract } from '../modules/search/contract';
+import { todoContract } from '../modules/todo/contract';
 
-export const contracts: Contract[] = [searchContract];
+export const contracts: Contract[] = [searchContract, todoContract];

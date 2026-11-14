@@ -14,6 +14,7 @@
     "src/ui/**/*.tsx",
     "src/shared/**/*.ts",
     "src/core/protocol/**/*.ts",
+    "src/app/contracts.ts",
     "src/modules/*/contract.ts",
     "src/modules/*/view/**/*.ts",
     "src/modules/*/view/**/*.tsx"

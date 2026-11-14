@@ -1,12 +1,12 @@
 import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../todo', () => ({
+vi.mock('../../../modules/todo', () => ({
   getTodoState: () => ({ syncedAt: null, error: null }),
   todoNotifications: () => [],
-  canvasOwner: vi.fn(() => null),
   markTodoRead: vi.fn(),
 }));
+vi.mock('../../canvas/todo-source', () => ({ canvasOwner: vi.fn(() => null) }));
 vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: { handle: vi.fn() },
@@ -49,7 +49,7 @@ import { getDatabase } from '../../database';
 import { loadShuiyuanCredential } from '../../credentials';
 import { listShuiyuanNotifications } from '../../shuiyuan/api';
 import { listCanvasAnnouncements, listTodoCanvasCourses } from '../../canvas/api';
-import { canvasOwner } from '../../todo';
+import { canvasOwner } from '../../canvas/todo-source';
 import { markAllMailSeen, markMailSeen } from '../../mail/api';
 import { systemNotifyItem } from '../system';
 

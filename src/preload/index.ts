@@ -17,7 +17,6 @@ import { session, sidechat } from './session';
 import { settings } from './settings';
 import { shuiyuan } from './shuiyuan';
 import { timetable } from './timetable';
-import { todo } from './todo';
 import { terminal } from './terminal';
 import { update } from './update';
 import { windowApi } from './window';
@@ -30,7 +29,6 @@ contextBridge.exposeInMainWorld('dela', {
   vsjtu,
   version,
   updatedOnLaunch: process.argv.includes('--dela-updated'),
-  todo,
   terminal,
   remotes,
   notifications,

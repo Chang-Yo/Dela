@@ -8,7 +8,8 @@ import type {
   NotificationState,
   ShuiyuanNotificationItem,
 } from '../../shared/api';
-import { canvasOwner, getTodoState, markTodoRead, todoNotifications } from '../todo';
+import { getTodoState, markTodoRead, todoNotifications } from '../../modules/todo';
+import { canvasOwner } from '../canvas/todo-source';
 import { getDatabase } from '../database';
 import { loadShuiyuanCredential, type ShuiyuanCredential } from '../credentials';
 import { checkWorkspaceSender } from '../ipc';
@@ -591,7 +592,7 @@ export async function markNotificationRead(idInput: unknown): Promise<Notificati
 
 export async function markAllNotificationsRead(input?: unknown): Promise<NotificationState> {
   const sources = sourcesSchema.default([...notificationSources]).parse(input);
-  if (sources.includes('todo')) markTodoRead();
+  if (sources.includes('todo')) markTodoRead(null);
   markNotificationRowsRead(null, sources);
   if (!sources.includes('mail')) return broadcast();
   const result = await markAllMailSeen();

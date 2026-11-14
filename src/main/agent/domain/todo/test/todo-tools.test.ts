@@ -1,28 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TodoItem, TodoState } from '../../../../../shared/api';
+import type { TodoItem, TodoState } from '../../../../../modules/todo/contract';
 import { todoDomain } from '../index';
 
-vi.mock('../../../../todo', async () => {
-  const { z } = await import('zod');
-  return {
-    getTodoState: vi.fn(),
-    refreshTodos: vi.fn(),
-    saveTodo: vi.fn(),
-    removeTodo: vi.fn(),
-    // 与业务 todoSaveSchema 同形（校验本身属业务层职责，这里用可放行的等价 schema）。
-    todoSaveSchema: z.object({
-      id: z.string().optional(),
-      title: z.string(),
-      notes: z.string().optional(),
-      dueAt: z.string().nullable().optional(),
-      completed: z.boolean().optional(),
-      calendar: z.boolean().optional(),
-      color: z.string().optional(),
-    }),
-  };
-});
+vi.mock('../../../../../modules/todo', () => ({
+  getTodoState: vi.fn(),
+  refreshTodos: vi.fn(),
+  saveTodo: vi.fn(),
+  removeTodo: vi.fn(),
+}));
 
-import { getTodoState, refreshTodos, removeTodo, saveTodo } from '../../../../todo';
+import { getTodoState, refreshTodos, removeTodo, saveTodo } from '../../../../../modules/todo';
 
 const state = vi.mocked(getTodoState);
 const refresh = vi.mocked(refreshTodos);
@@ -151,7 +138,10 @@ describe('save_todo', () => {
     });
     let caught: unknown;
     try {
-      todoDomain.commands.save_todo.execute({ id: 'missing', title: 'x' });
+      todoDomain.commands.save_todo.execute({
+        id: '00000000-0000-4000-8000-000000000000',
+        title: 'x',
+      });
     } catch (error) {
       caught = error;
     }

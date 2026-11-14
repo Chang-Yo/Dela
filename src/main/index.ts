@@ -10,7 +10,6 @@ import {
   shell,
   Tray,
 } from 'electron';
-import { registerTodoIpc, refreshTodos } from './todo';
 import { registerBackupIpc } from './backup';
 import { registerCacheIpc } from './cache';
 import { registerConsentIpc } from './consent';
@@ -44,13 +43,15 @@ import { modules } from '../app/modules';
 import { chatSearch, projectSearch } from './workspace/search';
 import { mailSearch } from './mail/search';
 import { courseFileSearch } from './canvas/search';
-import { todoSearch } from './todo/search';
+import { onTaskNotice, registerTaskSource, todoSearch } from '../modules/todo';
+import { canvasTaskSource } from './canvas/todo-source';
 import { settingsSearch } from './settings/search';
 import {
   initializeNotifications,
   registerNotificationsIpc,
   refreshNotifications,
 } from './notifications';
+import { systemNotifyItem } from './notifications/system';
 import { getMailState, startMailSync } from './mail/api';
 import {
   closeDomainBridge,
@@ -120,10 +121,9 @@ if (smokeTest && !terminalSmokeTest) {
 // IMAP 沿用现有增量同步，每五分钟检查一次。
 const NOTIFICATION_REFRESH_MS = 2 * 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
-const TODO_REFRESH_MS = 15 * 60_000;
 // Canvas 课件目录树只拉清单不下载文件，每小时同步一次足够。
 const CANVAS_REFRESH_MS = 60 * 60_000;
-let todoTimer: ReturnType<typeof setInterval> | undefined;
+let stopModules: (() => void)[] = [];
 let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
 let canvasTimer: ReturnType<typeof setInterval> | undefined;
@@ -238,6 +238,8 @@ app
     registerTerminalIpc();
     registerRemoteIpc();
     registerModuleIpc(modules);
+    registerTaskSource(canvasTaskSource);
+    onTaskNotice(systemNotifyItem);
     for (const provider of [
       projectSearch,
       chatSearch,
@@ -249,7 +251,6 @@ app
       registerSearchProvider(provider);
     registerBuiltinCapabilities();
     registerNotificationsIpc();
-    registerTodoIpc();
     registerUpdateIpc();
     initializeNotifications();
     // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
@@ -267,16 +268,12 @@ app
           console.error('Mail background sync failed', error);
         }
       };
-      const syncTodos = () => {
-        void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
-      };
       const syncCanvasTrees = () => {
         void refreshCanvasTrees().catch((error: unknown) =>
           console.error('Canvas tree sync failed', error),
         );
       };
-      syncTodos();
-      todoTimer = setInterval(syncTodos, TODO_REFRESH_MS);
+      stopModules = modules.flatMap((module) => module.start?.() ?? []);
       void resumeShuiyuanSnapshots().catch((error: unknown) =>
         console.error('Shuiyuan snapshot resume failed', error),
       );
@@ -531,7 +528,7 @@ app.on('before-quit', (event) => {
 app.on('will-quit', () => {
   closeDomainBridge();
   tray?.destroy();
-  clearInterval(todoTimer);
+  for (const stop of stopModules) stop();
   clearInterval(notificationTimer);
   clearInterval(mailTimer);
   clearInterval(canvasTimer);

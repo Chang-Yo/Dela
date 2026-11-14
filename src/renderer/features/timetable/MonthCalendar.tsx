@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Popover } from 'radix-ui';
 import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
+import { activeInWeek, localEventsByDay, weekForDate } from './timetable-format';
 import {
-  activeInWeek,
   addDays,
   colorFor,
   dateKey,
@@ -11,11 +11,9 @@ import {
   eventTone,
   formatMonthDay,
   formatTime,
-  localEventsByDay,
   mondayOf,
   weekDays,
-  weekForDate,
-} from './timetable-format';
+} from '../../../modules/todo/view';
 import { menuPanel } from '../../../ui/menu-styles';
 import { cn } from '../../../ui/cn';
 

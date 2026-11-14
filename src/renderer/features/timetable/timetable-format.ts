@@ -1,14 +1,17 @@
 import { classPeriods } from '../../../shared/schedule';
 import type { CSSProperties } from 'react';
+import type { CalendarEvent, TimetableLesson } from '../../../shared/api';
 import {
-  calendarEventColors,
-  type CalendarEvent,
-  type CalendarEventColor,
-  type TimetableLesson,
-} from '../../../shared/api';
+  addDays,
+  dateKey,
+  dayMilliseconds,
+  formatMonthDay,
+  formatTime,
+  mondayOf,
+  startOfDay,
+  weekdayName,
+} from '../../../modules/todo/view';
 
-export const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-export const dayMilliseconds = 86_400_000;
 export const timelineStart = 8 * 60;
 export const timelineEnd = 24 * 60;
 
@@ -22,81 +25,8 @@ export function minutesToRem(minutes: number): number {
  *  twoRows 起可放第二行文案，threeRows 起可放第三行——对齐 55 / 75 分钟的课时边界。 */
 export const blockHeights = { min: 1.75, twoRows: 2.75, threeRows: 3.75 } as const;
 
-// 候选配色与 globals.css 的 --cal-* token 对应：低饱和灰调，明暗主题各自成对。
-export const eventPalette: readonly { key: CalendarEventColor; label: string }[] = [
-  { key: 'rose', label: '玫红' },
-  { key: 'peach', label: '杏橙' },
-  { key: 'sand', label: '沙黄' },
-  { key: 'sage', label: '草绿' },
-  { key: 'teal', label: '湖青' },
-  { key: 'blue', label: '雾蓝' },
-  { key: 'lilac', label: '藕紫' },
-  { key: 'slate', label: '石墨' },
-];
-
-export function eventColorStyle(key: CalendarEventColor): CSSProperties {
-  return {
-    backgroundColor: `var(--cal-${key}-bg)`,
-    color: `var(--cal-${key}-text)`,
-  };
-}
-
-// 课程块按课程号或课程名稳定分配候选色。
-export function colorFor(value: string): CalendarEventColor {
-  let hash = 0;
-  for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) | 0;
-  return calendarEventColors[Math.abs(hash) % calendarEventColors.length]!;
-}
-
-// 手动事件未选色时用石墨中性色，与自动配色的课程区分。
-export function calendarToneKey(color: string | null | undefined): CalendarEventColor {
-  return color && calendarEventColors.includes(color as CalendarEventColor)
-    ? (color as CalendarEventColor)
-    : 'slate';
-}
-
-export function eventTone(color: string | null | undefined): CSSProperties {
-  return eventColorStyle(calendarToneKey(color));
-}
-
 export function parseDate(value: string): Date {
   return new Date(`${value}T00:00:00`);
-}
-
-export function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-export function roundToMinute(date: Date): Date {
-  const next = new Date(date);
-  next.setSeconds(0, 0);
-  return next;
-}
-
-export function addDays(date: Date, amount: number): Date {
-  const next = new Date(date);
-  next.setDate(next.getDate() + amount);
-  return next;
-}
-
-export function mondayOf(date: Date): Date {
-  const day = date.getDay() || 7;
-  return addDays(startOfDay(date), 1 - day);
-}
-
-export function dateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export function formatTime(date: Date): string {
-  return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(date);
-}
-
-export function weekdayName(date: Date): string {
-  return weekDays[(date.getDay() + 6) % 7]!;
 }
 
 export function formatMinuteOfDay(minute: number): string {
@@ -254,8 +184,4 @@ export function localEventsByDay(events: readonly CalendarEvent[]): Map<string, 
     }
   }
   return grouped;
-}
-
-export function formatMonthDay(date: Date): string {
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
 }

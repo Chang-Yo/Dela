@@ -1,60 +1,51 @@
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TodoItem, TodoStatus } from '../contract';
 
-vi.mock('electron', () => ({
-  BrowserWindow: { getAllWindows: () => [] },
-  ipcMain: { handle: vi.fn() },
-}));
-vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../credentials', () => ({ loadCanvasToken: vi.fn(() => 'test-token') }));
-vi.mock('../../ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('../../canvas/api', () => ({
-  listTodoCanvasCourses: vi.fn(),
-  listTodoCanvasAssignments: vi.fn(),
-}));
-import { getDatabase } from '../../database';
-import { loadCanvasToken } from '../../credentials';
-import { listTodoCanvasAssignments, listTodoCanvasCourses } from '../../canvas/api';
+const database = vi.hoisted(() => vi.fn());
+vi.mock('../../../core/ports', () => ({ emit: vi.fn(), hostPorts: () => ({ database }) }));
 import {
   getTodoState,
   markTodoRead,
   refreshTodos,
+  registerTaskSource,
   removeTodo,
   saveTodo,
   todoNotifications,
-} from '..';
+} from '../main/store';
 
 let db: DatabaseSync;
-const assignment = (id: number, submission = { workflow_state: 'unsubmitted' }) => ({
-  id,
-  name: `作业 ${id}`,
-  submission,
-  due_at: null,
+let tasks: TodoItem[];
+const course = { id: 1, name: '测试课程', code: 'TEST101' };
+const task = (id: number, status: TodoStatus = 'pending'): TodoItem => ({
+  id: 'canvas:owner:1:' + id,
+  source: 'canvas',
+  assignmentId: id,
+  courseId: course.id,
+  courseCode: course.code,
+  courseName: course.name,
+  title: '作业 ' + id,
+  notes: '',
+  dueAt: null,
+  status,
+  createdAt: '2026-09-01T00:00:00.000Z',
+  readAt: null,
 });
+const source = {
+  owner: vi.fn<() => string | null>(),
+  courses: vi.fn(async () => [course]),
+  tasks: vi.fn(async () => tasks),
+};
+registerTaskSource(source);
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(loadCanvasToken).mockReturnValue('test-token');
+  source.owner.mockReturnValue('owner');
+  tasks = [task(1)];
   db = new DatabaseSync(':memory:');
   db.exec(
     'CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT NOT NULL, data TEXT NOT NULL, read_at TEXT, notice_at TEXT); CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);',
   );
-  vi.mocked(getDatabase).mockReturnValue({
-    prepare: (sql: string) => db.prepare(sql),
-    transaction: (fn: () => void) => () => {
-      db.exec('BEGIN');
-      try {
-        fn();
-        db.exec('COMMIT');
-      } catch (error) {
-        db.exec('ROLLBACK');
-        throw error;
-      }
-    },
-  } as unknown as ReturnType<typeof getDatabase>);
-  vi.mocked(listTodoCanvasCourses).mockResolvedValue([
-    { id: 1, name: '测试课程', code: 'TEST101' },
-  ]);
-  vi.mocked(listTodoCanvasAssignments).mockResolvedValue([assignment(1)]);
+  database.mockReturnValue(db);
 });
 afterEach(() => db.close());
 
@@ -62,7 +53,7 @@ describe('TODO 持久化与同步', () => {
   it('历史导入不刷屏，新作业只通知一次，已读不会改变完成状态', async () => {
     await refreshTodos();
     expect(todoNotifications()).toHaveLength(0);
-    vi.mocked(listTodoCanvasAssignments).mockResolvedValue([assignment(1), assignment(2)]);
+    tasks = [task(1), task(2)];
     await refreshTodos();
     const notice = todoNotifications()[0]!;
     expect(notice.readAt).toBeNull();
@@ -74,7 +65,7 @@ describe('TODO 持久化与同步', () => {
     expect(getTodoState().items.find((row) => row.id === item.id)!.status).toBe('pending');
     expect(getTodoState().syncing).toBe(false);
   });
-  it('Canvas 作业保存课程代码，供日历与课表使用同一配色键', async () => {
+  it('来源的作业保存课程代码，供日历与课表使用同一配色键', async () => {
     await refreshTodos();
     expect(getTodoState().items.find((item) => item.source === 'canvas')).toMatchObject({
       courseCode: 'TEST101',
@@ -83,12 +74,9 @@ describe('TODO 持久化与同步', () => {
   });
   it('远端完成不意味着本地已读', async () => {
     await refreshTodos();
-    vi.mocked(listTodoCanvasAssignments).mockResolvedValue([assignment(1), assignment(2)]);
+    tasks = [task(1), task(2)];
     await refreshTodos();
-    vi.mocked(listTodoCanvasAssignments).mockResolvedValue([
-      assignment(1),
-      assignment(2, { workflow_state: 'submitted' }),
-    ]);
+    tasks = [task(1), task(2, 'submitted')];
     await refreshTodos();
     expect(getTodoState().items.find((item) => item.assignmentId === 2)).toMatchObject({
       status: 'submitted',
@@ -97,11 +85,11 @@ describe('TODO 持久化与同步', () => {
   });
   it('失败保留旧缓存并报告错误，成功的空列表才移除已消失作业', async () => {
     await refreshTodos();
-    vi.mocked(listTodoCanvasAssignments).mockRejectedValueOnce(new Error('离线'));
+    source.tasks.mockRejectedValueOnce(new Error('离线'));
     await refreshTodos();
     expect(getTodoState().items).toHaveLength(1);
     expect(getTodoState().error).toContain('离线');
-    vi.mocked(listTodoCanvasAssignments).mockResolvedValue([]);
+    tasks = [];
     await refreshTodos();
     expect(getTodoState().items).toHaveLength(0);
   });
@@ -135,16 +123,16 @@ describe('TODO 持久化与同步', () => {
       color: 'rose',
       status: 'completed',
     });
-    expect(() => saveTodo({ title: '非法颜色', color: 'nope' })).toThrow();
+    expect(() => saveTodo({ title: '非法颜色', color: 'nope' as 'rose' })).toThrow();
   });
-  it('切换或断开令牌不显示之前账号的作业和通知', async () => {
+  it('切换或断开账号不显示之前账号的作业和通知', async () => {
     await refreshTodos();
-    vi.mocked(loadCanvasToken).mockReturnValue(null);
+    source.owner.mockReturnValue(null);
     expect(getTodoState().items).toHaveLength(0);
     expect(todoNotifications()).toHaveLength(0);
   });
   it('重叠刷新共用一次网络请求', async () => {
     await Promise.all([refreshTodos(), refreshTodos()]);
-    expect(listTodoCanvasAssignments).toHaveBeenCalledTimes(1);
+    expect(source.tasks).toHaveBeenCalledTimes(1);
   });
 });

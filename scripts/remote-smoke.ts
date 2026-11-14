@@ -21,7 +21,6 @@ import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerShuiyuanIpc } from '../src/main/shuiyuan/ipc';
 import { registerTerminalIpc } from '../src/main/terminal';
 import { registerTimetableIpc } from '../src/main/timetable/ipc';
-import { registerTodoIpc } from '../src/main/todo';
 import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
 import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
 
@@ -70,7 +69,6 @@ app
     registerTerminalIpc();
     registerModuleIpc(modules);
     registerNotificationsIpc();
-    registerTodoIpc();
     registerMailIpc();
     registerTimetableIpc();
     registerShuiyuanIpc();
