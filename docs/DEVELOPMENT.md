@@ -116,6 +116,8 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 
 **尺寸一律由 rem 派生**（字号设置会整体缩放文字、间距、图标与圆角）：禁止写死像素字号与宽高，换算基准固定 16。字号用 token，圆角用 `src/ui` 的 `rounded-*`。保留 px 的只有三类——边框/描边/阴影、媒体与容器查询断点、第三方 dist 内改不到的固定值；拖拽调宽的容器尺寸也是 px，因为它是用户用鼠标量出的画布尺寸。沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层，由 `lib/root-font-size.ts` 把根字号注进内层。
 
+颜色、阴影、圆角、层级与时长只用 `src/ui/tokens.css` 的 token，名字已冻结（[ADR 0018](adr/0018-design-token-freeze.md)），缺少时新增而不是借用别的用途的 token。`pnpm lint` 会拦下 token 之外的写法和写了却不生成 CSS 的类名。
+
 ## 3. 会话与上下文
 
 - **项目＝目录**：项目是 `kind='project'` 的 workspace 条目，身份是条目 UUID，目录是其 `local_path`；可在工作区内新建，也可导入电脑上已有的文件夹（留在原处，重命名 / 移动真的动磁盘）。远程项目的 `local_path` 是远端 POSIX 路径。
@@ -272,25 +274,26 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 
 ## 12. 常用命令
 
-| 命令                                | 用途                                                          |
-| ----------------------------------- | ------------------------------------------------------------- |
-| `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                  |
-| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）   |
-| `pnpm build`                        | 类型检查 + 三个入口生产构建                                   |
-| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用            |
-| `pnpm check`                        | `format:check` + `lint` + `build` + `test`                    |
-| `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                           |
-| `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行        |
-| `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离 |
-| `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位   |
-| `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                     |
-| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）           |
-| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）    |
-| `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                  |
-| `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
-| `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                |
-| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）     |
-| `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                         |
+| 命令                                | 用途                                                           |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                   |
+| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）    |
+| `pnpm build`                        | 类型检查 + 三个入口生产构建                                    |
+| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用             |
+| `pnpm lint`                         | oxlint（含依赖边界）+ `scripts/lint-styles.ts` 样式 token 检查 |
+| `pnpm check`                        | `format:check` + `lint` + `build` + `test`                     |
+| `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                            |
+| `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行         |
+| `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离  |
+| `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位    |
+| `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                      |
+| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）            |
+| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）     |
+| `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                   |
+| `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`  |
+| `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                 |
+| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）      |
+| `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                          |
 
 `pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`smoke:documents`）外不发送真实请求。
 
