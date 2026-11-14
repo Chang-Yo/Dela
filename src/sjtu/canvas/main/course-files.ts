@@ -1,6 +1,6 @@
 // 课件文件的纯函数：@ 引用候选（canvas/api 与测试共用）与批量导出的「文件」分支收集。
 import { posix, win32 } from 'node:path';
-import type { SourceItem } from '../../../shared/api';
+import type { SourceItem } from '../contract';
 
 /** @ 引用候选的一个课件文件：courseName/courseId 用于 title 生成与冲突消解。 */
 export interface CourseRoot {

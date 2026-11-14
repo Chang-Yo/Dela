@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
-import { connectCanvas } from '../../settings/connections/canvas-connect';
-import { errorText } from '../../../workspace/store';
-import { StepButton, type StepButtonState } from '../../../../modules/onboarding/view';
-import { StepGuide } from '../../../../modules/onboarding/view';
-import { ErrorText } from '../../../../ui/alert';
-import {} from '../../../../ui/button';
-import { Input } from '../../../../ui/input';
+import { useQueryClient } from '@tanstack/react-query';
+import { errorMessage } from '../../../core/protocol/contract';
+import { StepButton, StepGuide, type StepButtonState } from '../../../modules/onboarding/view';
+import { ErrorText } from '../../../ui/alert';
+import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
+import { Input } from '../../../ui/input';
+import { canvasClient, stateKey } from './use-canvas';
 
-/** 向导 · Canvas 步骤：先指引在 Canvas 侧获取 Access Token，再粘贴验证并同步课程，按钮转为「下一步」。 */
-export function CanvasStep({ onDone }: { onDone: () => void }) {
+/** 先指引在 Canvas 侧获取 Access Token，再粘贴验证并同步课程，按钮转为「下一步」。 */
+export function CanvasOnboardingStep({ onDone }: { onDone: () => void }) {
+  const queryClient = useQueryClient();
   const [token, setToken] = useState('');
   const [state, setState] = useState<StepButtonState>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +29,10 @@ export function CanvasStep({ onDone }: { onDone: () => void }) {
     setState('busy');
     setError(null);
     try {
-      await connectCanvas(token);
+      queryClient.setQueryData(stateKey, await canvasClient.connect(token));
       setState('success');
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
       setState('idle');
     }
   };

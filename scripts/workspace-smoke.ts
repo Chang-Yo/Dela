@@ -25,7 +25,6 @@ import {
   syncCanvasCourse,
   syncCanvasCourses,
 } from '../src/sjtu/canvas/main/api';
-import { registerCanvasIpc } from '../src/sjtu/canvas/main/ipc';
 import {
   createWorkspaceEntry,
   getWorkspaceState,
@@ -40,6 +39,7 @@ import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { registerModuleIpc } from '../src/app/ipc';
 import { notificationsModule } from '../src/modules/notifications';
+import { canvasModule } from '../src/sjtu/canvas';
 import { registerUpdateIpc } from '../src/main/update';
 import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
 import { registerBuiltinCapabilities } from '../src/main/agent/domain';
@@ -217,6 +217,7 @@ app
     const largePdf = await readWorkspaceEntry(largePdfId);
     assert.equal(largePdf.format, 'pdf');
     assert.equal(largePdf.bytes, undefined);
+    canvasModule.register?.();
     registerPreviewProtocol();
     const preview = await net.fetch(second.previewUrl!);
     assert.equal(preview.status, 200);
@@ -377,14 +378,13 @@ app
       text: '不应发送的资料',
     });
 
-    registerCanvasIpc();
     registerAgentIpc();
     registerWorkspaceIpc(invalidateSessions);
     registerBuiltinCapabilities();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     registerSettingsIpc();
     registerRemoteIpc();
-    registerModuleIpc([notificationsModule]);
+    registerModuleIpc([notificationsModule, canvasModule]);
     registerUpdateIpc();
     const win = new BrowserWindow({
       show: false,

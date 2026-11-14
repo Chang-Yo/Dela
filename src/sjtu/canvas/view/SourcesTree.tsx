@@ -1,20 +1,21 @@
-// Canvas 资料树。
-// 订阅 workspace/store 的 Canvas 概览镜像，同步/归档/下载经 preload canvas:* 通道直连。
 import { useState } from 'react';
-import { Archive, Columns2, Ellipsis, Download, FileText, FolderOpen, Link2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Archive, Columns2, Download, Ellipsis, FileText, FolderOpen, Link2 } from 'lucide-react';
+import type { LibraryProps } from '../../../app/module';
+import { errorMessage } from '../../../core/protocol/contract';
+import { showToast } from '../../../renderer/app/toasts';
+import { Explorer, type ExplorerItem } from '../../../renderer/components/explorer';
+import { fileManagerName } from '../../../renderer/lib/platform';
+import { ConfirmDialog } from '../../../ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../../ui/dropdown-menu';
-import { Explorer, type ExplorerItem } from '../components/explorer';
-import { errorText, useWorkspaceStore } from '../workspace/store';
-import { showToast } from '../app/toasts';
-import { compareCanvasTerms, latestTermOf } from '../../shared/canvas';
-import { ConfirmDialog } from '../../ui/dialog';
-import { fileManagerName } from '../lib/platform';
-import { IconButton } from '../../ui/icon-button';
+} from '../../../ui/dropdown-menu';
+import { IconButton } from '../../../ui/icon-button';
+import { compareCanvasTerms, latestTermOf } from '../contract';
+import { canvasClient, stateKey, useCanvasState, useLibraryGrouping } from './use-canvas';
 
 export function SourcesTree({
   expanded,
@@ -23,25 +24,13 @@ export function SourcesTree({
   onOpenToSide,
   selected,
   query,
-  bySource,
-  archived = false,
+  archived,
   onArchive,
   onLink,
-}: {
-  expanded: string[];
-  onExpand: (id: string, open: boolean) => void;
-  onOpen: (key: string) => void;
-  /** 修饰键单击/菜单「在另一栏打开」时在副编辑组打开（key 为 source: 前缀键）。 */
-  onOpenToSide?: (key: string) => void;
-  selected: string | null;
-  query: string;
-  bySource: boolean;
-  archived?: boolean;
-  /** 课程归档成功后回调（用于展开上层「归档」区）。 */
-  onArchive?: () => void;
-  onLink: (key: string) => void;
-}) {
-  const canvas = useWorkspaceStore((s) => s.canvas);
+}: LibraryProps) {
+  const queryClient = useQueryClient();
+  const canvas = useCanvasState();
+  const bySource = useLibraryGrouping((state) => state.bySource);
   const [loading, setLoading] = useState<number[]>([]);
   // 待确认归档的课程 id；课程对象从 canvas 现查，确认时以最新归档态为准。
   const [confirmCourseId, setConfirmCourseId] = useState<number | null>(null);
@@ -110,12 +99,12 @@ export function SourcesTree({
     effectiveExpanded = [...keep];
   }
   const sync = async (id: number) => {
-    if (!window.dela || loading.includes(id)) return;
+    if (loading.includes(id)) return;
     setLoading((ids) => [...ids, id]);
     try {
-      useWorkspaceStore.getState().setCanvas(await window.dela.canvas.syncCourse(id));
+      queryClient.setQueryData(stateKey, await canvasClient.syncCourse(id));
     } catch (cause) {
-      showToast({ variant: 'error', title: '同步课程资料失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '同步课程资料失败', description: errorMessage(cause) });
     } finally {
       setLoading((ids) => ids.filter((value) => value !== id));
     }
@@ -137,13 +126,10 @@ export function SourcesTree({
         expanded={effectiveExpanded}
         selected={canvas.items.find((i) => `source:${i.sourceId}` === selected)?.id ?? null}
         onExpand={expand}
-        onOpenToSide={
-          onOpenToSide &&
-          ((id: string) => {
-            const item = canvas.items.find((i) => i.id === id);
-            if (item?.sourceId) onOpenToSide(`source:${item.sourceId}`);
-          })
-        }
+        onOpenToSide={(id) => {
+          const item = canvas.items.find((i) => i.id === id);
+          if (item?.sourceId) onOpenToSide(`source:${item.sourceId}`);
+        }}
         actions={(node) => {
           const course = canvas.courses.find((c) => `course:${c.id}` === node.id);
           const item = canvas.items.find((i) => i.id === node.id);
@@ -152,11 +138,7 @@ export function SourcesTree({
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <IconButton
-                  size="sm"
-
-                  aria-label={`${node.name} 的操作`}
-                >
+                <IconButton size="sm" aria-label={`${node.name} 的操作`}>
                   <Ellipsis />
                 </IconButton>
               </DropdownMenuTrigger>
@@ -188,12 +170,10 @@ export function SourcesTree({
                         <FileText />
                         在标签页中打开
                       </DropdownMenuItem>
-                      {onOpenToSide && (
-                        <DropdownMenuItem onSelect={() => onOpenToSide(`source:${sourceId}`)}>
-                          <Columns2 />
-                          在另一栏打开
-                        </DropdownMenuItem>
-                      )}
+                      <DropdownMenuItem onSelect={() => onOpenToSide(`source:${sourceId}`)}>
+                        <Columns2 />
+                        在另一栏打开
+                      </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => onLink(`source:${sourceId}`)}>
                         <Link2 />
                         添加到项目
@@ -202,11 +182,11 @@ export function SourcesTree({
                         <>
                           <DropdownMenuItem
                             onSelect={() => {
-                              void window.dela?.canvas.reveal(sourceId).catch((cause) =>
+                              void canvasClient.reveal(sourceId).catch((cause) =>
                                 showToast({
                                   variant: 'error',
                                   title: `打开 ${fileManagerName} 失败`,
-                                  description: errorText(cause),
+                                  description: errorMessage(cause),
                                 }),
                               );
                             }}
@@ -215,11 +195,11 @@ export function SourcesTree({
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => {
-                              void window.dela?.canvas.download(sourceId).catch((cause) =>
+                              void canvasClient.download(sourceId).catch((cause) =>
                                 showToast({
                                   variant: 'error',
                                   title: '下载失败',
-                                  description: errorText(cause),
+                                  description: errorMessage(cause),
                                 }),
                               );
                             }}
@@ -257,18 +237,17 @@ export function SourcesTree({
           onConfirm={() => {
             const wasArchived = confirmCourse.archived;
             setConfirmCourseId(null);
-            void window.dela?.canvas
-              .archiveCourse(confirmCourse.id, !wasArchived)
-              .then(useWorkspaceStore.getState().setCanvas)
-              .then(() => {
-                // 归档成功后展开底部「归档」区，让课程直接出现在归档文件夹中。
-                if (!wasArchived) onArchive?.();
+            void canvasClient
+              .archiveCourse({ id: confirmCourse.id, archived: !wasArchived })
+              .then((state) => {
+                queryClient.setQueryData(stateKey, state);
+                if (!wasArchived) onArchive();
               })
               .catch((cause) =>
                 showToast({
                   variant: 'error',
                   title: '归档课程失败',
-                  description: errorText(cause),
+                  description: errorMessage(cause),
                 }),
               );
           }}

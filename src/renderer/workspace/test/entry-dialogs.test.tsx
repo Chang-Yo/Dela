@@ -2,6 +2,7 @@
 // 新建项目弹窗的「导入已有文件夹」入口：调用主进程登记外部目录，成功后与新建项目
 // 走同一套后续动作（刷新镜像、关弹窗、打开项目）；取消选择时什么都不发生。
 // 「连接远程目录」入口把外层弹窗交给远程向导。
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -50,7 +51,11 @@ function dialogButton(text: string): HTMLButtonElement {
 
 async function render(request: EntryDialogRequest, callbacks: object = {}) {
   await act(async () =>
-    root.render(<EntryDialogs onClose={() => {}} request={request} {...callbacks} />),
+    root.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <EntryDialogs onClose={() => {}} request={request} {...callbacks} />
+      </QueryClientProvider>,
+    ),
   );
 }
 

@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import { views } from '../../../app/views';
-import { CanvasStep } from './steps/CanvasStep';
 import { LlmStep } from './steps/LlmStep';
 import { MailStep } from './steps/MailStep';
 import { ConsentStep } from './ConsentStep';
@@ -17,12 +16,7 @@ import {
 } from './onboarding-state';
 
 // 尚未迁入模块的步骤仍写在这里，迁移后改由视图定义的 onboarding 登记。
-const wizardSteps = [
-  MailStep,
-  ...views.flatMap((view) => view.onboarding ?? []),
-  CanvasStep,
-  LlmStep,
-];
+const wizardSteps = [MailStep, ...views.flatMap((view) => view.onboarding ?? []), LlmStep];
 
 type OnboardingFlowProps = {
   /** 完成包含能力拓展的六步向导，由宿主播放结束动画。 */

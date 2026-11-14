@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareCanvasTerms, groupCanvasCoursesByTerm, latestTermOf } from './canvas';
+import { compareCanvasTerms, groupCanvasCoursesByTerm, latestTermOf } from '../contract';
 
 describe('Canvas term ordering', () => {
   it('sorts prefixed and standard academic terms chronologically without renaming them', () => {

@@ -1,6 +1,7 @@
 // 扁平标签栏：组内拖拽排序、跨组拖放、中键关闭、上下文菜单、激活滚动可见。
 // 视觉：标签栏与内容区同底色，活动标签融入背景，非活动标签为淡灰块；切换不做飞入飞出。
 import { memo, useEffect, useRef, type DragEvent, type KeyboardEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import type { GroupNode, TabId } from '../../shared/layout';
 import {
@@ -27,6 +28,7 @@ export const TabBar = memo(function TabBar({
   unfocused: boolean;
   showReveal: boolean;
 }) {
+  const queryClient = useQueryClient();
   const openTab = useWorkbenchLayout((s) => s.openTab);
   const closeTab = useWorkbenchLayout((s) => s.closeTab);
   const closeTabs = useWorkbenchLayout((s) => s.closeTabs);
@@ -120,7 +122,7 @@ export const TabBar = memo(function TabBar({
       <div
         ref={listRef}
         role="tablist"
-        aria-label={activeTab ? `标签页：${titleOf(activeTab)}` : '工作组标签页'}
+        aria-label={activeTab ? `标签页：${titleOf(activeTab, queryClient)}` : '工作组标签页'}
         className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto [scrollbar-width:none]"
         onDragOver={onDragOver}
         onDrop={onDrop}
@@ -130,7 +132,7 @@ export const TabBar = memo(function TabBar({
           const isPinned = group.pinned?.includes(tab) ?? false;
           const isPreview = group.preview === tab;
           const Icon = iconOf(tab);
-          const title = titleOf(tab);
+          const title = titleOf(tab, queryClient);
           return (
             <ContextMenu key={tab}>
               <ContextMenuTrigger asChild>

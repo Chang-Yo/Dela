@@ -4,14 +4,31 @@ import { registerCommandDomain } from '../../core/capabilities/commands';
 import { registerResourceResolver } from '../../core/capabilities/resources';
 import { registerSessionScope } from '../../core/agent/scopes';
 import { registerSecretLabel } from '../../core/ports';
+import { implement } from '../../core/protocol/contract';
 import { registerNoticeSource } from '../../modules/notifications';
 import { registerPreviewHost } from '../../main/workspace/preview';
 import { registerWorkspaceSource } from '../../main/workspace/sources';
 import { registerSearchProvider } from '../../modules/search';
 import { registerTaskSource } from '../../modules/todo';
+import { canvasContract } from './contract';
+import {
+  connectCanvas,
+  disconnectCanvas,
+  downloadSource,
+  exportCourseFiles,
+  openCanvasLink,
+  refreshCanvasTrees,
+  revealSource,
+} from './main/actions';
 import { canvasDomain } from './main/agent';
-import { coursesDirectory } from './main/api';
-import { refreshCanvasTrees, registerCanvasIpc } from './main/ipc';
+import {
+  archiveCanvasCourse,
+  cachedCourseFiles,
+  coursesDirectory,
+  getCanvasState,
+  syncCanvasCourse,
+  syncCanvasCourses,
+} from './main/api';
 import { canvasNoticeSource } from './main/notice-source';
 import {
   canvasResourceResolver,
@@ -32,9 +49,20 @@ function syncTrees() {
 
 export const canvasModule = defineModule({
   id: 'canvas',
+  ipc: implement(canvasContract, {
+    state: getCanvasState,
+    connect: connectCanvas,
+    disconnect: disconnectCanvas,
+    syncCourses: syncCanvasCourses,
+    syncCourse: syncCanvasCourse,
+    archiveCourse: ({ id, archived }) => archiveCanvasCourse(id, archived),
+    download: downloadSource,
+    reveal: revealSource,
+    cachedFiles: cachedCourseFiles,
+    exportCourseFiles,
+  }),
   register() {
     registerSecretLabel('canvas-token', 'Canvas 凭据');
-    registerCanvasIpc();
     registerCommandDomain(canvasDomain);
     registerSessionScope({ id: 'library', directory: coursesDirectory });
     registerSearchProvider(courseFileSearch);
@@ -49,4 +77,5 @@ export const canvasModule = defineModule({
     const timer = setInterval(syncTrees, TREE_REFRESH_MS);
     return () => clearInterval(timer);
   },
+  openLink: openCanvasLink,
 });

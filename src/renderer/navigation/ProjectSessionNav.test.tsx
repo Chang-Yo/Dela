@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // 侧栏高亮层级：会话行已可见地高亮时，项目行不再叠加底色；会话行看不见时
 // （项目折叠、会话藏在「显示更多」后、焦点不在任何会话上），项目行仍标明当前项目。
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -51,16 +52,18 @@ afterEach(async () => {
 async function render(activeSessionId: string | null, sessions = recent) {
   await act(async () =>
     root.render(
-      <ProjectSessionNav
-        activeProjectId={project.id}
-        activeSessionId={activeSessionId}
-        onNewProject={() => {}}
-        onOpenGeneralChat={() => {}}
-        onOpenProject={() => {}}
-        onOpenSession={() => {}}
-        runBadge={() => null}
-        sessionsByProject={{ [project.id]: sessions }}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <ProjectSessionNav
+          activeProjectId={project.id}
+          activeSessionId={activeSessionId}
+          onNewProject={() => {}}
+          onOpenGeneralChat={() => {}}
+          onOpenProject={() => {}}
+          onOpenSession={() => {}}
+          runBadge={() => null}
+          sessionsByProject={{ [project.id]: sessions }}
+        />
+      </QueryClientProvider>,
     ),
   );
 }

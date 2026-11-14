@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CanvasState } from '../../../../../shared/canvas';
+import type { CanvasState } from '../../../contract';
 import { canvasDomain } from '../index';
 
 vi.mock('../../api', () => ({
@@ -8,6 +8,7 @@ vi.mock('../../api', () => ({
   syncCanvasCourse: vi.fn(),
 }));
 vi.mock('../../../../../main/workspace/api', () => ({ createWorkspaceEntry: vi.fn() }));
+vi.mock('../../actions', () => ({ publishCanvasState: vi.fn() }));
 
 import { getCanvasState, syncCanvasCourse, syncCanvasCourses } from '../../api';
 import { createWorkspaceEntry } from '../../../../../main/workspace/api';

@@ -1,12 +1,6 @@
-// 条目树 + Canvas 概览镜像。视图持久化在 workbench 布局，笔记草稿生命周期在 ./drafts.ts。
+// 条目树镜像。视图持久化在 workbench 布局，笔记草稿生命周期在 ./drafts.ts。
 import { create } from 'zustand';
-import {
-  workspaceArchiveId,
-  type CachedCourseFile,
-  type CanvasState,
-  type WorkspaceEntry,
-  type WorkspaceState,
-} from '../../shared/api';
+import { workspaceArchiveId, type WorkspaceEntry, type WorkspaceState } from '../../shared/api';
 
 type Store = {
   workspace: WorkspaceState;
@@ -15,15 +9,10 @@ type Store = {
   ensureDirectory: (id: string, force?: boolean) => Promise<void>;
   releaseDirectory: (id: string) => void;
   rememberEntries: (entries: WorkspaceEntry[]) => void;
-  canvas: CanvasState;
-  /** 已下载到本地 courses 目录的课件（@ 引用候选）；进入通用池会话时拉取，30 秒内去重。 */
-  courseFiles: CachedCourseFile[];
   loaded: boolean;
   error: string | null;
   load: () => Promise<void>;
   refresh: (paths?: string[]) => Promise<void>;
-  setCanvas: (state: CanvasState) => void;
-  ensureCourseFiles: () => void;
   setError: (error: unknown) => void;
 };
 
@@ -85,13 +74,9 @@ function mergeDirectories(
     next.every((item, index) => item === previous.entries[index]);
   return { ...overview, entries: unchanged ? previous.entries : next };
 }
-// 课件候选的拉取游标：0 = 上次拉取失败，下次触发立即重试。
-let courseFilesFetchedAt = 0;
 // 磁盘为准的文件树：外部文件变化经 main 的 fs.watch 推送 workspace:changed，
 // 这里刷新条目镜像；编辑中的草稿独立持有，不受刷新影响。
 let subscribedChanges = false;
-// Canvas 后台目录同步经 canvas:state 推送，镜像在这里随收随更新。
-let subscribedCanvas = false;
 
 export const useWorkspaceStore = create<Store>((set, get) => ({
   workspace: { entries: [], directory: '' },
@@ -140,8 +125,6 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
       workspace: mergeDirectories(get().overview ?? get().workspace, directories, get().workspace),
     });
   },
-  canvas: { connected: false, syncedAt: null, courses: [], items: [] },
-  courseFiles: [],
   loaded: false,
   error: null,
   setError: (error) => set({ error: error === null ? null : errorText(error) }),
@@ -157,23 +140,16 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
           .catch((cause) => console.error('[workspace] 刷新条目镜像失败', cause));
       });
     }
-    if (!subscribedCanvas) {
-      subscribedCanvas = true;
-      dela.canvas.onState((state) => set({ canvas: state }));
-    }
     // Concurrent callers (StrictMode double-invocation included) share one request;
     // cleared on settle so a failed load can be retried.
     if (!loadPromise) {
       loadPromise = (async () => {
-        const [workspace, canvas] = await Promise.allSettled([
-          dela.workspace.getState(),
-          dela.canvas.getState(),
-        ]);
-        if (workspace.status === 'fulfilled')
-          set({ workspace: workspace.value, overview: workspace.value, loaded: true });
-        else set({ error: errorText(workspace.reason) });
-        if (canvas.status === 'fulfilled') set({ canvas: canvas.value });
-        else set({ error: errorText(canvas.reason) });
+        try {
+          const workspace = await dela.workspace.getState();
+          set({ workspace, overview: workspace, loaded: true });
+        } catch (cause) {
+          set({ error: errorText(cause) });
+        }
       })().finally(() => {
         loadPromise = null;
       });
@@ -226,21 +202,5 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
       });
     }
     return refreshPromise;
-  },
-  setCanvas: (canvas) => set({ canvas }),
-  ensureCourseFiles: () => {
-    const dela = window.dela;
-    if (!dela) return;
-    // 进入通用池会话时拉取，30 秒内去重：下载新课件后切换一次会话即可 @ 到；
-    // 一次 IPC + DB 扫描，代价可忽略。
-    const now = Date.now();
-    if (now - courseFilesFetchedAt < 30_000) return;
-    courseFilesFetchedAt = now;
-    dela.canvas
-      .cachedFiles()
-      .then((courseFiles) => set({ courseFiles }))
-      .catch(() => {
-        courseFilesFetchedAt = 0;
-      });
   },
 }));

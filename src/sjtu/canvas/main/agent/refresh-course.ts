@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { publishCanvasState } from '../actions';
 import { syncCanvasCourse } from '../api';
 import { freshness, tool, toolError } from '../../../../main/agent/domain/shared';
 import { canvasSyncBranches, requireCanvasConfigured, withCanvasErrors } from './helpers';
@@ -20,6 +21,7 @@ export const refreshCanvasCourseTool = tool(
   async ({ courseId }) => {
     requireCanvasConfigured();
     const state = await withCanvasErrors(() => syncCanvasCourse(courseId));
+    publishCanvasState();
     const course = state.courses.find((item) => item.id === courseId);
     if (!course)
       throw toolError('NOT_FOUND', '课程不存在，请先调用 refresh_canvas_courses 刷新课程列表');

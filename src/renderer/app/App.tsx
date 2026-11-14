@@ -112,7 +112,7 @@ export default function App() {
     useUpdateState.getState().attach();
   }, []);
 
-  // 工作区镜像载入 + 会话静默后的条目/Canvas/干净草稿刷新（工具可能写过工作区）。
+  // 工作区镜像载入 + 会话静默后的条目/干净草稿刷新（工具可能写过工作区）。
   useEffect(() => {
     void useWorkspaceStore.getState().load();
     return window.dela?.session.onSessionUpdate((sessionId, chat) => {
@@ -120,7 +120,6 @@ export default function App() {
       const store = useWorkspaceStore.getState();
       // 会话终态后的后台自动刷新失败不打扰用户（浮窗只留给用户主动的动作），仅留诊断线索。
       void store.refresh().catch(console.error);
-      void window.dela?.canvas.getState().then(store.setCanvas).catch(console.error);
       for (const [id, draft] of Object.entries(useNoteDrafts.getState().drafts)) {
         if (draft.text === draft.saved)
           void useNoteDrafts.getState().acquire(id, true).catch(console.error);

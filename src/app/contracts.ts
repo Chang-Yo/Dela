@@ -4,6 +4,7 @@ import type { Contract } from '../core/protocol/contract';
 import { notificationsContract } from '../modules/notifications/contract';
 import { searchContract } from '../modules/search/contract';
 import { todoContract } from '../modules/todo/contract';
+import { canvasContract } from '../sjtu/canvas/contract';
 import { classroomContract } from '../sjtu/classroom/contract';
 import { jwcContract } from '../sjtu/jwc/contract';
 import { shuiyuanContract } from '../sjtu/shuiyuan/contract';
@@ -13,6 +14,7 @@ export const contracts: Contract[] = [
   searchContract,
   todoContract,
   notificationsContract,
+  canvasContract,
   shuiyuanContract,
   classroomContract,
   timetableContract,

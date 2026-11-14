@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { GraduationCap, Mail, type LucideIcon } from 'lucide-react';
+import { Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import {
   Select,
@@ -9,13 +9,11 @@ import {
   SelectValue,
 } from '../../../../ui/select';
 import type { MailTrashRetention } from '../../../../shared/api';
-import { CanvasTokenForm } from './CanvasTokenForm';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
-import { errorText, useWorkspaceStore } from '../../../workspace/store';
+import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { ErrorText } from '../../../../ui/alert';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { CredentialRow } from '../../../../modules/settings/view';
 import { views } from '../../../../app/views';
 import { useNavigationStore } from '../../../navigation/view';
@@ -41,11 +39,8 @@ type Connection = {
 
 /** 设置 › 凭据：未迁移的连接写在这里，模块的凭据行由视图定义登记。 */
 export function ConnectionsSection({ onOpenMail }: ConnectionsSectionProps) {
-  const canvas = useWorkspaceStore((state) => state.canvas);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
-  const [dialog, setDialog] = useState<'canvas' | null>(null);
-  const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,24 +69,6 @@ export function ConnectionsSection({ onOpenMail }: ConnectionsSectionProps) {
     };
   }, []);
 
-  const openDialog = () => {
-    setDialog('canvas');
-  };
-
-  const disconnectCanvas = async () => {
-    if (!window.dela) return;
-    setBusy(true);
-    try {
-      await window.dela.canvas.disconnect();
-      useWorkspaceStore.getState().setCanvas(await window.dela.canvas.getState());
-      setDialog(null);
-    } catch (cause) {
-      showToast({ variant: 'error', title: '断开连接失败', description: errorText(cause) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const changeRetention = async (value: MailTrashRetention) => {
     if (!window.dela || trashRetention === null) return;
     const previous = trashRetention;
@@ -105,15 +82,6 @@ export function ConnectionsSection({ onOpenMail }: ConnectionsSectionProps) {
   };
 
   const connections: Connection[] = [
-    {
-      itemId: 'canvas',
-      name: 'Canvas',
-      icon: GraduationCap,
-      state: canvas.connected ? '已连接' : '未连接',
-      connected: canvas.connected,
-      actionLabel: canvas.connected ? '管理' : '配置',
-      onClick: openDialog,
-    },
     {
       itemId: 'mail',
       name: '学校邮箱',
@@ -190,36 +158,6 @@ export function ConnectionsSection({ onOpenMail }: ConnectionsSectionProps) {
           })}
         </ul>
       </SettingsGroup>
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open && !busy) setDialog(null);
-        }}
-        open={dialog !== null}
-      >
-        <DialogContent scroll>
-          <DialogTitle>配置 Canvas</DialogTitle>
-          <DialogDescription>
-            {canvas.connected
-              ? '输入新的个人 Access Token 以替换当前连接。'
-              : '输入个人 Access Token，验证成功后读取课程列表；凭据加密保存在本机。'}
-          </DialogDescription>
-          <CanvasTokenForm
-            actions={
-              <>
-                {canvas.connected && (
-                  <Button disabled={busy} onClick={() => void disconnectCanvas()} variant="ghost">
-                    断开
-                  </Button>
-                )}
-                <Button disabled={busy} onClick={() => setDialog(null)} variant="ghost">
-                  取消
-                </Button>
-              </>
-            }
-            onSuccess={() => setDialog(null)}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

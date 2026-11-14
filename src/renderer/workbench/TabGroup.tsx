@@ -1,6 +1,7 @@
 // 标签组：标签栏 + 内容宿主 + 边缘拖放分屏。
 // 同组只挂载活动标签；组内非活动标签状态由内容组件本地保留与否自决。
 import { memo, Suspense, useEffect, useRef, useState, type DragEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { GroupNode, TabId } from '../../shared/layout';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { cn } from '../../ui/cn';
@@ -136,10 +137,11 @@ export const TabGroup = memo(function TabGroup({
   };
 
   const active = group.active;
+  const queryClient = useQueryClient();
 
   return (
     <section
-      aria-label={active ? `工作组：${titleOf(active)}` : '工作组'}
+      aria-label={active ? `工作组：${titleOf(active, queryClient)}` : '工作组'}
       className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden @container"
       onPointerDown={() => focusGroup(group.id)}
       onDragOverCapture={onDragOver}

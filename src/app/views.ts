@@ -1,6 +1,7 @@
 // 渲染端清单：外壳据此渲染模块的页面（docs/adr/0019）；去掉一行，对应页面随之消失。
+import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
-import { Mail, Megaphone } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import type {
   NavTarget,
   NavTargets,
@@ -12,18 +13,18 @@ import type {
 } from './module';
 import { notificationsView } from '../modules/notifications/view';
 import { todoView } from '../modules/todo/view';
+import { canvasView } from '../sjtu/canvas/view';
 import { classroomView } from '../sjtu/classroom/view';
 import { jwcView } from '../sjtu/jwc/view';
 import { shuiyuanView } from '../sjtu/shuiyuan/view';
 import { timetableView } from '../sjtu/timetable/view';
 
-// 邮件与 Canvas 迁入模块后，改由各自的 notices 声明。
+// 邮件迁入模块后，改由它的 notices 声明。
 const legacyNoticeKinds: Record<string, NoticeKind> = {
   mail: { label: '邮件', icon: Mail },
-  canvas: { label: 'Canvas', icon: Megaphone },
 };
 
-const moduleViews = [todoView, timetableView, classroomView, shuiyuanView, jwcView];
+const moduleViews = [todoView, timetableView, classroomView, shuiyuanView, canvasView, jwcView];
 
 export const views: ViewDefinition[] = [
   ...moduleViews,
@@ -58,4 +59,24 @@ export function sourceOf(sourceId: string): SourceDefinition | undefined {
 
 export function opensInApp(url: string): boolean {
   return views.some((view) => view.opensLink?.(url));
+}
+
+export const libraries = views.flatMap((view) => (view.library ? [view.library] : []));
+
+export const referenceQueries = views.flatMap((view) => (view.references ? [view.references] : []));
+
+export function sourceTitle(sourceId: string, client: QueryClient): string | undefined {
+  for (const view of views) {
+    const title = view.sourceTitle?.(sourceId, client);
+    if (title !== undefined) return title;
+  }
+  return undefined;
+}
+
+export function sourceOfLink(url: string, client: QueryClient): string | undefined {
+  for (const view of views) {
+    const sourceId = view.sourceOfLink?.(url, client);
+    if (sourceId !== undefined) return sourceId;
+  }
+  return undefined;
 }

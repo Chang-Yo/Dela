@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { defineContract } from '../../core/protocol/contract';
+
 export interface CanvasCourse {
   id: number;
   name: string;
@@ -82,20 +85,32 @@ export interface CanvasExportResult {
   failed: string[];
 }
 
-export interface CanvasApi {
-  getState(): Promise<CanvasState>;
-  configure(token: string): Promise<void>;
-  disconnect(): Promise<void>;
-  syncCourses(): Promise<CanvasState>;
-  syncCourse(id: number): Promise<CanvasState>;
-  archiveCourse(id: number, archived: boolean): Promise<CanvasState>;
-  download(sourceId: string): Promise<void>;
-  reveal(sourceId: string): Promise<void>;
-  openLink(url: string): Promise<void>;
-  /** 已下载到本地 courses 目录、属于最新学期（未归档）的课件文件列表。 */
-  cachedFiles(): Promise<CachedCourseFile[]>;
-  /** 批量导出所选课程「文件」目录下的全部课件；用户取消选择目标文件夹时返回 null。 */
-  exportCourseFiles(courseIds: number[]): Promise<CanvasExportResult | null>;
-  /** 订阅后台目录同步推送的课程状态；返回退订函数。 */
-  onState(listener: (state: CanvasState) => void): () => void;
-}
+const state = z.custom<CanvasState>();
+const courseId = z.number().int().positive();
+const sourceId = z.string().max(512);
+
+export const canvasContract = defineContract(
+  'canvas',
+  {
+    state: { input: z.undefined(), output: state },
+    /** 保存令牌并拉取课程列表。 */
+    connect: { input: z.string().trim().min(1), output: state },
+    disconnect: { input: z.undefined(), output: state },
+    syncCourses: { input: z.undefined(), output: state },
+    syncCourse: { input: courseId, output: state },
+    archiveCourse: { input: z.object({ id: courseId, archived: z.boolean() }), output: state },
+    download: { input: sourceId, output: z.void() },
+    reveal: { input: sourceId, output: z.void() },
+    /** 已下载到本地、属于最新学期（未归档）的课件。 */
+    cachedFiles: { input: z.undefined(), output: z.custom<CachedCourseFile[]>() },
+    /** 导出所选课程「文件」目录下的全部课件；取消选择目标文件夹时返回 null。 */
+    exportCourseFiles: {
+      input: z.array(courseId).min(1),
+      output: z.custom<CanvasExportResult | null>(),
+    },
+  },
+  {
+    /** 后台目录同步与 Agent 刷新课程后推送。 */
+    state,
+  },
+);

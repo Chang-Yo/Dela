@@ -96,7 +96,7 @@ const listCalls = [];
 
 const routes = {
   'workspace:get-state': () => ({ entries: [], directory: '' }),
-  'canvas:get-state': () => ({ connected: false, courses: [], items: [] }),
+  'canvas:state': () => ({ connected: false, courses: [], items: [] }),
   'window:get-state': () => ({ maximized: false }),
   'settings:get-theme': () => 'light',
   'settings:get-zoom': () => 1,

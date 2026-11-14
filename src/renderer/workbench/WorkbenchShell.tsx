@@ -1,6 +1,7 @@
 // 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏、
 // EntryDialogs 与导航脉冲消费都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { DocumentContent, WorkspaceEntry } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { decodeAssetPath, isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
@@ -40,7 +41,7 @@ import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../ui/alert';
-import { sourceOf } from '../../app/views';
+import { referenceQueries, sourceOf, sourceOfLink } from '../../app/views';
 
 /** TabId → 旧文档键（entryId 或 source:{sourceId}）；chat 无对应文档。 */
 function tabDocumentKey(tabId: TabId | null): string | null {
@@ -52,6 +53,9 @@ function tabDocumentKey(tabId: TabId | null): string | null {
 
 /** 空组空态的「新建对话」：与侧栏同一入口，按当前池落位（项目内落焦点组，通用池分屏）。
  *  模块级函数引用稳定，不破坏 SplitNode/TabGroup 的 memo 比较。 */
+const flattenReferences = (results: Array<{ data?: Array<{ path: string; title: string }> }>) =>
+  results.flatMap((result) => result.data ?? []);
+
 function newChatInCurrentPool() {
   void useNavigationStore.getState().newChat(useWorkbenchLayout.getState().projectId);
 }
@@ -70,6 +74,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   useWorkspaceStore((s) => s.workspace.entries);
   useSessions((s) => s.lists);
   const [dialog, setDialog] = useState<EntryDialogRequest | null>(null);
+  const queryClient = useQueryClient();
 
   const activeTab = useWorkbenchLayout((s) => {
     const group = walkGroups(s.root).find((node) => node.id === s.focus);
@@ -102,7 +107,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   }, [createProject, loaded]);
 
   const openDialog = useCallback(
-    (action: EntryAction | 'link' | 'connect', id: string | null, text?: string) =>
+    (action: EntryAction | 'link', id: string | null, text?: string) =>
       setDialog({
         action,
         id,
@@ -155,17 +160,21 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     () => ({
       // @ 引用即文件路径：项目会话列 cwd 下全部文件，通用池排除其他项目目录，
       // key 为绝对路径，title 为相对 cwd 的路径，与 agent 的工作目录一致。订阅 workspace 镜像。
-      // 通用池（随聊/资料页）另并入已下载课件候选：课件不在镜像里，按 cwd 过滤永远为空。
+      // 通用池（随聊/资料页）另并入模块登记的候选（如已下载的课件），它们不在镜像里。
       useEntries: (projectId, cwd) => {
         const entries = useWorkspaceStore((state) => state.workspace.entries);
-        const courseFiles = useWorkspaceStore((state) => state.courseFiles);
         // 远程项目的 cwd 是远端路径，本地镜像里没有它的文件，候选改由远端索引提供。
         const remote = entries.find((item) => item.id === projectId)?.remoteId;
         const remoteEntries = useRemoteReferences(remote ? projectId : null);
         const localFiles = useLocalReferences(remote ? null : cwd);
-        useEffect(() => {
-          if (projectId === null && !remote) useWorkspaceStore.getState().ensureCourseFiles();
-        }, [projectId, remote]);
+        const courseFiles = useQueries({
+          queries: referenceQueries.map((query) => ({
+            ...query,
+            enabled: projectId === null && !remote,
+            staleTime: 30_000,
+          })),
+          combine: flattenReferences,
+        });
         return useMemo(
           () =>
             referenceEntryCandidates(
@@ -197,10 +206,10 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         openDialog(
           'note',
           currentContainerOf(useTreeState.getState().selected ?? activeDocKeyRef.current, rootId),
-          prefillNoteText(activeDocKeyRef.current, text),
+          prefillNoteText(activeDocKeyRef.current, text, queryClient),
         ),
     }),
-    [openDialog, referenceSource, rootId],
+    [openDialog, referenceSource, rootId, queryClient],
   );
 
   const draftSource = useMemo<NoteDraftSource>(
@@ -234,10 +243,10 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         openDialog(
           'note',
           currentContainerOf(useTreeState.getState().selected ?? activeDocKeyRef.current, rootId),
-          prefillNoteText(entryId, text),
+          prefillNoteText(entryId, text, queryClient),
         ),
     }),
-    [openDialog, rootId],
+    [openDialog, rootId, queryClient],
   );
 
   const loader = useMemo<ContentLoader>(() => {
@@ -285,28 +294,11 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     };
     return {
       loadDocument,
+      // 已同步的资料在标签页打开；其余交给主进程按模块分流，最后才是系统浏览器。
       openLink: (url) => {
-        try {
-          const parsed = new URL(url);
-          const file =
-            parsed.origin === 'https://oc.sjtu.edu.cn'
-              ? parsed.pathname.match(/\/files\/(\d+)/)?.[1]
-              : null;
-          if (
-            file &&
-            useWorkspaceStore.getState().canvas.items.some((i) => i.sourceId === `file:${file}`)
-          ) {
-            void useNavigationStore.getState().openDocument(`source:file:${file}`);
-            return;
-          }
-          void window.dela?.canvas
-            .openLink(url)
-            .catch((cause) =>
-              showToast({ variant: 'error', title: '打开链接失败', description: errorText(cause) }),
-            );
-        } catch {
-          showToast({ variant: 'error', title: '打开链接失败', description: '不支持的链接' });
-        }
+        const sourceId = sourceOfLink(url, queryClient);
+        if (sourceId) void useNavigationStore.getState().openDocument(`source:${sourceId}`);
+        else window.open(url);
       },
       navigate: (target) => useNavigationStore.getState().navigate(target),
       onExported: () => {

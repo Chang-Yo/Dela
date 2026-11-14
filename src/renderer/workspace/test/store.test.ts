@@ -1,30 +1,18 @@
-// workspace/store 状态机单测：并发 load 共享一次请求、局部失败不拖垮另一半、
-// 失败后可重试、refresh/setError 镜像语义（对照旧 features/projects/workspace.ts）。
+// workspace/store 状态机单测：并发 load 共享一次请求、失败后可重试、refresh/setError 镜像语义。
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useWorkspaceStore } from '../store';
 import type { WorkspaceEntry } from '../../../shared/api';
 
 const workspaceState = { entries: [], directory: 'C:/dela' };
-const canvasState = { connected: true, syncedAt: null, courses: [], items: [] };
 
-function installDela(handlers: {
-  workspace?: () => Promise<unknown>;
-  canvas?: () => Promise<unknown>;
-}) {
+function installDela(handlers: { workspace?: () => Promise<unknown> }) {
   const getState = vi.fn(handlers.workspace ?? (async () => workspaceState));
-  const getCanvasState = vi.fn(handlers.canvas ?? (async () => canvasState));
   const onChanged = vi.fn(() => () => undefined);
-  const onCanvasState = vi.fn(() => () => undefined);
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
-    value: {
-      dela: {
-        workspace: { getState, onChanged },
-        canvas: { getState: getCanvasState, onState: onCanvasState },
-      },
-    },
+    value: { dela: { workspace: { getState, onChanged } } },
   });
-  return { getState, getCanvasState, onChanged, onCanvasState };
+  return { getState, onChanged };
 }
 
 function resetStore() {
@@ -32,7 +20,6 @@ function resetStore() {
     overview: null,
     directories: {},
     workspace: { entries: [], directory: '' },
-    canvas: { connected: false, syncedAt: null, courses: [], items: [] },
     loaded: false,
     error: null,
   });
@@ -97,29 +84,17 @@ describe('workspace store mirror', () => {
     await request;
     expect(useWorkspaceStore.getState().directories['C:/closed']).toBeUndefined();
   });
-  it('shares one request between concurrent load callers and mirrors both halves', async () => {
-    const { getState, getCanvasState, onChanged, onCanvasState } = installDela({});
+  it('shares one request between concurrent load callers', async () => {
+    const { getState, onChanged } = installDela({});
     await Promise.all([useWorkspaceStore.getState().load(), useWorkspaceStore.getState().load()]);
     expect(getState).toHaveBeenCalledTimes(1);
-    expect(getCanvasState).toHaveBeenCalledTimes(1);
     // 外部文件变化订阅只注册一次（模块级去重），变化回调复用 refresh 通道。
     expect(onChanged).toHaveBeenCalledTimes(1);
-    // Canvas 后台同步推送的订阅同样只注册一次。
-    expect(onCanvasState).toHaveBeenCalledTimes(1);
     expect(useWorkspaceStore.getState()).toMatchObject({
       loaded: true,
       workspace: workspaceState,
-      canvas: canvasState,
       error: null,
     });
-  });
-
-  it('keeps the workspace mirror when the canvas half rejects (Promise.allSettled)', async () => {
-    installDela({ canvas: async () => Promise.reject(new Error('canvas down')) });
-    await useWorkspaceStore.getState().load();
-    expect(useWorkspaceStore.getState().loaded).toBe(true);
-    expect(useWorkspaceStore.getState().workspace).toEqual(workspaceState);
-    expect(useWorkspaceStore.getState().error).toBe('canvas down');
   });
 
   it('leaves loaded false on a failed workspace load so it can be retried', async () => {
@@ -147,12 +122,11 @@ describe('workspace store mirror', () => {
     expect(getState).toHaveBeenCalledTimes(1);
   });
 
-  it('refresh replaces the workspace mirror without touching canvas', async () => {
+  it('refresh replaces the workspace mirror', async () => {
     const next = { entries: [], directory: 'C:/elsewhere' };
     installDela({ workspace: async () => next });
     await useWorkspaceStore.getState().refresh();
     expect(useWorkspaceStore.getState().workspace).toEqual(next);
-    expect(useWorkspaceStore.getState().canvas.connected).toBe(false);
   });
 
   it('setError unwraps IPC error prefixes and resets to null', () => {

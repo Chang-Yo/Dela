@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -65,10 +66,12 @@ afterEach(async () => {
 async function render(initialTarget?: string, action: EntryDialogRequest['action'] = 'link') {
   await act(async () =>
     root.render(
-      <EntryDialogs
-        request={{ action, id: 'source:file:123', initialTarget }}
-        onClose={() => {}}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <EntryDialogs
+          request={{ action, id: 'source:file:123', initialTarget }}
+          onClose={() => {}}
+        />
+      </QueryClientProvider>,
     ),
   );
 }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CanvasCourse, CanvasState } from '../../../../shared/canvas';
+import type { CanvasCourse, CanvasState } from '../../contract';
 import { getCanvasState } from '../api';
 import { ToolError, toolError } from '../../../../main/agent/domain/shared';
 

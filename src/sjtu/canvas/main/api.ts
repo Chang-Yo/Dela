@@ -7,13 +7,19 @@ import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import { getDatabase } from '../../../main/database';
 import { availablePath, diskName, storageDirectory } from '../../../main/storage';
-import { latestTermOf } from '../../../shared/canvas';
-import type { CachedCourseFile, CanvasExportResult } from '../../../shared/canvas';
+import { latestTermOf } from '../contract';
+import type {
+  CachedCourseFile,
+  CanvasCourse,
+  CanvasExportResult,
+  CanvasState,
+  SourceItem,
+} from '../contract';
 import { pickCourseFiles, collectCourseFileEntries } from './course-files';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../../../main/documents/links';
 import { classifyOfficeFile, officeZipMime } from '../../../main/documents/parse';
 import { loadCanvasToken, saveCanvasToken } from './credentials';
-import type { CanvasCourse, CanvasState, DocumentContent, SourceItem } from '../../../shared/api';
+import type { DocumentContent } from '../../../shared/api';
 
 const origin = 'https://oc.sjtu.edu.cn';
 const apiRoot = `${origin}/api/v1/`;
@@ -594,6 +600,10 @@ export async function canvasFilePath(id: string): Promise<string> {
   const source = getSource(z.string().min(1).max(512).parse(id));
   if (source.kind !== 'file') throw new Error('资料不是文件');
   return (await cachedFile(source)).path;
+}
+
+export function isCanvasFileLink(url: URL): boolean {
+  return url.origin === origin && /^\/courses\/\d+\/files\/\d+(?:\/|$)/.test(url.pathname);
 }
 
 /** 正文里的课程文件链接未必在已同步的目录树中（隐藏的文件页或文件夹）：按链接现取文件信息。 */

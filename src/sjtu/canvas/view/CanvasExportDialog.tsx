@@ -1,19 +1,16 @@
-// 批量导出课件：按学期分组勾选课程，导出每门课「文件」目录下的全部课件到用户选择的文件夹；
-// 最低粒度为课程，目录树数据来自 workspace/store 的 Canvas 镜像。
-import { useMemo, useState } from 'react';
+// 按学期分组勾选课程，导出每门课「文件」目录下的全部课件到用户选择的文件夹；最低粒度为课程。
+import { useState } from 'react';
+import { errorMessage } from '../../../core/protocol/contract';
+import { showToast } from '../../../renderer/app/toasts';
+import { Button } from '../../../ui/button';
+import { Checkbox } from '../../../ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../ui/dialog';
+import { Spinner } from '../../../ui/spinner';
+import { groupCanvasCoursesByTerm } from '../contract';
+import { canvasClient, useCanvasState } from './use-canvas';
 
-import { Button } from '../../ui/button';
-import { errorText, useWorkspaceStore } from '../workspace/store';
-import { showToast } from '../app/toasts';
-import { groupCanvasCoursesByTerm } from '../../shared/canvas';
-import { Spinner } from '../../ui/spinner';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../ui/dialog';
-
-const checkboxClass = 'size-3.5 accent-[var(--ink-2)]';
-
-export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const canvas = useWorkspaceStore((s) => s.canvas);
-  const groups = useMemo(() => groupCanvasCoursesByTerm(canvas.courses), [canvas.courses]);
+export function CanvasExportDialog({ onClose }: { onClose: () => void }) {
+  const groups = groupCanvasCoursesByTerm(useCanvasState().courses);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
 
@@ -34,10 +31,10 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
     });
 
   const exportSelected = async () => {
-    if (!window.dela || exporting || selected.size === 0) return;
+    if (exporting || selected.size === 0) return;
     setExporting(true);
     try {
-      const result = await window.dela.canvas.exportCourseFiles([...selected]);
+      const result = await canvasClient.exportCourseFiles([...selected]);
       // 取消选择目录（null）不算结果：弹窗保持打开，用户可重选。
       if (result) {
         showToast({
@@ -52,7 +49,7 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
         onClose();
       }
     } catch (cause) {
-      showToast({ variant: 'error', title: '批量导出失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '批量导出失败', description: errorMessage(cause) });
     } finally {
       setExporting(false);
     }
@@ -60,7 +57,7 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
 
   return (
     <Dialog
-      open={open}
+      open
       onOpenChange={(value) => {
         if (!value && !exporting) onClose();
       }}
@@ -81,9 +78,8 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
             return (
               <div className="grid gap-0.5" key={group.term}>
                 <label className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-ink-2">
-                  <input
+                  <Checkbox
                     checked={all}
-                    className={checkboxClass}
                     disabled={exporting}
                     onChange={(event) =>
                       toggleGroup(
@@ -91,7 +87,6 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
                         event.target.checked,
                       )
                     }
-                    type="checkbox"
                   />
                   {group.term}
                 </label>
@@ -100,12 +95,10 @@ export function CanvasExportDialog({ open, onClose }: { open: boolean; onClose: 
                     className="flex items-center gap-2 rounded-control px-2 py-1 text-sm transition-colors duration-base hover:bg-hover"
                     key={course.id}
                   >
-                    <input
+                    <Checkbox
                       checked={selected.has(course.id)}
-                      className={checkboxClass}
                       disabled={exporting}
                       onChange={(event) => toggleCourse(course.id, event.target.checked)}
-                      type="checkbox"
                     />
                     <span className="min-w-0 flex-1 truncate" title={course.name}>
                       {course.name}

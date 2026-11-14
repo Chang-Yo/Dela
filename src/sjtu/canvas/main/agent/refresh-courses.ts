@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { publishCanvasState } from '../actions';
 import { syncCanvasCourses } from '../api';
 import { freshness, tool } from '../../../../main/agent/domain/shared';
 import { courseSummary, requireCanvasConfigured, withCanvasErrors } from './helpers';
@@ -9,6 +10,7 @@ export const refreshCanvasCoursesTool = tool(
   async () => {
     requireCanvasConfigured();
     const state = await withCanvasErrors(() => syncCanvasCourses());
+    publishCanvasState();
     return {
       courseListSyncedAt: state.syncedAt,
       courses: state.courses.map(courseSummary),

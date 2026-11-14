@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // 打开远端项目时目录侧栏收掉写入口：「+ 新建」下拉不出现，空白处双击也不出现新建输入行；
 // 只读操作（全部收起）保留。本地项目树里新建是 VS Code 式行内输入，不开弹窗。
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
@@ -172,14 +173,16 @@ async function render(projectId: string | null, activeDocKey: string | null = nu
   const onCreated = vi.fn();
   await act(async () =>
     root.render(
-      <WorkbenchExplorer
-        activeDocKey={activeDocKey}
-        onAction={onAction}
-        onCreated={onCreated}
-        onOpenDocument={() => {}}
-        onOpenToSide={() => {}}
-        projectId={projectId}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <WorkbenchExplorer
+          activeDocKey={activeDocKey}
+          onAction={onAction}
+          onCreated={onCreated}
+          onOpenDocument={() => {}}
+          onOpenToSide={() => {}}
+          projectId={projectId}
+        />
+      </QueryClientProvider>,
     ),
   );
   return { onAction, onCreated };

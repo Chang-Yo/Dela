@@ -1,6 +1,8 @@
 // 条目动作：归档、升级为项目、导入、拖放移动。
 // 只经 preload workspace:* 写事实并刷新镜像，不碰视图状态；UI 后续由接线方经回调决定。
+import type { QueryClient } from '@tanstack/react-query';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
+import { sourceTitle } from '../../app/views';
 import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from './store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
@@ -113,18 +115,19 @@ export function promoteEntry(id: string, onOpenProject: (id: string) => void) {
 }
 
 /** 保存为笔记的正文预填：显式 text 优先；否则按当前打开的资料拼来源 header。 */
-export function prefillNoteText(activeKey: string | null, text: string): string {
-  const { workspace, canvas } = useWorkspaceStore.getState();
-  const entries = workspace.entries;
+export function prefillNoteText(
+  activeKey: string | null,
+  text: string,
+  client: QueryClient,
+): string {
+  const entries = useWorkspaceStore.getState().workspace.entries;
   const sourceId = activeKey?.startsWith('source:')
     ? activeKey.slice(7)
     : (entries.find((e) => e.id === activeKey)?.sourceId ?? null);
-  const source = sourceId ? canvas.items.find((i) => i.sourceId === sourceId) : null;
+  const name = sourceId ? sourceTitle(sourceId, client) : undefined;
   const originalUrl = activeKey
     ? useNoteDrafts.getState().drafts[activeKey]?.content.url
     : undefined;
-  const header = source
-    ? `来源：${originalUrl ? `[${source.name}](${originalUrl})` : source.name}\n\n`
-    : '';
+  const header = name ? `来源：${originalUrl ? `[${name}](${originalUrl})` : name}\n\n` : '';
   return text || header;
 }

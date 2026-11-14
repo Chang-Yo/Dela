@@ -4,7 +4,6 @@ import type { Bridge } from '../core/protocol/contract';
 import type { BackupApi } from './backup';
 import type { CacheApi } from './cache';
 import type { CapabilityApi } from './capabilities';
-import type { CanvasApi } from './canvas';
 import type { ChatApi } from './chat';
 import type { ConsentApi } from './consent';
 import type { LayoutApi } from './layout';
@@ -50,7 +49,6 @@ export interface DelaApi {
   readonly llm: LlmApi;
   readonly chat: ChatApi;
   readonly mail: MailApi;
-  readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
   readonly sidechat: SidechatApi;
@@ -149,15 +147,6 @@ export type {
   TurnChanges,
   UncommittedChanges,
 } from './chat';
-
-export type {
-  CachedCourseFile,
-  CanvasCourse,
-  CanvasExportResult,
-  SourceItem,
-  CanvasState,
-  CanvasApi,
-} from './canvas';
 
 export type {
   DocumentContent,

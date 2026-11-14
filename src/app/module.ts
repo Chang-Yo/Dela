@@ -1,5 +1,6 @@
 // 模块与 app 之间唯一的中立文件：模块用它声明主进程与界面两侧，app 读取这些声明。
 import type { Implementation } from '../core/protocol/contract';
+import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
 import type { DocumentContent } from '../shared/documents';
 
@@ -59,6 +60,32 @@ export interface ViewDefinition {
   sources?: SourceDefinition;
   /** 本模块会在应用内打开的链接，聊天里点击时免去外链确认。 */
   opensLink?(url: string): boolean;
+  /** 资料页（通用工作台）里本模块的一组资料；归档区以 archived 再渲染一次。 */
+  library?: ComponentType<LibraryProps>;
+  /** 标签页与「添加到项目」用的资料名；不认识的 sourceId 返回 undefined。 */
+  sourceTitle?(sourceId: string, client: QueryClient): string | undefined;
+  /** 预览正文里的链接若指向已同步的资料，返回它的 sourceId，改在标签页打开。 */
+  sourceOfLink?(url: string, client: QueryClient): string | undefined;
+  /** 通用池会话的 @ 引用候选：path 为本地绝对路径，title 为展示路径。 */
+  references?: {
+    queryKey: readonly unknown[];
+    queryFn: () => Promise<Array<{ path: string; title: string }>>;
+  };
+}
+
+export interface LibraryProps {
+  archived: boolean;
+  query: string;
+  expanded: string[];
+  onExpand(id: string, open: boolean): void;
+  /** 当前标签的 key（source:<sourceId>）。 */
+  selected: string | null;
+  onOpen(key: string): void;
+  onOpenToSide(key: string): void;
+  /** 添加到项目。 */
+  onLink(key: string): void;
+  /** 有资料移入归档后调用，展开归档区。 */
+  onArchive(): void;
 }
 
 /** sourceId 以 prefix 开头的来源：文件树里的图标与角标，预览标签里的正文。 */
