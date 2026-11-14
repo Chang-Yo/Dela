@@ -2,9 +2,13 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from './cn';
 
 const statusPillVariants = cva(
-  'inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium leading-none',
+  'inline-flex items-center gap-1.5 rounded-full font-medium leading-none',
   {
     variants: {
+      size: {
+        default: 'h-6 px-2.5 text-sm',
+        sm: 'h-5 px-2 text-xs',
+      },
       tone: {
         green: 'bg-success-tint text-success',
         orange: 'bg-warning-tint text-warning',
@@ -13,7 +17,7 @@ const statusPillVariants = cva(
         neutral: 'bg-inset text-ink-2',
       },
     },
-    defaultVariants: { tone: 'neutral' },
+    defaultVariants: { tone: 'neutral', size: 'default' },
   },
 );
 
@@ -30,17 +34,19 @@ const dotColor: Record<Tone, string> = {
 
 export function StatusPill({
   tone = 'neutral',
+  size,
   children,
   dot = true,
   className,
 }: {
   tone?: Tone;
+  size?: VariantProps<typeof statusPillVariants>['size'];
   children: React.ReactNode;
   dot?: boolean;
   className?: string;
 }) {
   return (
-    <span className={cn(statusPillVariants({ tone }), className)}>
+    <span className={cn(statusPillVariants({ tone, size }), className)}>
       {dot && <span className={cn('size-1.5 rounded-full', dotColor[tone])} />}
       {children}
     </span>
