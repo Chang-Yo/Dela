@@ -1,7 +1,8 @@
 import { create } from 'zustand';
+import { onAgentEvent } from '../../modules/chat/view';
 import type { RunEvent, RunStatus } from '../../shared/api';
 
-// Run 状态镜像：按 sessionId 归并 session:on-run-event，供导航行徽标与 ChatTab 共用；
+// Run 状态镜像：按 sessionId 归并 run-event 推送，供导航行徽标与 ChatTab 共用；
 // 只订阅，不发起执行。
 
 export interface RunMirror {
@@ -63,12 +64,5 @@ export function useSessionRunStatus(sessionId: string): RunStatus | null {
   return useRuns((state) => state.bySession[sessionId]?.status ?? null);
 }
 
-let runEventSubscription: (() => void) | null = null;
-
-/** 订阅 session:on-run-event（幂等）。模块加载时自动挂接；测试环境先装 window mock 再手动调用。 */
-export function initRunsMirror(): void {
-  if (runEventSubscription || typeof window === 'undefined' || !window.dela) return;
-  runEventSubscription = window.dela.session.onRunEvent(useRuns.getState().apply);
-}
-
-initRunsMirror();
+/** 模块加载即订阅 run 状态推送。 */
+onAgentEvent('run-event', useRuns.getState().apply);

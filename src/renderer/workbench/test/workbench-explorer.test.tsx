@@ -17,7 +17,6 @@ const { api, desktop } = vi.hoisted(() => {
         handlers[channel.slice('workspace:'.length)]?.(input),
       subscribe,
     },
-    session: { onSessionUpdate: subscribe, onStream: subscribe, onQueue: subscribe },
   } as unknown as NonNullable<typeof window.dela>;
   window.dela = desktop;
   return { api: handlers, desktop };

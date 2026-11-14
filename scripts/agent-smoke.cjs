@@ -56,7 +56,7 @@ async function run(window) {
 
   const ask = async (sessionId, text, context = []) => {
     const chat = await call(
-      `window.dela.session.ask(${JSON.stringify(sessionId)}, ${JSON.stringify({ text, attachments: [], context })})`,
+      `window.dela.bridge.invoke('agent:ask', ${JSON.stringify({ sessionId, text, attachments: [], context })})`,
     );
     const reply = chat.messages.at(-1);
     console.log(
@@ -69,7 +69,9 @@ async function run(window) {
     return chat;
   };
 
-  const a = await call(`window.dela.session.create(${JSON.stringify(alpha.id)}, 'chat')`);
+  const a = await call(
+    `window.dela.bridge.invoke('agent:create-session', ${JSON.stringify({ projectId: alpha.id, scope: 'chat' })})`,
+  );
   assert.equal(a.cwd, alphaDir);
   await ask(
     a.sessionId,
@@ -80,7 +82,9 @@ async function run(window) {
   assert.ok(existsSync(join(alphaDir, 'todo.md')), 'todo.md 应在 alpha 项目目录内');
   assert.ok(!existsSync(join(betaDir, 'todo.md')), 'todo.md 不应出现在 beta');
 
-  const b = await call(`window.dela.session.create(${JSON.stringify(beta.id)}, 'chat')`);
+  const b = await call(
+    `window.dela.bridge.invoke('agent:create-session', ${JSON.stringify({ projectId: beta.id, scope: 'chat' })})`,
+  );
   assert.equal(b.cwd, betaDir);
   await ask(b.sessionId, '在当前项目新建 hello.txt，内容是 beta。');
   assert.equal(readFileSync(join(betaDir, 'hello.txt'), 'utf8').trim(), 'beta');
@@ -89,7 +93,9 @@ async function run(window) {
   // 续聊：模型应记得上一轮做过什么（工具调用与结果都在 Pi 会话里）。
   const followUp = await ask(a.sessionId, '刚才你在 todo.md 里写了什么？只回答那一行内容。');
   assert.match(followUp.messages.at(-1).content, /ship it/i);
-  const reopened = await call(`window.dela.session.open(${JSON.stringify(a.sessionId)})`);
+  const reopened = await call(
+    `window.dela.bridge.invoke('agent:open-session', ${JSON.stringify({ sessionId: a.sessionId })})`,
+  );
   assert.equal(reopened.messages.filter((m) => m.role === 'user').length, 2);
   assert.equal(reopened.projectId, alpha.id);
 }

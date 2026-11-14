@@ -16,6 +16,7 @@ import {
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
   chatFileKindOfFile,
 } from '../../../core/protocol/chat-input';
+import { agentClient } from '../../../modules/chat/view';
 import { IconButton } from '../../../ui/icon-button';
 import { showToast } from '../../app/toasts';
 import { cn } from '../../../ui/cn';
@@ -27,6 +28,7 @@ import { ChatThread } from './ChatThread';
 import type { ReferenceSource } from './chat-source';
 import { emptyDraft, useChatDrafts } from './drafts';
 import { referenceContext } from './reference-tokens';
+import { releaseChatMedia } from './media';
 import { sidechatDraftKey, useSidechats } from './sidechat-store';
 import { canSendInput } from './use-chat';
 
@@ -61,7 +63,7 @@ export function SidechatPanel({
   useEffect(
     () => () => {
       const ids = attachmentsRef.current.map((item) => item.id);
-      if (ids.length) void window.dela?.chat.releaseMedia(ids);
+      releaseChatMedia(ids);
     },
     [],
   );
@@ -85,9 +87,9 @@ export function SidechatPanel({
   const busy = pending || view.running;
 
   const send = async () => {
-    const api = window.dela?.sidechat;
     const { prompt, comments = [] } = useChatDrafts.getState().drafts[key] ?? emptyDraft;
-    if (!api || busy || !canSendInput(prompt, false, attachments.length, comments.length)) return;
+    if (!window.dela || busy || !canSendInput(prompt, false, attachments.length, comments.length))
+      return;
     const references = referenceContext(prompt, referenceOptions);
     try {
       for (const ref of references)
@@ -103,7 +105,8 @@ export function SidechatPanel({
     setAttachments([]);
     try {
       useSidechats.getState().put(
-        await api.ask(parentId, {
+        await agentClient['ask-sidechat']({
+          parentId,
           text: prompt,
           attachments: sent.map((item) => item.id),
           context: references.map((ref) => ref.key),
@@ -129,13 +132,12 @@ export function SidechatPanel({
   const close = () => {
     entered.delete(parentId);
     useChatDrafts.getState().clear(key);
-    void window.dela?.sidechat.close(parentId).catch(() => {});
+    void agentClient['close-sidechat']({ parentId }).catch(() => {});
     useSidechats.getState().forget(parentId);
   };
 
   const keep = () => {
-    void window.dela?.sidechat
-      .keep(parentId)
+    void agentClient['keep-sidechat']({ parentId })
       .then((chat) => {
         entered.delete(parentId);
         useChatDrafts.getState().clear(key);
@@ -158,7 +160,7 @@ export function SidechatPanel({
         : CHAT_DOCUMENT_MAX_BYTES;
     if (file.size > limit) throw new Error(`附件超过 ${limit / 1024 / 1024} MB 上限`);
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const staged = await window.dela.chat.stageMedia({ name: file.name, bytes });
+    const staged = await agentClient['stage-media']({ name: file.name, bytes });
     setAttachments((current) => [...current, staged]);
   };
 
@@ -276,10 +278,10 @@ export function SidechatPanel({
             onModelSelect={() => {}}
             onRemoveAttachment={(id) => {
               setAttachments((current) => current.filter((item) => item.id !== id));
-              void window.dela?.chat.releaseMedia([id]);
+              releaseChatMedia([id]);
             }}
             onSend={() => void send()}
-            onStop={() => window.dela?.sidechat.cancel(parentId)}
+            onStop={() => void agentClient['cancel-sidechat']({ parentId }).catch(() => {})}
             providerId={parent.providerId}
             referenceOptions={referenceOptions}
             sidechat

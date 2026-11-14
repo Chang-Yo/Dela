@@ -175,7 +175,6 @@ it('分屏中选择搜索服务后，另一个已挂载输入框应同步显示�
     for (const listener of listeners) listener();
   });
   window.dela = {
-    chat: { listCommands: async () => [] },
     capability: {
       listWebSearchOptions: async () => ({ entries: [entry], selectedId }),
       selectWebSearchEntry,
@@ -234,7 +233,6 @@ it('搜索配置变化后，迟到的首次读取不能覆盖新状态', async (
     .mockReturnValueOnce(initial)
     .mockResolvedValue({ entries: [entry], selectedId: entry.id });
   window.dela = {
-    chat: { listCommands: async () => [] },
     capability: {
       listWebSearchOptions,
       onWebSearchChanged: (listener: () => void) => {
@@ -278,9 +276,7 @@ it('已配置思考强度时仅列出允许的档位，选择后关闭菜单', a
 
 it('拖入 PPTX 交给附件入口，不再被文本白名单拒绝', async () => {
   const add = vi.fn(async () => {});
-  window.dela = { chat: { listCommands: async () => [] } } as unknown as NonNullable<
-    typeof window.dela
-  >;
+  window.dela = {} as NonNullable<typeof window.dela>;
   await act(async () => root.render(<Harness contextUsage={usage()} onAddAttachmentFile={add} />));
   const file = new File(['binary document'], 'PRP结项汇报_v3(1).pptx.pptx');
   const event = new Event('drop', { bubbles: true, cancelable: true });
@@ -342,9 +338,6 @@ it('命中率文本只在拿到两个累计字段且分母大于 0 时才算数�
 });
 
 it('`/` 候选列出 Dela 的会话命令', async () => {
-  window.dela = { chat: { listCommands: async () => [] } } as unknown as NonNullable<
-    typeof window.dela
-  >;
   await act(async () => root.render(<Harness contextUsage={usage()} />));
   typeMention('/');
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));

@@ -105,7 +105,7 @@ const routes = {
   'settings:get-keybindings': () => ({}),
   'workspace:layout': () => null,
   'workspace:saveLayout': () => null,
-  'session:list': () => [],
+  'agent:list-sessions': () => [],
   'remotes:list': () => [],
   'notifications:state': () => ({
     items: [],

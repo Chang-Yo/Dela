@@ -24,7 +24,6 @@ const { workspaceApi, bridge } = vi.hoisted(() => {
   };
   window.dela = {
     bridge,
-    session: { onSessionUpdate: subscribe, onStream: subscribe, onQueue: subscribe },
   } as unknown as DelaApi;
   return { workspaceApi: handlers, bridge };
 });

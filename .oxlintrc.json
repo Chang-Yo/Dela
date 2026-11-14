@@ -247,7 +247,10 @@
       }
     },
     {
-      "files": ["src/modules/{mail,workspace}/index.ts", "src/modules/{mail,workspace}/main/**"],
+      "files": [
+        "src/modules/{mail,workspace,chat}/index.ts",
+        "src/modules/{mail,workspace,chat}/main/**"
+      ],
       "rules": {
         "no-restricted-imports": [
           "error",

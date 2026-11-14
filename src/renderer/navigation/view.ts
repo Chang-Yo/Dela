@@ -1,6 +1,7 @@
 // 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性定位脉冲；
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
+import { agentClient } from '../../modules/chat/view';
 import { leaveComposer } from '../../modules/mail/view';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../shared/api';
@@ -246,7 +247,10 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       if (!window.dela || !get().navigate(onHome ? 'home' : 'workbench')) return null;
       try {
         // 通用会话的工作目录跟着落位走：首页随聊用私有目录，资料页用资料树里的课程目录。
-        const chat = await window.dela.session.create(projectId, onHome ? 'chat' : 'library');
+        const chat = await agentClient['create-session']({
+          projectId,
+          scope: onHome ? 'chat' : 'library',
+        });
         if (!chat.sessionId) throw new Error('会话创建失败');
         useSessions.getState().putChat(chat.sessionId, chat);
         void useSessions

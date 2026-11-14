@@ -1,31 +1,32 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RunEvent } from '../../shared/api';
-import { initRunsMirror, runBadge, useRuns } from './runs';
 
-// 与 store.test.ts 相同的模式：先装文件级 window mock，再手动挂接镜像订阅。
-const runEventListeners: Array<(event: RunEvent) => void> = [];
-
-Object.defineProperty(globalThis, 'window', {
-  configurable: true,
-  value: {
-    dela: {
-      session: {
-        onRunEvent: (listener: (event: RunEvent) => void) => {
-          runEventListeners.push(listener);
-          return () => {};
+// 与 store.test.ts 相同的模式：镜像订阅在模块加载时取 bridge，须先于导入装好。
+const runEventListeners = vi.hoisted(() => {
+  const listeners: Array<(event: RunEvent) => void> = [];
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      dela: {
+        bridge: {
+          subscribe: (channel: string, listener: (event: RunEvent) => void) => {
+            if (channel === 'agent:run-event') listeners.push(listener);
+            return () => {};
+          },
         },
       },
     },
-  },
+  });
+  return listeners;
 });
-initRunsMirror();
+import { runBadge, useRuns } from './runs';
 
 function event(sessionId: string, status: RunEvent['status'], activeTool?: string): RunEvent {
   return { sessionId, runId: 'r1', status, activeTool };
 }
 
 describe('runs mirror', () => {
-  it('on-run-event 推送按 sessionId 归并为最新状态', () => {
+  it('run-event 推送按 sessionId 归并为最新状态', () => {
     useRuns.setState({ bySession: {} });
     runEventListeners[0]!(event('s1', 'pending'));
     runEventListeners[0]!(event('s1', 'running'));

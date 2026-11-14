@@ -50,7 +50,8 @@ import {
 } from '../../../core/protocol/chat-input';
 import type { ChatReference } from './use-chat';
 import { ComposerEditor, type ComposerEditorHandle } from './ComposerEditor';
-import { setChatMediaPreview } from './media';
+import { releaseChatMedia, setChatMediaPreview } from './media';
+import { agentClient, chatClient } from '../../../modules/chat/view';
 
 const builtinCommands = [
   { name: '日程', prompt: '帮我查看本周的日程安排', hint: '课程与个人事件' },
@@ -232,8 +233,7 @@ export function ChatComposer({
 
   useEffect(() => {
     let active = true;
-    void window.dela?.chat
-      .listCommands()
+    void agentClient['list-commands']({})
       .then((commands) => {
         if (active) setCustomCommands(commands);
       })
@@ -340,7 +340,7 @@ export function ChatComposer({
           if (imageCount >= INLINE_IMAGE_MAX)
             throw new Error(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
           const bytes = new Uint8Array(await file.arrayBuffer());
-          const view = await window.dela.chat.stageMedia({ name: file.name, bytes });
+          const view = await agentClient['stage-media']({ name: file.name, bytes });
           insertPos = insertImageView(view, insertPos);
           imageCount += 1;
         } else {
@@ -358,7 +358,7 @@ export function ChatComposer({
 
   const pickFiles = () => {
     if (!window.dela) return;
-    void window.dela.chat
+    void chatClient
       .pickMedia()
       .then((views) => {
         let insertPos = editorRef.current?.selectionStart() ?? value.length;
@@ -369,7 +369,7 @@ export function ChatComposer({
             if (view.kind === 'image') {
               if (imageCount >= INLINE_IMAGE_MAX) {
                 setFileError(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
-                void window.dela?.chat.releaseMedia([view.id]);
+                releaseChatMedia([view.id]);
                 continue;
               }
               insertPos = insertImageView(view, insertPos);
@@ -381,7 +381,7 @@ export function ChatComposer({
               attachmentCount += 1;
             }
           } catch (error) {
-            void window.dela?.chat.releaseMedia([view.id]);
+            releaseChatMedia([view.id]);
             setFileError(errorText(error));
           }
         }

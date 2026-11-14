@@ -2,7 +2,40 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, FileChangeDetail, TurnChanges } from '../../../shared/api';
+import type { FileChangeDetail, TurnChanges } from '../../../shared/api';
+
+// 契约客户端在模块加载时取 bridge，须先于导入卡片装好；各用例只重编程 handler。
+const { api, dela } = vi.hoisted(() => {
+  const api = {
+    'agent:read-turn-changes': vi.fn<
+      (input: {
+        sessionId: string;
+        turnId: string;
+        includeStats: boolean;
+      }) => Promise<TurnChanges | null>
+    >(async () => null),
+    'agent:read-turn-file-change': vi.fn<
+      (input: {
+        sessionId: string;
+        turnId: string;
+        path: string;
+      }) => Promise<FileChangeDetail | null>
+    >(async () => null),
+    'chat:locateFile': vi.fn<(input: { sessionId: string; path: string }) => Promise<string>>(
+      async () => 'E:\\workspace\\Test\\src\\app.ts',
+    ),
+    'chat:openInVsCode': vi.fn(async () => {}),
+    'chat:revealFile': vi.fn(async () => {}),
+  };
+  const dela = {
+    bridge: {
+      invoke: (channel: string, input: never) => api[channel as keyof typeof api](input),
+      subscribe: () => () => {},
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  window.dela = dela;
+  return { api, dela };
+});
 import { TurnChangesCard } from './TurnChangesCard';
 import { openTarget } from '../../workbench/open-target';
 
@@ -30,20 +63,6 @@ function turnFixture(overrides: Partial<TurnChanges> = {}): TurnChanges {
   };
 }
 
-const dela = {
-  chat: {
-    readTurnChanges: vi.fn<(s: string, t: string) => Promise<TurnChanges | null>>(async () => null),
-    readTurnFileChange: vi.fn<
-      (s: string, t: string, p: string) => Promise<FileChangeDetail | null>
-    >(async () => null),
-    locateFile: vi.fn<(s: string, p: string) => Promise<string>>(
-      async () => 'E:\\workspace\\Test\\src\\app.ts',
-    ),
-    openInVsCode: vi.fn<(s: string, p: string) => Promise<void>>(async () => {}),
-    revealFile: vi.fn<(s: string, p: string) => Promise<void>>(async () => {}),
-  },
-};
-
 let host: HTMLDivElement;
 let root: Root;
 
@@ -60,7 +79,7 @@ async function renderCard(sessionId2: string, turnId: string, reviewEnabled = tr
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  window.dela = dela as unknown as DelaApi;
+  window.dela = dela;
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -81,12 +100,16 @@ it('没有冻结记录的轮次不渲染任何内容', async () => {
 it('默认折叠，展开后列出文件并显示行数统计', async () => {
   const turn = turnFixture();
   turn.files[0]!.stat = { added: 2, deleted: 1 };
-  dela.chat.readTurnChanges.mockImplementation(async () => turn);
+  api['agent:read-turn-changes'].mockImplementation(async () => turn);
   await renderCard(sessionId, turn.turnId);
   expect(host.querySelector('[aria-expanded="false"]')).not.toBeNull();
-  expect(dela.chat.readTurnChanges).toHaveBeenCalledWith(sessionId, turn.turnId, true);
-  expect(dela.chat.readTurnChanges).toHaveBeenCalledTimes(1);
-  expect(dela.chat.readTurnFileChange).not.toHaveBeenCalled();
+  expect(api['agent:read-turn-changes']).toHaveBeenCalledWith({
+    sessionId,
+    turnId: turn.turnId,
+    includeStats: true,
+  });
+  expect(api['agent:read-turn-changes']).toHaveBeenCalledTimes(1);
+  expect(api['agent:read-turn-file-change']).not.toHaveBeenCalled();
   expect(host.querySelectorAll('li')).toHaveLength(0);
 
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
@@ -106,7 +129,7 @@ it('审阅与打开按解析出的标签键落位，已删除文件的打开被�
       { path: 'gone.log', status: 'deleted', beforeBytes: 3, afterBytes: null, textDiff: true },
     ],
   });
-  dela.chat.readTurnChanges.mockImplementation(async () => turn);
+  api['agent:read-turn-changes'].mockImplementation(async () => turn);
   await renderCard(sessionId, turn.turnId);
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
 
@@ -116,10 +139,10 @@ it('审阅与打开按解析出的标签键落位，已删除文件的打开被�
     aside: true,
   });
 
-  dela.chat.locateFile.mockResolvedValue('E:\\workspace\\Test\\src\\app.ts');
+  api['chat:locateFile'].mockResolvedValue('E:\\workspace\\Test\\src\\app.ts');
   const open = host.querySelector<HTMLButtonElement>('[title="在 Dela 中打开"]')!;
   await act(async () => open.click());
-  expect(dela.chat.locateFile).toHaveBeenCalledWith(sessionId, 'src/app.ts');
+  expect(api['chat:locateFile']).toHaveBeenCalledWith({ sessionId, path: 'src/app.ts' });
   await act(async () => {});
   expect(openTarget).toHaveBeenCalledWith('note:E:\\workspace\\Test\\src\\app.ts', {
     aside: true,
@@ -134,7 +157,7 @@ it('部分记录在展开后展示警告，不给「一切正常」的假象', a
     state: 'partial',
     warnings: ['big.bin: 二进制或非 UTF-8 文件，不提供文本 diff', 'x: 不可读'],
   });
-  dela.chat.readTurnChanges.mockImplementation(async () => turn);
+  api['agent:read-turn-changes'].mockImplementation(async () => turn);
   await renderCard(sessionId, turn.turnId);
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
   expect(host.textContent).toContain('big.bin: 二进制或非 UTF-8 文件，不提供文本 diff');
@@ -142,18 +165,22 @@ it('部分记录在展开后展示警告，不给「一切正常」的假象', a
 
 it('随聊只列文件并提供打开，不读取 diff 详情或显示审阅与行数', async () => {
   const turn = turnFixture();
-  dela.chat.readTurnChanges.mockImplementation(async () => turn);
+  api['agent:read-turn-changes'].mockImplementation(async () => turn);
   await renderCard(sessionId, turn.turnId, false);
   await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
 
   expect(host.querySelectorAll('li')).toHaveLength(2);
   expect(host.textContent).not.toContain('+2');
-  expect(dela.chat.readTurnFileChange).not.toHaveBeenCalled();
-  expect(dela.chat.readTurnChanges).toHaveBeenCalledWith(sessionId, turn.turnId, false);
+  expect(api['agent:read-turn-file-change']).not.toHaveBeenCalled();
+  expect(api['agent:read-turn-changes']).toHaveBeenCalledWith({
+    sessionId,
+    turnId: turn.turnId,
+    includeStats: false,
+  });
   expect(host.querySelectorAll('[aria-label="选择打开方式"]')).toHaveLength(2);
 
   await act(async () => host.querySelector<HTMLButtonElement>('[title="在 Dela 中打开"]')!.click());
-  expect(dela.chat.locateFile).toHaveBeenCalledWith(sessionId, 'src/app.ts');
+  expect(api['chat:locateFile']).toHaveBeenCalledWith({ sessionId, path: 'src/app.ts' });
   expect(openTarget).toHaveBeenCalledWith('note:E:\\workspace\\Test\\src\\app.ts', {
     aside: true,
   });

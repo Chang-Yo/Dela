@@ -30,7 +30,6 @@ let getState: ReturnType<typeof vi.fn>;
 function mountApi(read: () => Promise<UpdateSnapshot> = async () => base) {
   getState = vi.fn(read);
   window.dela = {
-    session: { onRunEvent: () => () => {} },
     update: {
       getState,
       check: async () => base,

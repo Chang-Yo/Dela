@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { GitCompare, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { FileChangeDetail, UncommittedChanges } from '../../../shared/api';
+import { chatClient } from '../../../modules/chat/view';
 import { DiffView } from './DiffView';
 import { Centered, STATUS_TEXT, FileIcon, basenameOf, dirnameOf } from './view-utils';
 import { IconButton } from '../../../ui/icon-button';
@@ -41,7 +42,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
     setBusy(true);
     setError(null);
     try {
-      const value = await window.dela!.chat.readUncommittedChanges(sessionId);
+      const value = await chatClient.readUncommittedChanges(sessionId);
       if (version !== loadVersion.current) return;
       setSummary(value);
       const alive = new Set(value.files.map((file) => file.path));
@@ -82,8 +83,8 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
     setDetail(cached ?? null);
     setDetailError(null);
     if (cached) return;
-    void window.dela?.chat
-      .readUncommittedFileChange(sessionId, selected)
+    void chatClient
+      .readUncommittedFileChange({ sessionId, path: selected })
       .then((value) => {
         if (!alive) return;
         const lean: ReviewDetail = {

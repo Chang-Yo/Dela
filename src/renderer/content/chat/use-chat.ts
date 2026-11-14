@@ -16,6 +16,7 @@ import {
   hasChatImages,
   stripChatImageTokens,
 } from '../../../core/protocol/chat-input';
+import { agentClient } from '../../../modules/chat/view';
 import { showToast } from '../../app/toasts';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
@@ -28,6 +29,7 @@ import {
   type ChatReference,
 } from './drafts';
 import type { ReferenceSource } from './chat-source';
+import { releaseChatMedia } from './media';
 import { openSidechat } from './sidechat-store';
 
 export type { ChatReference };
@@ -63,7 +65,7 @@ export function useChatDraft(sessionId: string) {
   return useChatDrafts((state) => state.drafts[sessionId] ?? emptyDraft);
 }
 
-/** 单个会话的对话状态：快照经 sessions 镜像共享（session:on-update 全局订阅，多入口同看一份）。
+/** 单个会话的对话状态：快照经 sessions 镜像共享（session-update 全局订阅，多入口同看一份）。
  *  草稿按 sessionId 持久化（drafts.ts），本 hook 不订阅（订阅在 useChatDraft）；附件 chip
  *  不持久化，切换会话即释放暂存文件；内联图片随草稿文本保留（文件由启动 GC 回收）。
  *  onNewChat 是 /new 命令的落点，与会话视图里的「新对话」按钮同一个动作。 */
@@ -90,7 +92,7 @@ export function useChat(
   // 附件 chip 不持久化，离开视图/切换会话即随状态丢弃：释放其暂存文件并清空。
   const releaseAttachments = useCallback(() => {
     const ids = attachmentsRef.current.map((file) => file.id);
-    if (ids.length) void window.dela?.chat.releaseMedia(ids);
+    releaseChatMedia(ids);
     setAttachments([]);
   }, []);
 
@@ -104,13 +106,12 @@ export function useChat(
     };
   }, [sessionId, releaseAttachments]);
 
-  // 快照种子：镜像未缓存（应用启动后首次打开）时经 session:open 读取一次，不产生执行；
+  // 快照种子：镜像未缓存（应用启动后首次打开）时经 open-session 读取一次，不产生执行；
   // 缓存被清（会话在别处被删）后再次尝试读取，读到「会话不存在」即就地报错。
   useEffect(() => {
-    if (chat) return;
+    if (chat || !window.dela) return;
     let active = true;
-    void window.dela?.session
-      .open(sessionId)
+    void agentClient['open-session']({ sessionId })
       .then((value) => {
         if (active) useSessions.getState().putChat(sessionId, value);
       })
@@ -151,7 +152,7 @@ export function useChat(
         : CHAT_DOCUMENT_MAX_BYTES;
     if (file.size > limit) throw new Error(`附件超过 ${limit / 1024 / 1024} MB 上限`);
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const view = await window.dela.chat.stageMedia({ name: file.name, bytes });
+    const view = await agentClient['stage-media']({ name: file.name, bytes });
     setAttachments((current) => [...current, view]);
   };
 
@@ -166,7 +167,7 @@ export function useChat(
 
   const removeAttachment = (id: string) => {
     setAttachments((current) => current.filter((item) => item.id !== id));
-    void window.dela?.chat.releaseMedia([id]);
+    releaseChatMedia([id]);
   };
 
   // 发送前从文本解析好的引用（ChatTab 经 referenceContext 算出）；引用即文本，
@@ -208,7 +209,8 @@ export function useChat(
     clearDraft(requested);
     setAttachments([]);
     try {
-      const result = await window.dela.session.ask(requested, {
+      const result = await agentClient.ask({
+        sessionId: requested,
         text,
         attachments: sentAttachments.map((item) => item.id),
         context: sentReferences.map((ref) => ref.key),
@@ -221,7 +223,7 @@ export function useChat(
       if (activeSession.current === requested) {
         setError(errorText(e));
         // 消息未上屏（未配置模型、引用读取失败等发生在持久化前）时恢复输入，避免重打。
-        const fresh = await window.dela.session.open(requested).catch(() => null);
+        const fresh = await agentClient['open-session']({ sessionId: requested }).catch(() => null);
         if (fresh) useSessions.getState().putChat(requested, fresh);
         if (activeSession.current === requested && shouldRestoreDraft(fresh, text)) {
           updateDraft(requested, { prompt: text, comments });
@@ -238,8 +240,7 @@ export function useChat(
    * /compact 期间算作忙，停止按钮可以取消压缩。
    */
   const runCommand = async (name: SessionCommandName, args: string, text: string) => {
-    const dela = window.dela;
-    if (!dela) return;
+    if (!window.dela) return;
     const requested = sessionId;
     if (attachments.length) {
       setError('命令不能附带文件，请先移除附件');
@@ -257,7 +258,7 @@ export function useChat(
     }
     setPending((count) => count + 1);
     try {
-      const result = await dela.session.runCommand(requested, name, args);
+      const result = await agentClient['run-command']({ sessionId: requested, name, args });
       useSessions.getState().putChat(requested, result);
       if (name === 'name') {
         // 标题只在会话列表里，推送不带列表：重读一次，标签与侧栏才会换成新标题。
@@ -293,29 +294,27 @@ export function useChat(
     });
     if (activeSession.current === requested)
       setAttachments((list) => [...queued.attachments, ...list]);
-    else void window.dela?.chat.releaseMedia(queued.attachments.map(({ id }) => id));
+    else releaseChatMedia(queued.attachments.map(({ id }) => id));
   };
 
   const stop = () => {
     const requested = sessionId;
-    void window.dela?.session
-      .cancelRun(requested)
+    void agentClient['cancel-run']({ sessionId: requested })
       .then((queued) => restoreQueued(requested, queued))
       .catch(() => {});
   };
 
   const withdrawQueued = () => {
     const requested = sessionId;
-    void window.dela?.session
-      .withdrawQueued(requested)
+    void agentClient['withdraw-queued']({ sessionId: requested })
       .then((queued) => restoreQueued(requested, queued))
       .catch((e) => showToast({ variant: 'error', title: '撤回失败', description: errorText(e) }));
   };
 
   const stopTask = (taskId: string) => {
-    void window.dela?.session
-      .stopTask(sessionId, taskId)
-      .catch((e) => showToast({ variant: 'error', title: '停止失败', description: errorText(e) }));
+    void agentClient['stop-task']({ sessionId, taskId }).catch((e) =>
+      showToast({ variant: 'error', title: '停止失败', description: errorText(e) }),
+    );
   };
 
   // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
@@ -328,7 +327,8 @@ export function useChat(
       setPending((count) => count + 1);
       setError(null);
       try {
-        const result = await window.dela.session.ask(requested, {
+        const result = await agentClient.ask({
+          sessionId: requested,
           text,
           attachments: [],
           context: [],
@@ -354,16 +354,14 @@ export function useChat(
 
   // 模型选择只属于这个会话，不影响其他会话。
   const selectModel = (provider: LlmProviderView, model: string) => {
-    const dela = window.dela;
-    if (!dela) return;
+    if (!window.dela) return;
     optimisticChat({
       providerId: provider.id,
       providerName: provider.name,
       model,
       modelUnavailable: false,
     });
-    void dela.session
-      .setModel(sessionId, provider.id, model)
+    void agentClient['set-model']({ sessionId, providerId: provider.id, model })
       .then(() => refresh())
       .catch((e) =>
         showToast({ variant: 'error', title: '切换模型失败', description: errorText(e) }),
@@ -371,11 +369,9 @@ export function useChat(
   };
 
   const selectEffort = (level: string) => {
-    const dela = window.dela;
-    if (!dela) return;
+    if (!window.dela) return;
     optimisticChat({ effort: level });
-    void dela.session
-      .setEffort(sessionId, level)
+    void agentClient['set-effort']({ sessionId, level })
       .then(() => refresh())
       .catch((e) =>
         showToast({ variant: 'error', title: '切换思考强度失败', description: errorText(e) }),
@@ -385,10 +381,9 @@ export function useChat(
   // 分支是新会话：写进镜像后在当前位置打开，原会话不变。
   const fork = useCallback(
     (entryId: string) => {
-      const dela = window.dela;
-      if (!dela) return;
-      void dela.session
-        .fork(sessionId, entryId)
+      if (!window.dela) return;
+      void agentClient
+        .fork({ sessionId, entryId })
         .then((forked) => {
           useSessions.getState().putChat(forked.sessionId!, forked);
           useNavigationStore.getState().openChat(forked.sessionId!, forked.projectId);
@@ -401,8 +396,8 @@ export function useChat(
   );
 
   const refresh = () => {
-    void window.dela?.session
-      .open(sessionId)
+    if (!window.dela) return;
+    void agentClient['open-session']({ sessionId })
       .then((value) => useSessions.getState().putChat(sessionId, value))
       .catch(() => {});
   };

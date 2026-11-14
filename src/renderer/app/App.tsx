@@ -23,6 +23,7 @@ import { useSessions, updateSession } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
+import { onAgentEvent } from '../../modules/chat/view';
 import { useNoteDrafts } from '../../modules/note/view';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from './toasts';
@@ -115,7 +116,7 @@ export default function App() {
   // 工作区镜像载入 + 会话静默后的条目/干净草稿刷新（工具可能写过工作区）。
   useEffect(() => {
     void useWorkspaceStore.getState().load();
-    return window.dela?.session.onSessionUpdate((sessionId, chat) => {
+    return onAgentEvent('session-update', ({ sessionId, chat }) => {
       if (chat.running) return;
       const store = useWorkspaceStore.getState();
       // 会话终态后的后台自动刷新失败不打扰用户（浮窗只留给用户主动的动作），仅留诊断线索。

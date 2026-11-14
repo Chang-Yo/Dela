@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
+import { agentClient, chatClient } from '../../../../modules/chat/view';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
 import type { ChatCommandView } from '../../../../shared/api';
@@ -27,8 +28,7 @@ export function CommandsSection() {
   const [instructionError, setInstructionError] = useState<string | null>(null);
 
   const refresh = () => {
-    void window.dela?.chat
-      .listCommands()
+    void agentClient['list-commands']({})
       .then((views) => {
         setCommands(views);
         setConfirmId(null);
@@ -67,7 +67,7 @@ export function CommandsSection() {
     if (!window.dela) return;
     setBusy(true);
     try {
-      await window.dela.chat.deleteCommand(id);
+      await chatClient.deleteCommand(id);
       refresh();
     } catch (cause) {
       showToast({ variant: 'error', title: '删除失败', description: errorText(cause) });
@@ -215,7 +215,7 @@ function CommandFormDialog({
     setBusy(true);
     setError(null);
     try {
-      await window.dela.chat.saveCommand({
+      await chatClient.saveCommand({
         id: editing.mode === 'edit' ? editing.command.id : undefined,
         name,
         prompt,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, Folder, Search, Trash2 } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../../shared/api';
+import { chatClient } from '../../../../modules/chat/view';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
 import {
@@ -35,7 +36,7 @@ export function ArchivedSection() {
   const [error, setError] = useState<string | null>(null);
   const entries = useWorkspaceStore((state) => state.workspace.entries);
 
-  const reload = async () => setSessions(await window.dela!.session.archived());
+  const reload = async () => setSessions(await chatClient.archived());
 
   useEffect(() => {
     let active = true;
@@ -43,7 +44,7 @@ export function ArchivedSection() {
       setSessions([]);
       return;
     }
-    void window.dela.session
+    void chatClient
       .archived()
       .then((list) => {
         if (active) setSessions(list);
@@ -85,7 +86,7 @@ export function ArchivedSection() {
     setBusy(true);
     try {
       if (remove) {
-        await window.dela.session.remove(id);
+        await chatClient.remove(id);
         useSessions.getState().forgetSession(id);
       } else await updateSession(id, { archived: false });
       await reload();
@@ -108,7 +109,7 @@ export function ArchivedSection() {
     try {
       // 逐条永久删除：主进程拒绝未归档会话，这里的数据本就全部已归档。
       for (const session of sessions) {
-        await window.dela.session.remove(session.id);
+        await chatClient.remove(session.id);
         useSessions.getState().forgetSession(session.id);
       }
       await reload();

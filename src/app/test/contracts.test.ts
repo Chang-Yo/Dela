@@ -4,13 +4,17 @@ import { expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('electron', () => ({ ipcRenderer: { invoke: state.invoke } }));
 
+import { agentContract } from '../../core/protocol/agent';
 import { channelsOf } from '../../core/protocol/contract';
 import { bridge } from '../../preload/bridge';
 import { contracts } from '../contracts';
 import { modules } from '../modules';
 
 it('preload 放行的契约与主进程注册的模块契约一一对应', () => {
-  expect(contracts).toEqual(modules.flatMap((module) => (module.ipc ? [module.ipc.contract] : [])));
+  expect(contracts).toEqual([
+    agentContract,
+    ...modules.flatMap((module) => (module.ipc ? [module.ipc.contract] : [])),
+  ]);
 });
 
 it('preload 只转发已登记的通道', async () => {

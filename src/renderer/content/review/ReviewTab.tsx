@@ -5,6 +5,7 @@ import { FileCode2, TriangleAlert } from 'lucide-react';
 import type { FileChangeDetail } from '../../../shared/api';
 import type { TabId } from '../../../shared/layout';
 import { diffStatOf } from '../../../core/protocol/diff';
+import { agentClient } from '../../../modules/chat/view';
 import { parseReviewTabId } from './tab-id';
 import { UncommittedReview } from './UncommittedReview';
 import { Centered, STATUS_TEXT, basenameOf, dirnameOf } from './view-utils';
@@ -38,8 +39,7 @@ function TurnFileReview({
     let active = true;
     setDetail(null);
     setError(null);
-    void window.dela?.chat
-      .readTurnFileChange(sessionId, turnId, path)
+    void agentClient['read-turn-file-change']({ sessionId, turnId, path })
       .then((value) => {
         if (active) setDetail(value);
       })

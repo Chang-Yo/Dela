@@ -4,11 +4,9 @@ import type { Bridge } from '../core/protocol/contract';
 import type { BackupApi } from './backup';
 import type { CacheApi } from './cache';
 import type { CapabilityApi } from './capabilities';
-import type { ChatApi } from './chat';
 import type { ConsentApi } from './consent';
 import type { LlmApi } from './llm';
 import type { RemoteApi } from './remotes';
-import type { SessionApi, SidechatApi } from './session';
 import type { SettingsApi } from './settings';
 export type {
   AgentCapabilityView,
@@ -46,9 +44,6 @@ export interface DelaApi {
   /** 设置 › 通用 底部的缓存占用与清理。 */
   readonly cache: CacheApi;
   readonly llm: LlmApi;
-  readonly chat: ChatApi;
-  readonly session: SessionApi;
-  readonly sidechat: SidechatApi;
   readonly remotes: RemoteApi;
   readonly update: UpdateApi;
 }
@@ -113,7 +108,6 @@ export type {
   ChatMediaView,
   ChatQueuedDraft,
   ChatCommandView,
-  ChatApi,
   FileChangeSummary,
   FileChangeDetail,
   TurnChanges,
@@ -142,8 +136,6 @@ export type {
   ChatSessionSummary,
   ContextUsageView,
   WorkspaceChat,
-  SessionApi,
-  SidechatApi,
   SidechatView,
   SubagentDetails,
   TaskNoticeDetails,

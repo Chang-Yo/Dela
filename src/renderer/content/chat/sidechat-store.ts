@@ -2,6 +2,7 @@
 // 切走标签再回来面板照旧。推送与流式增量的合并方式与会话镜像相同。
 import { create } from 'zustand';
 import type { SidechatView } from '../../../shared/api';
+import { agentClient, onAgentEvent } from '../../../modules/chat/view';
 import { keepToolImages } from '../../sessions/store';
 import { showToast } from '../../app/toasts';
 import { errorText } from '../../workspace/store';
@@ -38,8 +39,7 @@ export async function openSidechat(
   parentId: string,
   options: { quote?: string; prompt?: string } = {},
 ) {
-  const api = window.dela?.sidechat;
-  if (!api) return;
+  if (!window.dela) return;
   const key = sidechatDraftKey(parentId);
   const drafts = useChatDrafts.getState();
   const draft = drafts.drafts[key] ?? emptyDraft;
@@ -50,37 +50,28 @@ export async function openSidechat(
   if (options.prompt) drafts.update(key, { prompt: options.prompt });
   useSidechats.getState().setCollapsed(parentId, false);
   try {
-    useSidechats.getState().put(await api.open(parentId));
+    useSidechats.getState().put(await agentClient['open-sidechat']({ parentId }));
   } catch (error) {
     showToast({ variant: 'error', title: '打开旁问失败', description: errorText(error) });
   }
 }
 
-let subscribed = false;
-
-/** 订阅 sidechat:* 推送（幂等）；模块加载时挂接，测试先装 window mock 再手动调用。 */
-export function initSidechatMirror(): void {
-  if (subscribed || typeof window === 'undefined' || !window.dela?.sidechat) return;
-  subscribed = true;
-  const api = window.dela.sidechat;
-  api.onUpdate((view) => {
-    // 已关闭的旁问可能还有迟到的推送：只更新仍在镜像里的。
-    if (useSidechats.getState().views[view.parentId]) useSidechats.getState().put(view);
-  });
-  api.onStream(({ sessionId, message, activeTool }) => {
-    const current = useSidechats.getState().views[sessionId];
-    if (!current?.running) return;
-    const last = current.messages.at(-1);
-    const replaceLast =
-      last?.role === 'assistant' &&
-      last.startedAt === message.startedAt &&
-      last.finishedAt === undefined;
-    const messages = replaceLast
-      ? [...current.messages.slice(0, -1), keepToolImages(last, message)]
-      : [...current.messages, message];
-    useSidechats.getState().put({ ...current, messages, activeTool });
-  });
-  api.onClosed((parentId) => useSidechats.getState().forget(parentId));
-}
-
-initSidechatMirror();
+/** 模块加载即订阅旁问推送。 */
+onAgentEvent('sidechat-update', (view) => {
+  // 已关闭的旁问可能还有迟到的推送：只更新仍在镜像里的。
+  if (useSidechats.getState().views[view.parentId]) useSidechats.getState().put(view);
+});
+onAgentEvent('sidechat-stream', ({ sessionId, message, activeTool }) => {
+  const current = useSidechats.getState().views[sessionId];
+  if (!current?.running) return;
+  const last = current.messages.at(-1);
+  const replaceLast =
+    last?.role === 'assistant' &&
+    last.startedAt === message.startedAt &&
+    last.finishedAt === undefined;
+  const messages = replaceLast
+    ? [...current.messages.slice(0, -1), keepToolImages(last, message)]
+    : [...current.messages, message];
+  useSidechats.getState().put({ ...current, messages, activeTool });
+});
+onAgentEvent('sidechat-closed', ({ parentId }) => useSidechats.getState().forget(parentId));

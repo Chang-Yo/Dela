@@ -1,34 +1,32 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ChatSessionSummary, ChatStreamEvent, WorkspaceChat } from '../../shared/api';
-import { initSessionsMirror, poolKey, querySessions, useSessions } from './store';
 
-// 镜像订阅在模块加载时因无 window 而跳过；测试先装 mock（文件级，全文件共享）再手动挂接，
-// 之后各用例只重编程 mock 的返回值（沿用 workspace.test.ts 的 Object.defineProperty 模式）。
-const sessionList =
-  vi.fn<(projectId: string | null, query: string) => Promise<ChatSessionSummary[]>>();
-const updateListeners: Array<(sessionId: string, chat: WorkspaceChat) => void> = [];
-const streamListeners: Array<(event: ChatStreamEvent) => void> = [];
-
-Object.defineProperty(globalThis, 'window', {
-  configurable: true,
-  value: {
-    dela: {
-      session: {
-        list: (...args: Parameters<typeof sessionList>) => sessionList(...args),
-        onSessionUpdate: (listener: (sessionId: string, chat: WorkspaceChat) => void) => {
-          updateListeners.push(listener);
-          return () => {};
+// 契约客户端与镜像订阅在模块加载时取 bridge，须先于导入 store 装好（全文件共享）；
+// 之后各用例只重编程 invoke 的返回值。
+const { invoke, listeners } = vi.hoisted(() => {
+  const listeners: Record<string, Array<(payload: unknown) => void>> = {};
+  const invoke = vi.fn<(channel: string, input: unknown) => Promise<unknown>>();
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      dela: {
+        bridge: {
+          invoke,
+          subscribe: (channel: string, listener: (payload: unknown) => void) => {
+            (listeners[channel] ??= []).push(listener);
+            return () => {};
+          },
         },
-        onStream: (listener: (event: ChatStreamEvent) => void) => {
-          streamListeners.push(listener);
-          return () => {};
-        },
-        onQueue: () => () => {},
       },
     },
-  },
+  });
+  return { invoke, listeners };
 });
-initSessionsMirror();
+import { poolKey, querySessions, useSessions } from './store';
+
+const pushUpdate = (sessionId: string, chat: WorkspaceChat) =>
+  listeners['agent:session-update']![0]!({ sessionId, chat });
+const pushStream = (event: ChatStreamEvent) => listeners['agent:session-stream']![0]!(event);
 
 function summary(id: string, updatedAt = '2026-09-29T10:00:00.000Z'): ChatSessionSummary {
   return { id, title: `会话 ${id}`, updatedAt, createdAt: updatedAt };
@@ -54,11 +52,11 @@ function chat(sessionId: string, messageCount: number): WorkspaceChat {
 }
 
 describe('sessions mirror store', () => {
-  it('refresh 经 session:list 读取并按池缓存列表', async () => {
-    sessionList.mockResolvedValue([summary('s1'), summary('s2')]);
+  it('refresh 经 list-sessions 读取并按池缓存列表', async () => {
+    invoke.mockResolvedValue([summary('s1'), summary('s2')]);
     useSessions.setState({ lists: {}, chats: {} });
     await useSessions.getState().refresh('p1');
-    expect(sessionList).toHaveBeenCalledWith('p1', '');
+    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: 'p1' });
     expect(useSessions.getState().lists[poolKey('p1')]?.map((item) => item.id)).toEqual([
       's1',
       's2',
@@ -66,25 +64,25 @@ describe('sessions mirror store', () => {
   });
 
   it('通用池与项目池分开缓存（null → general）', async () => {
-    sessionList.mockResolvedValue([summary('g1')]);
+    invoke.mockResolvedValue([summary('g1')]);
     useSessions.setState({ lists: {}, chats: {} });
     await useSessions.getState().refresh(null);
-    expect(sessionList).toHaveBeenCalledWith(null, '');
+    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: null });
     expect(useSessions.getState().lists['general']).toHaveLength(1);
     expect(useSessions.getState().lists['p1']).toBeUndefined();
   });
 
-  it('on-update 推送写入对应会话的快照缓存', () => {
+  it('session-update 推送写入对应会话的快照缓存', () => {
     useSessions.setState({ chats: {} });
-    updateListeners[0]!('s1', chat('s1', 2));
+    pushUpdate('s1', chat('s1', 2));
     expect(useSessions.getState().chats['s1']?.messages).toHaveLength(2);
-    updateListeners[0]!('s1', chat('s1', 3));
+    pushUpdate('s1', chat('s1', 3));
     expect(useSessions.getState().chats['s1']?.messages).toHaveLength(3);
   });
 
   it('流式增量只替换运行中会话的末条 assistant 消息，历史消息保持对象身份', () => {
     useSessions.setState({ chats: {} });
-    updateListeners[0]!('s1', {
+    pushUpdate('s1', {
       ...chat('s1', 1),
       running: true,
       messages: [
@@ -94,7 +92,7 @@ describe('sessions mirror store', () => {
     });
     const history = useSessions.getState().chats['s1']!;
     const userMessage = history.messages[0]!;
-    streamListeners[0]!({
+    pushStream({
       sessionId: 's1',
       activeTool: 'Read',
       message: { role: 'assistant', content: '正在回答', startedAt: 100, parts: [] },
@@ -107,7 +105,7 @@ describe('sessions mirror store', () => {
     expect(merged.messages[0]).toBe(userMessage);
     // 非运行态（终态已到或未开始）的增量被丢弃，等待全量推送兜底。
     useSessions.setState({ chats: { s2: { ...chat('s2', 1), running: false } } });
-    streamListeners[0]!({
+    pushStream({
       sessionId: 's2',
       message: { role: 'assistant', content: '迟到增量', startedAt: 200, parts: [] },
     });
@@ -127,7 +125,7 @@ describe('sessions mirror store', () => {
       },
       finishedAt: 2,
     });
-    updateListeners[0]!('s1', {
+    pushUpdate('s1', {
       ...chat('s1', 1),
       running: true,
       messages: [
@@ -141,7 +139,7 @@ describe('sessions mirror store', () => {
         },
       ],
     });
-    streamListeners[0]!({
+    pushStream({
       sessionId: 's1',
       message: {
         role: 'assistant',
@@ -159,20 +157,20 @@ describe('sessions mirror store', () => {
 
   it('会话条数变化的推送触发该池列表重读，侧栏标题与排序才跟得上', async () => {
     vi.useFakeTimers();
-    sessionList.mockResolvedValue([summary('s1')]);
+    invoke.mockResolvedValue([summary('s1')]);
     useSessions.setState({ lists: {}, chats: {} });
 
     // 首条消息落库（main 此刻才写标题，空会话本来就不在 list 里）。
-    updateListeners[0]!('s1', chat('s1', 1));
+    pushUpdate('s1', chat('s1', 1));
     await vi.advanceTimersByTimeAsync(1000);
-    expect(sessionList).toHaveBeenCalledWith(null, '');
+    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: null });
     expect(useSessions.getState().lists.general?.map((item) => item.id)).toEqual(['s1']);
 
     // 条数没变（同一轮的工具边界重复推送）不重读列表，避免每个边界都查一次库。
-    sessionList.mockClear();
-    updateListeners[0]!('s1', chat('s1', 1));
+    invoke.mockClear();
+    pushUpdate('s1', chat('s1', 1));
     await vi.advanceTimersByTimeAsync(1000);
-    expect(sessionList).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
 
     vi.clearAllTimers();
     vi.useRealTimers();
@@ -180,14 +178,14 @@ describe('sessions mirror store', () => {
 
   it('不经推送写入的快照（分支、ask 结果）同样触发重读，两个池前后脚变化各自刷新', async () => {
     vi.useFakeTimers();
-    sessionList.mockResolvedValue([summary('s1')]);
+    invoke.mockResolvedValue([summary('s1')]);
     useSessions.setState({ lists: {}, chats: {} });
 
     useSessions.getState().putChat('fork', { ...chat('fork', 2), projectId: 'p1' });
     useSessions.getState().putChat('g', chat('g', 1));
     await vi.advanceTimersByTimeAsync(1000);
-    expect(sessionList).toHaveBeenCalledWith('p1', '');
-    expect(sessionList).toHaveBeenCalledWith(null, '');
+    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: 'p1' });
+    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: null });
 
     vi.clearAllTimers();
     vi.useRealTimers();
@@ -208,10 +206,10 @@ describe('sessions mirror store', () => {
   });
 
   it('querySessions 透传 projectId 与查询词，结果不落镜像', async () => {
-    sessionList.mockResolvedValue([summary('s9')]);
+    invoke.mockResolvedValue([summary('s9')]);
     useSessions.setState({ lists: {}, chats: {} });
     await expect(querySessions('p2', '复习')).resolves.toHaveLength(1);
-    expect(sessionList).toHaveBeenCalledWith('p2', '复习');
+    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: 'p2', query: '复习' });
     expect(useSessions.getState().lists).toEqual({});
   });
 });

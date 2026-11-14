@@ -4,6 +4,7 @@ import type { CodePiece, DiffRow } from '../../../ui/code-block';
 import CodeBlock from '../../../ui/code-block';
 import { openLightbox } from '../../../ui/lightbox';
 import { Button } from '../../../ui/button';
+import { agentClient } from '../../../modules/chat/view';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { ChatMarkdown } from './markdown';
@@ -185,8 +186,7 @@ function EditView({ result, failed }: ViewProps) {
 
 /** 子会话不在任何会话列表里：先取快照得到项目归属，再按会话打开标签。 */
 export async function openSubagent(taskId: string) {
-  const chat = await window.dela?.session.open(taskId);
-  if (!chat) return;
+  const chat = await agentClient['open-session']({ sessionId: taskId });
   useSessions.getState().putChat(taskId, chat);
   useNavigationStore.getState().openChat(taskId, chat.projectId);
 }

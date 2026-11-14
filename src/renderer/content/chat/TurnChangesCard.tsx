@@ -17,6 +17,7 @@ import { reviewTabId } from '../review/tab-id';
 import { FileIcon, basenameOf, dirnameOf } from '../review/view-utils';
 import { fileManagerName } from '../../lib/platform';
 import { showToast } from '../../app/toasts';
+import { agentClient, chatClient } from '../../../modules/chat/view';
 import { errorText } from '../../workspace/store';
 
 // 冻结记录写后不变：按「会话:轮次」缓存读取，卡片随展开/收起与切标签重挂载时不重复走 IPC。
@@ -31,7 +32,7 @@ function loadTurn(
   let pending = turnCache.get(key);
   if (!pending) {
     pending = window.dela
-      ? window.dela.chat.readTurnChanges(sessionId, turnId, includeStats).catch(() => null)
+      ? agentClient['read-turn-changes']({ sessionId, turnId, includeStats }).catch(() => null)
       : Promise.resolve(null);
     turnCache.set(key, pending);
   }
@@ -65,8 +66,8 @@ const TurnFileRow = memo(function TurnFileRow({
     showToast({ variant: 'error', title: '打开失败', description: errorText(cause) });
   /** deleted 时必然解析失败，对应按钮已禁用。 */
   const openInDela = () => {
-    void window.dela?.chat
-      .locateFile(sessionId, file.path)
+    void chatClient
+      .locateFile({ sessionId, path: file.path })
       .then((absolute) => openTarget(documentTabId(absolute), { aside: true }))
       .catch(fail);
   };
@@ -111,13 +112,17 @@ const TurnFileRow = memo(function TurnFileRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
-              onSelect={() => void window.dela?.chat.openInVsCode(sessionId, file.path).catch(fail)}
+              onSelect={() =>
+                void chatClient.openInVsCode({ sessionId, path: file.path }).catch(fail)
+              }
             >
               <CodeXml className="text-accent" />
               VS Code
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={() => void window.dela?.chat.revealFile(sessionId, file.path).catch(fail)}
+              onSelect={() =>
+                void chatClient.revealFile({ sessionId, path: file.path }).catch(fail)
+              }
             >
               <FolderOpen />
               {fileManagerName}

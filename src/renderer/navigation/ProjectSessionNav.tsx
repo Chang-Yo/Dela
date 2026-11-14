@@ -40,6 +40,7 @@ import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './Sess
 import { usePreferences } from '../app/preferences';
 import { useNavigationStore } from './store';
 import { closeSessionTabs, refreshSessionLists } from '../sessions/store';
+import { chatClient } from '../../modules/chat/view';
 import { Input } from '../../ui/input';
 import { purgeRemovedEntries } from '../workbench/removed-cleanup';
 import { menuItem, menuPanel } from '../../ui/menu-styles';
@@ -345,7 +346,7 @@ export function ProjectSessionNav({
                   if (!window.dela) throw new Error('会话管理仅在桌面端可用');
                   setArchiving(true);
                   try {
-                    const ids = await window.dela.session.archiveProject(key);
+                    const ids = await chatClient.archiveProject(key);
                     closeSessionTabs(ids);
                     await refreshSessionLists();
                     setConfirmArchive(null);

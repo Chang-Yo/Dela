@@ -12,7 +12,6 @@ const api = vi.hoisted(() => {
       invoke: (channel: string, input: unknown) => handlers[channel.slice('mail:'.length)]!(input),
       subscribe: () => () => {},
     },
-    session: { onRunEvent: () => () => {} },
   } as unknown as NonNullable<typeof window.dela>;
   return handlers;
 });

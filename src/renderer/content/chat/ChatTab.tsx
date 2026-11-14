@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../shared/layout';
 import type { ChatComment, ChatSessionSummary, WorkspaceChat } from '../../../shared/api';
+import { chatClient } from '../../../modules/chat/view';
 import { Button } from '../../../ui/button';
 import { IconButton } from '../../../ui/icon-button';
 import { ChatComposer } from './ChatComposer';
@@ -190,7 +191,7 @@ const ChatSessionView = memo(function ChatSessionView({
       return;
     }
     let alive = true;
-    void window.dela.chat
+    void chatClient
       .uncommittedAvailability(active)
       .then((value) => {
         if (alive) setReviewReady(value.available);
@@ -213,7 +214,7 @@ const ChatSessionView = memo(function ChatSessionView({
     if (!window.dela) return;
     setExporting(true);
     try {
-      const { saved, missing } = await window.dela.session.export(active);
+      const { saved, missing } = await chatClient.export(active);
       if (saved)
         showToast({
           variant: missing.length ? 'neutral' : 'success',

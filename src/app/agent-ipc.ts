@@ -1,5 +1,5 @@
-// agent 域入口：注册 Agent 协议与桌面私有的 session:* / chat:* / llm:* / capabilities:* 通道。
-import { type IpcMainInvokeEvent, ipcMain } from 'electron';
+// agent 域入口：注册 Agent 协议与桌面私有的 llm:* / capabilities:* 通道；会话的桌面操作在 modules/chat。
+import { ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from '../main/ipc';
 import {
@@ -12,31 +12,16 @@ import {
 } from '../core/agent/providers';
 import { agentContract } from '../core/protocol/agent';
 import { channelsOf } from '../core/protocol/contract';
-import { deleteChatCommand, saveChatCommand } from '../core/agent/chat-commands';
 import { agentProtocol } from '../core/agent/protocol';
-import {
-  archiveProjectSessions,
-  deleteSession,
-  updateSessionVisibility,
-} from '../core/agent/session/commands';
-import {
-  openSessionFile,
-  readSessionUncommittedChanges,
-  readSessionUncommittedFileChange,
-  uncommittedAvailability,
-  locateSessionFile,
-  revealSessionFile,
-} from '../core/agent/session/files';
 import {
   hasLiveSessions as hasLiveMainSessions,
   invalidateSessions,
   shutdownSessions as shutdownMainSessions,
 } from '../core/agent/session/run';
-import { archivedSessions, preloadPi } from '../core/agent/session/store';
+import { preloadPi } from '../core/agent/session/store';
 import { hostPorts } from '../core/ports';
-import { exportSession } from '../core/agent/session-export';
 import { hasSidechats, shutdownSidechats } from '../core/agent/sidechat';
-import { stageChatMediaFiles, gcChatMedia } from '../core/agent/media';
+import { gcChatMedia } from '../core/agent/media';
 import {
   findSkill,
   listSkills,
@@ -53,7 +38,7 @@ import {
 } from '../main/documents/runtime';
 import { remoteById, targetOf } from '../main/remotes/api';
 import { uploadSkillToRemote } from '../core/remote/context';
-import { openInVsCode, remoteProjectOf } from '../modules/workspace';
+import { remoteProjectOf } from '../modules/workspace';
 import {
   addMcpServer,
   listMcpServers,
@@ -129,73 +114,6 @@ export function registerAgentIpc() {
       return agentProtocol.call(name, input);
     });
   }
-
-  const sessionHandle = (name: string, fn: (...args: unknown[]) => unknown) =>
-    ipcMain.handle(`session:${name}`, async (event, ...args) => {
-      checkWorkspaceSender(event);
-      hostPorts().broadcaster.subscribe(event.sender);
-      await preloadPi();
-      return fn(...args);
-    });
-  const projectId = uuid.nullable();
-  sessionHandle('archived', () => archivedSessions());
-  sessionHandle('update', (id, patch) =>
-    updateSessionVisibility(
-      uuid.parse(id),
-      z
-        .object({ archived: z.boolean().optional(), pinned: z.boolean().optional() })
-        .strict()
-        .parse(patch),
-    ),
-  );
-  sessionHandle('archive-project', (id) => archiveProjectSessions(projectId.parse(id)));
-  ipcMain.handle('session:export', (event, id) => {
-    checkWorkspaceSender(event);
-    return exportSession(uuid.parse(id), event.sender);
-  });
-  sessionHandle('remove', (id) => {
-    const sessionId = uuid.parse(id);
-    if (!archivedSessions().some((session) => session.id === sessionId))
-      throw new Error('请先归档，再从设置中永久删除');
-    return deleteSession(sessionId);
-  });
-
-  const chatHandle = (
-    name: string,
-    fn: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown,
-  ) =>
-    ipcMain.handle(`chat:${name}`, (event, ...args) => {
-      checkWorkspaceSender(event);
-      return fn(event, ...args);
-    });
-  chatHandle('pick-media', async (event) => {
-    return stageChatMediaFiles(await hostPorts().desktop.pickFiles(event.sender));
-  });
-  chatHandle('save-command', (_event, input) => saveChatCommand(input));
-  chatHandle('delete-command', (_event, id) => deleteChatCommand(uuid.parse(id)));
-  // 路径由会话 cwd 限定；locate-file 返回本机绝对路径供应用内预览标签使用。
-  const chatFilePath = (path: unknown) => z.string().min(1).max(32_767).parse(path);
-  chatHandle('locate-file', (_event, sessionId, path) =>
-    locateSessionFile(uuid.parse(sessionId), chatFilePath(path)),
-  );
-  chatHandle('open-in-vscode', (_event, sessionId, path) =>
-    openInVsCode(locateSessionFile(uuid.parse(sessionId), chatFilePath(path))),
-  );
-  chatHandle('reveal-file', (_event, sessionId, path) =>
-    revealSessionFile(uuid.parse(sessionId), chatFilePath(path)),
-  );
-  chatHandle('read-uncommitted-changes', (_event, sessionId) =>
-    readSessionUncommittedChanges(uuid.parse(sessionId)),
-  );
-  chatHandle('uncommitted-availability', (_event, sessionId) =>
-    uncommittedAvailability(uuid.parse(sessionId)),
-  );
-  chatHandle('read-uncommitted-file-change', (_event, sessionId, path) =>
-    readSessionUncommittedFileChange(uuid.parse(sessionId), chatFilePath(path)),
-  );
-  chatHandle('open-file', (_event, sessionId, path) =>
-    openSessionFile(uuid.parse(sessionId), chatFilePath(path)),
-  );
 
   handle('llm:catalog', () => llmCatalog());
   handle('llm:list', () => listLlmProviders());

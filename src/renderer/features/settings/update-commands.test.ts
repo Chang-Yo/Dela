@@ -8,7 +8,6 @@ const invoke = vi.hoisted(() => {
   const subscribe = () => () => {};
   window.dela = {
     bridge: { invoke, subscribe },
-    session: { onRunEvent: subscribe },
   } as unknown as DelaApi;
   return invoke;
 });

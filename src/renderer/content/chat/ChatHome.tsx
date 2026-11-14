@@ -1,6 +1,7 @@
 // 随聊的新建、发送与历史查看留在首页聊天；会话与运行状态由 sessions 管理。
 import { useEffect, useRef, useState } from 'react';
-import type { DelaApi, WorkspaceChat } from '../../../shared/api';
+import { agentClient } from '../../../modules/chat/view';
+import type { WorkspaceChat } from '../../../shared/api';
 import type { GeneralChatPulse } from '../../navigation/view';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
@@ -12,15 +13,12 @@ import { ChatTab } from './ChatTab';
  * 「上次停留」只在本次运行的内存里，所以切到别的页面再回首页能接着上次，重启应用仍是新对话。
  * 上次那个会话已被删除时 open 会失败，落到新对话，不把用户卡在错误提示上。
  */
-async function resolveHomeChat(
-  api: NonNullable<DelaApi['session']>,
-  request: GeneralChatPulse | null,
-): Promise<WorkspaceChat> {
-  if (request?.sessionId) return api.open(request.sessionId);
-  if (request?.create) return api.create(null, 'chat');
+async function resolveHomeChat(request: GeneralChatPulse | null): Promise<WorkspaceChat> {
+  if (request?.sessionId) return agentClient['open-session']({ sessionId: request.sessionId });
+  if (request?.create) return agentClient['create-session']({ projectId: null, scope: 'chat' });
   const remembered = useNavigationStore.getState().lastHomeSessionId;
   if (remembered) {
-    const reopened = await api.open(remembered).catch(() => null);
+    const reopened = await agentClient['open-session']({ sessionId: remembered }).catch(() => null);
     if (reopened) return reopened;
   }
   // 复用未发送的空会话：连续新建不该在历史里留下空壳。
@@ -31,7 +29,7 @@ async function resolveHomeChat(
       chat.messages.length === 0 &&
       (useSessions.getState().lists.general ?? []).some((row) => row.id === chat.sessionId),
   );
-  return empty ?? api.create(null, 'chat');
+  return empty ?? agentClient['create-session']({ projectId: null, scope: 'chat' });
 }
 
 export function ChatHome() {
@@ -40,12 +38,11 @@ export function ChatHome() {
   const [error, setError] = useState<string | null>(null);
   const pending = useRef<{ seq: number; promise: Promise<WorkspaceChat> } | null>(null);
   useEffect(() => {
-    const api = window.dela?.session;
-    if (!api) return;
+    if (!window.dela) return;
     let active = true;
     const seq = request?.seq ?? 0;
     if (!pending.current || pending.current.seq !== seq) {
-      pending.current = { seq, promise: resolveHomeChat(api, request) };
+      pending.current = { seq, promise: resolveHomeChat(request) };
     }
     setError(null);
     void pending.current.promise
