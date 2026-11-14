@@ -18,6 +18,26 @@ export function checkWorkspaceSender(event: IpcMainInvokeEvent) {
   }
 }
 
+/** 主窗口（工作台）的页面地址；其他窗口不接收工作台推送。 */
+export function isWorkspaceWindow(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === 'file:' && url.pathname.endsWith('/renderer/index.html')) ||
+      url.origin === 'http://127.0.0.1:5173'
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function workspaceWindow(): BrowserWindow | null {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed() && isWorkspaceWindow(window.webContents.getURL())) return window;
+  }
+  return null;
+}
+
 /** 右键菜单：按位置提供基本编辑操作，与 macOS 原生编辑菜单共用 Electron role。 */
 export function attachContextMenu(webContents: WebContents): void {
   webContents.on('context-menu', (_event, params) => {

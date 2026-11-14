@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type {
@@ -45,13 +46,15 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
       getCampusNotifications: async () => true,
       getTaskNotifications: async () => ({ failed: true, completed: false }),
     },
-    notifications: {
-      getState: async () => ({ snoozedUntil: null }),
-      onUpdate: () => () => {},
-    },
     vsjtu: { getDownloadDirectory: async () => '' },
   } as unknown as DelaApi;
-  await act(async () => root.render(<GeneralSection />));
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <GeneralSection />
+      </QueryClientProvider>,
+    ),
+  );
   const toggle = container.querySelector<HTMLButtonElement>('[aria-label="开机自启动"]')!;
   expect(toggle.getAttribute('aria-checked')).toBe('false');
   await act(async () => toggle.click());

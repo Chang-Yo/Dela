@@ -1,5 +1,6 @@
 import {
   BrowserWindow,
+  Notification,
   app,
   dialog,
   nativeImage,
@@ -27,6 +28,7 @@ import {
   type SecretNamespace,
 } from '../core/ports';
 import { getDatabase } from '../main/database';
+import { workspaceWindow } from '../main/ipc';
 import { notifyRunFinished } from '../main/settings/task-notify';
 import { storageDirectory } from '../main/storage';
 import { locateBash } from '../main/terminal/mingit';
@@ -132,7 +134,24 @@ export const electronPorts: HostPorts = {
       if (existsSync(path)) unlinkSync(path);
     },
   },
-  notifier: { notifyRunFinished },
+  notifier: {
+    notifyRunFinished,
+    show(title, body, onClick) {
+      const window = workspaceWindow();
+      // 窗口尚未创建或正被使用时不打扰；收起到托盘的窗口不聚焦，正常弹出。
+      if (!Notification.isSupported() || !window || window.isFocused()) return;
+      const toast = new Notification({ title, body });
+      toast.on('click', () => {
+        const target = workspaceWindow();
+        if (!target) return;
+        if (target.isMinimized()) target.restore();
+        target.show();
+        target.focus();
+        onClick?.();
+      });
+      toast.show();
+    },
+  },
   broadcaster: {
     subscribe(client) {
       const target = client as WebContents;

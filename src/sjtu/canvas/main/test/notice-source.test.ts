@@ -5,43 +5,35 @@ vi.mock('../../../../modules/todo', () => ({
   getTodoState: () => ({ syncedAt: null, error: null }),
   todoNotifications: () => [],
 }));
-vi.mock('electron', () => ({
-  BrowserWindow: { getAllWindows: () => [] },
-  ipcMain: { handle: vi.fn() },
-}));
 vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../../../main/ipc', () => ({ checkWorkspaceSender: vi.fn() }));
-vi.mock('../../../../main/mail/api', () => ({
-  getMailState: vi.fn(() => ({ sync: { phase: 'idle', error: null } })),
-  onMailCacheChanged: vi.fn(),
-}));
-vi.mock('../../../../main/notifications/system', () => ({
-  armSystemNotifications: vi.fn(),
-  isWorkspaceWindow: () => false,
+vi.mock('../../../../modules/notifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../modules/notifications')>()),
   systemNotifyItem: vi.fn(),
-  NOTIFICATIONS_SNOOZE_KEY: 'notifications-snoozed-until',
 }));
 vi.mock('../todo-source', () => ({ canvasOwner: () => 'owner' }));
 vi.mock('../api', () => ({ listTodoCanvasCourses: vi.fn(), listCanvasAnnouncements: vi.fn() }));
 
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import {
-  getNotificationState,
-  refreshNotifications,
+  notificationsModule,
   registerNoticeSource,
-} from '../../../../main/notifications';
+  systemNotifyItem,
+} from '../../../../modules/notifications';
+import type { NotificationState } from '../../../../modules/notifications/contract';
 import { getDatabase } from '../../../../main/database';
-import { systemNotifyItem } from '../../../../main/notifications/system';
 import { listCanvasAnnouncements, listTodoCanvasCourses } from '../api';
 import { canvasNoticeSource } from '../notice-source';
 
 registerNoticeSource(canvasNoticeSource);
+const ipc = notificationsModule.ipc!;
+const getNotificationState = (sources?: string[]) =>
+  ipc.call('state', sources) as NotificationState;
+const refreshNotifications = () => ipc.call('refresh', undefined) as Promise<NotificationState>;
 
 function createDb(): Database.Database {
   const db = new Database(':memory:');
   db.exec(`
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL, created_at TEXT NOT NULL);
-    CREATE TABLE mail_messages (id INTEGER PRIMARY KEY, seen INTEGER NOT NULL, deleted_at TEXT);
     CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL, category TEXT, count INTEGER NOT NULL DEFAULT 1);
     CREATE TABLE notification_refreshes (source TEXT NOT NULL, account_key TEXT NOT NULL, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));
   `);
@@ -51,7 +43,9 @@ function createDb(): Database.Database {
 describe('Canvas notice source', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getDatabase).mockReturnValue(createDb());
+    const db = createDb();
+    vi.mocked(getDatabase).mockReturnValue(db);
+    provideTestHostPorts({ database: () => db as never });
   });
 
   it('lists existing announcements silently on first sync and toasts later unread ones', async () => {
@@ -69,7 +63,7 @@ describe('Canvas notice source', () => {
       announcement(2, false),
     ]);
 
-    await refreshNotifications(true);
+    await refreshNotifications();
     expect(getNotificationState(['canvas'])).toMatchObject({ totalCount: 2, unreadCount: 1 });
     expect(systemNotifyItem).not.toHaveBeenCalled();
 
@@ -78,13 +72,17 @@ describe('Canvas notice source', () => {
       announcement(2, false),
       announcement(1, true),
     ]);
-    await refreshNotifications(true);
+    await refreshNotifications();
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(systemNotifyItem).mock.calls[0]![0]).toMatchObject({
-      id: 'canvas:owner:discussion:1:3',
-      body: '操作系统',
-      href: { kind: 'canvas', sourceId: 'discussion:1:3' },
-    });
+    expect(vi.mocked(systemNotifyItem).mock.calls[0]).toEqual([
+      {
+        id: 'canvas:owner:discussion:1:3',
+        source: 'canvas',
+        title: '公告 3',
+        href: { kind: 'canvas', sourceId: 'discussion:1:3' },
+      },
+      '操作系统',
+    ]);
   });
 
   it('baselines courses one by one and keeps syncing past a failing course', async () => {
@@ -97,7 +95,7 @@ describe('Canvas notice source', () => {
     });
     vi.mocked(listTodoCanvasCourses).mockResolvedValueOnce([course(1)]);
     vi.mocked(listCanvasAnnouncements).mockResolvedValueOnce([announcement(1, 1)]);
-    await refreshNotifications(true);
+    await refreshNotifications();
 
     // 新学期加入课程 2（存量公告）与课程 3（请求失败），课程 1 有新公告。
     vi.mocked(listTodoCanvasCourses).mockResolvedValueOnce([course(3), course(2), course(1)]);
@@ -105,7 +103,7 @@ describe('Canvas notice source', () => {
       .mockRejectedValueOnce(new Error('令牌失效或无权访问此内容'))
       .mockResolvedValueOnce([announcement(2, 5)])
       .mockResolvedValueOnce([announcement(1, 2), announcement(1, 1)]);
-    await refreshNotifications(true);
+    await refreshNotifications();
 
     expect(vi.mocked(systemNotifyItem).mock.calls.map(([item]) => item.id)).toEqual([
       'canvas:owner:discussion:1:2',

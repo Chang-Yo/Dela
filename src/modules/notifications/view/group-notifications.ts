@@ -1,24 +1,24 @@
-import type { NotificationItem } from '../../../shared/api';
+import type { NotificationItem } from '../contract';
 
 export type NotificationEntry =
   | { kind: 'item'; item: NotificationItem }
   | { kind: 'group'; key: string; items: NotificationItem[] };
 
-function likeTopicKey(item: NotificationItem): string | null {
-  if (item.category !== 'like' || item.href.kind !== 'shuiyuan') return null;
-  return `${item.readAt ? 'read' : 'unread'}:${item.href.topicId}`;
+function likeGroupKey(item: NotificationItem): string | null {
+  if (item.category !== 'like' || !item.group) return null;
+  return `${item.readAt ? 'read' : 'unread'}:${item.group}`;
 }
 
 export function groupNotifications(items: readonly NotificationItem[]): NotificationEntry[] {
   const sizes = new Map<string, number>();
   for (const item of items) {
-    const key = likeTopicKey(item);
+    const key = likeGroupKey(item);
     if (key) sizes.set(key, (sizes.get(key) ?? 0) + 1);
   }
   const groups = new Map<string, Extract<NotificationEntry, { kind: 'group' }>>();
   const entries: NotificationEntry[] = [];
   for (const item of items) {
-    const key = likeTopicKey(item);
+    const key = likeGroupKey(item);
     if (!key || (sizes.get(key) ?? 0) < 2) {
       entries.push({ kind: 'item', item });
       continue;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BellOff } from 'lucide-react';
-import type { NotificationState, TaskNotificationPrefs } from '../../../../shared/api';
+import type { TaskNotificationPrefs } from '../../../../shared/api';
+import { notificationsClient, useNotificationState } from '../../../../modules/notifications/view';
 import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
 import { SettingRow } from '../SettingRow';
@@ -26,8 +27,7 @@ export function SystemNotifications() {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [campus, setCampus] = useState<boolean | null>(null);
   const [task, setTask] = useState<TaskNotificationPrefs | null>(null);
-  const [snoozedUntil, setSnoozedUntil] = useState<string | null>(null);
-  const [snoozeActive, setSnoozeActive] = useState(false);
+  const snoozedUntil = useNotificationState().data?.snoozedUntil ?? null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,25 +44,10 @@ export function SystemNotifications() {
       .catch((cause) => {
         if (active) setError(errorText(cause));
       });
-    // 暂停状态与通知中心共用：订阅广播，任意一端改动两端同步。
-    void dela.notifications.getState().then((state) => setSnoozedUntil(state.snoozedUntil));
-    const unsubscribe = dela.notifications.onUpdate((state: NotificationState) =>
-      setSnoozedUntil(state.snoozedUntil),
-    );
     return () => {
       active = false;
-      unsubscribe();
     };
   }, []);
-
-  // 暂停到期不自动刷新页面；展示前先按当前时间判断是否仍在暂停期。
-  useEffect(() => {
-    const check = () =>
-      setSnoozeActive(Boolean(snoozedUntil && Date.parse(snoozedUntil) > Date.now()));
-    check();
-    const timer = window.setInterval(check, 60_000);
-    return () => window.clearInterval(timer);
-  }, [snoozedUntil]);
 
   // 浏览器预览没有 preload，只维护选择态；桌面端经主进程持久化。
   const toggleCampus = async (next: boolean) => {
@@ -102,8 +87,7 @@ export function SystemNotifications() {
     if (!window.dela) return;
     setBusy(true);
     try {
-      const state = await window.dela.notifications.setSnooze(until);
-      setSnoozedUntil(state.snoozedUntil);
+      await notificationsClient.setSnooze(until);
     } catch (cause) {
       showToast({
         variant: 'error',
@@ -151,11 +135,7 @@ export function SystemNotifications() {
         <SettingRow
           description={
             snoozedUntil ? (
-              <span className={snoozeActive ? undefined : 'sr-only'} role="status">
-                {snoozeActive
-                  ? `已暂停至 ${new Date(snoozedUntil).toLocaleString('zh-CN')}`
-                  : '上次的暂停已到期。'}
-              </span>
+              <span role="status">已暂停至 {new Date(snoozedUntil).toLocaleString('zh-CN')}</span>
             ) : undefined
           }
           settingId="snooze"

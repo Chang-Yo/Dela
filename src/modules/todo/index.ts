@@ -10,6 +10,7 @@ export {
   getTodoState,
   markTodoRead,
   onTaskNotice,
+  onTodoChange,
   publishTodoState,
   refreshTodos,
   registerTaskSource,
@@ -17,6 +18,7 @@ export {
   saveTodo,
   todoNotifications,
   type TaskCourse,
+  type TaskNotice,
   type TaskSource,
 } from './main/store';
 

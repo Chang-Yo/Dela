@@ -1,5 +1,5 @@
 // 应用根组件：launch 阶段（首启引导）、AppShell 壳与视图切换。
-// 视图路由在 ./navigation；主题/缩放在 ./theme；通知镜像在 ./notifications；工作台在 workbench/WorkbenchShell。
+// 视图路由在 ./navigation；主题/缩放在 ./theme；工作台在 workbench/WorkbenchShell。
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppShell } from '../components/AppShell';
@@ -9,7 +9,6 @@ import { ClassroomView } from '../features/classroom';
 import { CompletionOverlay } from '../features/onboarding/CompletionOverlay';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
 import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboarding-state';
-import { NotificationsView } from '../features/notifications/NotificationsView';
 import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
 import { subscribeShuiyuanSnapshots } from '../features/shuiyuan/snapshot-store';
@@ -33,7 +32,7 @@ import { useNoteDrafts } from '../content/note/drafts';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from './toasts';
 import { useNavigationStore, type MobileDrawer } from '../navigation/view';
-import { useNotifications } from './notifications';
+import { useNotificationCounts } from '../../modules/notifications/view';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
 
@@ -74,7 +73,7 @@ function useSessionNavData(): { sessionsByProject: Record<string, NavSessionSumm
 
 function ModulePage({ target }: { target: NavTarget }) {
   const Page = pageOf(target.page)!.component;
-  return <Page target={target} />;
+  return <Page navigate={useNavigationStore.getState().navigate} target={target} />;
 }
 
 export default function App() {
@@ -95,7 +94,7 @@ export default function App() {
   const settingsRequest = useNavigationStore((state) => state.settingsRequest);
 
   const { theme, zoom, fontSize, changeTheme, changeZoom, changeFontSize } = useAppearance();
-  const notifications = useNotifications(appVisible);
+  const notifications = useNotificationCounts();
   const { sessionsByProject } = useSessionNavData();
   const homeSessionId = useNavigationStore((state) => state.generalChat?.sessionId ?? null);
   const workbenchSessionId = useWorkbenchLayout((state) => {
@@ -293,34 +292,6 @@ export default function App() {
                   {view === 'shuiyuan' && <ShuiyuanView />}
                   {view === 'classroom' && <ClassroomView />}
                   {target && <ModulePage target={target} />}
-                  {view === 'notifications' && (
-                    <NotificationsView
-                      jwcNotice={notifications.jwcNotice}
-                      onCloseJwcNotice={notifications.closeJwcNotice}
-                      state={notifications.notifications}
-                      loading={notifications.loading}
-                      error={notifications.error}
-                      onRefresh={() =>
-                        window.dela?.notifications &&
-                        void notifications.run(() => window.dela!.notifications.refresh())
-                      }
-                      onMarkRead={(id) =>
-                        window.dela?.notifications &&
-                        void notifications.run(() => window.dela!.notifications.markRead(id))
-                      }
-                      onMarkAllRead={(sources) =>
-                        window.dela?.notifications &&
-                        void notifications.run(() =>
-                          window.dela!.notifications.markAllRead(sources),
-                        )
-                      }
-                      onSnooze={(until) =>
-                        window.dela?.notifications &&
-                        void notifications.run(() => window.dela!.notifications.setSnooze(until))
-                      }
-                      onOpen={notifications.openNotification}
-                    />
-                  )}
                   {view === 'settings' && (
                     <SettingsView
                       fontSize={fontSize}

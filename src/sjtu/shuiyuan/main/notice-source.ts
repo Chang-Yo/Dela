@@ -1,17 +1,15 @@
-import type {
-  NotificationCategory,
-  NotificationItem,
-  ShuiyuanNotificationItem,
-} from '../../../shared/api';
+import type { ShuiyuanNotificationItem } from '../../../shared/api';
 import { loadShuiyuanCredential } from './credentials';
 import { getDatabase } from '../../../main/database';
+import type { NotificationCategory } from '../../../modules/notifications/contract';
 import {
   existingNotifications,
   saveNotificationRefresh,
+  systemNotifyItem,
   upsertNotification,
   type NoticeSource,
-} from '../../../main/notifications';
-import { systemNotifyItem } from '../../../main/notifications/system';
+  type StoredNotice,
+} from '../../../modules/notifications';
 import { listShuiyuanNotifications } from './api';
 
 function shuiyuanTitle(item: ShuiyuanNotificationItem): string {
@@ -40,7 +38,16 @@ function unreadLikes(key: string): Map<string, number> {
   );
 }
 
-function likeSummary(likes: NotificationItem[]): string {
+type ShuiyuanHref =
+  | { kind: 'shuiyuan'; topicId: number; postNumber: number | null }
+  | { kind: 'shuiyuan-post'; postId: number };
+
+interface Like extends StoredNotice {
+  body: string;
+  count: number;
+}
+
+function likeSummary(likes: Like[]): string {
   const total = likes.reduce((sum, like) => sum + like.count, 0);
   const names = [...new Set(likes.map((like) => like.body).filter(Boolean))].slice(0, 2);
   const shown = names.join('、');
@@ -58,10 +65,10 @@ export const shuiyuanNoticeSource: NoticeSource = {
     if (loadShuiyuanCredential()?.username !== key) return;
     const existing = existingNotifications('shuiyuan', key);
     const previouslyUnreadLikes = unreadLikes(key);
-    const likeBursts = new Map<number, NotificationItem[]>();
+    const likeBursts = new Map<number, Like[]>();
     for (const item of remote) {
       // 合并点赞（type 19）是同一人连赞多层：没有 topic_id，count 是楼层数，单独成条不进主题分组。
-      const href: NotificationItem['href'] | null =
+      const href: ShuiyuanHref | null =
         item.topicId !== null
           ? { kind: 'shuiyuan', topicId: item.topicId, postNumber: item.postNumber }
           : item.type === 19 && item.originalPostId !== null
@@ -95,17 +102,7 @@ export const shuiyuanNoticeSource: NoticeSource = {
       const arrived = previousCount === undefined || item.count > previousCount;
       // 服务端已读的条目只同步状态，不弹系统通知；绑定后发生的未读互动首次到达才弹。
       if (item.read || !arrived || item.createdAt <= credential.boundAt) continue;
-      const notification: NotificationItem = {
-        id,
-        source: 'shuiyuan',
-        category,
-        count: item.count,
-        title,
-        body,
-        createdAt,
-        readAt: null,
-        href,
-      };
+      const notification: Like = { id, source: 'shuiyuan', title, body, count: item.count, href };
       if (href.kind === 'shuiyuan-post') systemNotifyItem(notification, body);
       else if (category === 'like')
         likeBursts.set(href.topicId, [...(likeBursts.get(href.topicId) ?? []), notification]);
@@ -119,6 +116,19 @@ export const shuiyuanNoticeSource: NoticeSource = {
     // `/notifications.json?recent=true` 是有界分页：不在其中不代表已读，只有服务端明确已读才标记。
     saveNotificationRefresh('shuiyuan', key, null);
   },
+  link: (href) =>
+    href.kind === 'shuiyuan-post' && typeof href.postId === 'number'
+      ? { target: { page: 'shuiyuan', postId: href.postId } }
+      : typeof href.topicId === 'number'
+        ? {
+            target: {
+              page: 'shuiyuan',
+              topicId: href.topicId,
+              ...(typeof href.postNumber === 'number' ? { postNumber: href.postNumber } : {}),
+            },
+            group: `topic:${href.topicId}`,
+          }
+        : null,
   // 点赞按主题成组展示与弹窗，打开或标记其中一条即视为读完该主题的全部点赞。
   markRead(id, key) {
     getDatabase()

@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron';
 import { shuiyuanTopicFromUrl } from '../../../shared/shuiyuan';
-import { isWorkspaceWindow } from '../../../main/notifications/system';
+import { isWorkspaceWindow } from '../../../main/ipc';
 import { getShuiyuanState } from './api';
 
 /**

@@ -6,47 +6,38 @@ vi.mock('../../../../modules/todo', () => ({
   todoNotifications: () => [],
   markTodoRead: vi.fn(),
 }));
-vi.mock('electron', () => ({
-  BrowserWindow: { getAllWindows: () => [] },
-  ipcMain: { handle: vi.fn() },
-}));
 vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../../../main/ipc', () => ({ checkWorkspaceSender: vi.fn() }));
 vi.mock('../credentials', () => ({ loadShuiyuanCredential: vi.fn() }));
-vi.mock('../../../../main/mail/api', () => ({
-  getMailState: vi.fn(() => ({ sync: { phase: 'idle', error: null } })),
-  markAllMailSeen: vi.fn(async () => ({ ok: true })),
-  onMailCacheChanged: vi.fn(),
-}));
-vi.mock('../../../../main/notifications/system', () => ({
-  armSystemNotifications: vi.fn(),
-  isWorkspaceWindow: () => false,
+vi.mock('../../../../modules/notifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../modules/notifications')>()),
   systemNotifyItem: vi.fn(),
-  NOTIFICATIONS_SNOOZE_KEY: 'notifications-snoozed-until',
 }));
 vi.mock('../api', () => ({ listShuiyuanNotifications: vi.fn() }));
 
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import {
-  getNotificationState,
-  markAllNotificationsRead,
-  markNotificationRead,
-  refreshNotifications,
+  notificationsModule,
   registerNoticeSource,
-} from '../../../../main/notifications';
+  systemNotifyItem,
+} from '../../../../modules/notifications';
+import type { NotificationState } from '../../../../modules/notifications/contract';
 import { getDatabase } from '../../../../main/database';
 import { loadShuiyuanCredential } from '../credentials';
-import { systemNotifyItem } from '../../../../main/notifications/system';
 import { listShuiyuanNotifications } from '../api';
 import { shuiyuanNoticeSource } from '../notice-source';
 
 registerNoticeSource(shuiyuanNoticeSource);
+const ipc = notificationsModule.ipc!;
+const getNotificationState = (sources?: string[]) =>
+  ipc.call('state', sources) as NotificationState;
+const refreshNotifications = () => ipc.call('refresh', undefined) as Promise<NotificationState>;
+const markNotificationRead = (id: string) => ipc.call('markRead', id);
+const markAllNotificationsRead = () => ipc.call('markAllRead', undefined);
 
 function createDb(): Database.Database {
   const db = new Database(':memory:');
   db.exec(`
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL, created_at TEXT NOT NULL);
-    CREATE TABLE mail_messages (id INTEGER PRIMARY KEY, seen INTEGER NOT NULL, deleted_at TEXT);
     CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL, category TEXT, count INTEGER NOT NULL DEFAULT 1);
     CREATE TABLE notification_refreshes (source TEXT NOT NULL, account_key TEXT NOT NULL, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));
   `);
@@ -96,7 +87,9 @@ function shuiyuanConsolidatedLike(id: number, displayUsername: string, count: nu
 describe('Shuiyuan notice source', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getDatabase).mockReturnValue(createDb());
+    const db = createDb();
+    vi.mocked(getDatabase).mockReturnValue(db);
+    provideTestHostPorts({ database: () => db as never });
     bindShuiyuan();
   });
 
@@ -229,9 +222,12 @@ describe('Shuiyuan notice source', () => {
     const consolidated = getNotificationState(['shuiyuan']).items.find(
       (item) => item.id === 'shuiyuan:dela-user:9',
     )!;
-    expect(consolidated.href).toEqual({ kind: 'shuiyuan-post', postId: 4926962 });
+    expect(consolidated.target).toEqual({ page: 'shuiyuan', postId: 4926962 });
     expect(consolidated.body).toBe('alice 赞了你的 3 个帖子');
-    expect(systemNotifyItem).toHaveBeenCalledWith(consolidated, 'alice 赞了你的 3 个帖子');
+    expect(systemNotifyItem).toHaveBeenCalledWith(
+      expect.objectContaining({ id: consolidated.id }),
+      'alice 赞了你的 3 个帖子',
+    );
 
     await markNotificationRead('shuiyuan:dela-user:9');
     expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);

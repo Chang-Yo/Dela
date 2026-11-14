@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { publishTodoState, refreshTodos } from '../../../modules/todo';
 import { clearCanvasToken, loadCanvasToken } from './credentials';
 import { checkWorkspaceSender } from '../../../main/ipc';
-import { isWorkspaceWindow } from '../../../main/notifications/system';
+import { isWorkspaceWindow } from '../../../main/ipc';
 import { openShuiyuanLinkInApp } from '../../shuiyuan/main/links';
 import {
   getCanvasState,

@@ -10,7 +10,6 @@ import type { ConsentApi } from './consent';
 import type { LayoutApi } from './layout';
 import type { LlmApi } from './llm';
 import type { MailApi } from './mail';
-import type { NotificationsApi } from './notifications';
 import type { RemoteApi } from './remotes';
 import type { SessionApi, SidechatApi } from './session';
 import type { SettingsApi } from './settings';
@@ -63,7 +62,6 @@ export interface DelaApi {
   readonly sidechat: SidechatApi;
   readonly remotes: RemoteApi;
   readonly layout: LayoutApi;
-  readonly notifications: NotificationsApi;
   readonly update: UpdateApi;
 }
 
@@ -176,15 +174,6 @@ export type {
   RemoteSetupStep,
   SshConfigHost,
 } from './remotes';
-
-export type {
-  NotificationCategory,
-  NotificationSource,
-  NotificationItem,
-  NotificationState,
-  NotificationsApi,
-} from './notifications';
-export { notificationSources } from './notifications';
 
 export type {
   ChatAskInput,

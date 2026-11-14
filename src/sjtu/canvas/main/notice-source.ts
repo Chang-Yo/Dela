@@ -1,12 +1,11 @@
-import type { NotificationItem } from '../../../shared/api';
 import { getDatabase } from '../../../main/database';
 import {
   existingNotifications,
   saveNotificationRefresh,
+  systemNotifyItem,
   upsertNotification,
   type NoticeSource,
-} from '../../../main/notifications';
-import { systemNotifyItem } from '../../../main/notifications/system';
+} from '../../../modules/notifications';
 import { listCanvasAnnouncements, listTodoCanvasCourses } from './api';
 import { canvasOwner } from './todo-source';
 
@@ -33,10 +32,7 @@ export const canvasNoticeSource: NoticeSource = {
         for (const announcement of await listCanvasAnnouncements(course.id)) {
           const id = `canvas:${key}:${announcement.sourceId}`;
           const createdAt = announcement.postedAt || syncedAt;
-          const href: NotificationItem['href'] = {
-            kind: 'canvas',
-            sourceId: announcement.sourceId,
-          };
+          const href = { kind: 'canvas', sourceId: announcement.sourceId };
           // Canvas 网页端读过的公告同步为已读；Dela 内标记已读只记在本地，不回写 Canvas。
           upsertNotification(
             'canvas',
@@ -51,20 +47,7 @@ export const canvasNoticeSource: NoticeSource = {
             announcement.read ? syncedAt : null,
           );
           if (!known.has(course.id) || announcement.read || existing.has(id)) continue;
-          systemNotifyItem(
-            {
-              id,
-              source: 'canvas',
-              category: null,
-              count: 1,
-              title: announcement.title,
-              body: course.name,
-              createdAt,
-              readAt: null,
-              href,
-            },
-            course.name,
-          );
+          systemNotifyItem({ id, source: 'canvas', title: announcement.title, href }, course.name);
         }
         known.add(course.id);
       } catch (error) {
@@ -77,4 +60,6 @@ export const canvasNoticeSource: NoticeSource = {
     );
     saveNotificationRefresh('canvas', key, errors.length ? errors.join('\n') : null);
   },
+  link: ({ sourceId }) =>
+    typeof sourceId === 'string' ? { target: { page: 'sources', sourceId } } : null,
 };

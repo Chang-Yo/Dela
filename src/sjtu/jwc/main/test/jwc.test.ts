@@ -3,13 +3,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({ app: { isPackaged: true }, dialog: { showSaveDialog: vi.fn() } }));
 vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../../../main/notifications/system', () => ({ systemNotifyItem: vi.fn() }));
+vi.mock('../../../../modules/notifications', () => ({ systemNotifyItem: vi.fn() }));
 vi.mock('node:fs/promises', () => ({ writeFile: vi.fn() }));
 
 import { app, dialog } from 'electron';
 import { writeFile } from 'node:fs/promises';
 import { getDatabase } from '../../../../main/database';
-import { systemNotifyItem } from '../../../../main/notifications/system';
+import { systemNotifyItem } from '../../../../modules/notifications';
 import {
   parseJwcList,
   refreshJwc,

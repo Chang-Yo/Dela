@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { NotificationItem } from '../../../shared/api';
-import { groupNotifications, likeGroupSummary } from './group-notifications';
+import type { NotificationItem } from '../../contract';
+import { groupNotifications, likeGroupSummary } from '../group-notifications';
 
 function like(
   id: string,
@@ -18,7 +18,8 @@ function like(
     body,
     createdAt: '2026-09-17T00:00:00.000Z',
     readAt,
-    href: { kind: 'shuiyuan', topicId, postNumber: 1 },
+    target: { page: 'shuiyuan', topicId, postNumber: 1 },
+    group: `topic:${topicId}`,
   };
 }
 
@@ -31,7 +32,8 @@ function mail(id: string): NotificationItem {
     ...like(id, 0, null),
     source: 'mail',
     category: null,
-    href: { kind: 'mail', messageId: 5 },
+    target: { page: 'mail', messageId: 5 },
+    group: null,
   };
 }
 

@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { emit, hostPorts } from '../../../core/ports';
-import type { NotificationItem } from '../../../shared/api';
 import {
   todoContract,
   todoSaveSchema,
@@ -32,8 +31,18 @@ type TodoRow = {
   notice_at: string | null;
 };
 type SyncState = { syncedAt: string | null; error: string | null; courses: number[] };
+/** 已同步课程新出现的作业，由通知中心展示与提醒。 */
+export interface TaskNotice {
+  todoId: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+}
+
 let source: TaskSource | null = null;
-let noticeListener: ((notice: NotificationItem) => void) | null = null;
+let noticeListener: ((notice: TaskNotice) => void) | null = null;
+let changeListener: (() => void) | null = null;
 let activeRefresh: Promise<TodoState> | null = null;
 
 export function registerTaskSource(next: TaskSource): void {
@@ -41,8 +50,13 @@ export function registerTaskSource(next: TaskSource): void {
 }
 
 /** 已同步过的课程出现新作业时调用，由宿主决定是否弹系统通知。 */
-export function onTaskNotice(listener: (notice: NotificationItem) => void): void {
+export function onTaskNotice(listener: (notice: TaskNotice) => void): void {
   noticeListener = listener;
+}
+
+/** 待办状态推送后调用，通知中心据此重播含待办提醒的状态。 */
+export function onTodoChange(listener: () => void): void {
+  changeListener = listener;
 }
 
 function sourceOwner(): string | null {
@@ -83,6 +97,7 @@ export function getTodoState(): TodoState {
 export function publishTodoState(): TodoState {
   const state = getTodoState();
   emit(todoContract, 'state', state);
+  changeListener?.();
   return state;
 }
 
@@ -136,7 +151,7 @@ export function markTodoRead(id: string | null): TodoState {
   return publishTodoState();
 }
 
-export function todoNotifications(): NotificationItem[] {
+export function todoNotifications(): TaskNotice[] {
   return rows()
     .filter((row) => row.notice_at !== null)
     .map((row) => {
@@ -151,18 +166,8 @@ function newTaskNotice(
   courseName: string | undefined,
   createdAt: string,
   readAt: string | null,
-): NotificationItem {
-  return {
-    id: `todo:${id}`,
-    source: 'todo',
-    category: null,
-    count: 1,
-    title,
-    body: `${courseName ?? 'Canvas'} · 新作业`,
-    createdAt,
-    readAt,
-    href: { kind: 'todo', todoId: id },
-  };
+): TaskNotice {
+  return { todoId: id, title, body: `${courseName ?? 'Canvas'} · 新作业`, createdAt, readAt };
 }
 
 export function refreshTodos(): Promise<TodoState> {

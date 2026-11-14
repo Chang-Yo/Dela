@@ -1,23 +1,11 @@
-import { useEffect, useState } from 'react';
-import {
-  CircleCheckBig,
-  BellOff,
-  Check,
-  CheckCheck,
-  Mail,
-  Megaphone,
-  RefreshCw,
-  SlidersHorizontal,
-  GraduationCap,
-} from 'lucide-react';
-import { notificationSources } from '../../../shared/api';
-import type { NotificationItem, NotificationSource, NotificationState } from '../../../shared/api';
+import type { ReactNode } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Bell, BellOff, Check, CheckCheck, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import type { Navigate, NoticeKind } from '../../../app/module';
+import { errorMessage } from '../../../core/protocol/contract';
+import { Callout } from '../../../ui/alert';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
-import { ShuiyuanIcon } from '../shuiyuan/shuiyuan-icon';
-import { JwcNoticeView } from './JwcNoticeView';
-import { groupNotifications, likeGroupSummary } from './group-notifications';
-import { useNotificationSourceFilter } from './source-filter';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -27,33 +15,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
-import { Callout } from '../../../ui/alert';
+import { EmptyState } from '../../../ui/empty-state';
+import { StatusPill } from '../../../ui/status-pill';
+import type { NotificationItem } from '../contract';
+import { groupNotifications, likeGroupSummary } from './group-notifications';
+import { useNotificationSourceFilter } from './source-filter';
+import {
+  notificationsClient,
+  notifyFailure,
+  openNotification,
+  useNotificationState,
+} from './use-notifications';
 
-type NotificationsViewProps = {
-  jwcNotice: NotificationItem | null;
-  onCloseJwcNotice: () => void;
-  state: NotificationState | null;
-  loading: boolean;
-  error: string | null;
-  onRefresh: () => void;
-  onMarkRead: (id: string) => void;
-  onMarkAllRead: (sources: readonly NotificationSource[]) => void;
-  onSnooze: (until: string | null) => void;
-  onOpen: (item: NotificationItem) => void;
-};
+type Kinds = Record<string, NoticeKind>;
 
-const filterLabels: Record<NotificationSource, string> = {
-  mail: '邮件',
-  shuiyuan: '水源',
-  todo: 'TODO',
-  jwc: '教务处',
-  canvas: 'Canvas',
-};
-
-function formatTime(value: string): string {
+function formatTime(value: string, now: number): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  const minutes = Math.round((date.getTime() - Date.now()) / 60_000);
+  const minutes = Math.round((date.getTime() - now) / 60_000);
   if (minutes > -1) return '刚刚';
   if (minutes > -60) return `${Math.abs(minutes)} 分钟前`;
   const hours = Math.round(minutes / 60);
@@ -74,34 +53,34 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
   return until.toISOString();
 }
 
-function SourceIcon({ source }: { source: NotificationItem['source'] }) {
-  const Icon =
-    source === 'mail'
-      ? Mail
-      : source === 'todo'
-        ? CircleCheckBig
-        : source === 'jwc'
-          ? GraduationCap
-          : source === 'canvas'
-            ? Megaphone
-            : ShuiyuanIcon;
+function SourceIcon({ kind }: { kind: NoticeKind | undefined }) {
+  const Icon = kind?.icon ?? Bell;
   return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ink-3" />;
 }
 
-function LikeGroupRow({
-  items,
+function NotificationRow({
+  item,
+  kinds,
+  now,
+  unread,
+  summary,
+  badge,
+  markLabel,
   loading,
-  onMarkRead,
   onOpen,
+  onMarkRead,
 }: {
-  items: NotificationItem[];
+  item: NotificationItem;
+  kinds: Kinds;
+  now: number;
+  unread: boolean;
+  summary: string;
+  badge: ReactNode;
+  markLabel: string;
   loading: boolean;
-  onMarkRead: (id: string) => void;
-  onOpen: (item: NotificationItem) => void;
+  onOpen: () => void;
+  onMarkRead: () => void;
 }) {
-  const latest = items[0]!;
-  const unreadCount = items.filter((item) => !item.readAt).length;
-  const unread = unreadCount > 0;
   return (
     <article className="relative rounded-card transition-colors duration-base hover:bg-hover">
       <button
@@ -109,39 +88,31 @@ function LikeGroupRow({
           'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
           unread && 'pr-14',
         )}
-        onClick={() => onOpen(latest)}
+        onClick={onOpen}
         type="button"
       >
-        <SourceIcon source="shuiyuan" />
+        <SourceIcon kind={kinds[item.source]} />
         <span className="min-w-0 flex-1">
           <span
-            className={
-              unread
-                ? 'block break-words text-sm font-semibold'
-                : 'block break-words text-sm font-normal'
-            }
+            className={cn('block break-words text-sm', unread ? 'font-semibold' : 'font-normal')}
           >
-            {latest.title}
+            {item.title}
           </span>
-          <span className="mt-1 block break-words text-sm leading-relaxed text-ink-3">
-            {likeGroupSummary(items)}
+          <span className="mt-1 block break-words text-sm leading-relaxed text-ink-3 line-clamp-3">
+            {summary}
           </span>
           <span className="mt-2 block text-xs tabular-nums text-ink-3">
-            水源 · {formatTime(latest.createdAt)}
+            {kinds[item.source]?.label ?? item.source} · {formatTime(item.createdAt, now)}
           </span>
         </span>
-        {unread ? (
-          <span className="mt-1 shrink-0 rounded-full bg-inset px-2 text-xs tabular-nums text-ink">
-            {unreadCount} 未读
-          </span>
-        ) : null}
+        {unread ? badge : null}
       </button>
       {unread ? (
         <Button
-          aria-label={`将“${latest.title}”的 ${unreadCount} 条点赞标为已读`}
+          aria-label={markLabel}
           className="absolute top-2.5 right-2.5"
           disabled={loading}
-          onClick={() => onMarkRead(latest.id)}
+          onClick={onMarkRead}
           size="icon-sm"
           title="标为已读"
           variant="ghost"
@@ -153,63 +124,45 @@ function LikeGroupRow({
   );
 }
 
-export function NotificationsView({
-  jwcNotice,
-  onCloseJwcNotice,
-  state: allState,
-  loading,
-  error,
-  onRefresh,
-  onMarkRead,
-  onMarkAllRead,
-  onSnooze,
-  onOpen,
-}: NotificationsViewProps) {
-  const sources = useNotificationSourceFilter((store) => store.sources);
-  const toggleSource = useNotificationSourceFilter((store) => store.toggleSource);
-  const allSelected = sources.length === notificationSources.length;
-  const [filteredState, setFilteredState] = useState<{
-    sources: readonly NotificationSource[];
-    state: NotificationState;
-  } | null>(null);
-  const [filterError, setFilterError] = useState<string | null>(null);
-  useEffect(() => {
-    let active = true;
-    setFilterError(null);
-    if (sources.length < notificationSources.length && window.dela) {
-      void window.dela.notifications.getState(sources).then(
-        (value) => {
-          if (active) setFilteredState({ sources, state: value });
-        },
-        (reason) => {
-          if (active) setFilterError(String(reason));
-        },
-      );
-    }
-    return () => {
-      active = false;
-    };
-  }, [sources, allState]);
-  const state = !allSelected && filteredState?.sources === sources ? filteredState.state : allState;
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, [state]);
-  const items = state?.items.filter((item) => sources.includes(item.source)) ?? [];
-  const entries = groupNotifications(items);
-  const sourceErrors = state
-    ? (Object.entries(state.refresh).flatMap(([source, value]) =>
-        value?.error ? [`${filterLabels[source as NotificationSource]}：${value.error}`] : [],
-      ) as string[])
-    : [];
-  const snoozed = state?.snoozedUntil && new Date(state.snoozedUntil).getTime() > now;
-  // 初始抓取在途（有通知 API、尚无状态且无错误）时按加载态展示，避免闪现“暂不可用”。
-  const initialLoading = !state && !error && Boolean(window.dela?.notifications);
+/** 来源的名称与图标由清单汇总各模块的 notices 后传入。 */
+export function notificationsPage(kinds: Kinds) {
+  return function NotificationsPage({ navigate }: { navigate: Navigate }) {
+    return <NotificationsView kinds={kinds} navigate={navigate} />;
+  };
+}
 
-  if (jwcNotice)
-    return <JwcNoticeView key={jwcNotice.id} item={jwcNotice} onBack={onCloseJwcNotice} />;
+function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kinds }) {
+  const all = Object.keys(kinds);
+  const hidden = useNotificationSourceFilter((store) => store.hidden);
+  const toggleSource = useNotificationSourceFilter((store) => store.toggleSource);
+  const sources = all.filter((source) => !hidden.includes(source));
+  const filtered = sources.length < all.length;
+  const allState = useNotificationState();
+  // 筛选在主进程完成，否则最近 200 条可能都被其他来源占满。
+  const filteredState = useQuery({
+    queryKey: ['notifications', 'state', sources],
+    queryFn: () => notificationsClient.state(sources),
+    enabled: filtered,
+  });
+  const query = filtered ? filteredState : allState;
+  const state = query.data;
+  const now = allState.dataUpdatedAt;
+  const action = useMutation({
+    mutationFn: (run: () => Promise<unknown>) => run(),
+    onError: notifyFailure,
+  });
+  const loading = action.isPending;
+  const refresh = () => action.mutate(() => notificationsClient.refresh());
+  const markRead = (id: string) => action.mutate(() => notificationsClient.markRead(id));
+  const snooze = (until: string | null) =>
+    action.mutate(() => notificationsClient.setSnooze(until));
+  const items = state?.items.filter((item) => sources.includes(item.source)) ?? [];
+  const label = (source: string) => kinds[source]?.label ?? source;
+  const sourceErrors = state
+    ? Object.entries(state.refresh).flatMap(([source, value]) =>
+        value.error ? [`${label(source)}：${value.error}`] : [],
+      )
+    : [];
 
   // 隐藏滑块但保留 overflow-y:scroll 的常驻槽位，条目增减不引起内容横向位移。
   return (
@@ -225,7 +178,7 @@ export function NotificationsView({
           <Button
             aria-label="刷新通知"
             disabled={loading}
-            onClick={onRefresh}
+            onClick={refresh}
             size="icon-sm"
             title="刷新通知"
             variant="ghost"
@@ -235,7 +188,9 @@ export function NotificationsView({
           <Button
             aria-label="全部标为已读"
             disabled={loading || !state?.unreadCount}
-            onClick={() => onMarkAllRead(sources)}
+            onClick={() =>
+              action.mutate(() => notificationsClient.markAllRead(filtered ? sources : undefined))
+            }
             size="sm"
             title="全部标为已读"
             variant="ghost"
@@ -252,14 +207,14 @@ export function NotificationsView({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>消息来源</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {notificationSources.map((source) => (
+              {all.map((source) => (
                 <DropdownMenuCheckboxItem
-                  checked={sources.includes(source)}
+                  checked={!hidden.includes(source)}
                   key={source}
-                  onCheckedChange={() => toggleSource(source)}
+                  onCheckedChange={() => toggleSource(source, all)}
                   onSelect={(event) => event.preventDefault()}
                 >
-                  {filterLabels[source]}
+                  {label(source)}
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>
@@ -279,19 +234,17 @@ export function NotificationsView({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>暂停通知</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => onSnooze(snoozeUntil('30m'))}>
+              <DropdownMenuItem onSelect={() => snooze(snoozeUntil('30m'))}>
                 30 分钟
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onSnooze(snoozeUntil('1h'))}>
-                1 小时
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onSnooze(snoozeUntil('tomorrow'))}>
+              <DropdownMenuItem onSelect={() => snooze(snoozeUntil('1h'))}>1 小时</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => snooze(snoozeUntil('tomorrow'))}>
                 明天早上 9 点
               </DropdownMenuItem>
               {state?.snoozedUntil ? (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => onSnooze(null)}>恢复通知</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => snooze(null)}>恢复通知</DropdownMenuItem>
                 </>
               ) : null}
             </DropdownMenuContent>
@@ -299,24 +252,29 @@ export function NotificationsView({
         </div>
       </header>
 
-      {snoozed ? (
+      {state?.snoozedUntil ? (
         <div className="mt-4 flex items-start gap-2 rounded-card border border-line bg-inset px-4 py-3 text-sm text-ink-3">
           <BellOff aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>已暂停至 {new Date(state!.snoozedUntil!).toLocaleString('zh-CN')}；仍会收集新通知。</p>
+          <p>已暂停至 {new Date(state.snoozedUntil).toLocaleString('zh-CN')}；仍会收集新通知。</p>
         </div>
       ) : null}
 
-      {error || filterError ? (
+      {query.error ? (
         <Callout
           action={
-            <Button className="mt-2" onClick={onRefresh} size="sm" variant="outline">
+            <Button
+              className="mt-2"
+              onClick={() => void query.refetch()}
+              size="sm"
+              variant="outline"
+            >
               重试
             </Button>
           }
           className="mt-4"
           role="alert"
         >
-          {error || filterError}
+          {errorMessage(query.error)}
         </Callout>
       ) : null}
       {sourceErrors.map((message) => (
@@ -325,23 +283,14 @@ export function NotificationsView({
         </Callout>
       ))}
 
-      {(loading || initialLoading) && !state ? (
+      {query.isPending && !query.error ? (
         <p className="py-12 text-center text-sm text-ink-3">正在获取通知…</p>
       ) : null}
-      {!loading && !state && !error && !initialLoading ? (
-        <div className="py-12 text-center text-sm text-ink-3">
-          <p>通知服务暂不可用。</p>
-          <Button className="mt-3" onClick={onRefresh} size="sm" variant="outline">
-            重新连接
-          </Button>
-        </div>
-      ) : null}
-      {state && !loading && items.length === 0 ? (
-        <p className="py-12 text-center text-sm text-ink-3">
-          {allSelected
-            ? '暂时没有通知。'
-            : `没有${sources.map((source) => filterLabels[source]).join('、')}通知。`}
-        </p>
+      {state && items.length === 0 ? (
+        <EmptyState
+          className="py-12"
+          title={filtered ? `没有${sources.map(label).join('、')}通知。` : '暂时没有通知。'}
+        />
       ) : null}
 
       <section aria-label="通知列表" className="mt-4 flex flex-col gap-1 pb-6">
@@ -350,71 +299,51 @@ export function NotificationsView({
             显示最近 {state.items.length} 条，共 {state.totalCount} 条通知。
           </p>
         )}
-        {entries.map((entry) => {
-          if (entry.kind === 'group')
+        {groupNotifications(items).map((entry) => {
+          if (entry.kind === 'group') {
+            const latest = entry.items[0]!;
+            const unreadCount = entry.items.filter((item) => !item.readAt).length;
             return (
-              <LikeGroupRow
-                items={entry.items}
+              <NotificationRow
+                badge={
+                  <StatusPill className="mt-1 shrink-0 tabular-nums" dot={false} size="sm">
+                    {unreadCount} 未读
+                  </StatusPill>
+                }
+                item={latest}
                 key={entry.key}
+                kinds={kinds}
                 loading={loading}
-                onMarkRead={onMarkRead}
-                onOpen={onOpen}
+                markLabel={`将“${latest.title}”的 ${unreadCount} 条点赞标为已读`}
+                now={now}
+                onMarkRead={() => markRead(latest.id)}
+                onOpen={() => openNotification(latest, navigate)}
+                summary={likeGroupSummary(entry.items)}
+                unread={unreadCount > 0}
               />
             );
+          }
           const item = entry.item;
           return (
-            <article
-              className="relative rounded-card transition-colors duration-base hover:bg-hover"
+            <NotificationRow
+              badge={
+                <span
+                  aria-label="未读"
+                  className="mt-1 size-2 shrink-0 rounded-full bg-ink"
+                  role="status"
+                />
+              }
+              item={item}
               key={item.id}
-            >
-              <button
-                className={cn(
-                  'flex w-full items-start gap-3 rounded-card px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
-                  !item.readAt && 'pr-14',
-                )}
-                onClick={() => onOpen(item)}
-                type="button"
-              >
-                <SourceIcon source={item.source} />
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={
-                      item.readAt
-                        ? 'block break-words text-sm font-normal'
-                        : 'block break-words text-sm font-semibold'
-                    }
-                  >
-                    {item.title}
-                  </span>
-                  <span className="mt-1 block break-words text-sm leading-relaxed text-ink-3 line-clamp-3">
-                    {item.body}
-                  </span>
-                  <span className="mt-2 block text-xs tabular-nums text-ink-3">
-                    {filterLabels[item.source]} · {formatTime(item.createdAt)}
-                  </span>
-                </span>
-                {!item.readAt ? (
-                  <span
-                    aria-label="未读"
-                    className="mt-1 size-2 shrink-0 rounded-full bg-ink"
-                    role="status"
-                  />
-                ) : null}
-              </button>
-              {!item.readAt ? (
-                <Button
-                  aria-label={`将“${item.title}”标为已读`}
-                  className="absolute top-2.5 right-2.5"
-                  disabled={loading}
-                  onClick={() => onMarkRead(item.id)}
-                  size="icon-sm"
-                  title="标为已读"
-                  variant="ghost"
-                >
-                  <Check className="size-4" />
-                </Button>
-              ) : null}
-            </article>
+              kinds={kinds}
+              loading={loading}
+              markLabel={`将“${item.title}”标为已读`}
+              now={now}
+              onMarkRead={() => markRead(item.id)}
+              onOpen={() => openNotification(item, navigate)}
+              summary={item.body}
+              unread={!item.readAt}
+            />
           );
         })}
       </section>

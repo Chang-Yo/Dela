@@ -107,12 +107,12 @@ const routes = {
   'layout:save': () => null,
   'session:list': () => [],
   'remotes:list': () => [],
-  'notifications:get-state': () => ({
+  'notifications:state': () => ({
     items: [],
     totalCount: 0,
     unreadCount: 0,
     snoozedUntil: null,
-    refresh: { mail: null, shuiyuan: null, todo: null },
+    refresh: {},
   }),
   'update:get-state': () => ({
     phase: 'idle',

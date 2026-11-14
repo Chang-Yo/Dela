@@ -16,17 +16,10 @@ import { pageOf } from '../../app/views';
 
 /** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
 export type ShellView =
-  | 'home'
-  | 'workbench'
-  | 'mail'
-  | 'timetable'
-  | 'classroom'
-  | 'shuiyuan'
-  | 'notifications'
-  | 'settings';
+  'home' | 'workbench' | 'mail' | 'timetable' | 'classroom' | 'shuiyuan' | 'settings';
 
 /** 由外壳自己分发的跳转目标：工作台里的标签与尚未迁移的页面。 */
-type ShellTarget = 'projects' | 'chat' | 'sources' | 'mail' | 'settings';
+type ShellTarget = 'projects' | 'chat' | 'sources' | 'mail' | 'settings' | 'shuiyuan';
 
 export type AppView = ShellView | Exclude<keyof NavTargets, ShellTarget>;
 
@@ -167,6 +160,22 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         if (next.page === 'sources') return get().openDocument(`source:${next.sourceId}`);
         if (next.page === 'mail') return get().openMail(next.messageId);
         if (next.page === 'settings') return get().openSettings(next.section);
+        if (next.page === 'shuiyuan') {
+          const { topicId, postNumber, postId } = next;
+          if (postId !== undefined)
+            void window.dela?.shuiyuan.locatePost(postId).then(
+              (link) => get().openShuiyuanTopic(link.topicId, link.postNumber),
+              (reason) =>
+                showToast({
+                  variant: 'error',
+                  title: '打开帖子失败',
+                  description: errorText(reason),
+                }),
+            );
+          else if (topicId !== undefined) get().openShuiyuanTopic(topicId, postNumber);
+          else return get().navigate('shuiyuan');
+          return true;
+        }
       }
       const view = typeof next === 'string' ? next : next.page;
       const target = typeof next === 'string' ? null : next;

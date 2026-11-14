@@ -37,10 +37,8 @@ vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../credentials', () => ({
   loadShuiyuanCredential: () => ({ key: 'user-key', clientId: 'client' }),
 }));
-vi.mock('../../../../main/notifications/system', () => ({
-  isWorkspaceWindow: () => true,
-  systemNotifyToast: vi.fn(),
-}));
+vi.mock('../../../../main/ipc', () => ({ isWorkspaceWindow: () => true }));
+vi.mock('../../../../modules/notifications', () => ({ systemNotifyToast: vi.fn() }));
 vi.mock('../api', () => ({
   SHUIYUAN_ORIGIN: 'https://shuiyuan.sjtu.edu.cn',
   getShuiyuanTopic: vi.fn(),
@@ -53,7 +51,7 @@ vi.mock('../budget', () => ({
 
 import { getDatabase } from '../../../../main/database';
 import { nativeImage, safeStorage } from 'electron';
-import { systemNotifyToast } from '../../../../main/notifications/system';
+import { systemNotifyToast } from '../../../../modules/notifications';
 import { getShuiyuanTopic, loadShuiyuanPosts } from '../api';
 import { collectShuiyuanSnapshots, queueShuiyuanSnapshot } from '../snapshot';
 import {

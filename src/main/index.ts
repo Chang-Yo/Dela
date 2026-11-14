@@ -36,14 +36,8 @@ import { registerModuleIpc } from '../app/ipc';
 import { modules } from '../app/modules';
 import { chatSearch, projectSearch } from './workspace/search';
 import { mailSearch } from './mail/search';
-import { onTaskNotice } from '../modules/todo';
 import { settingsSearch } from './settings/search';
-import {
-  initializeNotifications,
-  registerNotificationsIpc,
-  refreshNotifications,
-} from './notifications';
-import { systemNotifyItem } from './notifications/system';
+import { registerMailNotices } from './mail/notice-source';
 import { getMailState, startMailSync } from './mail/api';
 import {
   closeDomainBridge,
@@ -109,12 +103,9 @@ if (smokeTest && !terminalSmokeTest) {
   app.setPath('documents', profile);
   app.setPath('home', profile);
 }
-// 水源通知与其余水源请求共用 User API Key 每分钟 20 次的限额，两分钟一次；
 // IMAP 沿用现有增量同步，每五分钟检查一次。
-const NOTIFICATION_REFRESH_MS = 2 * 60_000;
 const MAIL_REFRESH_MS = 5 * 60_000;
 let stopModules: (() => void)[] = [];
-let notificationTimer: ReturnType<typeof setInterval> | undefined;
 let mailTimer: ReturnType<typeof setInterval> | undefined;
 let stopUpdateCheck: (() => void) | undefined;
 let tray: Tray | undefined;
@@ -223,23 +214,16 @@ app
     registerTerminalIpc();
     registerRemoteIpc();
     registerModuleIpc(modules);
-    onTaskNotice(systemNotifyItem);
     for (const provider of [projectSearch, chatSearch, mailSearch])
       registerSearchProvider(provider);
     registerBuiltinCapabilities();
     for (const module of modules) module.register?.();
     registerSearchProvider(settingsSearch);
-    registerNotificationsIpc();
     registerUpdateIpc();
-    initializeNotifications();
+    registerMailNotices();
     // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
     gcChatMedia();
     if (!smokeTest) {
-      const refresh = () => {
-        void refreshNotifications().catch((error: unknown) =>
-          console.error('Notification refresh failed', error),
-        );
-      };
       const syncMail = () => {
         try {
           if (getMailState().account) startMailSync();
@@ -248,9 +232,7 @@ app
         }
       };
       stopModules = modules.flatMap((module) => module.start?.() ?? []);
-      refresh();
       syncMail();
-      notificationTimer = setInterval(refresh, NOTIFICATION_REFRESH_MS);
       mailTimer = setInterval(syncMail, MAIL_REFRESH_MS);
       stopUpdateCheck = startBackgroundUpdateCheck();
     }
@@ -501,7 +483,6 @@ app.on('will-quit', () => {
   closeDomainBridge();
   tray?.destroy();
   for (const stop of stopModules) stop();
-  clearInterval(notificationTimer);
   clearInterval(mailTimer);
   stopUpdateCheck?.();
   // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。

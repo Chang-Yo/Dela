@@ -2,11 +2,9 @@ import { dialog } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { load } from 'cheerio';
-import { z } from 'zod';
-import type { JwcNotice, NotificationItem } from '../../../shared/notifications';
 import { getDatabase } from '../../../main/database';
-import type { NoticeSource } from '../../../main/notifications';
-import { systemNotifyItem } from '../../../main/notifications/system';
+import { systemNotifyItem, type NoticeSource } from '../../../modules/notifications';
+import type { JwcNotice } from '../contract';
 
 const origin = 'https://jwc.sjtu.edu.cn';
 const listUrl = `${origin}/index/mxxsdtz.htm`;
@@ -15,6 +13,15 @@ const accountKey = 'students';
 let nextCheckAt = 0;
 const notices = new Map<string, JwcNotice>();
 let challenge: { token: string; url: string; name: string; cookie: string } | null = null;
+
+interface JwcListItem {
+  id: string;
+  source: 'jwc';
+  title: string;
+  body: string;
+  createdAt: string;
+  href: { kind: 'jwc'; url: string };
+}
 
 interface JwcSync {
   seen: string[];
@@ -26,7 +33,7 @@ interface JwcSync {
 export function parseJwcList(html: string, pageUrl: string) {
   const $ = load(html);
   const articleIds = [...html.matchAll(/['"]dynclicks_u\d+_(\d+)['"]/g)].map((match) => match[1]);
-  const items: NotificationItem[] = [];
+  const items: JwcListItem[] = [];
   $('.ny_right_con .Newslist > ul > li').each((index, element) => {
     const row = $(element);
     const link = row.find('.wz a');
@@ -47,12 +54,9 @@ export function parseJwcList(html: string, pageUrl: string) {
     items.push({
       id: `jwc:${articleId}`,
       source: 'jwc',
-      category: null,
-      count: 1,
       title,
       body: row.find('.wz p').text().trim(),
       createdAt: new Date(`${date}T00:00:00+08:00`).toISOString(),
-      readAt: null,
       href: { kind: 'jwc', url: url.href },
     });
   });
@@ -85,7 +89,7 @@ export async function refreshJwc(force = false): Promise<void> {
       modified: null,
       checkedAt: 0,
     };
-    const added: NotificationItem[] = [];
+    const added: JwcListItem[] = [];
     if (response.status !== 304) {
       if (!response.ok) throw new Error(`教务处请求失败（${response.status}）`);
       let page = parseJwcList(await response.text(), listUrl);
@@ -152,11 +156,7 @@ export async function refreshJwc(force = false): Promise<void> {
   }
 }
 
-export async function getJwcNotice(idInput: unknown): Promise<JwcNotice> {
-  const id = z
-    .string()
-    .regex(/^jwc:\d+$/)
-    .parse(idInput);
+export async function getJwcNotice(id: string): Promise<JwcNotice> {
   const cached = notices.get(id);
   if (cached) return cached;
   const row = getDatabase()
@@ -192,9 +192,8 @@ export async function getJwcNotice(idInput: unknown): Promise<JwcNotice> {
   return notice;
 }
 
-export async function getJwcCaptcha(idInput: unknown, attachmentInput: unknown) {
-  const notice = await getJwcNotice(idInput);
-  const attachmentId = z.string().min(1).parse(attachmentInput);
+export async function getJwcCaptcha(id: string, attachmentId: string) {
+  const notice = await getJwcNotice(id);
   const attachment = notice.attachments.find((item) => item.id === attachmentId);
   if (!attachment) throw new Error('附件不存在');
   const response = await fetch(attachment.url, { signal: AbortSignal.timeout(20_000) });
@@ -224,15 +223,9 @@ export async function getJwcCaptcha(idInput: unknown, attachmentInput: unknown) 
 }
 
 export async function downloadJwcAttachment(
-  tokenInput: unknown,
-  codeInput: unknown,
+  token: string,
+  code: string,
 ): Promise<{ status: 'saved' | 'canceled' | 'invalid-code' }> {
-  const token = z.string().uuid().parse(tokenInput);
-  const code = z
-    .string()
-    .trim()
-    .regex(/^\d{4}$/, '请输入四位验证码')
-    .parse(codeInput);
   const current = challenge;
   if (!current || current.token !== token) throw new Error('验证码已过期，请换一张');
   const url = new URL(current.url);
@@ -262,4 +255,9 @@ export const jwcNoticeSource: NoticeSource = {
   id: 'jwc',
   account: () => accountKey,
   refresh: (_account, force) => refreshJwc(force),
+  // 教务处官网的通知在应用内阅读，转载到外部网站的交给浏览器。
+  link: ({ url }, id) =>
+    typeof url === 'string'
+      ? { target: new URL(url).origin === origin ? { page: 'jwc', noticeId: id } : { url } }
+      : null,
 };

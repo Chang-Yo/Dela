@@ -16,6 +16,11 @@ export function connectQueryEvents(
       bridge.subscribe(`${contract.namespace}:${name}`, (payload) => {
         void client.cancelQueries({ queryKey, exact: true });
         client.setQueryData(queryKey, payload);
+        // 带参数的同名读取（如按来源筛选）无法由快照推出，标记过期后重读。
+        void client.invalidateQueries({
+          queryKey,
+          predicate: (query) => query.queryKey.length > 2,
+        });
       });
     }
 }

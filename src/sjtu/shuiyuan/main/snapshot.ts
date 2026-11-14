@@ -16,7 +16,8 @@ import type { ShuiyuanPost, ShuiyuanSnapshotState } from '../../../shared/api';
 import { SHUIYUAN_HOST } from '../../../shared/shuiyuan';
 import { loadShuiyuanCredential } from './credentials';
 import { getDatabase } from '../../../main/database';
-import { isWorkspaceWindow, systemNotifyToast } from '../../../main/notifications/system';
+import { isWorkspaceWindow } from '../../../main/ipc';
+import { systemNotifyToast } from '../../../modules/notifications';
 import { getShuiyuanTopic, loadShuiyuanPosts, SHUIYUAN_ORIGIN } from './api';
 import { noteShuiyuanResponse, waitForShuiyuanBackgroundSlot } from './budget';
 

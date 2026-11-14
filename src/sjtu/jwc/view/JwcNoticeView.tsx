@@ -1,12 +1,14 @@
-import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Download, ExternalLink, Paperclip } from 'lucide-react';
-import type { JwcNotice, NotificationItem } from '../../../shared/notifications';
+import type { Navigate } from '../../../app/module';
+import { createClient, errorMessage } from '../../../core/protocol/contract';
+import { showToast } from '../../../renderer/app/toasts';
+import { useRootFontSize } from '../../../renderer/lib/root-font-size';
+import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
-import { sanitizeHtml } from '../../lib/sanitize-html';
-import { useRootFontSize } from '../../lib/root-font-size';
-import { errorText } from '../../workspace/store';
-import { showToast } from '../../app/toasts';
+import { jwcContract, type JwcNotice } from '../contract';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../ui/dialog';
@@ -14,30 +16,25 @@ import { Field } from '../../../ui/field';
 
 const INITIAL_BODY_HEIGHT = 240;
 
-export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack: () => void }) {
-  const [notice, setNotice] = useState<JwcNotice | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [retry, setRetry] = useState(0);
+const jwcClient = createClient(jwcContract, window.dela?.bridge);
+
+export function JwcNoticeView({
+  target: { noticeId },
+  navigate,
+}: {
+  target: { noticeId: string };
+  navigate: Navigate;
+}) {
+  const query = useQuery({
+    queryKey: ['jwc', 'notice', noticeId],
+    queryFn: () => jwcClient.notice(noticeId),
+  });
+  const notice = query.data;
   const [attachment, setAttachment] = useState<JwcNotice['attachments'][number] | null>(null);
   const [body, setBody] = useState<HTMLElement | null>(null);
   const [height, setHeight] = useState(INITIAL_BODY_HEIGHT);
   const attachmentsRef = useRef<HTMLElement>(null);
   const rootSize = useRootFontSize();
-  useEffect(() => {
-    let active = true;
-    setError(null);
-    void window.dela!.notifications.getJwcNotice(item.id).then(
-      (value) => {
-        if (active) setNotice(value);
-      },
-      (reason) => {
-        if (active) setError(errorText(reason));
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [item.id, retry]);
   useEffect(() => {
     if (!body) return;
     const update = () => setHeight(body.scrollHeight);
@@ -46,48 +43,40 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
     observer.observe(body);
     return () => observer.disconnect();
   }, [body]);
-  const html = useMemo(
-    () => (notice ? sanitizeHtml(notice.html, notice.url, rootSize) : ''),
-    [notice, rootSize],
-  );
+  const html = notice ? sanitizeHtml(notice.html, notice.url, rootSize) : '';
   const openLink = (url: string) => {
     const file = notice?.attachments.find((entry) => entry.url === url);
     if (file) setAttachment(file);
-    else
-      void window
-        .dela!.canvas.openLink(url)
-        .catch((reason) =>
-          showToast({ variant: 'error', title: '打开链接失败', description: errorText(reason) }),
-        );
+    else window.open(url);
   };
   return (
     <div className="mx-auto h-full w-full max-w-4xl overflow-y-auto px-6 py-6 [scrollbar-width:none] max-md:px-4">
       <header>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <Button size="sm" variant="ghost" onClick={onBack}>
+          <Button size="sm" variant="ghost" onClick={() => navigate({ page: 'notifications' })}>
             <ArrowLeft className="size-4" />
             返回通知
           </Button>
-          {item.href.kind === 'jwc' && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                if (item.href.kind === 'jwc') openLink(item.href.url);
-              }}
-            >
+          {notice && (
+            <Button size="sm" variant="ghost" onClick={() => window.open(notice.url)}>
               <ExternalLink className="size-4" />
               查看原文
             </Button>
           )}
         </div>
-        <h1 className="break-words text-xl font-semibold">{item.title}</h1>
+        <h1 className="break-words text-xl font-semibold">{notice?.title}</h1>
         <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-sm text-ink-3">
           <span>教务处</span>
-          <span aria-hidden="true">·</span>
-          <span>
-            {new Date(item.createdAt).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}
-          </span>
+          {notice && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>
+                {new Date(notice.publishedAt).toLocaleDateString('zh-CN', {
+                  timeZone: 'Asia/Shanghai',
+                })}
+              </span>
+            </>
+          )}
           {notice && notice.attachments.length > 0 && (
             <>
               <span aria-hidden="true">·</span>
@@ -105,10 +94,10 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
           )}
         </p>
       </header>
-      {error ? (
+      {query.error ? (
         <div role="alert" className="py-6 text-sm text-danger">
-          <p>{error}</p>
-          <Button className="mt-3" variant="outline" onClick={() => setRetry((value) => value + 1)}>
+          <p>{errorMessage(query.error)}</p>
+          <Button className="mt-3" variant="outline" onClick={() => void query.refetch()}>
             重试
           </Button>
         </div>
@@ -169,7 +158,7 @@ export function JwcNoticeView({ item, onBack }: { item: NotificationItem; onBack
       {attachment && (
         <AttachmentDownload
           key={attachment.id}
-          noticeId={item.id}
+          noticeId={noticeId}
           attachment={attachment}
           onClose={() => setAttachment(null)}
         />
@@ -187,42 +176,38 @@ function AttachmentDownload({
   attachment: JwcNotice['attachments'][number];
   onClose: () => void;
 }) {
-  const [captcha, setCaptcha] = useState<{ token: string; image: string } | null>(null);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const [code, setCode] = useState('');
-  useEffect(() => {
-    let active = true;
-    setCaptcha(null);
+  // 每张验证码只能用一次：换一张时递增 revision，旧图不缓存。
+  const captchaQuery = useQuery({
+    queryKey: ['jwc', 'captcha', noticeId, attachment.id, revision],
+    queryFn: () => jwcClient.captcha({ noticeId, attachmentId: attachment.id }),
+    staleTime: Infinity,
+    gcTime: 0,
+  });
+  const captcha = captchaQuery.data;
+  const nextCaptcha = () => {
     setCode('');
-    void window.dela!.notifications.getJwcCaptcha(noticeId, attachment.id).then(
-      (value) => {
-        if (active) setCaptcha(value);
-      },
-      (reason) => {
-        if (active) setError(errorText(reason));
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [noticeId, attachment.id, revision]);
+    setRevision((value) => value + 1);
+  };
   const [, submit, pending] = useActionState(async () => {
     if (!captcha) return;
     setError('');
     try {
-      const result = await window.dela!.notifications.downloadJwcAttachment(captcha.token, code);
+      const result = await jwcClient.download({ token: captcha.token, code });
       if (result.status === 'invalid-code') {
         setError('验证码不正确或已过期，请重新输入');
-        setRevision((value) => value + 1);
+        nextCaptcha();
       } else if (result.status === 'saved') {
         showToast({ variant: 'success', title: '附件已保存' });
         onClose();
       }
     } catch (reason) {
-      setError(errorText(reason));
+      setError(errorMessage(reason));
     }
   }, undefined);
+  const shownError = error || (captchaQuery.error ? errorMessage(captchaQuery.error) : '');
   return (
     <Dialog
       open
@@ -239,7 +224,7 @@ function AttachmentDownload({
               <img src={captcha.image} alt="下载验证码" className="h-10 w-auto rounded-control" />
             ) : (
               <span role="status" className="text-sm text-ink-3">
-                {error ? '验证码未加载' : '正在加载验证码…'}
+                {captchaQuery.error ? '验证码未加载' : '正在加载验证码…'}
               </span>
             )}
             <Button
@@ -249,7 +234,7 @@ function AttachmentDownload({
               disabled={pending}
               onClick={() => {
                 setError('');
-                setRevision((value) => value + 1);
+                nextCaptcha();
               }}
             >
               换一张
@@ -269,7 +254,7 @@ function AttachmentDownload({
               placeholder="输入四位数字"
             />
           </Field>
-          {error && <ErrorText size="sm">{error}</ErrorText>}
+          {shownError && <ErrorText size="sm">{shownError}</ErrorText>}
           <div className="mt-2 flex justify-end gap-2">
             <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
               取消

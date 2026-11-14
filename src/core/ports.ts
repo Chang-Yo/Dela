@@ -79,6 +79,8 @@ export interface SecretStore {
 /** 后台任务的终态提醒；偏好与系统通知由实现方决定。 */
 export interface Notifier {
   notifyRunFinished(sessionId: string, status: 'completed' | 'failed'): void;
+  /** 系统桌面通知；主窗口正被使用时不弹。点击唤起主窗口后调用 onClick。 */
+  show(title: string, body: string, onClick?: () => void): void;
 }
 
 export interface ClientBroadcaster {

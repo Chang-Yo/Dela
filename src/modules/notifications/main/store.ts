@@ -1,121 +1,123 @@
-import { BrowserWindow, ipcMain } from 'electron';
-import { z } from 'zod';
-import { notificationSources } from '../../shared/api';
-import type {
-  NotificationCategory,
-  NotificationItem,
-  NotificationSource,
-  NotificationState,
-} from '../../shared/api';
-import { getTodoState, markTodoRead, todoNotifications } from '../../modules/todo';
-import { getDatabase } from '../database';
-import { checkWorkspaceSender } from '../ipc';
-import { getMailState, markAllMailSeen, markMailSeen, onMailCacheChanged } from '../mail/api';
+import { emit, hostPorts } from '../../../core/ports';
+import { getTodoState, markTodoRead, todoNotifications, type TaskNotice } from '../../todo';
 import {
-  armSystemNotifications,
-  isWorkspaceWindow,
-  systemNotifyItem,
-  NOTIFICATIONS_SNOOZE_KEY,
-} from './system';
+  notificationsContract,
+  type NotificationCategory,
+  type NotificationItem,
+  type NotificationState,
+  type NotificationTarget,
+} from '../contract';
+import { armSystemNotifications, NOTIFICATIONS_SNOOZE_KEY, showCampusNotice } from './system';
 
-/** 外部通知来源（如交大各服务）。邮件与待办内置；未注册的来源不刷新，其旧通知也不显示。 */
+/** 通知来源（邮件与交大各服务）。待办内置；未注册的来源不刷新，其旧通知也不显示。 */
 export interface NoticeSource {
-  id: NotificationSource;
+  id: string;
   /** 当前账号键，未登录时为 null；换账号后旧账号的通知不再显示。 */
   account(): string | null;
   /** 抛出的错误记为该来源的刷新错误；成功时由来源自行调用 saveNotificationRefresh。 */
   refresh(account: string, force: boolean): Promise<void>;
-  /** 标记一条通知已读前调用，可连带标记同组的其他通知。 */
-  markRead?(id: string, account: string): void;
+  /** 解释来源自己写入的 href；返回 null 的行视为损坏，不显示。 */
+  link(href: Record<string, unknown>, id: string): NoticeLink | null;
+  /** 标记一条通知已读前调用，可连带标记同组的其他通知；抛出时该条保持未读并记为来源错误。 */
+  markRead?(id: string, account: string): void | Promise<void>;
+  /** 全部已读前调用，失败语义同 markRead。 */
+  markAllRead?(account: string): Promise<void>;
 }
 
-const sourcesSchema = z.array(z.enum(notificationSources)).min(1);
-const snoozeSchema = z.string().datetime().nullable();
-const noticeSources = new Map<NotificationSource, NoticeSource>();
+export interface NoticeLink {
+  target: NotificationTarget;
+  group?: string;
+}
+
+/** 来源写入通知表的一行；href 由来源自己定义，展示时经 link 解释。 */
+export interface StoredNotice {
+  id: string;
+  source: string;
+  title: string;
+  href: object;
+}
+
+const noticeSources = new Map<string, NoticeSource>();
 let activeRefresh: Promise<NotificationState> | null = null;
 
 export function registerNoticeSource(source: NoticeSource): void {
   noticeSources.set(source.id, source);
 }
 
-type ActiveAccount = { source: NotificationSource; key: string };
-
 interface NotificationRow {
   id: string;
-  source: NotificationSource;
+  source: string;
   title: string;
   body: string;
   created_at: string;
   read_at: string | null;
-  mail_seen: number | null;
   href: string;
   category: NotificationCategory | null;
   count: number;
 }
 
-function currentAccounts(): ActiveAccount[] {
-  const db = getDatabase();
-  const mail = db.prepare('SELECT address FROM mail_accounts ORDER BY id LIMIT 1').get() as
-    { address: string } | undefined;
-  const accounts: ActiveAccount[] = mail ? [{ source: 'mail', key: mail.address }] : [];
+const database = () => hostPorts().database();
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function currentAccounts(): Map<string, string> {
+  const accounts = new Map<string, string>();
   for (const source of noticeSources.values()) {
     try {
       const key = source.account();
-      if (key) accounts.push({ source: source.id, key });
+      if (key) accounts.set(source.id, key);
     } catch {
-      // 损坏的凭据视同未登录，不能连带隐藏邮件等其他来源的通知。
+      // 损坏的凭据视同未登录，不能连带隐藏其他来源的通知。
     }
   }
   return accounts;
 }
 
-function accountFor(source: NotificationSource): string | null {
-  return currentAccounts().find((account) => account.source === source)?.key ?? null;
+export function todoItem(notice: TaskNotice): NotificationItem {
+  return {
+    id: `todo:${notice.todoId}`,
+    source: 'todo',
+    category: null,
+    count: 1,
+    title: notice.title,
+    body: notice.body,
+    createdAt: notice.createdAt,
+    readAt: notice.readAt,
+    target: { page: 'todo', todoId: notice.todoId },
+    group: null,
+  };
 }
 
-function notificationState(
-  sources: readonly NotificationSource[] = notificationSources,
-): NotificationState {
-  refreshMail(false);
-  const db = getDatabase();
+function linkOf(source: string, href: object, id: string): NoticeLink | null {
+  return noticeSources.get(source)?.link(href as Record<string, unknown>, id) ?? null;
+}
+
+/** 新到达通知的系统提醒；body 用于合并后的摘要，缺省不显示正文。 */
+export function systemNotifyItem(notice: StoredNotice, body = ''): void {
+  const link = linkOf(notice.source, notice.href, notice.id);
+  if (link) showCampusNotice(notice.id, notice.title, body, link.target);
+}
+
+export function notificationState(sources?: readonly string[]): NotificationState {
+  const db = database();
   const accounts = currentAccounts();
-  const active = accounts.filter((account) => sources.includes(account.source));
-  const clauses = active.map(() => '(n.source = ? AND n.account_key = ?)');
-  const bindings = active.flatMap((account) => [account.source, account.key]);
-  // 邮件通知的已读派生自邮件本身的 seen 标志（本地删除的邮件不显示通知）；
-  // 其他来源使用通知行的 read_at。
-  const mailJoin =
-    "LEFT JOIN mail_messages m ON n.source = 'mail' AND m.id = json_extract(n.href, '$.messageId') AND m.deleted_at IS NULL";
-  const where = clauses.length
-    ? `(${clauses.join(' OR ')}) AND (n.source != 'mail' OR m.id IS NOT NULL)`
+  const active = [...accounts].filter(([source]) => !sources || sources.includes(source));
+  const where = active.length
+    ? active.map(() => '(source = ? AND account_key = ?)').join(' OR ')
     : '0';
-  const rows =
-    clauses.length === 0
-      ? []
-      : (db
-          .prepare(
-            `SELECT n.id, n.source, n.title, n.body, n.created_at, n.read_at, n.href, n.category, n.count, m.seen AS mail_seen
-             FROM notifications n ${mailJoin}
-             WHERE ${where} ORDER BY n.created_at DESC, n.id DESC LIMIT 200`,
-          )
-          .all(...bindings) as NotificationRow[]);
+  const bindings = active.flat();
+  const rows = db
+    .prepare(
+      `SELECT id, source, title, body, created_at, read_at, href, category, count FROM notifications
+       WHERE ${where} ORDER BY created_at DESC, id DESC LIMIT 200`,
+    )
+    .all(...bindings) as NotificationRow[];
   const items = rows.flatMap((row): NotificationItem[] => {
     try {
-      const href = JSON.parse(row.href) as NotificationItem['href'];
-      const knownHref =
-        (href.kind === 'jwc' && typeof href.url === 'string') ||
-        (href.kind === 'canvas' && typeof href.sourceId === 'string') ||
-        (href.kind === 'mail' && typeof href.messageId === 'number') ||
-        (href.kind === 'shuiyuan' && typeof href.topicId === 'number') ||
-        (href.kind === 'shuiyuan-post' && typeof href.postId === 'number');
-      if (!knownHref) return [];
-      const readAt =
-        row.source === 'mail'
-          ? row.mail_seen === 1
-            ? // readAt 只区分已读/未读；邮件本身不记录已读时刻，用通知行时间占位。
-              (row.read_at ?? row.created_at)
-            : null
-          : row.read_at;
+      const link = linkOf(row.source, JSON.parse(row.href) as object, row.id);
+      if (!link) return [];
       return [
         {
           id: row.id,
@@ -125,51 +127,37 @@ function notificationState(
           title: row.title,
           body: row.body,
           createdAt: row.created_at,
-          readAt,
-          href,
+          readAt: row.read_at,
+          target: link.target,
+          group: link.group ?? null,
         },
       ];
     } catch {
-      // A corrupt stored row must not make the notifications workspace unusable.
+      // 损坏的行不能让整个通知中心不可用。
       return [];
     }
   });
-  const counts = db
+  const { totalCount, unreadCount } = db
     .prepare(
-      `SELECT COUNT(*) AS totalCount, COALESCE(SUM(
-         CASE WHEN n.source = 'mail' THEN m.seen = 0 ELSE n.read_at IS NULL END
-       ), 0) AS unreadCount
-       FROM notifications n ${mailJoin} WHERE ${where}`,
+      `SELECT COUNT(*) AS totalCount, COALESCE(SUM(read_at IS NULL), 0) AS unreadCount
+       FROM notifications WHERE ${where}`,
     )
     .get(...bindings) as { totalCount: number; unreadCount: number };
-  const { totalCount, unreadCount } = counts;
-  const snoozedUntil = snoozeSchema
-    .catch(null)
-    .parse(
-      (
-        db
-          .prepare('SELECT value FROM workspace_settings WHERE key = ?')
-          .get(NOTIFICATIONS_SNOOZE_KEY) as { value?: string } | undefined
-      )?.value ?? null,
-    );
-  const refresh = Object.fromEntries(
-    notificationSources.map((source) => {
-      const key = accountFor(source);
-      if (!key) return [source, null];
-      const row = db
-        .prepare(
-          'SELECT last_success_at, error FROM notification_refreshes WHERE source = ? AND account_key = ?',
-        )
-        .get(source, key) as { last_success_at: string | null; error: string | null } | undefined;
-      return [
-        source,
-        row
-          ? { lastSuccessAt: row.last_success_at, error: row.error }
-          : { lastSuccessAt: null, error: null },
-      ];
-    }),
-  ) as NotificationState['refresh'];
-  const todos = sources.includes('todo') ? todoNotifications() : [];
+  const snooze = (
+    db
+      .prepare('SELECT value FROM workspace_settings WHERE key = ?')
+      .get(NOTIFICATIONS_SNOOZE_KEY) as { value: string } | undefined
+  )?.value;
+  const refresh: NotificationState['refresh'] = {};
+  for (const [source, key] of accounts) {
+    const row = db
+      .prepare(
+        'SELECT last_success_at, error FROM notification_refreshes WHERE source = ? AND account_key = ?',
+      )
+      .get(source, key) as { last_success_at: string | null; error: string | null } | undefined;
+    refresh[source] = { lastSuccessAt: row?.last_success_at ?? null, error: row?.error ?? null };
+  }
+  const todos = !sources || sources.includes('todo') ? todoNotifications().map(todoItem) : [];
   const todoState = getTodoState();
   refresh.todo = { lastSuccessAt: todoState.syncedAt, error: todoState.error };
   return {
@@ -178,27 +166,20 @@ function notificationState(
       .slice(0, 200),
     totalCount: totalCount + todos.length,
     unreadCount: unreadCount + todos.filter((item) => !item.readAt).length,
-    snoozedUntil,
+    snoozedUntil: snooze && Date.parse(snooze) > Date.now() ? snooze : null,
     refresh,
   };
 }
 
-function broadcast(): NotificationState {
+export function publishNotificationState(): NotificationState {
   const state = notificationState();
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed() && isWorkspaceWindow(window.webContents.getURL()))
-      window.webContents.send('notifications:state', state);
-  }
+  emit(notificationsContract, 'state', state);
   return state;
 }
 
-export function saveNotificationRefresh(
-  source: NotificationSource,
-  key: string,
-  error: string | null,
-): void {
+export function saveNotificationRefresh(source: string, key: string, error: string | null): void {
   const now = new Date().toISOString();
-  getDatabase()
+  database()
     .prepare(
       `INSERT INTO notification_refreshes (source, account_key, last_success_at, error) VALUES (?, ?, ?, ?)
        ON CONFLICT(source, account_key) DO UPDATE SET
@@ -209,18 +190,18 @@ export function saveNotificationRefresh(
 }
 
 export function upsertNotification(
-  source: NotificationSource,
+  source: string,
   accountKey: string,
   id: string,
   title: string,
   body: string,
   createdAt: string,
-  href: NotificationItem['href'],
+  href: object,
   category: NotificationCategory | null = null,
   count = 1,
   remoteReadAt: string | null = null,
 ): void {
-  getDatabase()
+  database()
     .prepare(
       `INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href, category, count)
        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
@@ -245,191 +226,94 @@ export function upsertNotification(
     );
 }
 
-export function existingNotifications(
-  source: NotificationSource,
-  key: string,
-): Map<string, number> {
+export function existingNotifications(source: string, key: string): Map<string, number> {
   return new Map(
     (
-      getDatabase()
+      database()
         .prepare('SELECT id, count FROM notifications WHERE source = ? AND account_key = ?')
         .all(source, key) as { id: string; count: number }[]
     ).map((row) => [row.id, row.count]),
   );
 }
 
-function refreshMail(recordSuccess = true): void {
-  // created_at 是账号注册时刻：早于它的存量未读只进通知列表，不弹系统通知。
-  const account = getDatabase()
-    .prepare('SELECT address, created_at FROM mail_accounts ORDER BY id LIMIT 1')
-    .get() as { address: string; created_at: string } | undefined;
-  if (!account) return;
-  const key = account.address;
-  const db = getDatabase();
-  const unread = db
-    .prepare(
-      `SELECT m.id, m.subject, m.sender_name, m.sender_address, m.snippet, m.date
-       FROM mail_messages m JOIN mail_folders f ON f.id = m.folder_id
-       JOIN mail_accounts a ON a.id = f.account_id
-       WHERE a.address = ? AND f.special_use = '\\Inbox' AND m.deleted_at IS NULL AND m.seen = 0`,
-    )
-    .all(key) as Array<{
-    id: number;
-    subject: string | null;
-    sender_name: string | null;
-    sender_address: string | null;
-    snippet: string | null;
-    date: string | null;
-  }>;
-  const existing = existingNotifications('mail', key);
-  for (const message of unread) {
-    const sender = message.sender_name || message.sender_address || '新邮件';
-    const id = `mail:${key}:${message.id}`;
-    const title = message.subject || '无主题邮件';
-    const body = message.snippet || sender;
-    const createdAt = message.date || new Date().toISOString();
-    const href: NotificationItem['href'] = { kind: 'mail', messageId: message.id };
-    upsertNotification('mail', key, id, title, body, createdAt, href);
-    // 注册后到达的未读首次入库才弹系统通知；启动基线等其余守卫由 notifications/system.ts 判断。
-    // date 缺失时无法证明晚于注册时刻，保守起见不弹（通知列表仍可见）。
-    if (!existing.has(id) && (message.date ?? '') > account.created_at)
-      systemNotifyItem({
-        id,
-        source: 'mail',
-        category: null,
-        count: 1,
-        title,
-        body,
-        createdAt,
-        readAt: null,
-        href,
-      });
-  }
-  const sync = getMailState().sync;
-  if (sync.phase === 'error') saveNotificationRefresh('mail', key, sync.error ?? '邮箱同步失败');
-  else if (recordSuccess) saveNotificationRefresh('mail', key, null);
-}
-
-export function initializeNotifications(): void {
-  // Database initialization creates the schema. Existing unread mail is intentionally included as passive local inbox state.
-  refreshMail(false);
-  broadcast();
-  // 邮件已读派生自邮件缓存：读信、删除、恢复与同步完成都会改变通知状态，需立即重播。
-  onMailCacheChanged(() => broadcast());
-}
-
-export function getNotificationState(input?: unknown): NotificationState {
-  return notificationState(sourcesSchema.catch([...notificationSources]).parse(input));
-}
-
 export function refreshNotifications(force = false): Promise<NotificationState> {
   if (activeRefresh) return activeRefresh;
   activeRefresh = (async () => {
-    try {
-      refreshMail();
-    } catch (error) {
-      const key = accountFor('mail');
-      if (key)
-        saveNotificationRefresh(
-          'mail',
-          key,
-          error instanceof Error ? error.message : String(error),
-        );
-    }
+    const accounts = currentAccounts();
     await Promise.all(
       [...noticeSources.values()].map(async (source) => {
-        const key = accountFor(source.id);
+        const key = accounts.get(source.id);
         if (!key) return;
         try {
           await source.refresh(key, force);
         } catch (error) {
-          saveNotificationRefresh(
-            source.id,
-            key,
-            error instanceof Error ? error.message : String(error),
-          );
+          saveNotificationRefresh(source.id, key, errorText(error));
         }
       }),
     );
     // 首轮刷新构成启动基线；此后新增的通知才弹系统桌面通知。
     armSystemNotifications();
-    return broadcast();
+    return publishNotificationState();
   })().finally(() => {
     activeRefresh = null;
   });
   return activeRefresh;
 }
 
-// 只更新当前账号名下的通知行；id 为 null 时更新全部，与 todo/index.ts 的 markTodoRead 同一模式。
-function markNotificationRowsRead(
-  id: string | null,
-  sources: readonly NotificationSource[] = notificationSources,
-): void {
-  const accounts = currentAccounts().filter((account) => sources.includes(account.source));
-  const clauses = accounts.map(() => '(source = ? AND account_key = ?)');
-  if (clauses.length === 0) return;
-  getDatabase()
+// 只更新当前账号名下的通知行；id 为 null 时更新全部。
+function markNotificationRowsRead(id: string | null, accounts: Array<[string, string]>): void {
+  if (accounts.length === 0) return;
+  database()
     .prepare(
-      `UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE (? IS NULL OR id = ?) AND (${clauses.join(' OR ')})`,
+      `UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE (? IS NULL OR id = ?)
+       AND (${accounts.map(() => '(source = ? AND account_key = ?)').join(' OR ')})`,
     )
-    .run(
-      new Date().toISOString(),
-      id,
-      id,
-      ...accounts.flatMap((account) => [account.source, account.key]),
-    );
+    .run(new Date().toISOString(), id, id, ...accounts.flat());
 }
 
-export async function markNotificationRead(idInput: unknown): Promise<NotificationState> {
-  const id = z.string().min(1).max(1000).parse(idInput);
+export async function markNotificationRead(id: string): Promise<NotificationState> {
   if (id.startsWith('todo:')) {
     markTodoRead(id.slice(5));
-    return broadcast();
+    return publishNotificationState();
   }
-  // 邮件通知的已读以邮件本身为准：委托 markMailSeen 在服务器标记 \Seen 并更新本地缓存；
-  // 失败时保留未读，经来源错误行提示。
-  const row = getDatabase()
-    .prepare('SELECT source, account_key, href FROM notifications WHERE id = ?')
-    .get(id) as { source: NotificationSource; account_key: string; href: string } | undefined;
-  if (row && row.account_key === accountFor(row.source))
-    noticeSources.get(row.source)?.markRead?.(id, row.account_key);
-  if (row?.source === 'mail') {
-    let messageId: number | null = null;
-    try {
-      const href = JSON.parse(row.href) as { kind?: unknown; messageId?: unknown };
-      if (href.kind === 'mail' && typeof href.messageId === 'number') messageId = href.messageId;
-    } catch {
-      // 损坏的 href 行走普通通知已读标记；对邮件行该写入不影响派生已读，仅作保底。
-    }
-    if (messageId !== null) {
-      const result = await markMailSeen(messageId);
-      if (!result.ok) {
-        const key = accountFor('mail');
-        if (key) saveNotificationRefresh('mail', key, result.error);
+  const row = database()
+    .prepare('SELECT source, account_key FROM notifications WHERE id = ?')
+    .get(id) as { source: string; account_key: string } | undefined;
+  if (!row || currentAccounts().get(row.source) !== row.account_key)
+    return publishNotificationState();
+  try {
+    await noticeSources.get(row.source)?.markRead?.(id, row.account_key);
+    markNotificationRowsRead(id, [[row.source, row.account_key]]);
+  } catch (error) {
+    saveNotificationRefresh(row.source, row.account_key, errorText(error));
+  }
+  return publishNotificationState();
+}
+
+export async function markAllNotificationsRead(
+  sources?: readonly string[],
+): Promise<NotificationState> {
+  if (!sources || sources.includes('todo')) markTodoRead(null);
+  const accounts = [...currentAccounts()].filter(
+    ([source]) => !sources || sources.includes(source),
+  );
+  const marked = await Promise.all(
+    accounts.map(async ([source, key]): Promise<Array<[string, string]>> => {
+      try {
+        await noticeSources.get(source)?.markAllRead?.(key);
+        return [[source, key]];
+      } catch (error) {
+        saveNotificationRefresh(source, key, errorText(error));
+        return [];
       }
-      return broadcast();
-    }
-  }
-  markNotificationRowsRead(id);
-  return broadcast();
+    }),
+  );
+  markNotificationRowsRead(null, marked.flat());
+  return publishNotificationState();
 }
 
-export async function markAllNotificationsRead(input?: unknown): Promise<NotificationState> {
-  const sources = sourcesSchema.default([...notificationSources]).parse(input);
-  if (sources.includes('todo')) markTodoRead(null);
-  markNotificationRowsRead(null, sources);
-  if (!sources.includes('mail')) return broadcast();
-  const result = await markAllMailSeen();
-  if (!result.ok) {
-    const key = accountFor('mail');
-    if (key) saveNotificationRefresh('mail', key, result.error);
-  }
-  return broadcast();
-}
-
-export function setNotificationSnooze(untilInput: unknown): NotificationState {
-  const until = snoozeSchema.parse(untilInput);
-  const db = getDatabase();
+export function setNotificationSnooze(until: string | null): NotificationState {
+  const db = database();
   if (until === null)
     db.prepare('DELETE FROM workspace_settings WHERE key = ?').run(NOTIFICATIONS_SNOOZE_KEY);
   else
@@ -437,28 +321,5 @@ export function setNotificationSnooze(untilInput: unknown): NotificationState {
       NOTIFICATIONS_SNOOZE_KEY,
       until,
     );
-  return broadcast();
-}
-
-export function registerNotificationsIpc(): void {
-  ipcMain.handle('notifications:get-state', (event, sources) => {
-    checkWorkspaceSender(event);
-    return getNotificationState(sources);
-  });
-  ipcMain.handle('notifications:refresh', async (event) => {
-    checkWorkspaceSender(event);
-    return refreshNotifications(true);
-  });
-  ipcMain.handle('notifications:mark-read', (event, id) => {
-    checkWorkspaceSender(event);
-    return markNotificationRead(id);
-  });
-  ipcMain.handle('notifications:mark-all-read', (event, sources) => {
-    checkWorkspaceSender(event);
-    return markAllNotificationsRead(sources);
-  });
-  ipcMain.handle('notifications:set-snooze', (event, until) => {
-    checkWorkspaceSender(event);
-    return setNotificationSnooze(until);
-  });
+  return publishNotificationState();
 }

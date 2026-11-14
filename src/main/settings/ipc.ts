@@ -103,7 +103,7 @@ export function registerSettingsIpc(): void {
       });
     return enabled;
   });
-  // 校园消息系统提醒：只影响 notifications/system.ts 的桌面弹窗，通知收集与应用内列表不受影响。
+  // 校园消息系统提醒：只影响通知中心的桌面弹窗，通知收集与应用内列表不受影响。
   ipcMain.handle('settings:get-campus-notifications', (event) => {
     checkWorkspaceSender(event);
     return savedCampusNotifications();

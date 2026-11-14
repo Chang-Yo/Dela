@@ -485,7 +485,7 @@ export function AppShell({
                 aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
                 aria-current={view === 'notifications' ? 'page' : undefined}
                 className="relative"
-                onClick={() => navigate('notifications')}
+                onClick={() => navigate({ page: 'notifications' })}
                 title="通知"
               >
                 <Bell strokeWidth={1.8} />
@@ -683,7 +683,7 @@ export function AppShell({
               aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
               aria-current={view === 'notifications' ? 'page' : undefined}
               className={cn('relative', view === 'notifications' && 'bg-selected text-ink')}
-              onClick={() => navigate('notifications')}
+              onClick={() => navigate({ page: 'notifications' })}
               title="通知"
             >
               <Bell strokeWidth={1.8} />

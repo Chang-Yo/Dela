@@ -28,9 +28,12 @@ export function defineModule(definition: ModuleDefinition): ModuleDefinition {
   return definition;
 }
 
+/** 唯一的跳转动作；被拦下（例如写信未保存）或页面未启用时返回 false。 */
+export type Navigate = (target: NavTarget) => boolean;
+
 /** 模块的一个页面：组件收到跳转参数 target，每次跳转都是新对象，可据此重置本地状态。 */
 export interface PageDefinition<Page extends keyof NavTargets> {
-  component: ComponentType<{ target: NavTargets[Page] }>;
+  component: ComponentType<{ target: NavTargets[Page]; navigate: Navigate }>;
   /** navigate 跳到此页时调用，承载随跳转发生的副作用，例如标记已读；后退与前进不调用。 */
   open?(target: NavTargets[Page]): void;
 }
@@ -38,6 +41,15 @@ export interface PageDefinition<Page extends keyof NavTargets> {
 /** 模块的界面侧定义，由 app/views.ts 列入渲染端清单。 */
 export interface ViewDefinition {
   pages: { [Page in keyof NavTargets]?: PageDefinition<Page> };
+  /** 本模块通知来源的名称与图标，键为来源 id。 */
+  notices?: Record<string, NoticeKind>;
+  /** 渲染端启动时调用一次，承载常驻的订阅，例如系统通知被点击后的跳转。 */
+  start?(navigate: Navigate): void;
+}
+
+export interface NoticeKind {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
 }
 
 export function defineView(definition: ViewDefinition): ViewDefinition {

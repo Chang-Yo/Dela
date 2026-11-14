@@ -158,7 +158,7 @@ Dela/
 │  │  ├─ remote/              远程执行后端与 helper 通道
 │  │  └─ ports.ts             宿主端口（HostPorts）
 │  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册、宿主端口实现
-│  ├─ modules/                v3：已迁移的通用模块（search、todo）
+│  ├─ modules/                v3：已迁移的通用模块（search、todo、notifications）
 │  ├─ sjtu/                   v3：交大模块（主进程部分），经 register() 向通用模块的注册口登记
 │  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
 │  │  ├─ canvas/              Canvas 课程资料、作业与公告
@@ -172,7 +172,6 @@ Dela/
 │  │  ├─ documents/           文档读取与 Skill 组件
 │  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
 │  │  ├─ migrations/          旧版用户的数据库迁移
-│  │  ├─ notifications/       通知中心与通知来源注册口
 │  │  ├─ remotes/             SSH 连接管理、端口转发与文件传输
 │  │  ├─ settings/            设置与模型/网络配置
 │  │  ├─ terminal/            内置终端与 Bash 定位

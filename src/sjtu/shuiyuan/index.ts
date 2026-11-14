@@ -3,7 +3,7 @@ import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
 import { registerResourceResolver } from '../../core/capabilities/resources';
 import { registerSecretLabel } from '../../core/ports';
-import { registerNoticeSource } from '../../main/notifications';
+import { registerNoticeSource } from '../../modules/notifications';
 import { registerPreviewHost } from '../../main/workspace/preview';
 import { registerWorkspaceSource } from '../../main/workspace/sources';
 import { shuiyuanDomain } from './main/agent';

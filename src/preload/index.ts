@@ -11,7 +11,6 @@ import { llm } from './llm';
 import { capabilityApi as capability } from './capabilities';
 import { layout } from './layout';
 import { mail } from './mail';
-import { notifications } from './notifications';
 import { remotes } from './remotes';
 import { session, sidechat } from './session';
 import { settings } from './settings';
@@ -31,7 +30,6 @@ contextBridge.exposeInMainWorld('dela', {
   updatedOnLaunch: process.argv.includes('--dela-updated'),
   terminal,
   remotes,
-  notifications,
   window: windowApi,
   settings,
   consent,

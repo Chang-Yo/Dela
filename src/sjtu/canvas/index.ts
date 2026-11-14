@@ -4,7 +4,7 @@ import { registerCommandDomain } from '../../core/capabilities/commands';
 import { registerResourceResolver } from '../../core/capabilities/resources';
 import { registerSessionScope } from '../../core/agent/scopes';
 import { registerSecretLabel } from '../../core/ports';
-import { registerNoticeSource } from '../../main/notifications';
+import { registerNoticeSource } from '../../modules/notifications';
 import { registerPreviewHost } from '../../main/workspace/preview';
 import { registerWorkspaceSource } from '../../main/workspace/sources';
 import { registerSearchProvider } from '../../modules/search';

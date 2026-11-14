@@ -38,7 +38,8 @@ import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/work
 import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
 import { registerRemoteIpc } from '../src/main/remotes/ipc';
-import { registerNotificationsIpc } from '../src/main/notifications';
+import { registerModuleIpc } from '../src/app/ipc';
+import { notificationsModule } from '../src/modules/notifications';
 import { registerUpdateIpc } from '../src/main/update';
 import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
 import { registerBuiltinCapabilities } from '../src/main/agent/domain';
@@ -383,7 +384,7 @@ app
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     registerSettingsIpc();
     registerRemoteIpc();
-    registerNotificationsIpc();
+    registerModuleIpc([notificationsModule]);
     registerUpdateIpc();
     const win = new BrowserWindow({
       show: false,
