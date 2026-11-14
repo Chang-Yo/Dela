@@ -15,6 +15,8 @@ export interface ModuleDefinition {
   id: string;
   /** 模块内部契约的主进程实现，由 app 注册到 IPC。 */
   ipc?: Implementation;
+  /** 应用就绪后调用：注册数据来源、启动后台同步；返回值在退出时调用。冒烟测试不调用。 */
+  start?(): (() => void) | void;
 }
 
 export function defineModule(definition: ModuleDefinition): ModuleDefinition {

@@ -17,6 +17,7 @@
 | [0014](0014-core-registries.md)    | Core 通过注册表接入业务能力                      | 已接受   |
 | [0015](0015-agent-protocol-v1.md)  | Agent 协议 v1 以单用户为前提                     | 已接受   |
 | [0016](0016-core-host-boundary.md) | 数据库与项目由宿主持有，core 经端口使用          | 已接受   |
+| [0017](0017-contract-events.md)    | 契约声明推送事件，状态快照进查询缓存             | 已接受   |
 
 新记录沿用下面的格式，控制在一屏以内：
 

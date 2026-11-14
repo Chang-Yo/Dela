@@ -1,4 +1,5 @@
 // 主进程与桌面宿主之间的端口：agent 只依赖这些接口，Electron 实现在 app 中注入。
+import type { Contract, EventPayload } from './protocol/contract';
 import type { RemoteTarget } from './remote/transport';
 
 /** 渲染进程的窗口或 WebContents 句柄；core 不解释它，原样交还给桌面实现。 */
@@ -135,4 +136,13 @@ export function provideHostPorts(implementation: HostPorts): void {
 export function hostPorts(): HostPorts {
   if (!ports) throw new Error('宿主端口尚未注入');
   return ports;
+}
+
+/** 推送契约事件给订阅过的窗口（docs/adr/0017）。 */
+export function emit<C extends Contract, K extends keyof C['events'] & string>(
+  contract: C,
+  name: K,
+  payload: EventPayload<C, K>,
+): void {
+  hostPorts().broadcaster.send(`${contract.namespace}:${name}`, payload);
 }
