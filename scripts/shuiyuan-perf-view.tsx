@@ -1,8 +1,10 @@
 import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PreviewTab } from '../src/renderer/content/preview/PreviewTab';
 import { ContentLoaderProvider } from '../src/renderer/content/preview/loader';
 import '../src/renderer/styles/globals.css';
 import type { DocumentContent } from '../src/shared/api';
+import { ShuiyuanSourceDoc } from '../src/sjtu/shuiyuan/view/SourceRefCard';
 
 const bridge = (
   window as unknown as {
@@ -37,15 +39,20 @@ window.addEventListener('message', (event) => {
   }
 });
 createRoot(document.getElementById('root')!).render(
-  <ContentLoaderProvider
-    loader={{
-      loadDocument: async () => ({ content: await bridge.read(), shuiyuanTopicId: 42 }),
-      openLink() {},
-      openShuiyuanTopic() {},
-    }}
-  >
-    <PreviewTab tabId="preview:benchmark" groupId="benchmark" />
-  </ContentLoaderProvider>,
+  <QueryClientProvider client={new QueryClient()}>
+    <ContentLoaderProvider
+      loader={{
+        loadDocument: async () => ({
+          content: await bridge.read(),
+          source: { id: 'shuiyuan-topic:42', document: ShuiyuanSourceDoc },
+        }),
+        openLink() {},
+        navigate: () => true,
+      }}
+    >
+      <PreviewTab tabId="preview:benchmark" groupId="benchmark" />
+    </ContentLoaderProvider>
+  </QueryClientProvider>,
 );
 setTimeout(() => {
   bridge.report({

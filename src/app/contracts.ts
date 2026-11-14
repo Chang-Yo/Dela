@@ -6,12 +6,14 @@ import { searchContract } from '../modules/search/contract';
 import { todoContract } from '../modules/todo/contract';
 import { classroomContract } from '../sjtu/classroom/contract';
 import { jwcContract } from '../sjtu/jwc/contract';
+import { shuiyuanContract } from '../sjtu/shuiyuan/contract';
 import { timetableContract } from '../sjtu/timetable/contract';
 
 export const contracts: Contract[] = [
   searchContract,
   todoContract,
   notificationsContract,
+  shuiyuanContract,
   classroomContract,
   timetableContract,
   jwcContract,

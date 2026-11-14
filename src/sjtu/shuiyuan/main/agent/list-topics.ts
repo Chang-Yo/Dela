@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ShuiyuanFeed } from '../../../../shared/shuiyuan';
+import type { ShuiyuanFeed } from '../../contract';
 import { listShuiyuanTopics } from '../api';
 import { cursorPage, freshness, tool } from '../../../../main/agent/domain/shared';
 import { requireShuiyuanBound, slimTopicSummary, withShuiyuanErrors } from './helpers';

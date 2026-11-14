@@ -1,63 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { Bell, Bookmark, Mail, RefreshCw, Search } from 'lucide-react';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { cn } from '../../../ui/cn';
 import { useShuiyuan, type ListSelection } from './store';
 import { IconButton } from '../../../ui/icon-button';
+import { listKey, useCounts, useSelectList, useSiteStructure } from './use-shuiyuan';
 
 const SEARCH_DEBOUNCE_MS = 400;
 
-export function ShuiyuanHeader() {
-  const list = useShuiyuan((state) => state.list);
-  const structure = useShuiyuan((state) => state.structure);
-  const counts = useShuiyuan((state) => state.counts);
-  const listLoading = useShuiyuan((state) => state.listLoading);
-  const selectList = useShuiyuan((state) => state.selectList);
-  const refreshList = useShuiyuan((state) => state.refreshList);
-  const refreshCounts = useShuiyuan((state) => state.refreshCounts);
-  const [search, setSearch] = useState('');
-  // 搜索前的上一个来源：清空搜索时还原。
-  const beforeSearch = useRef<ListSelection | null>(null);
-
-  useEffect(() => {
-    const query = search.trim();
-    if (!query) {
-      if (list.kind === 'search' && beforeSearch.current) {
-        const restore = beforeSearch.current;
-        beforeSearch.current = null;
-        void selectList(restore);
-      }
-      return;
-    }
-    if (list.kind !== 'search') beforeSearch.current = list;
-    // 调度时捕获选择序号；防抖期间用户显式切换了列表则到点不再抢回搜索结果。
-    const selection = useShuiyuan.getState().listSelection;
-    const timer = setTimeout(() => {
-      if (useShuiyuan.getState().listSelection !== selection) return;
-      void selectList({ kind: 'search', query });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-    // search/list 手动依赖：仅在输入变化时重设防抖。
-  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const feedKind =
-    list.kind === 'bookmarks' || list.kind === 'messages' || list.kind === 'notifications'
-      ? 'latest'
-      : list.kind;
-  const categoryValue = list.kind === 'category' ? String(list.categoryId) : 'all';
-  const tagValue = list.kind === 'tag' ? list.tag : 'all';
-  const roots = (structure?.categories ?? []).filter((category) => category.parentId === null);
-  const childrenOf = (parentId: number) =>
-    (structure?.categories ?? []).filter((category) => category.parentId === parentId);
-
-  const personalButton = (
-    active: boolean,
-    label: string,
-    count: number | null,
-    Icon: typeof Bookmark,
-    onClick: () => void,
-  ) => (
+function PersonalButton({
+  active,
+  label,
+  count,
+  icon: Icon,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count: number | null;
+  icon: typeof Bookmark;
+  onClick: () => void;
+}) {
+  return (
     <IconButton
       aria-current={active ? 'page' : undefined}
       className="relative"
@@ -73,6 +39,53 @@ export function ShuiyuanHeader() {
       ) : null}
     </IconButton>
   );
+}
+
+export function ShuiyuanHeader() {
+  const queryClient = useQueryClient();
+  const list = useShuiyuan((state) => state.list);
+  const structure = useSiteStructure();
+  const counts = useCounts();
+  const listLoading = useIsFetching({ queryKey: listKey(list), exact: true }) > 0;
+  const choose = useSelectList();
+  const [search, setSearch] = useState('');
+  // 搜索前的上一个来源：清空搜索时还原。
+  const [beforeSearch, setBeforeSearch] = useState<ListSelection | null>(null);
+  const searchTimer = useRef<number | undefined>(undefined);
+
+  // 显式切换取消待发的搜索，到点不再抢回列表。
+  const selectList = (next: ListSelection) => {
+    window.clearTimeout(searchTimer.current);
+    choose(next);
+  };
+
+  const changeSearch = (value: string) => {
+    setSearch(value);
+    window.clearTimeout(searchTimer.current);
+    const query = value.trim();
+    if (!query) {
+      if (list.kind === 'search' && beforeSearch) {
+        setBeforeSearch(null);
+        choose(beforeSearch);
+      }
+      return;
+    }
+    if (list.kind !== 'search') setBeforeSearch(list);
+    searchTimer.current = window.setTimeout(
+      () => choose({ kind: 'search', query }),
+      SEARCH_DEBOUNCE_MS,
+    );
+  };
+
+  const feedKind =
+    list.kind === 'bookmarks' || list.kind === 'messages' || list.kind === 'notifications'
+      ? 'latest'
+      : list.kind;
+  const categoryValue = list.kind === 'category' ? String(list.categoryId) : 'all';
+  const tagValue = list.kind === 'tag' ? list.tag : 'all';
+  const roots = (structure?.categories ?? []).filter((category) => category.parentId === null);
+  const childrenOf = (parentId: number) =>
+    (structure?.categories ?? []).filter((category) => category.parentId === parentId);
 
   return (
     <header className="border-b border-line bg-surface/95 px-4 py-2 backdrop-blur max-md:px-3">
@@ -80,27 +93,27 @@ export function ShuiyuanHeader() {
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
         <div className="flex items-center gap-2.5 lg:contents">
           <div className="flex flex-wrap items-center gap-0.5 lg:col-start-1 lg:row-start-1 lg:justify-self-start">
-            {personalButton(
-              list.kind === 'bookmarks',
-              '收藏',
-              null,
-              Bookmark,
-              () => void selectList({ kind: 'bookmarks' }),
-            )}
-            {personalButton(
-              list.kind === 'notifications',
-              '通知',
-              counts?.notifications ?? null,
-              Bell,
-              () => void selectList({ kind: 'notifications' }),
-            )}
-            {personalButton(
-              list.kind === 'messages',
-              '私信',
-              counts?.messages ?? null,
-              Mail,
-              () => void selectList({ kind: 'messages' }),
-            )}
+            <PersonalButton
+              active={list.kind === 'bookmarks'}
+              count={null}
+              icon={Bookmark}
+              label="收藏"
+              onClick={() => selectList({ kind: 'bookmarks' })}
+            />
+            <PersonalButton
+              active={list.kind === 'notifications'}
+              count={counts?.notifications ?? null}
+              icon={Bell}
+              label="通知"
+              onClick={() => selectList({ kind: 'notifications' })}
+            />
+            <PersonalButton
+              active={list.kind === 'messages'}
+              count={counts?.messages ?? null}
+              icon={Mail}
+              label="私信"
+              onClick={() => selectList({ kind: 'messages' })}
+            />
           </div>
           <div className="ml-auto flex flex-1 flex-wrap items-center justify-end gap-2.5 lg:col-start-3 lg:row-start-1 lg:ml-0 lg:justify-self-end">
             <div className="relative min-w-32 max-w-56 flex-1">
@@ -111,7 +124,7 @@ export function ShuiyuanHeader() {
               <Input
                 aria-label="搜索水源"
                 className="h-8 pl-8 text-xs"
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => changeSearch(event.target.value)}
                 placeholder="搜索帖子"
                 type="search"
                 value={search}
@@ -134,7 +147,7 @@ export function ShuiyuanHeader() {
                   ? 'bg-surface text-ink shadow-hairline'
                   : 'text-ink-3 hover:text-ink',
               )}
-              onClick={() => void selectList({ kind: 'latest' })}
+              onClick={() => selectList({ kind: 'latest' })}
               type="button"
             >
               最新
@@ -147,7 +160,7 @@ export function ShuiyuanHeader() {
                   ? 'bg-surface text-ink shadow-hairline'
                   : 'text-ink-3 hover:text-ink',
               )}
-              onClick={() => void selectList({ kind: 'featured' })}
+              onClick={() => selectList({ kind: 'featured' })}
               type="button"
             >
               精品
@@ -157,7 +170,7 @@ export function ShuiyuanHeader() {
           <span aria-hidden="true" className="h-4 w-px shrink-0 bg-line" />
           <Select
             onValueChange={(value) => {
-              void selectList(
+              selectList(
                 value === 'all'
                   ? { kind: 'latest' }
                   : { kind: 'category', categoryId: Number(value) },
@@ -184,7 +197,7 @@ export function ShuiyuanHeader() {
           </Select>
           <Select
             onValueChange={(value) => {
-              void selectList(value === 'all' ? { kind: 'latest' } : { kind: 'tag', tag: value });
+              selectList(value === 'all' ? { kind: 'latest' } : { kind: 'tag', tag: value });
             }}
             value={tagValue}
           >
@@ -205,8 +218,8 @@ export function ShuiyuanHeader() {
             size="lg"
             aria-label="刷新"
             onClick={() => {
-              void refreshList();
-              void refreshCounts();
+              selectList(list);
+              void queryClient.invalidateQueries({ queryKey: ['shuiyuan', 'counts'] });
             }}
             title="刷新"
           >

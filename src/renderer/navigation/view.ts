@@ -2,7 +2,6 @@
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
 import { leaveComposer } from '../features/mail/compose-close';
-import { useShuiyuan } from '../features/shuiyuan/store';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
@@ -15,10 +14,10 @@ import type { NavTarget, NavTargets } from '../../app/module';
 import { pageOf } from '../../app/views';
 
 /** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
-export type ShellView = 'home' | 'workbench' | 'mail' | 'shuiyuan' | 'settings';
+export type ShellView = 'home' | 'workbench' | 'mail' | 'settings';
 
 /** 由外壳自己分发的跳转目标：工作台里的标签与尚未迁移的页面。 */
-type ShellTarget = 'projects' | 'chat' | 'sources' | 'mail' | 'settings' | 'shuiyuan';
+type ShellTarget = 'projects' | 'chat' | 'sources' | 'mail' | 'settings';
 
 export type AppView = ShellView | Exclude<keyof NavTargets, ShellTarget>;
 
@@ -79,7 +78,6 @@ interface NavigationState {
   openTerminal(projectId: string): boolean;
   openMail(messageId: number): boolean;
   openSettings(section?: SettingsSectionId): boolean;
-  openShuiyuanTopic(topicId: number, postNumber?: number): void;
   /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
   setCreateProject(value: boolean): void;
@@ -159,22 +157,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         if (next.page === 'sources') return get().openDocument(`source:${next.sourceId}`);
         if (next.page === 'mail') return get().openMail(next.messageId);
         if (next.page === 'settings') return get().openSettings(next.section);
-        if (next.page === 'shuiyuan') {
-          const { topicId, postNumber, postId } = next;
-          if (postId !== undefined)
-            void window.dela?.shuiyuan.locatePost(postId).then(
-              (link) => get().openShuiyuanTopic(link.topicId, link.postNumber),
-              (reason) =>
-                showToast({
-                  variant: 'error',
-                  title: '打开帖子失败',
-                  description: errorText(reason),
-                }),
-            );
-          else if (topicId !== undefined) get().openShuiyuanTopic(topicId, postNumber);
-          else return get().navigate('shuiyuan');
-          return true;
-        }
       }
       const view = typeof next === 'string' ? next : next.page;
       const target = typeof next === 'string' ? null : next;
@@ -328,11 +310,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       if (!get().navigate('settings')) return false;
       set({ settingsRequest: section ? { section } : null });
       return true;
-    },
-
-    openShuiyuanTopic: (topicId, postNumber) => {
-      get().navigate('shuiyuan');
-      useShuiyuan.getState().requestTopic(topicId, postNumber);
     },
 
     newProject: () => {

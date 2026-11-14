@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PencilLine } from 'lucide-react';
 import { Button } from '../../../ui/button';
@@ -10,6 +10,7 @@ import { ShuiyuanHeader } from './ShuiyuanHeader';
 import { TopicReader, TopicReaderHeader } from './TopicReader';
 import { TopicFeed } from './TopicFeed';
 import { useShuiyuan } from './store';
+import { useShuiyuanState } from './use-shuiyuan';
 
 export function ShuiyuanView() {
   if (!window.dela) {
@@ -24,35 +25,22 @@ export function ShuiyuanView() {
 }
 
 function DesktopShuiyuanView() {
-  const init = useShuiyuan((state) => state.init);
-  const connected = useShuiyuan((state) => state.connected);
+  const state = useShuiyuanState();
   const list = useShuiyuan((state) => state.list);
   const reading = useShuiyuan((state) => state.reading);
-  const topicRequest = useShuiyuan((state) => state.topicRequest);
-  const consumeTopicRequest = useShuiyuan((state) => state.consumeTopicRequest);
-  const [ready, setReady] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
 
-  useEffect(() => {
-    void init().finally(() => setReady(true));
-  }, [init]);
-
-  // App 层「在水源页打开」请求（项目引用卡片入口）。
-  useEffect(() => {
-    if (topicRequest) consumeTopicRequest(topicRequest);
-  }, [topicRequest, consumeTopicRequest]);
-
-  if (!ready) {
+  if (!state.data && state.errorUpdateCount === 0) {
     return (
       <div className="grid h-full place-items-center text-sm text-ink-3">正在读取绑定状态…</div>
     );
   }
-  if (!connected) return <BindCard />;
+  if (!state.data?.connected) return <BindCard />;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
       {/* 顶部导航原地互换：阅读时直接换为阅读页顶栏，不做动画。 */}
-      {reading ? <TopicReaderHeader /> : <ShuiyuanHeader />}
+      {reading ? <TopicReaderHeader reading={reading} /> : <ShuiyuanHeader />}
       <div className="relative min-h-0 flex-1">
         {/* 信息流常驻挂载：进入阅读页后保留滚动位置，返回即时还原。 */}
         <div aria-hidden={Boolean(reading)} className="absolute inset-0 overflow-y-auto">
@@ -71,7 +59,7 @@ function DesktopShuiyuanView() {
                   </Button>
                 </div>
               ) : null}
-              <TopicFeed />
+              <TopicFeed list={list} />
             </>
           )}
         </div>
@@ -86,7 +74,7 @@ function DesktopShuiyuanView() {
               key={reading.topicId}
               transition={{ duration: 0.16 }}
             >
-              <TopicReader />
+              <TopicReader reading={reading} />
             </motion.div>
           ) : null}
         </AnimatePresence>

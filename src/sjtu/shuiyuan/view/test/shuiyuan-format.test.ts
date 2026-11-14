@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeNotification, uploadMarkdown } from './shuiyuan-format';
+import { describeNotification, uploadMarkdown } from '../shuiyuan-format';
 
 const notification = (type: number, topicId: number | null = 42) => ({
   id: 1,
@@ -71,6 +71,6 @@ describe('uploadMarkdown', () => {
         { name: 'notes.pdf', type: 'application/pdf', size: 2 * 1024 * 1024 },
         upload('notes.pdf'),
       ),
-    ).toBe('[notes.pdf|attachment](upload://abc.png) (2.0 MB)');
+    ).toBe('[notes.pdf|attachment](upload://abc.png) (2 MB)');
   });
 });

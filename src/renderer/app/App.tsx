@@ -10,11 +10,9 @@ import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
 import { isSmokeTest, onboardingCompleted } from '../features/onboarding/onboarding-state';
 import { leaveComposer } from '../features/mail/compose-close';
 import { SettingsView } from '../features/settings';
-import { subscribeShuiyuanSnapshots } from '../features/shuiyuan/snapshot-store';
 import { UpdatePrompt } from '../features/settings/UpdatePrompt';
 import { ReleaseNotesDialog } from '../features/release-notes/ReleaseNotesDialog';
 import { useUpdateState } from '../features/settings/update';
-import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../../modules/search/view';
 import type { ChatSessionSummary } from '../../shared/api';
 import type { SearchHit } from '../../modules/search/contract';
@@ -164,15 +162,6 @@ export default function App() {
     });
   }, []);
 
-  // 主进程分流回来的水源主题链接：聊天、邮件、文档等处的点击统一在应用内阅读。
-  useEffect(() => {
-    return window.dela?.shuiyuan?.onOpenTopic(({ topicId, postNumber }) =>
-      useNavigationStore.getState().openShuiyuanTopic(topicId, postNumber),
-    );
-  }, []);
-
-  useEffect(() => subscribeShuiyuanSnapshots(), []);
-
   // 全局搜索入口交给 AppShell 的快捷键派发（Ctrl/⌘+K 可改键）；此处只守卫引导阶段：
   // completion 遮罩期间打开会落在遮罩之下并抢占输入焦点。
   const openSearch = () => {
@@ -255,9 +244,7 @@ export default function App() {
           }}
           onOpenGeneralChat={() => void useNavigationStore.getState().openGeneralChat(false)}
           onNavigateBusiness={(id) =>
-            void useNavigationStore
-              .getState()
-              .navigate(id === 'timetable' || id === 'classroom' ? { page: id } : id)
+            void useNavigationStore.getState().navigate(id === 'mail' ? id : { page: id })
           }
         >
           <MotionConfig reducedMotion="user">
@@ -284,7 +271,6 @@ export default function App() {
                       openRequest={mailRequest ?? undefined}
                     />
                   )}
-                  {view === 'shuiyuan' && <ShuiyuanView />}
                   {target && <ModulePage target={target} />}
                   {view === 'settings' && (
                     <SettingsView
@@ -292,7 +278,6 @@ export default function App() {
                       onFontSizeChange={changeFontSize}
                       onThemeChange={changeTheme}
                       onOpenMail={() => void useNavigationStore.getState().navigate('mail')}
-                      onOpenShuiyuan={() => void useNavigationStore.getState().navigate('shuiyuan')}
                       onZoomChange={changeZoom}
                       sectionRequest={settingsRequest ?? undefined}
                       theme={theme}

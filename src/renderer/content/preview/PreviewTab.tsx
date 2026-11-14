@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '../../../ui/button';
-import { ShuiyuanSourceDoc } from '../../features/shuiyuan/SourceRefCard';
 import { useRootFontSize } from '../../lib/root-font-size';
 import { sanitizeHtml } from '../../lib/sanitize-html';
 import { showToast } from '../../app/toasts';
@@ -22,13 +21,13 @@ const DocxPreview = lazy(() =>
 const SheetPreview = lazy(() =>
   import('./SheetPreview').then((module) => ({ default: module.SheetPreview })),
 );
-/** 分流决策（纯函数）：水源来源优先于格式。预览里的文本都是只读的（远端、资料）：
+/** 分流决策（纯函数）：模块来源优先于格式。预览里的文本都是只读的（远端、资料）：
  *  本地文本文件与所有 Markdown 走 note: 标签，不进这里。 */
 export type PreviewBranch =
-  'shuiyuan' | 'html' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'text' | 'binary';
+  'source' | 'html' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'text' | 'binary';
 
 export function previewBranchOf(doc: LoadedDocument): PreviewBranch {
-  if (doc.shuiyuanTopicId !== undefined) return 'shuiyuan';
+  if (doc.source) return 'source';
   const { format } = doc.content;
   if (
     format === 'html' ||
@@ -109,7 +108,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const rootSize = useRootFontSize();
   const html = useMemo(
     () =>
-      content?.format === 'html' && doc?.shuiyuanTopicId === undefined
+      content?.format === 'html' && !doc?.source
         ? sanitizeHtml(
             content.text,
             doc?.watchesDisk ? '' : 'https://oc.sjtu.edu.cn',
@@ -117,7 +116,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             'auto',
           )
         : '',
-    [content, doc?.watchesDisk, doc?.shuiyuanTopicId, rootSize],
+    [content, doc?.watchesDisk, doc?.source, rootSize],
   );
 
   if (!parsePreviewTabId(tabId))
@@ -146,6 +145,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
     );
 
   const branch = previewBranchOf(doc);
+  const SourceDocument = doc.source?.document;
   const exported = content.office?.export;
   const openLink = (url: string) => loader.openLink(url);
   const onOfficeRefresh = () => {
@@ -158,13 +158,12 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       aria-label={`文档：${content.title}`}
     >
-      {branch === 'shuiyuan' && doc.shuiyuanTopicId !== undefined && (
-        <ShuiyuanSourceDoc
+      {SourceDocument && (
+        <SourceDocument
           content={content}
-          text={content.text ?? ''}
-          topicId={doc.shuiyuanTopicId}
-          onOpenInShuiyuan={(topicId, postNumber) => loader.openShuiyuanTopic(topicId, postNumber)}
+          navigate={loader.navigate}
           onReload={load}
+          sourceId={doc.source!.id}
         />
       )}
       {/* 白底文档以圆角卡片呈现：暗色模式下避免白色大块与深色界面生硬相接。 */}

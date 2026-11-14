@@ -1,6 +1,6 @@
-import { BrowserWindow } from 'electron';
-import { shuiyuanTopicFromUrl } from '../../../shared/shuiyuan';
-import { isWorkspaceWindow } from '../../../main/ipc';
+import { emit } from '../../../core/ports';
+import { workspaceWindow } from '../../../main/ipc';
+import { shuiyuanContract, shuiyuanTopicFromUrl } from '../contract';
 import { getShuiyuanState } from './api';
 
 /**
@@ -9,11 +9,7 @@ import { getShuiyuanState } from './api';
  */
 export function openShuiyuanLinkInApp(url: string): boolean {
   const topic = shuiyuanTopicFromUrl(url);
-  if (!topic || !getShuiyuanState().connected) return false;
-  const workspace = BrowserWindow.getAllWindows().find(
-    (window) => !window.isDestroyed() && isWorkspaceWindow(window.webContents.getURL()),
-  );
-  if (!workspace) return false;
-  workspace.webContents.send('shuiyuan:open-topic', topic);
+  if (!topic || !getShuiyuanState().connected || !workspaceWindow()) return false;
+  emit(shuiyuanContract, 'openTopic', topic);
   return true;
 }

@@ -1,4 +1,5 @@
-import type { DocumentContent } from './documents';
+import { z } from 'zod';
+import { defineContract } from '../../core/protocol/contract';
 
 export const SHUIYUAN_HOST = 'shuiyuan.sjtu.edu.cn';
 
@@ -204,59 +205,99 @@ export interface ShuiyuanUpload {
   readonly height: number | null;
 }
 
-export interface ShuiyuanApi {
-  getState(): Promise<ShuiyuanState>;
-  /** 打开水源授权窗口：用户在其中登录并授权，随后把站点展示的密文复制回来。 */
-  startAuth(): Promise<void>;
-  /** 解密并校验用户粘贴的密文，成功后保存 User API Key 并返回绑定状态。 */
-  bind(payload: string): Promise<ShuiyuanState>;
-  /** 撤销远端 key 并清除本地凭据。 */
-  unbind(): Promise<void>;
-  /** 分类树与常用标签（主进程内存缓存）。 */
-  siteStructure(): Promise<ShuiyuanSiteStructure>;
-  /** 主题列表；传 moreUrl 时请求上一页返回的下一页地址。 */
-  listTopics(feed: ShuiyuanFeed, moreUrl?: string): Promise<ShuiyuanTopicPage>;
-  /** 主题详情；postNumber 提供时从该楼附近加载（通知深链）。 */
-  getTopic(id: number, postNumber?: number): Promise<ShuiyuanTopicDetail>;
-  /** 按 post id 分段加载楼层（长帖加载更多）。 */
-  loadPosts(topicId: number, postIds: readonly number[]): Promise<readonly ShuiyuanPost[]>;
-  /** 按 post id 定位所在主题与楼层（合并点赞通知只带 post id）。 */
-  locatePost(postId: number): Promise<ShuiyuanTopicLink>;
-  listBookmarks(): Promise<readonly ShuiyuanBookmarkItem[]>;
-  /** 私信会话列表（topic 形态）。 */
-  listMessages(): Promise<ShuiyuanTopicPage>;
-  listNotifications(): Promise<readonly ShuiyuanNotificationItem[]>;
-  markNotificationsRead(): Promise<void>;
-  /** 未读计数（主进程 60s 内存缓存）。 */
-  getCounts(): Promise<ShuiyuanCounts>;
-  /** 回复主题或私信会话；返回新楼层。replyToPostNumber 为楼层级回复目标（Discourse reply_to_post_number）。 */
-  createReply(topicId: number, raw: string, replyToPostNumber?: number): Promise<ShuiyuanPost>;
-  /**
-   * 点赞/取消点赞楼层（Discourse post_action_type_id=2）。
-   * 实测（2026-09-21）：点赞 200；取消点赞被站点以 403 拒绝（User API Key write scope 不含
-   * post_actions#destroy），已点赞状态只能去网页端撤销。
-   */
-  setLiked(postId: number, liked: boolean): Promise<void>;
-  /**
-   * 上传 Composer 附件（Discourse `/uploads.json` multipart）。
-   * 该端点未实测：站点若禁用匿名上传路径或调整限制，以错误提示暴露。
-   */
-  uploadFile(fileName: string, base64: string): Promise<ShuiyuanUpload>;
-  /** 发起新私信；返回会话 topic id。 */
-  createMessage(to: readonly string[], title: string, raw: string): Promise<number>;
-  /** 收藏/取消收藏主题；返回最新状态。 */
-  setBookmarked(topicId: number, on: boolean): Promise<boolean>;
-  /** 写入来源引用行（添加到项目前调用）。 */
-  addSourceRef(topicId: number): Promise<ShuiyuanSourceRef>;
-  getSourceRef(topicId: number): Promise<ShuiyuanSourceRef | null>;
-  /** 项目工作区打开水源来源时的文档内容：只读本地快照，没有快照时返回保存中提示。 */
-  readSource(topicId: number): Promise<DocumentContent>;
-  readSnapshotPage(topicId: number, page: number): Promise<string>;
-  /** 重新保存快照（失败重试与手动更新共用）；帖子须仍在某个项目里。 */
-  refreshSnapshot(topicId: number): Promise<void>;
-  onSnapshot(listener: (state: ShuiyuanSnapshotState) => void): () => void;
-  /** 在系统浏览器打开原帖；不经应用内链接分流。 */
-  openInBrowser(topicId: number): Promise<void>;
-  /** 主进程把站内主题链接（聊天、邮件、文档等处点击）交回应用内阅读。 */
-  onOpenTopic(listener: (target: ShuiyuanTopicLink) => void): () => void;
+const id = z.number().int().positive();
+
+export const shuiyuanContract = defineContract(
+  'shuiyuan',
+  {
+    state: { input: z.undefined(), output: z.custom<ShuiyuanState>() },
+    /** 打开水源授权窗口：用户在其中登录并授权，随后把站点展示的密文复制回来。 */
+    startAuth: { input: z.undefined(), output: z.void() },
+    /** 解密并校验用户粘贴的密文，成功后保存 User API Key 并返回绑定状态。 */
+    bind: { input: z.string().max(8192), output: z.custom<ShuiyuanState>() },
+    /** 撤销远端 key 并清除本地凭据。 */
+    unbind: { input: z.undefined(), output: z.void() },
+    /** 分类树、常用标签与自定义 emoji（主进程内存缓存）。 */
+    siteStructure: { input: z.undefined(), output: z.custom<ShuiyuanSiteStructure>() },
+    /** 主题列表；moreUrl 是上一页返回的下一页地址。 */
+    topics: {
+      input: z.object({ feed: z.custom<ShuiyuanFeed>(), moreUrl: z.string().optional() }),
+      output: z.custom<ShuiyuanTopicPage>(),
+    },
+    /** 主题详情；postNumber 提供时从该楼附近加载（通知深链）。 */
+    topic: {
+      input: z.object({ id, postNumber: id.optional() }),
+      output: z.custom<ShuiyuanTopicDetail>(),
+    },
+    /** 按 post id 分段加载楼层（长帖加载更多）。 */
+    posts: {
+      input: z.object({ topicId: id, postIds: z.array(id).max(100) }),
+      output: z.custom<ShuiyuanPost[]>(),
+    },
+    /** 按 post id 定位所在主题与楼层（合并点赞通知只带 post id）。 */
+    locatePost: { input: id, output: z.custom<ShuiyuanTopicLink>() },
+    bookmarks: { input: z.undefined(), output: z.custom<ShuiyuanBookmarkItem[]>() },
+    /** 私信会话列表（topic 形态）。 */
+    messages: { input: z.undefined(), output: z.custom<ShuiyuanTopicPage>() },
+    notifications: { input: z.undefined(), output: z.custom<ShuiyuanNotificationItem[]>() },
+    markNotificationsRead: { input: z.undefined(), output: z.void() },
+    /** 未读计数（主进程 60s 内存缓存）。 */
+    counts: { input: z.undefined(), output: z.custom<ShuiyuanCounts>() },
+    /** 回复主题或私信会话，返回新楼层；replyToPostNumber 为楼层级回复目标。 */
+    reply: {
+      input: z.object({ topicId: id, raw: z.string(), replyToPostNumber: id.optional() }),
+      output: z.custom<ShuiyuanPost>(),
+    },
+    /** 上传 Composer 附件（Discourse /uploads.json，未实测）；站点调整限制时以错误暴露。 */
+    upload: {
+      input: z.object({ fileName: z.string(), base64: z.string() }),
+      output: z.custom<ShuiyuanUpload>(),
+    },
+    /** 发起新私信，返回会话 topic id。 */
+    message: {
+      input: z.object({ to: z.array(z.string()), title: z.string(), raw: z.string() }),
+      output: z.number(),
+    },
+    /** 收藏/取消收藏主题，返回最新状态。 */
+    setBookmarked: {
+      input: z.object({ topicId: id, on: z.boolean() }),
+      output: z.boolean(),
+    },
+    /**
+     * 点赞楼层。实测（2026-09-21）：取消点赞被站点以 403 拒绝（User API Key 不含
+     * post_actions#destroy），已点赞只能去网页端撤销。
+     */
+    setLiked: { input: z.object({ postId: id, liked: z.boolean() }), output: z.void() },
+    /** 写入来源引用行（添加到项目前调用）。 */
+    addSourceRef: { input: id, output: z.custom<ShuiyuanSourceRef>() },
+    sourceRef: { input: id, output: z.custom<ShuiyuanSourceRef | null>() },
+    snapshotPage: {
+      input: z.object({ topicId: id, page: z.number().int().nonnegative() }),
+      output: z.string(),
+    },
+    /** 重新保存快照（失败重试与手动更新共用）；帖子须仍在某个项目里。 */
+    refreshSnapshot: { input: id, output: z.void() },
+    /** 在系统浏览器打开原帖，不经应用内链接分流。 */
+    openInBrowser: { input: id, output: z.void() },
+  },
+  {
+    /** 快照保存状态变了：只让 sourceRef 读取过期。 */
+    sourceRef: z.undefined(),
+    /** 某个帖子的快照保存结束（成功或失败）时推送一次，用于提示。 */
+    snapshotEnded: z.custom<{
+      topicId: number;
+      title: string;
+      status: 'done' | 'failed';
+      error: string | null;
+    }>(),
+    /** 主进程把站内主题链接（聊天、邮件、文档等处点击）交回应用内阅读。 */
+    openTopic: z.custom<ShuiyuanTopicLink>(),
+  },
+);
+
+declare module '../../app/module' {
+  interface NavTargets {
+    /** postId 是合并点赞所在的帖子，需先定位到主题与楼层。 */
+    shuiyuan: { topicId?: number; postNumber?: number; postId?: number };
+  }
 }

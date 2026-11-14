@@ -70,9 +70,7 @@ export const useNoteDrafts = create<Store>((set, get) => ({
       const content = remote
         ? await api.workspace.readRemoteDocument(remote.projectId, remote.path)
         : sourceId
-          ? sourceId.startsWith('shuiyuan-topic:')
-            ? await api.shuiyuan.readSource(Number(sourceId.slice('shuiyuan-topic:'.length)))
-            : await api.canvas.read(sourceId)
+          ? await api.workspace.readSource(sourceId)
           : await api.workspace.read(key);
       const current = get().drafts[key];
       // A refresh must never replace edits made while it was reading. A confirmed

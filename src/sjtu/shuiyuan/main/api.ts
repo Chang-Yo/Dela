@@ -17,7 +17,7 @@ import type {
   ShuiyuanTopicPage,
   ShuiyuanTopicSummary,
   ShuiyuanUpload,
-} from '../../../shared/api';
+} from '../contract';
 import {
   clearShuiyuanCredential,
   loadShuiyuanCredential,

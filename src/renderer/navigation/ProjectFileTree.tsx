@@ -22,8 +22,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { hiddenWorkspaceNames } from '../../shared/workspace';
 import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/explorer';
-import { ShuiyuanIcon } from '../features/shuiyuan/shuiyuan-icon';
-import { useShuiyuanSnapshotBadges } from '../features/shuiyuan/snapshot-store';
+import { sourceOf } from '../../app/views';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -226,28 +225,20 @@ export function ProjectFileTree({
     expanded,
     rootId,
   );
-  const snapshotBadges = useShuiyuanSnapshotBadges(
-    visible.flatMap((e) =>
-      e.kind === 'source' && e.sourceId?.startsWith('shuiyuan-topic:')
-        ? [Number(e.sourceId.slice('shuiyuan-topic:'.length))]
-        : [],
-    ),
-  );
   const nodes: ExplorerItem[] = visible.map((e) => {
     const accent = e.remoteId ? remoteAccent(e.remoteId, 'text') : undefined;
-    const shuiyuan = e.kind === 'source' && Boolean(e.sourceId?.startsWith('shuiyuan-topic:'));
+    const source = e.kind === 'source' && e.sourceId ? sourceOf(e.sourceId) : undefined;
+    const Badge = source?.badge;
     return {
       id: e.id,
       parentId: e.parentId === rootId ? null : e.parentId,
       name: e.name,
       project: e.kind === 'project',
       container: e.kind === 'folder' || e.kind === 'project',
-      // 水源来源条目显示水滴图标；远端项目行自己就是云朵，行内不再另挂标记。
-      icon: shuiyuan ? ShuiyuanIcon : e.remoteId ? Cloud : undefined,
-      // 快照保存中显示当前阶段进度，失败标「!」，与 Canvas 课程行的同步标记一致。
-      badge: shuiyuan
-        ? snapshotBadges[Number(e.sourceId!.slice('shuiyuan-topic:'.length))]
-        : undefined,
+      // 模块来源条目用模块的图标；远端项目行自己就是云朵，行内不再另挂标记。
+      icon: source?.icon ?? (e.remoteId ? Cloud : undefined),
+      // 角标与 Canvas 课程行的同步标记一致：进行中显示进度，失败标「!」。
+      badge: Badge && <Badge sourceId={e.sourceId!} />,
       // 远端项目行提示「目的地:路径」，且不参与拖放写入。
       title:
         e.remoteId && e.path ? remoteTitle(remote.destinations[e.remoteId], e.path) : undefined,

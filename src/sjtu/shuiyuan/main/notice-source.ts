@@ -1,4 +1,4 @@
-import type { ShuiyuanNotificationItem } from '../../../shared/api';
+import type { ShuiyuanNotificationItem } from '../contract';
 import { loadShuiyuanCredential } from './credentials';
 import { getDatabase } from '../../../main/database';
 import type { NotificationCategory } from '../../../modules/notifications/contract';

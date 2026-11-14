@@ -1,5 +1,5 @@
-import { rootFontSize } from '../../lib/root-font-size';
-import { SHUIYUAN_HOST } from '../../../shared/shuiyuan';
+import { rootFontSize } from '../../../renderer/lib/root-font-size';
+import { SHUIYUAN_HOST } from '../contract';
 import { SHUIYUAN_ORIGIN } from './shuiyuan-format';
 
 const SNAPSHOT_IMAGE_PREFIX = 'dela-resource://shuiyuan-snapshot/';

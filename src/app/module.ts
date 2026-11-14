@@ -1,6 +1,7 @@
 // 模块与 app 之间唯一的中立文件：模块用它声明主进程与界面两侧，app 读取这些声明。
 import type { Implementation } from '../core/protocol/contract';
 import type { ComponentType } from 'react';
+import type { DocumentContent } from '../shared/documents';
 
 /**
  * 可跳转的页面及其参数。页面所属的模块用接口合并登记自己的一项，例如
@@ -52,6 +53,26 @@ export interface ViewDefinition {
   };
   /** 首启向导中本模块的一步，完成或跳过后调用 onDone。 */
   onboarding?: ComponentType<{ onDone: () => void }>;
+  /** 本模块放进项目的来源条目。 */
+  sources?: SourceDefinition;
+  /** 本模块会在应用内打开的链接，聊天里点击时免去外链确认。 */
+  opensLink?(url: string): boolean;
+}
+
+/** sourceId 以 prefix 开头的来源：文件树里的图标与角标，预览标签里的正文。 */
+export interface SourceDefinition {
+  prefix: string;
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  badge?: ComponentType<{ sourceId: string }>;
+  document?: ComponentType<SourceDocumentProps>;
+}
+
+export interface SourceDocumentProps {
+  sourceId: string;
+  content: DocumentContent;
+  navigate: Navigate;
+  /** 重新读取 content。 */
+  onReload: () => void;
 }
 
 export interface NoticeKind {

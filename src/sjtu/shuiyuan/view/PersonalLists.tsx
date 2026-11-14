@@ -1,19 +1,25 @@
 import { ArrowLeft, CheckCheck, Heart } from 'lucide-react';
-import { showToast } from '../../app/toasts';
+import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../workspace/store';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
-import { useShuiyuan } from './store';
+import { openTopic } from './store';
+import {
+  openPost,
+  useBookmarks,
+  useMarkNotificationsRead,
+  useNotifications,
+  useSelectList,
+} from './use-shuiyuan';
 import { describeNotification, formatListDate } from './shuiyuan-format';
 import { Callout } from '../../../ui/alert';
 
 /** 个人列表（收藏/通知/私信）返回信息流首页，三处共用。 */
 export function ListBackButton() {
-  const selectList = useShuiyuan((state) => state.selectList);
+  const selectList = useSelectList();
   return (
     <button
       className="flex items-center gap-1 self-start text-xs text-ink-3 transition-colors hover:text-ink"
-      onClick={() => void selectList({ kind: 'latest' })}
+      onClick={() => selectList({ kind: 'latest' })}
       type="button"
     >
       <ArrowLeft className="size-4" strokeWidth={1.8} />
@@ -24,11 +30,10 @@ export function ListBackButton() {
 
 /** 收藏列表：点击进入帖子阅读。 */
 export function BookmarkList() {
-  const bookmarks = useShuiyuan((state) => state.bookmarks);
-  const loading = useShuiyuan((state) => state.listLoading);
-  const error = useShuiyuan((state) => state.listError);
-  const refreshList = useShuiyuan((state) => state.refreshList);
-  const openTopic = useShuiyuan((state) => state.openTopic);
+  const query = useBookmarks();
+  const bookmarks = query.data ?? [];
+  const loading = query.isFetching;
+  const error = query.error ? errorMessage(query.error) : null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col px-4 pb-8 max-md:px-3">
@@ -37,7 +42,7 @@ export function BookmarkList() {
         <button
           className="flex w-full flex-col gap-1.5 border-b border-line px-1 py-3.5 text-left transition-colors last:border-0 hover:bg-hover"
           key={bookmark.id}
-          onClick={() => void openTopic(bookmark.topicId, bookmark.linkedPostNumber ?? undefined)}
+          onClick={() => openTopic(bookmark.topicId, bookmark.linkedPostNumber ?? undefined)}
           type="button"
         >
           <div className="flex items-start gap-1.5">
@@ -63,7 +68,7 @@ export function BookmarkList() {
           action={
             <button
               className="underline underline-offset-2"
-              onClick={() => void refreshList()}
+              onClick={() => void query.refetch()}
               type="button"
             >
               重试
@@ -81,12 +86,11 @@ export function BookmarkList() {
 
 /** 通知列表：语义化行 + 未读点；点击带楼层深链打开帖子。 */
 export function NotificationList() {
-  const notifications = useShuiyuan((state) => state.notifications);
-  const loading = useShuiyuan((state) => state.listLoading);
-  const error = useShuiyuan((state) => state.listError);
-  const refreshList = useShuiyuan((state) => state.refreshList);
-  const openTopic = useShuiyuan((state) => state.openTopic);
-  const markRead = useShuiyuan((state) => state.markNotificationsRead);
+  const query = useNotifications();
+  const notifications = query.data ?? [];
+  const loading = query.isFetching;
+  const error = query.error ? errorMessage(query.error) : null;
+  const markRead = useMarkNotificationsRead();
   const hasUnread = notifications.some((item) => !item.read);
 
   return (
@@ -109,17 +113,8 @@ export function NotificationList() {
             className="flex w-full items-start gap-2.5 border-b border-line px-1 py-3.5 text-left transition-colors last:border-0 hover:bg-hover"
             key={item.id}
             onClick={() => {
-              if (item.topicId !== null) void openTopic(item.topicId, item.postNumber ?? undefined);
-              else if (item.originalPostId !== null)
-                void window.dela?.shuiyuan.locatePost(item.originalPostId).then(
-                  (link) => openTopic(link.topicId, link.postNumber),
-                  (reason) =>
-                    showToast({
-                      variant: 'error',
-                      title: '打开帖子失败',
-                      description: errorText(reason),
-                    }),
-                );
+              if (item.topicId !== null) openTopic(item.topicId, item.postNumber ?? undefined);
+              else if (item.originalPostId !== null) openPost(item.originalPostId);
             }}
             type="button"
           >
@@ -151,7 +146,7 @@ export function NotificationList() {
           action={
             <button
               className="underline underline-offset-2"
-              onClick={() => void refreshList()}
+              onClick={() => void query.refetch()}
               type="button"
             >
               重试

@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { renderShuiyuanHtml, sanitizeShuiyuanHtml } from './shuiyuan-html';
 import {
   frameHeightFromEvent,
   frameImageFromEvent,
   frameLinkFromEvent,
   injectFrameHeightReport,
-} from '../../lib/frame-height';
+} from '../../../renderer/lib/frame-height';
 import { openLightbox } from '../../../ui/lightbox';
-import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from '../../../shared/shuiyuan';
-import { useRootFontSize } from '../../lib/root-font-size';
+import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from '../contract';
+import { useRootFontSize } from '../../../renderer/lib/root-font-size';
 
 const INITIAL_BODY_HEIGHT = 48;
 
@@ -59,14 +59,12 @@ export function ShuiyuanHtmlBody({
   const [bodyHeight, setBodyHeight] = useState(initialHeight);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const internalNavigation = Boolean(onOpenTopic);
-  const document = useMemo(() => {
-    const doc = sanitizeShuiyuanHtml(html);
-    injectFrameHeightReport(doc, {
-      internalLinkHost: internalNavigation ? SHUIYUAN_HOST : undefined,
-      lightbox: true,
-    });
-    return renderShuiyuanHtml(doc, dark, rootSize);
-  }, [html, dark, rootSize, internalNavigation]);
+  const doc = sanitizeShuiyuanHtml(html);
+  injectFrameHeightReport(doc, {
+    internalLinkHost: internalNavigation ? SHUIYUAN_HOST : undefined,
+    lightbox: true,
+  });
+  const document = renderShuiyuanHtml(doc, dark, rootSize);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {

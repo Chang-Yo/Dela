@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '../../../../ui/cn';
+import { cn } from '../../../ui/cn';
 
 type StepGuideItem = {
   title: string;

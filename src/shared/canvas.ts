@@ -1,5 +1,3 @@
-import type { DocumentContent } from './documents';
-
 export interface CanvasCourse {
   id: number;
   name: string;
@@ -91,7 +89,6 @@ export interface CanvasApi {
   syncCourses(): Promise<CanvasState>;
   syncCourse(id: number): Promise<CanvasState>;
   archiveCourse(id: number, archived: boolean): Promise<CanvasState>;
-  read(sourceId: string): Promise<DocumentContent>;
   download(sourceId: string): Promise<void>;
   reveal(sourceId: string): Promise<void>;
   openLink(url: string): Promise<void>;

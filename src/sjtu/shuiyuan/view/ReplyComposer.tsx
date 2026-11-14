@@ -1,25 +1,24 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Prec } from '@codemirror/state';
-import { EditorView, ViewPlugin, keymap } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
 import { FileWarning, Maximize2, Minimize2, Paperclip, Send, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { sheetUp } from '../../../ui/motion';
 import { cn } from '../../../ui/cn';
-import { MarkdownEditor } from '../../content/note/MarkdownEditor';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
+import { errorMessage } from '../../../core/protocol/contract';
+import { MarkdownEditor } from '../../../renderer/content/note/MarkdownEditor';
+import { showToast } from '../../../renderer/app/toasts';
 import { SHUIYUAN_ORIGIN, uploadMarkdown } from './shuiyuan-format';
 import { shuiyuanReplyDecorations } from './reply-editor';
-import { SHUIYUAN_HOST } from '../../../shared/shuiyuan';
+import { SHUIYUAN_HOST } from '../contract';
+import { rememberUpload, useShuiyuan } from './store';
+import { shuiyuanClient } from './use-shuiyuan';
 import { Spinner } from '../../../ui/spinner';
 import { IconButton } from '../../../ui/icon-button';
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 type UploadItem = { key: string; name: string; error: string | null };
-
-/** 已上传附件 upload:// → 站点地址，即时渲染据此显示真图；与内存草稿同为会话内有效。 */
-const uploadedUrls = new Map<string, string>();
 
 type ReplyComposerProps = {
   value: string;
@@ -48,7 +47,7 @@ function readAsBase64(file: File): Promise<string> {
 /** 同站图片走主进程带凭据的媒体代理，否则会被水源登录墙拦下；音视频附件不按图片显示。 */
 function previewImageUrl(src: string, alt: string): string | null {
   if (/\|(?:video|audio)$/.test(alt)) return null;
-  const url = src.startsWith('upload://') ? uploadedUrls.get(src) : src;
+  const url = src.startsWith('upload://') ? useShuiyuan.getState().uploads[src] : src;
   if (!url) return src;
   const parsed = new URL(url, SHUIYUAN_ORIGIN);
   return parsed.hostname === SHUIYUAN_HOST
@@ -74,8 +73,7 @@ export function ReplyComposer({
   const [maximized, setMaximized] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  const uploadSeq = useRef(0);
+  const editorRef = useRef<HTMLDivElement>(null);
   const uploading = uploads.some((item) => !item.error);
   // 上传中不许收起：占位要靠编辑器视图替换回正文。
   const close = () => {
@@ -89,15 +87,20 @@ export function ReplyComposer({
     try {
       await onSubmit();
     } catch (reason) {
-      showToast({ variant: 'error', title: '回复发送失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '回复发送失败', description: errorMessage(reason) });
     } finally {
       setBusy(false);
     }
   };
 
+  const editorView = () => {
+    const dom = editorRef.current?.querySelector<HTMLElement>('.cm-editor');
+    return dom ? EditorView.findFromDOM(dom) : null;
+  };
+
   // 编辑器视图先于本组件 effect 建好；光标落到草稿末尾，接着上次写。
   useEffect(() => {
-    const view = viewRef.current;
+    const view = editorView();
     if (!view) return;
     view.dispatch({ selection: { anchor: view.state.doc.length } });
     view.contentDOM.focus({ preventScroll: true });
@@ -112,21 +115,18 @@ export function ReplyComposer({
   };
 
   /** 占位已被用户删掉时视为放弃这次插入（与水源网页端一致）；离开帖子后视图已销毁则作罢。 */
-  const replacePlaceholder = (placeholder: string, text: string) => {
-    const view = viewRef.current;
-    const at = view?.state.sliceDoc().indexOf(placeholder) ?? -1;
-    if (view && at >= 0)
+  const replacePlaceholder = (view: EditorView, placeholder: string, text: string) => {
+    const at = view.dom.isConnected ? view.state.sliceDoc().indexOf(placeholder) : -1;
+    if (at >= 0)
       view.dispatch({ changes: { from: at, to: at + placeholder.length, insert: text } });
   };
 
   // 先在落点写占位再串行上传：上传期间用户可以继续输入，附件仍落回原位置。
-  const uploadFiles = async (files: readonly File[], at?: number) => {
-    const api = window.dela?.shuiyuan;
-    const view = viewRef.current;
-    if (files.length === 0 || !api || !view) return;
+  const uploadFiles = async (view: EditorView, files: readonly File[], at?: number) => {
+    if (files.length === 0) return;
     const queued: { file: File; key: string; placeholder: string }[] = [];
     for (const file of files) {
-      const key = `upload-${(uploadSeq.current += 1)}`;
+      const key = crypto.randomUUID();
       if (file.size > MAX_UPLOAD_BYTES) {
         setUploads((current) => [...current, { key, name: file.name, error: '附件超过 20MB' }]);
         continue;
@@ -142,54 +142,44 @@ export function ReplyComposer({
     }
     for (const { file, key, placeholder } of queued) {
       try {
-        const upload = await api.uploadFile(file.name, await readAsBase64(file));
-        if (upload.url) uploadedUrls.set(upload.shortUrl, upload.url);
-        replacePlaceholder(placeholder, uploadMarkdown(file, upload));
+        const upload = await shuiyuanClient.upload({
+          fileName: file.name,
+          base64: await readAsBase64(file),
+        });
+        if (upload.url) rememberUpload(upload.shortUrl, upload.url);
+        replacePlaceholder(view, placeholder, uploadMarkdown(file, upload));
       } catch (reason) {
-        replacePlaceholder(placeholder, '');
-        showToast({ variant: 'error', title: '附件上传失败', description: errorText(reason) });
+        replacePlaceholder(view, placeholder, '');
+        showToast({ variant: 'error', title: '附件上传失败', description: errorMessage(reason) });
       } finally {
         setUploads((current) => current.filter((item) => item.key !== key));
       }
     }
   };
 
-  const uploadRef = useRef(uploadFiles);
-  uploadRef.current = uploadFiles;
-  // MarkdownEditor 只在挂载时装配扩展，内部回调一律经 ref 取最新闭包。
-  const editorExtensions = useMemo(
-    () => [
-      // 回复里 Mod-s 不应等同发送（编辑器默认把它和 Mod-Enter 都接到 onSave）。
-      Prec.highest(keymap.of([{ key: 'Mod-s', run: () => true }])),
-      ViewPlugin.define((view) => {
-        viewRef.current = view;
-        return {
-          destroy: () => {
-            if (viewRef.current === view) viewRef.current = null;
-          },
-        };
-      }),
-      EditorView.domEventHandlers({
-        paste: (event) => {
-          const files = [...(event.clipboardData?.files ?? [])];
-          if (files.length === 0) return false;
-          event.preventDefault();
-          void uploadRef.current(files);
-          return true;
-        },
-        drop: (event, view) => {
-          const files = [...(event.dataTransfer?.files ?? [])];
-          if (files.length === 0) return false;
-          event.preventDefault();
-          const at = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? undefined;
-          void uploadRef.current(files, at);
-          return true;
-        },
-      }),
-      shuiyuanReplyDecorations(),
-    ],
-    [],
-  );
+  // MarkdownEditor 只在挂载时装配扩展；uploadFiles 只用到传入的视图与 setter，首次的闭包一直可用。
+  const [editorExtensions] = useState(() => [
+    // 回复里 Mod-s 不应等同发送（编辑器默认把它和 Mod-Enter 都接到 onSave）。
+    Prec.highest(keymap.of([{ key: 'Mod-s', run: () => true }])),
+    EditorView.domEventHandlers({
+      paste: (event, view) => {
+        const files = [...(event.clipboardData?.files ?? [])];
+        if (files.length === 0) return false;
+        event.preventDefault();
+        void uploadFiles(view, files);
+        return true;
+      },
+      drop: (event, view) => {
+        const files = [...(event.dataTransfer?.files ?? [])];
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const at = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? undefined;
+        void uploadFiles(view, files, at);
+        return true;
+      },
+    }),
+    shuiyuanReplyDecorations(),
+  ]);
 
   return (
     // 留在布局流里而非浮层：阅读区随卡片升起让出高度，末楼不被压住；全屏时才铺满阅读区。
@@ -249,7 +239,7 @@ export function ReplyComposer({
         </Button>
       </div>
       {/* MarkdownEditor 的 flex-1 链依赖约束高度，内部 scroller 才会滚动。 */}
-      <div className="flex min-h-0 flex-1 flex-col border-y border-line">
+      <div ref={editorRef} className="flex min-h-0 flex-1 flex-col border-y border-line">
         <MarkdownEditor
           alwaysWrap
           ariaLabel="回复编辑器"
@@ -320,7 +310,8 @@ export function ReplyComposer({
         className="hidden"
         multiple
         onChange={(event) => {
-          void uploadFiles([...(event.target.files ?? [])]);
+          const view = editorView();
+          if (view) void uploadFiles(view, [...(event.target.files ?? [])]);
           event.target.value = '';
         }}
         ref={fileInputRef}

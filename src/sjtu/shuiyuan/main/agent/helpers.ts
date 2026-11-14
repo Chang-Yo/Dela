@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ShuiyuanPost, ShuiyuanTopicSummary } from '../../../../shared/shuiyuan';
+import type { ShuiyuanPost, ShuiyuanTopicSummary } from '../../contract';
 import { getShuiyuanState } from '../api';
 import { ToolError, toolError } from '../../../../main/agent/domain/shared';
 

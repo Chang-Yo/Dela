@@ -40,6 +40,7 @@ import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../ui/alert';
+import { sourceOf } from '../../app/views';
 
 /** TabId → 旧文档键（entryId 或 source:{sourceId}）；chat 无对应文档。 */
 function tabDocumentKey(tabId: TabId | null): string | null {
@@ -263,14 +264,13 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         sourceId = entry?.sourceId ?? null;
       }
       const content: DocumentContent = sourceId
-        ? sourceId.startsWith('shuiyuan-topic:')
-          ? await dela.shuiyuan.readSource(Number(sourceId.slice('shuiyuan-topic:'.length)))
-          : await dela.canvas.read(sourceId)
+        ? await dela.workspace.readSource(sourceId)
         : await dela.workspace.read(entryId!);
+      const document = sourceId ? sourceOf(sourceId)?.document : undefined;
       // pptx 的导出/快速预览定位：Canvas 资料用 sourceId，本地条目用条目 id。
       const officeRef: ResourceRef | undefined =
         content.format === 'pptx'
-          ? sourceId && !sourceId.startsWith('shuiyuan-topic:')
+          ? sourceId && !document
             ? { type: 'canvas', id: sourceId }
             : entry?.kind === 'file'
               ? { type: 'workspace', id: entry.id }
@@ -278,9 +278,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
           : undefined;
       return {
         content,
-        shuiyuanTopicId: sourceId?.startsWith('shuiyuan-topic:')
-          ? Number(sourceId.slice('shuiyuan-topic:'.length))
-          : undefined,
+        source: sourceId && document ? { id: sourceId, document } : undefined,
         officeRef,
         watchesDisk: entry?.kind === 'file',
       };
@@ -310,8 +308,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
           showToast({ variant: 'error', title: '打开链接失败', description: '不支持的链接' });
         }
       },
-      openShuiyuanTopic: (topicId, postNumber) =>
-        useNavigationStore.getState().openShuiyuanTopic(topicId, postNumber),
+      navigate: (target) => useNavigationStore.getState().navigate(target),
       onExported: () => {
         // 导出会在我的资料里新增「预览导出」条目，目录树需一并刷新。
         void useWorkspaceStore

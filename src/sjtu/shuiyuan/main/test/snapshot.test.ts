@@ -37,7 +37,7 @@ vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../credentials', () => ({
   loadShuiyuanCredential: () => ({ key: 'user-key', clientId: 'client' }),
 }));
-vi.mock('../../../../main/ipc', () => ({ isWorkspaceWindow: () => true }));
+vi.mock('../../../../core/ports', () => ({ emit: vi.fn() }));
 vi.mock('../../../../modules/notifications', () => ({ systemNotifyToast: vi.fn() }));
 vi.mock('../api', () => ({
   SHUIYUAN_ORIGIN: 'https://shuiyuan.sjtu.edu.cn',

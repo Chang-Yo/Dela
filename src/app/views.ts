@@ -1,22 +1,21 @@
 // 渲染端清单：外壳据此渲染模块的页面（docs/adr/0019）；去掉一行，对应页面随之消失。
 import type { ComponentType } from 'react';
 import { Mail, Megaphone } from 'lucide-react';
-import type { NavTarget, Navigate, NoticeKind, ViewDefinition } from './module';
+import type { NavTarget, Navigate, NoticeKind, SourceDefinition, ViewDefinition } from './module';
 import { notificationsView } from '../modules/notifications/view';
 import { todoView } from '../modules/todo/view';
-import { ShuiyuanIcon } from '../renderer/features/shuiyuan/shuiyuan-icon';
 import { classroomView } from '../sjtu/classroom/view';
 import { jwcView } from '../sjtu/jwc/view';
+import { shuiyuanView } from '../sjtu/shuiyuan/view';
 import { timetableView } from '../sjtu/timetable/view';
 
-// 邮件、Canvas 与水源迁入模块后，改由各自的 notices 声明。
+// 邮件与 Canvas 迁入模块后，改由各自的 notices 声明。
 const legacyNoticeKinds: Record<string, NoticeKind> = {
   mail: { label: '邮件', icon: Mail },
-  shuiyuan: { label: '水源', icon: ShuiyuanIcon },
   canvas: { label: 'Canvas', icon: Megaphone },
 };
 
-const moduleViews = [todoView, timetableView, classroomView, jwcView];
+const moduleViews = [todoView, timetableView, classroomView, shuiyuanView, jwcView];
 
 export const views: ViewDefinition[] = [
   ...moduleViews,
@@ -37,4 +36,12 @@ const pages = new Map(
 
 export function pageOf(page: string): AnyPage | undefined {
   return pages.get(page);
+}
+
+export function sourceOf(sourceId: string): SourceDefinition | undefined {
+  return views.find((view) => view.sources && sourceId.startsWith(view.sources.prefix))?.sources;
+}
+
+export function opensInApp(url: string): boolean {
+  return views.some((view) => view.opensLink?.(url));
 }

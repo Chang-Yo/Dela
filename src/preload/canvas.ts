@@ -8,7 +8,6 @@ export const canvas = {
   syncCourses: () => invoke('canvas:sync-courses'),
   syncCourse: (id: number) => invoke('canvas:sync-course', id),
   archiveCourse: (id: number, archived: boolean) => invoke('canvas:archive-course', id, archived),
-  read: (id: string) => invoke('canvas:read', id),
   download: (id: string) => invoke('canvas:download', id),
   reveal: (id: string) => invoke('canvas:reveal', id),
   openLink: (url: string) => invoke('canvas:open-link', url),

@@ -1,30 +1,28 @@
 import { useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { KeyRound, LogIn } from 'lucide-react';
-import type { ShuiyuanState } from '../../../shared/api';
+import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
 import { ShuiyuanIcon } from './shuiyuan-icon';
 import { Textarea } from '../../../ui/textarea';
-import { errorText } from '../../workspace/store';
-import { showToast } from '../../app/toasts';
-import { useShuiyuan } from './store';
+import { showToast } from '../../../renderer/app/toasts';
+import { shuiyuanClient } from './use-shuiyuan';
 
 /** 未绑定时的授权卡：发起授权窗口 → 粘贴密文 → 绑定。 */
 export function BindCard() {
-  const shuiyuan = window.dela!.shuiyuan;
-  const init = useShuiyuan((state) => state.init);
+  const queryClient = useQueryClient();
   const [payload, setPayload] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [bindBusy, setBindBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bound, setBound] = useState<ShuiyuanState | null>(null);
 
   const startAuth = async () => {
     setAuthBusy(true);
     setError(null);
     try {
-      await shuiyuan.startAuth();
+      await shuiyuanClient.startAuth();
     } catch (reason) {
-      showToast({ variant: 'error', title: '打开授权页面失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '打开授权页面失败', description: errorMessage(reason) });
     } finally {
       setAuthBusy(false);
     }
@@ -35,31 +33,15 @@ export function BindCard() {
     setBindBusy(true);
     setError(null);
     try {
-      setBound(await shuiyuan.bind(payload));
-      setPayload('');
-      // 绑定成功后立即刷新连接态：connected 置真时 ShuiyuanView 用信息流替换本卡片，
-      // 不再依赖切走再切回触发重新挂载。
-      void init();
+      // 连接态置真后水源页即用信息流替换本卡片；绑定前失败的读取一并重来。
+      queryClient.setQueryData(['shuiyuan', 'state'], await shuiyuanClient.bind(payload));
+      void queryClient.invalidateQueries({ queryKey: ['shuiyuan'] });
     } catch (reason) {
-      setError(errorText(reason));
+      setError(errorMessage(reason));
     } finally {
       setBindBusy(false);
     }
   };
-
-  if (bound) {
-    return (
-      <div className="grid h-full place-items-center p-6">
-        <section className="grid w-full max-w-[30rem] justify-items-start gap-3 rounded-card border border-line bg-surface p-6">
-          <ShuiyuanIcon className="size-10 rounded-card" />
-          <h2 className="text-lg font-semibold tracking-tight">绑定成功</h2>
-          <p className="text-sm leading-relaxed text-ink-3">
-            已绑定 @{bound.username}，即将进入水源。
-          </p>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-full overflow-y-auto p-6">

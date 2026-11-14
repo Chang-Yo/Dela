@@ -14,9 +14,7 @@ function installDela(
     configurable: true,
     value: {
       dela: {
-        workspace: { read: readMock, saveNote: saveMock },
-        canvas: { read: vi.fn() },
-        shuiyuan: {},
+        workspace: { read: readMock, readSource: vi.fn(), saveNote: saveMock },
       },
     },
   });

@@ -13,8 +13,8 @@ import {
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
-import type { ShuiyuanNotificationItem, ShuiyuanUpload } from '../../../shared/api';
-import { formatSize } from '../mail/mail-format';
+import type { ShuiyuanNotificationItem, ShuiyuanSiteStructure, ShuiyuanUpload } from '../contract';
+import { formatBytes } from '../../../renderer/lib/format-bytes';
 
 /** 水源站点的头像/资源基地址；renderer 直接引用远程图（CSP 已放行 https）。 */
 export const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';
@@ -107,5 +107,15 @@ export function uploadMarkdown(
     const size = upload.width && upload.height ? `|${upload.width}x${upload.height}` : '';
     return `![${name.replace(/\.\w+$/, '')}${size}](${upload.shortUrl})`;
   }
-  return `[${name}|attachment](${upload.shortUrl}) (${formatSize(file.size)})`;
+  return `[${name}|attachment](${upload.shortUrl}) (${formatBytes(file.size) ?? '0 B'})`;
+}
+
+/** 未命中返回 null。 */
+export function categoryOf(
+  structure: ShuiyuanSiteStructure | null,
+  categoryId: number | null,
+): { name: string; color: string } | null {
+  if (!structure || categoryId === null) return null;
+  const category = structure.categories.find((item) => item.id === categoryId);
+  return category ? { name: category.name, color: `#${category.color}` } : null;
 }

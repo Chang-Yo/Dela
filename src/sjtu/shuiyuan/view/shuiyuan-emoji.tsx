@@ -1,8 +1,8 @@
 import { nameToEmoji } from 'gemoji';
-import { Fragment, useMemo } from 'react';
-import type { ShuiyuanCustomEmoji } from '../../../shared/api';
+import { Fragment } from 'react';
+import type { ShuiyuanCustomEmoji } from '../contract';
 import { SHUIYUAN_ORIGIN } from './shuiyuan-format';
-import { useShuiyuan } from './store';
+import { useSiteStructure } from './use-shuiyuan';
 
 /** 标题段：字符串为已替换的文本，对象为站点自定义 emoji（远程图片）。 */
 type ShuiyuanTitleSegment = string | { name: string; url: string };
@@ -37,11 +37,7 @@ export function decodeShuiyuanTitle(
 
 /** 标题渲染：信息流、阅读页、收藏与来源卡共用，站点结构未就绪时自定义 emoji 退回原文。 */
 export function ShuiyuanTitle({ text }: { text: string }) {
-  const structure = useShuiyuan((state) => state.structure);
-  const segments = useMemo(
-    () => decodeShuiyuanTitle(text, structure?.customEmoji),
-    [text, structure],
-  );
+  const segments = decodeShuiyuanTitle(text, useSiteStructure()?.customEmoji);
   return (
     <>
       {segments.map((segment, index) => (

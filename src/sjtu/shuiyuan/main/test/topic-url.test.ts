@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shuiyuanTopicFromUrl } from './shuiyuan';
+import { shuiyuanTopicFromUrl } from '../../contract';
 
 describe('shuiyuanTopicFromUrl', () => {
   it('识别主题与楼层深链', () => {

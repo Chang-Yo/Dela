@@ -8,7 +8,5 @@ declare module '../app/module' {
     mail: { messageId: number };
     sources: { sourceId: string };
     settings: { section: SettingsSectionId };
-    /** postId 是合并点赞所在的帖子，需先定位到主题与楼层。 */
-    shuiyuan: { topicId?: number; postNumber?: number; postId?: number };
   }
 }

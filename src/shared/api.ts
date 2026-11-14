@@ -26,7 +26,6 @@ export type {
   WebSearchEntrySummary,
   WebSearchKeySource,
 } from './capabilities';
-import type { ShuiyuanApi } from './shuiyuan';
 import type { TerminalApi } from './terminal';
 import type { UpdateApi } from './update';
 import type { WindowApi } from './window';
@@ -51,7 +50,6 @@ export interface DelaApi {
   readonly llm: LlmApi;
   readonly chat: ChatApi;
   readonly mail: MailApi;
-  readonly shuiyuan: ShuiyuanApi;
   readonly canvas: CanvasApi;
   readonly workspace: WorkspaceApi;
   readonly session: SessionApi;
@@ -89,27 +87,6 @@ export type {
   MailSendInput,
   MailApi,
 } from './mail';
-
-export type {
-  ShuiyuanState,
-  ShuiyuanTopicSummary,
-  ShuiyuanTopicPage,
-  ShuiyuanPost,
-  ShuiyuanTopicDetail,
-  ShuiyuanCategory,
-  ShuiyuanTag,
-  ShuiyuanCustomEmoji,
-  ShuiyuanSiteStructure,
-  ShuiyuanNotificationItem,
-  ShuiyuanBookmarkItem,
-  ShuiyuanFeed,
-  ShuiyuanCounts,
-  ShuiyuanSourceRef,
-  ShuiyuanSnapshotState,
-  ShuiyuanUpload,
-  ShuiyuanTopicLink,
-  ShuiyuanApi,
-} from './shuiyuan';
 
 export type {
   ThemePreference,

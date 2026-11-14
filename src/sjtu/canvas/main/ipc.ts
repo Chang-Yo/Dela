@@ -16,7 +16,6 @@ import {
   getSource,
   cachedFile,
   cachedCourseFiles,
-  readCanvasSource,
   archiveCanvasCourse,
   linkedCanvasFile,
   type StoredSource,
@@ -56,7 +55,6 @@ export function registerCanvasIpc() {
   handle('archive-course', (id, archived) =>
     archiveCanvasCourse(z.number().int().positive().parse(id), z.boolean().parse(archived)),
   );
-  handle('read', (id) => readCanvasSource(z.string().max(512).parse(id)));
   handle('download', (id) => saveSourceAs(getSource(z.string().parse(id))));
   handle('reveal', async (id) => {
     const source = getSource(z.string().parse(id));

@@ -20,6 +20,7 @@ export const workspace = {
   ) => invoke('workspace:update', id, input),
   remove: (id: string) => invoke('workspace:remove', id),
   read: (id: string) => invoke('workspace:read', id),
+  readSource: (sourceId: string) => invoke('workspace:read-source', sourceId),
   saveNote: (id: string, text: string, revision: string) =>
     invoke('workspace:save-note', id, text, revision),
   saveNoteImage: (id: string, name: string, bytes: Uint8Array) =>

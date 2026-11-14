@@ -301,7 +301,9 @@
                   "**/shared/**",
                   "**/renderer/**",
                   "!**/renderer/app/toasts",
-                  "!**/renderer/lib/*"
+                  "!**/renderer/lib/*",
+                  "!**/renderer/content/note/MarkdownEditor",
+                  "!**/renderer/workspace/store"
                 ],
                 "message": "view 只能引用 core/protocol、app/module、模块契约、src/ui 与外壳服务（renderer/app/toasts、renderer/lib）。"
               },
@@ -361,7 +363,9 @@
                   "**/shared/**",
                   "**/renderer/**",
                   "!**/renderer/app/toasts",
-                  "!**/renderer/lib/*"
+                  "!**/renderer/lib/*",
+                  "!**/renderer/content/note/MarkdownEditor",
+                  "!**/renderer/workspace/store"
                 ],
                 "message": "view 只能引用 core/protocol、app/module、模块契约、src/ui 与外壳服务（renderer/app/toasts、renderer/lib）。"
               },

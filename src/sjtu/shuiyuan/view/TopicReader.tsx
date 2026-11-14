@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   CornerUpLeft,
@@ -12,21 +13,29 @@ import {
 import { cn } from '../../../ui/cn';
 import { Button } from '../../../ui/button';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
-import { categoryOf, loadedSpan, useShuiyuan } from './store';
-import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';
+import { closeReading, openTopic, saveDraft, useShuiyuan, type Reading } from './store';
+import { avatarUrl, categoryOf, formatCount, formatListDate, tagColor } from './shuiyuan-format';
+import {
+  loadedSpan,
+  loadMorePosts,
+  loadPostWindow,
+  setPostLiked,
+  shuiyuanClient,
+  submitReply,
+  topicOf,
+  useSiteStructure,
+  useToggleBookmark,
+  useTopic,
+} from './use-shuiyuan';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ReplyComposer } from './ReplyComposer';
 import { AddToProjectDialog } from './AddToProjectDialog';
 import { CategoryTag } from './TopicFeed';
 import { FloorCapsule, TopicTimeline } from './TopicTimeline';
-import type { ShuiyuanPost } from '../../../shared/api';
+import { errorMessage } from '../../../core/protocol/contract';
+import type { ShuiyuanPost } from '../contract';
 import { Callout } from '../../../ui/alert';
 import { IconButton } from '../../../ui/icon-button';
-
-type ReplyTarget = { postNumber: number; username: string };
-
-/* 回复草稿按帖子在本次会话内记忆：返回信息流、楼内链接切帖后回来仍在，不持久化。 */
-const replyDrafts = new Map<number, { text: string; target: ReplyTarget | null }>();
 
 /** 楼层正文转引用文本：去掉楼中嵌套的引用，块级元素之间保留换行。 */
 function quoteText(cooked: string): string {
@@ -80,7 +89,6 @@ function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsPr
         <>
           <IconButton
             aria-label={`引用第 ${post.postNumber} 楼`}
-
             onClick={() => onQuote(post)}
             title="引用"
           >
@@ -104,12 +112,10 @@ function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsPr
  * 阅读页顶栏：驻留在视图顶层，进入阅读时与信息流工具栏原地互换（无动画），
  * 不随楼层流推入。只保留返回、标题与动作——分类、标签、统计归正文标题区。
  */
-export function TopicReaderHeader() {
-  const reading = useShuiyuan((state) => state.reading);
-  const closeReading = useShuiyuan((state) => state.closeReading);
-  const toggleBookmark = useShuiyuan((state) => state.toggleBookmark);
+export function TopicReaderHeader({ reading }: { reading: Reading }) {
+  const toggleBookmark = useToggleBookmark();
   const [addOpen, setAddOpen] = useState(false);
-  const detail = reading?.detail ?? null;
+  const detail = useTopic(reading).data ?? null;
   const isPM = detail?.archetype === 'private_message';
 
   return (
@@ -146,7 +152,7 @@ export function TopicReaderHeader() {
       {detail ? (
         <Button
           aria-label="打开原帖"
-          onClick={() => void window.dela?.shuiyuan.openInBrowser(detail.id)}
+          onClick={() => void shuiyuanClient.openInBrowser(detail.id)}
           size="icon-sm"
           variant="ghost"
         >
@@ -192,29 +198,24 @@ function PostAvatar({ post }: { post: ShuiyuanPost }) {
  * （固定头像沟槽 + 楼底右对齐 ghost 操作条）+ 底部向上展开的回复框。
  * 楼层接近两端时自动分段补楼，右侧楼层进度可拖动跳楼；推入动画由外层负责。
  */
-export function TopicReader() {
-  const reading = useShuiyuan((state) => state.reading);
-  const structure = useShuiyuan((state) => state.structure);
-  const openTopic = useShuiyuan((state) => state.openTopic);
-  const loadMorePosts = useShuiyuan((state) => state.loadMorePosts);
-  const loadPostWindow = useShuiyuan((state) => state.loadPostWindow);
-  const submitReply = useShuiyuan((state) => state.submitReply);
-  const setLiked = useShuiyuan((state) => state.setLiked);
-  // 阅读器按 topicId 重挂载，挂载时的 topicId 即本实例的帖子。
-  const [topicId] = useState(() => useShuiyuan.getState().reading?.topicId ?? 0);
-  const [draft, setDraft] = useState(() => replyDrafts.get(topicId)?.text ?? '');
-  const [composerOpen, setComposerOpen] = useState(() => replyDrafts.has(topicId));
+export function TopicReader({ reading }: { reading: Reading }) {
+  const queryClient = useQueryClient();
+  const topic = useTopic(reading);
+  const structure = useSiteStructure();
+  // 阅读器按 topicId 重挂载。
+  const topicId = reading.topicId;
+  const saved = useShuiyuan((state) => state.drafts[topicId]);
+  const draft = saved?.text ?? '';
   /** 楼层级回复目标；null 为主题级回复。 */
-  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(
-    () => replyDrafts.get(topicId)?.target ?? null,
-  );
+  const replyTarget = saved?.target ?? null;
+  const [composerOpen, setComposerOpen] = useState(saved !== undefined);
   /** 跳转落点楼层短暂高亮，让落点可辨认。 */
   const [highlight, setHighlight] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState<'before' | 'after' | null>(null);
   /** 视口顶端所在楼层，驱动楼层进度。 */
   const [currentPost, setCurrentPost] = useState<number | null>(null);
-  /** 跳到未加载区域：新楼层段提交到 DOM 后再定位。 */
-  const [pendingJump, setPendingJump] = useState<number | null>(null);
+  /** 跳到未加载区域：新楼层段提交到 DOM 后再定位；每次跳转是新对象，同楼再跳也会触发。 */
+  const [pendingJump, setPendingJump] = useState<{ postNumber: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const bottomSentinelRef = useRef<HTMLDivElement>(null);
@@ -222,7 +223,7 @@ export function TopicReader() {
   /** 首个已加载楼层最近一次的视口位置，向上补楼后据此回补滚动。 */
   const firstPostRef = useRef<{ postNumber: number; top: number; atTop: boolean } | null>(null);
   const trackFrameRef = useRef(0);
-  const detail = reading?.detail ?? null;
+  const detail = topic.data ?? null;
   const posts = detail?.posts;
   const isPM = detail?.archetype === 'private_message';
   const category = categoryOf(structure, detail?.categoryId ?? null);
@@ -285,13 +286,11 @@ export function TopicReader() {
   }, [posts]);
 
   useLayoutEffect(() => {
-    if (detail && reading?.postNumber) scrollToPost(reading.postNumber, false);
-  }, [detail?.id, reading?.postNumber]);
+    if (detail && reading.postNumber) scrollToPost(reading.postNumber, false);
+  }, [detail?.id, reading.postNumber]);
 
   useLayoutEffect(() => {
-    if (pendingJump === null) return;
-    scrollToPost(pendingJump, false);
-    setPendingJump(null);
+    if (pendingJump) scrollToPost(pendingJump.postNumber, false);
   }, [pendingJump]);
 
   // 阅读器式的连续加载：哨兵进入视口前 320px 即向该方向补一批楼层，同一时刻只补一个方向。
@@ -306,7 +305,7 @@ export function TopicReader() {
         const direction = entry.target === topSentinelRef.current ? 'before' : 'after';
         loadingRef.current = true;
         setLoadingMore(direction);
-        void loadMorePosts(direction).finally(() => {
+        void loadMorePosts(queryClient, reading, direction).finally(() => {
           loadingRef.current = false;
           setLoadingMore(null);
         });
@@ -317,7 +316,7 @@ export function TopicReader() {
       if (sentinel) observer.observe(sentinel);
     }
     return () => observer.disconnect();
-  }, [hasBefore, hasAfter, loadMorePosts, posts]);
+  }, [hasBefore, hasAfter, queryClient, reading, posts]);
 
   const jumpToPost = async (postNumber: number) => {
     const first = posts?.[0];
@@ -330,58 +329,43 @@ export function TopicReader() {
       scrollToPost(postNumber, true);
       return;
     }
-    await loadPostWindow(postNumber);
-    setPendingJump(postNumber);
+    await loadPostWindow(queryClient, reading, postNumber);
+    setPendingJump({ postNumber });
   };
 
-  const jumpRef = useRef(jumpToPost);
-  jumpRef.current = jumpToPost;
-  // 稳定引用：避免每次渲染都让各楼层 iframe 的 message 监听解绑重挂。
   // 指向本帖的链接在当前阅读流内跳楼，不整帖重载。
-  const openTopicFromPost = useCallback(
-    (targetTopicId: number, postNumber?: number) => {
-      if (targetTopicId === topicId) {
-        void jumpRef.current(postNumber ?? 1);
-      } else {
-        void openTopic(targetTopicId, postNumber);
-      }
-    },
-    [openTopic, topicId],
-  );
-
-  useEffect(() => {
-    if (draft.trim() || replyTarget) replyDrafts.set(topicId, { text: draft, target: replyTarget });
-    else replyDrafts.delete(topicId);
-  }, [draft, replyTarget, topicId]);
+  const openTopicFromPost = (targetTopicId: number, postNumber?: number) => {
+    if (targetTopicId === topicId) void jumpToPost(postNumber ?? 1);
+    else openTopic(targetTopicId, postNumber);
+  };
 
   // 水源原生引用：站点渲染成带头像的引用卡片，并通知被引用者。
   const quote = (post: ShuiyuanPost) => {
     const text = quoteText(post.cooked);
     if (!text) return;
     setComposerOpen(true);
-    setDraft((current) => {
-      const head = current ? `${current.replace(/\n+$/, '')}\n\n` : '';
-      return `${head}[quote="${post.username}, post:${post.postNumber}, topic:${topicId}"]\n${text}\n[/quote]\n\n`;
+    const head = draft ? `${draft.replace(/\n+$/, '')}\n\n` : '';
+    saveDraft(topicId, {
+      text: `${head}[quote="${post.username}, post:${post.postNumber}, topic:${topicId}"]\n${text}\n[/quote]\n\n`,
     });
   };
 
   const placeholder = replyTarget ? `回复 @${replyTarget.username}…` : isPM ? '回复私信…' : '回复…';
   const composer = (
     <ReplyComposer
-      onChange={setDraft}
+      onChange={(text) => saveDraft(topicId, { text })}
       onClose={() => setComposerOpen(false)}
-      onClearReplyTarget={() => setReplyTarget(null)}
+      onClearReplyTarget={() => saveDraft(topicId, { target: null })}
       onSubmit={async () => {
-        const postNumber = await submitReply(draft, replyTarget?.postNumber);
-        setDraft('');
-        setReplyTarget(null);
+        const postNumber = await submitReply(queryClient, reading, draft, replyTarget?.postNumber);
+        saveDraft(topicId, { text: '', target: null });
         setComposerOpen(false);
-        // 新楼没并进已加载段（中段阅读时）就先取它附近的一段，再定位过去；期间已切帖则不动。
-        const current = useShuiyuan.getState().reading;
-        if (current?.topicId !== topicId) return;
-        const loaded = current.detail?.posts.some((post) => post.postNumber === postNumber);
-        if (!loaded) await loadPostWindow(postNumber);
-        setPendingJump(postNumber);
+        // 新楼没并进已加载段（中段阅读时）就先取它附近的一段，再定位过去；期间已离开则不动。
+        const current = topicOf(queryClient, reading);
+        if (!current) return;
+        if (!current.posts.some((post) => post.postNumber === postNumber))
+          await loadPostWindow(queryClient, reading, postNumber);
+        setPendingJump({ postNumber });
       }}
       placeholder={placeholder}
       replyTarget={replyTarget}
@@ -417,8 +401,8 @@ export function TopicReader() {
         >
           {/* 窄版楼层胶囊浮在正文列右下角，底部留白避免它压住末楼的操作条。 */}
           <div className="mx-auto w-full max-w-2xl px-5 pt-5 pb-14 max-md:px-4 @min-[62rem]:pb-5">
-            {reading?.error ? <Callout role="alert">{reading.error}</Callout> : null}
-            {!detail && !reading?.error ? (
+            {topic.error ? <Callout role="alert">{errorMessage(topic.error)}</Callout> : null}
+            {!detail && !topic.error ? (
               <p className="py-8 text-center text-sm text-ink-3">正在加载帖子…</p>
             ) : null}
             {detail ? (
@@ -521,11 +505,12 @@ export function TopicReader() {
                     <PostActions
                       canReply={!detail.closed}
                       onQuote={quote}
-                      onLike={(postId, liked) => void setLiked(postId, liked)}
+                      onLike={(postId, liked) =>
+                        void setPostLiked(queryClient, reading, postId, liked)
+                      }
                       onReply={(target) => {
-                        setReplyTarget({
-                          postNumber: target.postNumber,
-                          username: target.username,
+                        saveDraft(topicId, {
+                          target: { postNumber: target.postNumber, username: target.username },
                         });
                         setComposerOpen(true);
                       }}

@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Send } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
-import { MarkdownEditor } from '../../content/note/MarkdownEditor';
-import { errorText } from '../../workspace/store';
-import { showToast } from '../../app/toasts';
-import { useShuiyuan } from './store';
+import { errorMessage } from '../../../core/protocol/contract';
+import { MarkdownEditor } from '../../../renderer/content/note/MarkdownEditor';
+import { showToast } from '../../../renderer/app/toasts';
+import { openTopic } from './store';
+import { shuiyuanClient } from './use-shuiyuan';
 import {
   Dialog,
   DialogContent,
@@ -29,8 +31,7 @@ export function NewMessageDialog({
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const openTopic = useShuiyuan((state) => state.openTopic);
-  const refreshCounts = useShuiyuan((state) => state.refreshCounts);
+  const queryClient = useQueryClient();
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -44,16 +45,19 @@ export function NewMessageDialog({
     setBusy(true);
     setError(null);
     try {
-      const api = window.dela!.shuiyuan;
-      const topicId = await api.createMessage(recipients, title.trim(), body);
+      const topicId = await shuiyuanClient.message({
+        to: recipients,
+        title: title.trim(),
+        raw: body,
+      });
       setTo('');
       setTitle('');
       setBody('');
       onOpenChange(false);
-      void openTopic(topicId);
-      void refreshCounts();
+      openTopic(topicId);
+      void queryClient.invalidateQueries({ queryKey: ['shuiyuan', 'counts'] });
     } catch (reason) {
-      showToast({ variant: 'error', title: '发送私信失败', description: errorText(reason) });
+      showToast({ variant: 'error', title: '发送私信失败', description: errorMessage(reason) });
     } finally {
       setBusy(false);
     }

@@ -3,7 +3,6 @@ import { views } from '../../../app/views';
 import { CanvasStep } from './steps/CanvasStep';
 import { LlmStep } from './steps/LlmStep';
 import { MailStep } from './steps/MailStep';
-import { ShuiyuanStep } from './steps/ShuiyuanStep';
 import { ConsentStep } from './ConsentStep';
 import { IntroSequence } from './IntroSequence';
 import { WizardShell } from './WizardShell';
@@ -22,7 +21,6 @@ const wizardSteps = [
   MailStep,
   ...views.flatMap((view) => view.onboarding ?? []),
   CanvasStep,
-  ShuiyuanStep,
   LlmStep,
 ];
 

@@ -2,8 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
-import { errorText, useWorkspaceStore } from '../../workspace/store';
-import { showToast } from '../../app/toasts';
+import { errorMessage } from '../../../core/protocol/contract';
+import { useWorkspaceStore } from '../../../renderer/workspace/store';
+import { showToast } from '../../../renderer/app/toasts';
+import { shuiyuanClient, SOURCE_PREFIX } from './use-shuiyuan';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +20,7 @@ const LARGE_TOPIC_POSTS = 1000;
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
 
-/** 建的是引用型 source 条目（sourceId 前缀 shuiyuan-topic:），主进程随后在后台保存全帖快照。 */
+/** 建的是引用型 source 条目，主进程随后在后台保存全帖快照。 */
 export function AddToProjectDialog({
   open,
   onClose,
@@ -43,7 +45,7 @@ export function AddToProjectDialog({
     setBusy(true);
     setErrorLocal(null);
     try {
-      const ref = await window.dela!.shuiyuan.addSourceRef(topicId);
+      const ref = await shuiyuanClient.addSourceRef(topicId);
       if (
         ref.snapshot?.status !== 'done' &&
         (ref.postsCount ?? 0) > LARGE_TOPIC_POSTS &&
@@ -67,7 +69,7 @@ export function AddToProjectDialog({
         name: topicTitle,
         parentId,
         kind: 'source',
-        sourceId: `shuiyuan-topic:${topicId}`,
+        sourceId: `${SOURCE_PREFIX}${topicId}`,
       });
       await refresh();
       if (ref.snapshot?.status !== 'done')
@@ -80,7 +82,7 @@ export function AddToProjectDialog({
       setTarget('');
       setName('');
     } catch (reason) {
-      setErrorLocal(errorText(reason));
+      setErrorLocal(errorMessage(reason));
     } finally {
       setBusy(false);
     }

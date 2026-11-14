@@ -14,7 +14,6 @@ import { mail } from './mail';
 import { remotes } from './remotes';
 import { session, sidechat } from './session';
 import { settings } from './settings';
-import { shuiyuan } from './shuiyuan';
 import { terminal } from './terminal';
 import { update } from './update';
 import { windowApi } from './window';
@@ -35,7 +34,6 @@ contextBridge.exposeInMainWorld('dela', {
   llm,
   chat,
   mail,
-  shuiyuan,
   canvas,
   workspace,
   session,

@@ -5,7 +5,7 @@ import type {
   ShuiyuanSourceRef,
   ShuiyuanTopicDetail,
   ShuiyuanTopicSummary,
-} from '../../../../../shared/shuiyuan';
+} from '../../../contract';
 import type { WorkspaceEntry } from '../../../../../shared/workspace';
 import { shuiyuanDomain } from '../index';
 

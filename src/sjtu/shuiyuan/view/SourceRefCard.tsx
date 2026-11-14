@@ -1,40 +1,55 @@
 import { useEffect, useRef } from 'react';
 import { ExternalLink, MessageSquare, RefreshCw, RotateCw } from 'lucide-react';
-import type { DocumentContent } from '../../../shared/api';
+import type { SourceDocumentProps } from '../../../app/module';
+import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/cn';
+import { showToast } from '../../../renderer/app/toasts';
+import type { ShuiyuanSnapshotState } from '../contract';
 import { ShuiyuanIcon } from './shuiyuan-icon';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { ShuiyuanSnapshotBody } from './ShuiyuanSnapshotBody';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { formatListDate } from './shuiyuan-format';
-import { useShuiyuanSnapshots, useShuiyuanSourceRef } from './snapshot-store';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
-import { cn } from '../../../ui/cn';
+import { shuiyuanClient, topicIdOf, useSourceRef } from './use-shuiyuan';
+
+/** 文件树行尾的快照保存进度。 */
+export function SnapshotBadge({ sourceId }: { sourceId: string }) {
+  const snapshot = useSourceRef(topicIdOf(sourceId)).data?.snapshot;
+  if (snapshot?.status === 'failed') return '!';
+  if (snapshot?.status !== 'saving') return null;
+  const progress = snapshot.progress;
+  return progress?.total
+    ? `${progress.phase === 'posts' ? '楼层' : '图片'} ${Math.floor((progress.done / progress.total) * 100)}%`
+    : '…';
+}
 
 function SnapshotStatus({
   topicId,
+  snapshot,
   content,
   onReload,
 }: {
   topicId: number;
-  content: DocumentContent;
+  /** undefined 为读取中，null 为尚未保存。 */
+  snapshot: ShuiyuanSnapshotState | null | undefined;
+  content: SourceDocumentProps['content'];
   onReload: () => void;
 }) {
-  const snapshot = useShuiyuanSnapshots([topicId])[topicId];
   const savedAt = snapshot?.savedAt ?? null;
   const progress = snapshot?.progress;
   const latest = savedAt ?? progress?.cachedAt ?? null;
   const behind = latest !== null && latest !== content.updatedAt;
   const reading = content.format === 'html';
+  // TODO(v3 P5 预览迁移)：正文首次可读时自动重读，待预览按查询缓存读取后改为失效驱动。
   useEffect(() => {
     if (behind && !reading) onReload();
   }, [behind, reading, onReload]);
   const refreshSnapshot = () =>
-    void window.dela?.shuiyuan
+    void shuiyuanClient
       .refreshSnapshot(topicId)
       .catch((cause: unknown) =>
-        showToast({ variant: 'error', title: '无法保存快照', description: errorText(cause) }),
+        showToast({ variant: 'error', title: '无法保存快照', description: errorMessage(cause) }),
       );
   const snapshotText =
     snapshot?.status === 'saving'
@@ -75,25 +90,18 @@ function SnapshotStatus({
 }
 
 /**
- * 项目工作区中的水源来源视图：主题引用卡 + 快照状态 + 楼层正文（readSource 读本地快照或保存中的草稿，
- * 都还没有时 content 为引用行摘要文本）。正文从摘要首次变为可读时自动重读；之后本地有更新只给出
+ * 项目工作区中的水源来源视图：主题引用卡 + 快照状态 + 楼层正文（读本地快照或保存中的草稿，
+ * 都还没有时为引用行摘要）。正文从摘要首次变为可读时自动重读；之后本地有更新只给出
  * 「刷新正文」，不在阅读中替换正文。
  */
-export function ShuiyuanSourceDoc({
-  topicId,
-  content,
-  text,
-  onOpenInShuiyuan,
-  onReload,
-}: {
-  topicId: number;
-  content: DocumentContent;
-  text: string;
-  onOpenInShuiyuan: (topicId: number, postNumber?: number) => void;
-  onReload: () => void;
-}) {
+export function ShuiyuanSourceDoc({ sourceId, content, navigate, onReload }: SourceDocumentProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const ref = useShuiyuanSourceRef(topicId);
+  const topicId = topicIdOf(sourceId);
+  const text = content.text ?? '';
+  const query = useSourceRef(topicId);
+  const ref = query.data ?? null;
+  const openInShuiyuan = (targetTopicId: number, postNumber?: number) =>
+    navigate({ page: 'shuiyuan', topicId: targetTopicId, postNumber });
 
   const meta = [
     ref?.author ? `作者 ${ref.author}` : null,
@@ -125,8 +133,8 @@ export function ShuiyuanSourceDoc({
           </div>
           <div className="flex items-center gap-2">
             <Button
-              disabled={!window.dela?.shuiyuan}
-              onClick={() => onOpenInShuiyuan(topicId)}
+              disabled={!window.dela}
+              onClick={() => openInShuiyuan(topicId)}
               size="sm"
               variant="outline"
             >
@@ -135,7 +143,7 @@ export function ShuiyuanSourceDoc({
             </Button>
             {content.url ? (
               <Button
-                onClick={() => void window.dela?.shuiyuan.openInBrowser(topicId)}
+                onClick={() => void shuiyuanClient.openInBrowser(topicId)}
                 size="sm"
                 variant="ghost"
               >
@@ -144,7 +152,12 @@ export function ShuiyuanSourceDoc({
               </Button>
             ) : null}
           </div>
-          <SnapshotStatus topicId={topicId} content={content} onReload={onReload} />
+          <SnapshotStatus
+            topicId={topicId}
+            snapshot={query.isPending ? undefined : (ref?.snapshot ?? null)}
+            content={content}
+            onReload={onReload}
+          />
         </section>
         {content.shuiyuanSnapshot ? (
           <ShuiyuanSnapshotBody
@@ -153,10 +166,10 @@ export function ShuiyuanSourceDoc({
             postCount={content.shuiyuanSnapshot.postCount}
             pageSize={content.shuiyuanSnapshot.pageSize}
             scrollRef={scrollRef}
-            onOpenTopic={onOpenInShuiyuan}
+            onOpenTopic={openInShuiyuan}
           />
         ) : content.format === 'html' ? (
-          <ShuiyuanHtmlBody html={text} onOpenTopic={onOpenInShuiyuan} title="帖子内容" />
+          <ShuiyuanHtmlBody html={text} onOpenTopic={openInShuiyuan} title="帖子内容" />
         ) : (
           <pre className="whitespace-pre-wrap break-words rounded-control border border-line bg-inset p-4 text-sm leading-relaxed">
             {text}

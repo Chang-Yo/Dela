@@ -1,15 +1,17 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { KeyRound } from 'lucide-react';
-import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
-import { errorText } from '../../../workspace/store';
-import { StepButton, type StepButtonState } from '../../../../modules/onboarding/view';
-import { StepGuide } from './step-guide';
-import { ErrorText } from '../../../../ui/alert';
-import { Button } from '../../../../ui/button';
-import { Textarea } from '../../../../ui/textarea';
+import { errorMessage } from '../../../core/protocol/contract';
+import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
+import { StepButton, StepGuide, type StepButtonState } from '../../../modules/onboarding/view';
+import { ErrorText } from '../../../ui/alert';
+import { Button } from '../../../ui/button';
+import { Textarea } from '../../../ui/textarea';
+import { shuiyuanClient } from './use-shuiyuan';
 
 /** 向导 · 水源步骤：独立窗口完成 jAccount 登录与授权，粘贴密钥绑定，按钮转为「下一步」。 */
-export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
+export function ShuiyuanOnboardingStep({ onDone }: { onDone: () => void }) {
+  const queryClient = useQueryClient();
   const [authBusy, setAuthBusy] = useState(false);
   const [payload, setPayload] = useState('');
   const [state, setState] = useState<StepButtonState>('idle');
@@ -23,15 +25,14 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
       />
     );
   }
-  const shuiyuan = window.dela.shuiyuan;
 
   const startAuth = async () => {
     setAuthBusy(true);
     setError(null);
     try {
-      await shuiyuan.startAuth();
+      await shuiyuanClient.startAuth();
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setAuthBusy(false);
     }
@@ -43,10 +44,10 @@ export function ShuiyuanStep({ onDone }: { onDone: () => void }) {
     setState('busy');
     setError(null);
     try {
-      await shuiyuan.bind(payload);
+      queryClient.setQueryData(['shuiyuan', 'state'], await shuiyuanClient.bind(payload));
       setState('success');
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
       setState('idle');
     }
   };

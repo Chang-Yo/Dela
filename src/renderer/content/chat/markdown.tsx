@@ -11,7 +11,7 @@ import {
   type DiagramPlugin,
   type LinkSafetyConfig,
 } from 'streamdown';
-import { shuiyuanTopicFromUrl } from '../../../shared/shuiyuan';
+import { opensInApp } from '../../../app/views';
 import { cn } from '../../../ui/cn';
 import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
 
@@ -86,7 +86,7 @@ const chatComponents = { table: ChatTable };
 // 水源主题链接免外链确认：主进程会把它交回应用内阅读。
 const chatLinkSafety: LinkSafetyConfig = {
   enabled: true,
-  onLinkCheck: (url) => shuiyuanTopicFromUrl(url) !== null,
+  onLinkCheck: opensInApp,
 };
 
 /**

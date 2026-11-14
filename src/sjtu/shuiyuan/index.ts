@@ -1,25 +1,81 @@
 // 水源社区：阅读、通知与帖子快照；水源链接在应用内打开。
+import { shell } from 'electron';
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
 import { registerResourceResolver } from '../../core/capabilities/resources';
 import { registerSecretLabel } from '../../core/ports';
+import { implement } from '../../core/protocol/contract';
+import { workspaceWindow } from '../../main/ipc';
 import { registerNoticeSource } from '../../modules/notifications';
 import { registerPreviewHost } from '../../main/workspace/preview';
 import { registerWorkspaceSource } from '../../main/workspace/sources';
+import { shuiyuanContract } from './contract';
 import { shuiyuanDomain } from './main/agent';
-import { registerShuiyuanIpc } from './main/ipc';
+import {
+  bindShuiyuan,
+  createShuiyuanMessage,
+  createShuiyuanReply,
+  createShuiyuanUpload,
+  getShuiyuanCounts,
+  getShuiyuanSiteStructure,
+  getShuiyuanState,
+  getShuiyuanTopic,
+  listShuiyuanBookmarks,
+  listShuiyuanMessages,
+  listShuiyuanNotifications,
+  listShuiyuanTopics,
+  loadShuiyuanPosts,
+  locateShuiyuanPost,
+  markShuiyuanNotificationsRead,
+  setShuiyuanBookmarked,
+  setShuiyuanLiked,
+  startShuiyuanAuth,
+  unbindShuiyuan,
+} from './main/api';
 import { openShuiyuanLinkInApp } from './main/links';
 import { handleShuiyuanMediaRequest } from './main/media';
 import { shuiyuanNoticeSource } from './main/notice-source';
 import { shuiyuanOnlineResourceResolver, shuiyuanWorkspaceSource } from './main/resources';
-import { resumeShuiyuanSnapshots } from './main/snapshot';
+import { refreshShuiyuanSnapshot, resumeShuiyuanSnapshots } from './main/snapshot';
 import { handleShuiyuanSnapshotRequest } from './main/snapshot-files';
+import {
+  addShuiyuanSourceRef,
+  getShuiyuanSourceRef,
+  readShuiyuanSourcePage,
+  shuiyuanTopicUrl,
+} from './main/sources';
 
 export const shuiyuanModule = defineModule({
   id: 'shuiyuan',
+  ipc: implement(shuiyuanContract, {
+    state: () => getShuiyuanState(),
+    startAuth: () => startShuiyuanAuth(workspaceWindow()!.webContents),
+    bind: (payload) => bindShuiyuan(payload),
+    unbind: () => unbindShuiyuan(),
+    siteStructure: () => getShuiyuanSiteStructure(),
+    topics: ({ feed, moreUrl }) => listShuiyuanTopics(feed, moreUrl),
+    topic: ({ id, postNumber }) => getShuiyuanTopic(id, postNumber),
+    posts: ({ topicId, postIds }) => loadShuiyuanPosts(topicId, postIds),
+    locatePost: (postId) => locateShuiyuanPost(postId),
+    bookmarks: () => listShuiyuanBookmarks(),
+    messages: () => listShuiyuanMessages(),
+    notifications: () => listShuiyuanNotifications(),
+    markNotificationsRead: () => markShuiyuanNotificationsRead(),
+    counts: () => getShuiyuanCounts(),
+    reply: ({ topicId, raw, replyToPostNumber }) =>
+      createShuiyuanReply(topicId, raw, replyToPostNumber),
+    upload: ({ fileName, base64 }) => createShuiyuanUpload(fileName, base64),
+    message: ({ to, title, raw }) => createShuiyuanMessage(to, title, raw),
+    setBookmarked: ({ topicId, on }) => setShuiyuanBookmarked(topicId, on),
+    setLiked: ({ postId, liked }) => setShuiyuanLiked(postId, liked),
+    addSourceRef: (topicId) => addShuiyuanSourceRef(topicId),
+    sourceRef: (topicId) => getShuiyuanSourceRef(topicId),
+    snapshotPage: ({ topicId, page }) => readShuiyuanSourcePage(topicId, page),
+    refreshSnapshot: (topicId) => refreshShuiyuanSnapshot(topicId),
+    openInBrowser: (topicId) => shell.openExternal(shuiyuanTopicUrl(topicId)),
+  }),
   register() {
     registerSecretLabel('shuiyuan-key', '水源凭据');
-    registerShuiyuanIpc();
     registerCommandDomain(shuiyuanDomain);
     registerNoticeSource(shuiyuanNoticeSource);
     registerWorkspaceSource(shuiyuanWorkspaceSource);

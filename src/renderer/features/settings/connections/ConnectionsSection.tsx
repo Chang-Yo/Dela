@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { GraduationCap, Mail, type LucideIcon } from 'lucide-react';
 import { Button } from '../../../../ui/button';
-import { ShuiyuanIcon } from '../../shuiyuan/shuiyuan-icon';
 import {
   Select,
   SelectContent,
@@ -23,14 +22,13 @@ import { useNavigationStore } from '../../../navigation/view';
 
 type ConnectionsSectionProps = {
   onOpenMail: () => void;
-  onOpenShuiyuan: () => void;
 };
 
 type Connection = {
   /** 搜索直达与高亮目标（data-setting-id）。 */
   itemId: string;
   name: string;
-  icon: LucideIcon | typeof ShuiyuanIcon;
+  icon: LucideIcon;
   state: string;
   connected: boolean;
   /** 防误解的关键说明（如授权范围）；其余连接不显示描述。 */
@@ -42,13 +40,10 @@ type Connection = {
 };
 
 /** 设置 › 凭据：未迁移的连接写在这里，模块的凭据行由视图定义登记。 */
-export function ConnectionsSection({ onOpenMail, onOpenShuiyuan }: ConnectionsSectionProps) {
+export function ConnectionsSection({ onOpenMail }: ConnectionsSectionProps) {
   const canvas = useWorkspaceStore((state) => state.canvas);
   const [mailAddress, setMailAddress] = useState<string | null>(null);
   const [trashRetention, setTrashRetention] = useState<MailTrashRetention | null>(null);
-  const [shuiyuanUser, setShuiyuanUser] = useState<string | null>(null);
-  const [shuiyuanBusy, setShuiyuanBusy] = useState(false);
-  const [shuiyuanConfirm, setShuiyuanConfirm] = useState(false);
   const [dialog, setDialog] = useState<'canvas' | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -57,11 +52,11 @@ export function ConnectionsSection({ onOpenMail, onOpenShuiyuan }: ConnectionsSe
     const dela = window.dela;
     if (!dela) return undefined;
     let active = true;
-    void Promise.all([dela.mail.getState(), dela.shuiyuan.getState()])
-      .then(([mailState, shuiyuanState]) => {
+    void dela.mail
+      .getState()
+      .then((mailState) => {
         if (!active) return;
         setMailAddress(mailState.account?.address ?? null);
-        setShuiyuanUser(shuiyuanState.connected ? shuiyuanState.username : null);
         if (mailState.account) {
           void dela.mail
             .getTrashRetention()
@@ -78,24 +73,6 @@ export function ConnectionsSection({ onOpenMail, onOpenShuiyuan }: ConnectionsSe
       active = false;
     };
   }, []);
-
-  // 水源解绑：先远端 revoke 再清本地；两步确认防误触（重新授权成本高）。
-  const unbindShuiyuan = async () => {
-    if (!window.dela || !shuiyuanConfirm) {
-      setShuiyuanConfirm(true);
-      return;
-    }
-    setShuiyuanBusy(true);
-    try {
-      await window.dela.shuiyuan.unbind();
-      setShuiyuanUser(null);
-      setShuiyuanConfirm(false);
-    } catch (cause) {
-      showToast({ variant: 'error', title: '解除绑定失败', description: errorText(cause) });
-    } finally {
-      setShuiyuanBusy(false);
-    }
-  };
 
   const openDialog = () => {
     setDialog('canvas');
@@ -166,23 +143,6 @@ export function ConnectionsSection({ onOpenMail, onOpenShuiyuan }: ConnectionsSe
             </Select>
           </div>
         ),
-    },
-    {
-      itemId: 'shuiyuan',
-      name: '水源社区',
-      icon: ShuiyuanIcon,
-      state: shuiyuanUser ? `已绑定 · @${shuiyuanUser}` : '未绑定',
-      connected: Boolean(shuiyuanUser),
-      // 授权范围是绑定前的知情要件，保留。
-      description: '读取与写入授权（浏览、回复、私信）',
-      actionLabel: shuiyuanUser
-        ? shuiyuanBusy
-          ? '解除中…'
-          : shuiyuanConfirm
-            ? '确认解除？'
-            : '解除绑定'
-        : '去绑定',
-      onClick: shuiyuanUser ? () => void unbindShuiyuan() : onOpenShuiyuan,
     },
   ];
 

@@ -75,6 +75,8 @@ export interface WorkspaceApi {
   onChanged(listener: (paths: string[]) => void): () => void;
   remove(id: string): Promise<void>;
   read(id: string): Promise<DocumentContent>;
+  /** 来源资料（Canvas 课件、水源帖子等）的正文，由认领该 sourceId 的模块读取。 */
+  readSource(sourceId: string): Promise<DocumentContent>;
   /** 原地覆写文本文件；revision 与磁盘不一致时拒绝。 */
   saveNote(id: string, text: string, revision: string): Promise<string>;
   /** 把新插入的本地图片存入 Markdown 文件同目录的 assets/，返回相对路径。 */

@@ -1,8 +1,9 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { memo, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../workspace/store';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
+import { shuiyuanClient } from './use-shuiyuan';
 
 function SnapshotPage({
   topicId,
@@ -15,33 +16,18 @@ function SnapshotPage({
   estimatedHeight: number;
   onOpenTopic: (topicId: number, postNumber?: number) => void;
 }) {
-  const [html, setHtml] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let active = true;
-    void window.dela!.shuiyuan.readSnapshotPage(topicId, page).then(
-      (value) => {
-        if (active) {
-          setHtml(value);
-          setError(null);
-        }
-      },
-      (cause: unknown) => {
-        if (active) setError(errorText(cause));
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [topicId, page, attempt]);
-  if (error)
+  const query = useQuery({
+    queryKey: ['shuiyuan', 'snapshotPage', topicId, page],
+    queryFn: () => shuiyuanClient.snapshotPage({ topicId, page }),
+  });
+  const html = query.data;
+  if (query.isError)
     return (
-      <Button variant="ghost" onClick={() => setAttempt(attempt + 1)}>
+      <Button variant="ghost" onClick={() => void query.refetch()}>
         加载失败，重试
       </Button>
     );
-  return html === null ? (
+  return html === undefined ? (
     <p style={{ height: estimatedHeight }} className="p-4 text-sm text-ink-3">
       正在加载楼层…
     </p>

@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { Bookmark, Lock, Mail, MessageSquare, Pin } from 'lucide-react';
-import type { ShuiyuanTopicSummary } from '../../../shared/api';
+import { errorMessage } from '../../../core/protocol/contract';
+import type { ShuiyuanTopicSummary } from '../contract';
 import { cn } from '../../../ui/cn';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
-import { categoryOf, isTopicUnread, useShuiyuan } from './store';
-import { avatarUrl, formatCount, formatListDate, tagColor } from './shuiyuan-format';
+import { isTopicUnread, openTopic, useShuiyuan } from './store';
+import { avatarUrl, categoryOf, formatCount, formatListDate, tagColor } from './shuiyuan-format';
+import { useFeed, useSiteStructure, type FeedSelection } from './use-shuiyuan';
 import { Callout } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 
@@ -56,8 +58,7 @@ function TopicRow({
   showExcerpt: boolean;
   unread: boolean;
 }) {
-  const structure = useShuiyuan((state) => state.structure);
-  const openTopic = useShuiyuan((state) => state.openTopic);
+  const structure = useSiteStructure();
   const category = categoryOf(structure, topic.categoryId);
   const isPM = topic.archetype === 'private_message';
   return (
@@ -66,7 +67,7 @@ function TopicRow({
         'flex w-full items-start gap-3.5 rounded-card border border-line p-5 text-left shadow-hairline transition-colors max-md:p-4',
         topic.pinned ? 'bg-inset hover:bg-hover-strong' : 'bg-surface hover:bg-hover',
       )}
-      onClick={() => void openTopic(topic.id)}
+      onClick={() => openTopic(topic.id)}
       type="button"
     >
       <TopicAvatar topic={topic} />
@@ -146,32 +147,28 @@ function TopicCardSkeleton() {
 }
 
 /** 单列信息流：站点 feed 与私信会话共用；搜索/精品带摘要行。 */
-export function TopicFeed() {
-  const list = useShuiyuan((state) => state.list);
-  const topics = useShuiyuan((state) => state.topics);
-  const moreUrl = useShuiyuan((state) => state.moreUrl);
-  const loading = useShuiyuan((state) => state.listLoading);
-  const error = useShuiyuan((state) => state.listError);
+export function TopicFeed({ list }: { list: FeedSelection }) {
+  const feed = useFeed(list);
+  const topics = feed.data?.pages.flatMap((page) => page.topics) ?? [];
+  const loading = feed.isFetching;
+  const error = feed.error ? errorMessage(feed.error) : null;
   const readMarks = useShuiyuan((state) => state.readMarks);
   const reading = useShuiyuan((state) => state.reading !== null);
-  const refreshList = useShuiyuan((state) => state.refreshList);
   const showExcerpt = list.kind === 'search' || list.kind === 'featured';
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const { hasNextPage, fetchNextPage } = feed;
 
   // 滑到底部自动加载下一页。阅读页盖住列表期间暂停（几何上哨兵仍“可见”），
   // 关闭阅读后依赖变化重建观察器即可恢复；出错也停住，交由错误横幅的重试。
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel || !moreUrl) return;
+    if (!sentinel || !hasNextPage || loading || error || reading) return;
     const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      const state = useShuiyuan.getState();
-      if (state.listLoading || state.listError || state.reading) return;
-      void state.loadMore();
+      if (entries.some((entry) => entry.isIntersecting)) void fetchNextPage();
     });
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [moreUrl, loading, reading, topics.length]);
+  }, [hasNextPage, loading, error, reading, fetchNextPage]);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 pb-10 pt-4 max-md:px-3">
@@ -186,7 +183,7 @@ export function TopicFeed() {
       {loading && topics.length === 0
         ? Array.from({ length: 5 }, (_, index) => <TopicCardSkeleton key={index} />)
         : null}
-      {moreUrl && !error ? (
+      {hasNextPage && !error ? (
         <div
           aria-hidden={!loading}
           className="flex h-9 items-center justify-center text-ink-3"
@@ -209,7 +206,7 @@ export function TopicFeed() {
           action={
             <button
               className="underline underline-offset-2"
-              onClick={() => void refreshList()}
+              onClick={() => void feed.refetch()}
               type="button"
             >
               重试

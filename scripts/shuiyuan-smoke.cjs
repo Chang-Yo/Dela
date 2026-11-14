@@ -125,8 +125,9 @@ const routes = {
     detail: null,
     failedAt: null,
   }),
-  'shuiyuan:get-state': () => ({ connected: true, username: 'tester', boundAt: iso(1000) }),
-  'shuiyuan:site-structure': () => ({
+  'contract:subscribe': () => null,
+  'shuiyuan:state': () => ({ connected: true, username: 'tester', boundAt: iso(1000) }),
+  'shuiyuan:siteStructure': () => ({
     categories: [
       {
         id: 1,
@@ -143,18 +144,18 @@ const routes = {
       { name: '转载', topicCount: 3 },
     ],
   }),
-  'shuiyuan:get-counts': () => ({
+  'shuiyuan:counts': () => ({
     notifications: notifications.filter((n) => !n.read).length,
     messages: 1,
   }),
-  'shuiyuan:list-topics': (_event, feed, moreUrl) => {
+  'shuiyuan:topics': (_event, { feed, moreUrl }) => {
     listCalls.push(JSON.stringify({ feed, moreUrl: moreUrl ?? null }));
     if (feed?.kind === 'search') return searchPage;
     return moreUrl ? pageTwo : pageOne;
   },
-  'shuiyuan:get-topic': (_event, id) => (id === 101 ? detail : { ...detail, id }),
-  'shuiyuan:list-notifications': () => notifications,
-  'shuiyuan:mark-notifications-read': () => {
+  'shuiyuan:topic': (_event, { id }) => (id === 101 ? detail : { ...detail, id }),
+  'shuiyuan:notifications': () => notifications,
+  'shuiyuan:markNotificationsRead': () => {
     notifications = notifications.map((item) => ({ ...item, read: true }));
     return null;
   },

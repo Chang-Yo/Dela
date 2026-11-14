@@ -24,7 +24,7 @@ export interface ExplorerItem {
   name: string;
   container?: boolean;
   project?: boolean;
-  badge?: string;
+  badge?: ReactNode;
   /** 自定义行图标（如水源来源的水滴、远端项目的云朵）：给了就顶掉容器/项目的默认图标。 */
   icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
   /** 行图标的强调色（CSS 颜色值）：同源的多行共用一色，视觉上归为一组。 */

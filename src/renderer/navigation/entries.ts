@@ -2,7 +2,8 @@
 // 隐藏只影响导航，能力仍在。首页固定显示，不在此列表。
 import { CalendarDays, FolderOpen, Mail, MonitorPlay } from 'lucide-react';
 import { usePreferences } from '../app/preferences';
-import { ShuiyuanIcon } from '../features/shuiyuan/shuiyuan-icon';
+// oxlint-disable-next-line no-restricted-imports -- 过渡：侧栏入口改由视图清单生成后移除
+import { ShuiyuanIcon } from '../../sjtu/shuiyuan/view';
 
 export type NavEntryId = 'sources' | 'mail' | 'timetable' | 'classroom' | 'shuiyuan';
 

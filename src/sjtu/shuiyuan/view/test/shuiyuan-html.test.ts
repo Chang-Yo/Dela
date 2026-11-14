@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { expect, it } from 'vitest';
-import { sanitizeShuiyuanHtml } from './shuiyuan-html';
+import { sanitizeShuiyuanHtml } from '../shuiyuan-html';
 
 const upload = 'https://shuiyuan.sjtu.edu.cn/secure-uploads';
 

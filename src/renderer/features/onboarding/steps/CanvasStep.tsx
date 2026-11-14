@@ -3,7 +3,7 @@ import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { connectCanvas } from '../../settings/connections/canvas-connect';
 import { errorText } from '../../../workspace/store';
 import { StepButton, type StepButtonState } from '../../../../modules/onboarding/view';
-import { StepGuide } from './step-guide';
+import { StepGuide } from '../../../../modules/onboarding/view';
 import { ErrorText } from '../../../../ui/alert';
 import {} from '../../../../ui/button';
 import { Input } from '../../../../ui/input';

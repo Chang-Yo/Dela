@@ -43,9 +43,8 @@ describe('previewBranchOf', () => {
   });
 
   it('水源来源优先于格式分流', () => {
-    expect(previewBranchOf(docOf('html', { shuiyuanTopicId: 456 }))).toBe('shuiyuan');
-    expect(previewBranchOf(docOf('text', { shuiyuanTopicId: 456, watchesDisk: true }))).toBe(
-      'shuiyuan',
-    );
+    const source = { id: 'shuiyuan-topic:456', document: () => null };
+    expect(previewBranchOf(docOf('html', { source }))).toBe('source');
+    expect(previewBranchOf(docOf('text', { source, watchesDisk: true }))).toBe('source');
   });
 });

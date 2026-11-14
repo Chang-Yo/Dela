@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { decodeShuiyuanTitle } from './shuiyuan-emoji';
+import { decodeShuiyuanTitle } from '../shuiyuan-emoji';
 
 describe('decodeShuiyuanTitle', () => {
   it('替换标题中的标准 emoji 短代码', () => {

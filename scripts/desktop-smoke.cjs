@@ -156,7 +156,7 @@ async function run(window) {
     return new Response(JSON.stringify({ current_user: { username: 'desktop-fixture' } }));
   };
   try {
-    await js('window.dela.shuiyuan.startAuth()');
+    await js("window.dela.bridge.invoke('shuiyuan:startAuth')");
     const first = authorization;
     assert.ok(first);
     assert.equal(first.getParentWindow(), window);
@@ -170,13 +170,15 @@ async function run(window) {
     assert.equal(preferences.sandbox, true);
     assert.equal(preferences.nodeIntegration, false);
     assert.ok(!preferences.preload);
-    await js('window.dela.shuiyuan.startAuth()');
+    await js("window.dela.bridge.invoke('shuiyuan:startAuth')");
     assert.equal(authorization, first);
     assert.equal(BrowserWindow.getAllWindows().length, 2);
     first.close();
     await wait(() => first.isDestroyed(), 'authorization closed');
     assert.equal(window.isEnabled(), true);
-    const bound = await js(`window.dela.shuiyuan.bind(${JSON.stringify(encrypted)})`);
+    const bound = await js(
+      `window.dela.bridge.invoke('shuiyuan:bind', ${JSON.stringify(encrypted)})`,
+    );
     assert.equal(bound.connected, true);
     assert.equal(bound.username, 'desktop-fixture');
   } finally {

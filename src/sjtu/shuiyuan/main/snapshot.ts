@@ -3,7 +3,6 @@
 // 进行中的保存写在 <topicId>.partial/，完成后整体换入；中断后重试复用已下载的图片。
 // 楼层取齐后按段写出草稿；图片下载只重写发生变化的段落，预览按可见段读取。
 // 引用行只是索引：帖子从所有项目移除后由 collectShuiyuanSnapshots 删除快照文件并清空状态列。
-import { BrowserWindow } from 'electron';
 import { load, type CheerioAPI } from 'cheerio';
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
@@ -12,11 +11,15 @@ import { appendFile, copyFile, mkdir, readdir, rename, rm } from 'node:fs/promis
 import { join } from 'node:path';
 import { setImmediate } from 'node:timers/promises';
 import { z } from 'zod';
-import type { ShuiyuanPost, ShuiyuanSnapshotState } from '../../../shared/api';
-import { SHUIYUAN_HOST } from '../../../shared/shuiyuan';
+import { emit } from '../../../core/ports';
+import {
+  SHUIYUAN_HOST,
+  shuiyuanContract,
+  type ShuiyuanPost,
+  type ShuiyuanSnapshotState,
+} from '../contract';
 import { loadShuiyuanCredential } from './credentials';
 import { getDatabase } from '../../../main/database';
-import { isWorkspaceWindow } from '../../../main/ipc';
 import { systemNotifyToast } from '../../../modules/notifications';
 import { getShuiyuanTopic, loadShuiyuanPosts, SHUIYUAN_ORIGIN } from './api';
 import { noteShuiyuanResponse, waitForShuiyuanBackgroundSlot } from './budget';
@@ -76,12 +79,8 @@ export function shuiyuanSnapshotState(topicId: number): ShuiyuanSnapshotState | 
   };
 }
 
-function broadcast(topicId: number): void {
-  const state = shuiyuanSnapshotState(topicId);
-  if (!state) return;
-  for (const window of BrowserWindow.getAllWindows())
-    if (!window.isDestroyed() && isWorkspaceWindow(window.webContents.getURL()))
-      window.webContents.send('shuiyuan:snapshot', state);
+function broadcast(): void {
+  emit(shuiyuanContract, 'sourceRef', undefined);
 }
 
 function reportProgress(topicId: number, value: Progress): void {
@@ -91,7 +90,7 @@ function reportProgress(topicId: number, value: Progress): void {
   if (!changed && value.done < value.total && Date.now() - progressSentAt < PROGRESS_INTERVAL_MS)
     return;
   progressSentAt = Date.now();
-  broadcast(topicId);
+  broadcast();
 }
 
 export function queueShuiyuanSnapshot(topicId: number): void {
@@ -103,7 +102,7 @@ export function queueShuiyuanSnapshot(topicId: number): void {
     )
     .run(topicId);
   queue.push(topicId);
-  broadcast(topicId);
+  broadcast();
   void drainQueue();
 }
 
@@ -157,7 +156,15 @@ async function drainQueue(): Promise<void> {
       running = null;
       progress.delete(topicId);
     }
-    if (!controller.signal.aborted) broadcast(topicId);
+    if (controller.signal.aborted) continue;
+    broadcast();
+    const ended = getDatabase()
+      .prepare(
+        'SELECT title, snapshot_status AS status, snapshot_error AS error FROM shuiyuan_topics WHERE topic_id = ?',
+      )
+      .get(topicId) as
+      { title: string; status: 'done' | 'failed'; error: string | null } | undefined;
+    if (ended) emit(shuiyuanContract, 'snapshotEnded', { topicId, ...ended });
   }
 }
 

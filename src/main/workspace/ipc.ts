@@ -22,6 +22,7 @@ import {
 } from './project';
 import { checkWorkspaceSender } from '../ipc';
 import { registerLayoutIpc } from './layout';
+import { workspaceSource } from './sources';
 import { exportOfficePdf } from '../documents/export';
 import { openResourceFile } from '../resources';
 import { remoteById, remoteJoin, targetOf, withinRemoteRoot } from '../remotes/api';
@@ -193,6 +194,10 @@ export function registerWorkspaceIpc(invalidateSessions: () => void) {
     invalidateSessions();
   });
   handle('read', (id) => readWorkspaceEntry(workspaceEntryIdSchema.parse(id)));
+  handle('read-source', (sourceId) => {
+    const id = z.string().max(512).parse(sourceId);
+    return workspaceSource(id).preview(id);
+  });
   handle('save-note', (id, text, revision) =>
     saveWorkspaceNote(
       workspaceEntryIdSchema.parse(id),

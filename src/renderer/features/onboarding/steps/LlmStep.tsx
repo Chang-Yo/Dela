@@ -5,7 +5,7 @@ import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { SelectItem } from '../../../../ui/select';
 import { errorText } from '../../../workspace/store';
 import { StepButton, StepSelect, type StepButtonState } from '../../../../modules/onboarding/view';
-import { StepGuide } from './step-guide';
+import { StepGuide } from '../../../../modules/onboarding/view';
 import { StepModelImportDialog } from './step-model-import';
 import { capModels } from './model-import';
 import type { LlmCatalogProvider, LlmVerifyResult } from '../../../../shared/api';
