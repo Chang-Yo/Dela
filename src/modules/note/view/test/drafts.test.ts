@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DocumentContent } from '../../../shared/api';
+import type { DocumentContent } from '../../../workspace/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入 store 装好。
 const invoke = vi.hoisted(() => {
@@ -10,7 +10,7 @@ const invoke = vi.hoisted(() => {
   });
   return invoke;
 });
-import { useNoteDrafts } from './drafts';
+import { useNoteDrafts } from '../drafts';
 
 const content: DocumentContent = { title: 'Note', format: 'markdown', text: 'old', revision: 'r1' };
 

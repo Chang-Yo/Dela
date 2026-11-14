@@ -14,13 +14,17 @@ import {
   type ChatTabSource,
   type ReferenceSource,
 } from '../content/chat/chat-source';
-import { NoteDraftSourceProvider, type NoteDraftSource } from '../content/note/draft-source';
+import {
+  NoteDraftSourceProvider,
+  useNoteDrafts,
+  type NoteDraftSource,
+} from '../../modules/note/view';
 import {
   ContentLoaderProvider,
+  parsePreviewTabId,
   type ContentLoader,
   type LoadedDocument,
-} from '../content/preview/loader';
-import { parsePreviewTabId } from '../content/preview/tab-id';
+} from '../../modules/preview/view';
 import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from './layout-store';
 import { useShortcuts } from '../app/shortcuts';
@@ -30,7 +34,6 @@ import { Workbench } from './Workbench';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
 import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { errorText, useWorkspaceStore } from '../workspace/store';
-import { useNoteDrafts } from '../content/note/drafts';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from '../navigation/view';

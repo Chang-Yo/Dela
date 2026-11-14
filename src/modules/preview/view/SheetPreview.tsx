@@ -1,8 +1,9 @@
 import { Minus, Plus } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../workspace/store';
+import { errorText } from '../../../renderer/workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/alert';
 
@@ -59,43 +60,31 @@ function sheetTruncated(sheet: XLSX.WorkSheet): boolean {
 
 export function SheetPreview({ url }: { url: string }) {
   const scroller = useRef<HTMLDivElement>(null);
-  const [sheets, setSheets] = useState<SheetTab[]>([]);
   const [active, setActive] = useState(0);
-  const [error, setError] = useState('');
-  const [loaded, setLoaded] = useState(false);
-  const [attempt, setAttempt] = useState(0);
   const [zoom, setZoom] = useState(1);
   usePinchZoom(scroller, setZoom, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP);
-  useEffect(() => {
-    const controller = new AbortController();
-    setError('');
-    setSheets([]);
-    setLoaded(false);
-    (async () => {
-      try {
-        const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        // cellHTML:false：禁用富文本 .h 生成（SheetJS 对其不做 HTML 转义），一律走转义后的显示值。
-        const workbook = XLSX.read(new Uint8Array(await response.arrayBuffer()), {
-          type: 'array',
-          cellHTML: false,
-          sheetRows: SHEET_ROW_LIMIT,
-        });
-        if (controller.signal.aborted) return;
-        setSheets(
-          workbook.SheetNames.map((name) => {
-            const sheet = workbook.Sheets[name]!;
-            return { name, table: tableHtml(sheet), truncated: sheetTruncated(sheet) };
-          }),
-        );
-        setActive(0);
-        setLoaded(true);
-      } catch (cause) {
-        if (!controller.signal.aborted) setError(errorText(cause));
-      }
-    })();
-    return () => controller.abort();
-  }, [url, attempt]);
+  // 解析结果只服务当前标签（外层按 url 重挂载），不留缓存。
+  const workbook = useQuery({
+    queryKey: ['preview', 'sheet', url],
+    queryFn: async ({ signal }): Promise<SheetTab[]> => {
+      const response = await fetch(url, { signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      // cellHTML:false：禁用富文本 .h 生成（SheetJS 对其不做 HTML 转义），一律走转义后的显示值。
+      const book = XLSX.read(new Uint8Array(await response.arrayBuffer()), {
+        type: 'array',
+        cellHTML: false,
+        sheetRows: SHEET_ROW_LIMIT,
+      });
+      return book.SheetNames.map((name) => {
+        const sheet = book.Sheets[name]!;
+        return { name, table: tableHtml(sheet), truncated: sheetTruncated(sheet) };
+      });
+    },
+    gcTime: 0,
+  });
+  const sheets = workbook.data ?? [];
+  const loaded = workbook.isSuccess;
+  const error = workbook.isError && !workbook.isFetching ? errorText(workbook.error) : '';
   const step = (direction: number) =>
     setZoom((value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value + direction * ZOOM_STEP)));
   const current = sheets[active];
@@ -140,7 +129,7 @@ export function SheetPreview({ url }: { url: string }) {
         {error && (
           <ErrorText size="sm" className="absolute inset-x-0 top-0 bg-surface p-3">
             表格打开失败：{error}
-            <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
+            <button className="ml-2 underline" onClick={() => void workbook.refetch()}>
               重试
             </button>
           </ErrorText>

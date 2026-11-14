@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { findMath, renderMath, wrapCjk } from './math';
+import { findMath, renderMath, wrapCjk } from '../math';
 
 const find = (text: string, skip: (pos: number) => boolean = () => false) =>
   findMath(text, 0, skip).map(({ tex, display }) => ({ tex, display }));

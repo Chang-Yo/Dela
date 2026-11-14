@@ -4,7 +4,7 @@ import { Send } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { errorMessage } from '../../../core/protocol/contract';
-import { MarkdownEditor } from '../../../renderer/content/note/MarkdownEditor';
+import { MarkdownEditor } from '../../../modules/note/view';
 import { showToast } from '../../../renderer/app/toasts';
 import { openTopic } from './store';
 import { shuiyuanClient } from './use-shuiyuan';

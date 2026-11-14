@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import {
   AnnotationMode,
   getDocument,
@@ -10,7 +10,7 @@ import { EventBus, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { ChevronLeft, ChevronRight, Minus, MoveHorizontal, Plus } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../workspace/store';
+import { errorText } from '../../../renderer/workspace/store';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import { ErrorText } from '../../../ui/alert';
 
@@ -34,8 +34,7 @@ export function PdfReader({
   const pages = useRef<HTMLDivElement>(null);
   const viewer = useRef<PDFViewer | null>(null);
   const position = useRef(scroll);
-  const callbacks = useRef({ onScroll });
-  callbacks.current = { onScroll };
+  const reportScroll = useEffectEvent((top: number) => onScroll?.(top));
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [pageCount, setPageCount] = useState(0);
@@ -84,7 +83,7 @@ export function PdfReader({
         index +
           Math.max(0, Math.min(0.999, (element.scrollTop - page.offsetTop) / page.clientHeight)),
       );
-      callbacks.current.onScroll?.(position.current);
+      reportScroll(position.current);
     };
     eventBus.on('pagesinit', () => {
       if (disposed) return;

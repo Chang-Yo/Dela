@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { DocumentContent } from '../../../shared/api';
+import type { DocumentContent } from '../../workspace/contract';
 
 /** 笔记草稿快照：text 为编辑中正文，saved 为最近一次落盘版本，两者不一致即未保存。 */
 export type NoteDraft = {

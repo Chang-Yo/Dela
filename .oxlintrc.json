@@ -341,7 +341,6 @@
                   "**/renderer/**",
                   "!**/renderer/app/toasts",
                   "!**/renderer/lib/*",
-                  "!**/renderer/content/note/MarkdownEditor",
                   "!**/renderer/workspace/store",
                   "!**/renderer/components/explorer"
                 ],
@@ -404,7 +403,6 @@
                   "**/renderer/**",
                   "!**/renderer/app/toasts",
                   "!**/renderer/lib/*",
-                  "!**/renderer/content/note/MarkdownEditor",
                   "!**/renderer/workspace/store",
                   "!**/renderer/components/explorer"
                 ],

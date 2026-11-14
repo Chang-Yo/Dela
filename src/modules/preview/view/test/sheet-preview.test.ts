@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // SheetJS 的 sheet_to_html 存在富文本/自定义格式未转义的注入面，消毒函数须全部拦下。
 import { describe, expect, it } from 'vitest';
-import { sanitizeTableHtml } from './SheetPreview';
+import { sanitizeTableHtml } from '../SheetPreview';
 
 describe('sanitizeTableHtml', () => {
   it('keeps ordinary tables intact', () => {

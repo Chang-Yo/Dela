@@ -2,7 +2,7 @@ import { renderAsync } from 'docx-preview';
 import { Minus, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../workspace/store';
+import { errorText } from '../../../renderer/workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/alert';
 
@@ -15,16 +15,17 @@ const ZOOM_STEP = 0.1;
 export function DocxPreview({ url }: { url: string }) {
   const host = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  // 每次加载以 url+重试次数为键回报结果；键变了即视为加载中。
+  const run = `${attempt}:${url}`;
+  const [result, setResult] = useState<{ run: string; error: string } | null>(null);
+  const loading = result?.run !== run;
+  const error = loading ? '' : result.error;
   const [zoom, setZoom] = useState(1);
   usePinchZoom(scroller, setZoom, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP);
   useEffect(() => {
     const controller = new AbortController();
-    setError('');
-    setLoading(true);
-    (async () => {
+    void (async () => {
       try {
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -48,14 +49,13 @@ export function DocxPreview({ url }: { url: string }) {
             a.removeAttribute('href');
           }
         });
+        setResult({ run, error: '' });
       } catch (cause) {
-        if (!controller.signal.aborted) setError(errorText(cause));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) setResult({ run, error: errorText(cause) });
       }
     })();
     return () => controller.abort();
-  }, [url, attempt]);
+  }, [run, url]);
   const step = (direction: number) =>
     setZoom((value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value + direction * ZOOM_STEP)));
   return (

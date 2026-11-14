@@ -1,11 +1,12 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useEffectEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '../../../ui/button';
-import { useRootFontSize } from '../../lib/root-font-size';
-import { sanitizeHtml } from '../../lib/sanitize-html';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
-import type { TabId } from '../../../shared/layout';
+import { useRootFontSize } from '../../../renderer/lib/root-font-size';
+import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
+import { showToast } from '../../../renderer/app/toasts';
+import { errorText } from '../../../renderer/workspace/store';
+import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
 import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
@@ -49,75 +50,55 @@ const scrollMemory = new Map<string, number>();
  *  ContentLoader，本域不感知条目树与读取 IPC。 */
 export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const loader = useContentLoader();
-  const [doc, setDoc] = useState<LoadedDocument | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const docRef = useRef<LoadedDocument | null>(null);
-  docRef.current = doc;
+  // 文档可能带着整份文件字节，只为打开中的标签保留。
+  const query = useQuery({
+    queryKey: ['preview', tabId],
+    queryFn: () => loader.loadDocument(tabId),
+    enabled: parsePreviewTabId(tabId) !== null,
+    gcTime: 0,
+  });
+  const doc = query.data;
+  // 首次加载失败用占位错误（带重试）；已加载后的重读失败走浮窗，不打断当前内容。
+  const error = query.isError && !doc && !query.isFetching ? errorText(query.error) : null;
   const scrollKey = `${tabId}:${groupId}`;
   const scroll = scrollMemory.get(scrollKey) ?? 0;
   const onScroll = (top: number) => scrollMemory.set(scrollKey, top);
 
-  const load = () => {
-    // 首次加载失败用占位错误（带重试）；已加载后的重读失败走浮窗，不打断当前内容。
-    const initial = docRef.current === null;
-    void loader.loadDocument(tabId).then(
-      (result) => {
-        setDoc(result);
-        setError(null);
-      },
-      (cause) => {
-        if (initial) setError(errorText(cause));
-        else
-          showToast({
-            variant: 'error',
-            title: '重新读取文件失败',
-            description: errorText(cause),
-          });
-      },
-    );
-  };
+  const load = () =>
+    void query.refetch().then((result) => {
+      if (result.isError && result.data)
+        showToast({
+          variant: 'error',
+          title: '重新读取文件失败',
+          description: errorText(result.error),
+        });
+    });
 
+  // 本地磁盘文件可能被外部编辑：窗口聚焦时重读（只读预览无草稿，直接重读）。
+  const watchesDisk = doc?.watchesDisk === true;
+  const reloadOnFocus = useEffectEvent(load);
   useEffect(() => {
-    if (!parsePreviewTabId(tabId)) return;
-    load();
-    // 本地磁盘文件可能被外部编辑：窗口聚焦时强制重读（只读预览无草稿，直接重读）。
-    const onFocus = () => {
-      if (docRef.current?.watchesDisk) load();
-    };
+    if (!watchesDisk) return;
+    const onFocus = () => reloadOnFocus();
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [tabId, loader]);
+  }, [watchesDisk]);
 
   const content = doc?.content;
-  useEffect(() => {
-    if (!content?.bytes) {
-      setBlobUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(
-      new Blob([new Uint8Array(content.bytes)], { type: content.mime }),
-    );
-    setBlobUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [content?.bytes, content?.mime]);
   /* HTML 消毒基址：Canvas 来源的相对地址补全到 Canvas 域；本地/导入条目（watchesDisk，
      Loader 接线里即 entry kind local/imported 的近似标记）不补外域 base——空 base 下
      绝对 http(s) 链接保留、相对地址剥除，避免相对地址被补到 Canvas 域造成跨域请求泄露。
      iframe 固定为可视高度、无高度上报，内层文档自己滚（'auto'），阅读位置才记得住。 */
   const rootSize = useRootFontSize();
-  const html = useMemo(
-    () =>
-      content?.format === 'html' && !doc?.source
-        ? sanitizeHtml(
-            content.text,
-            doc?.watchesDisk ? '' : 'https://oc.sjtu.edu.cn',
-            rootSize,
-            'auto',
-          )
-        : '',
-    [content, doc?.watchesDisk, doc?.source, rootSize],
-  );
+  const html =
+    content?.format === 'html' && !doc?.source
+      ? sanitizeHtml(
+          content.text,
+          doc?.watchesDisk ? '' : 'https://oc.sjtu.edu.cn',
+          rootSize,
+          'auto',
+        )
+      : '';
 
   if (!parsePreviewTabId(tabId))
     return (
@@ -147,6 +128,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   const branch = previewBranchOf(doc);
   const SourceDocument = doc.source?.document;
   const exported = content.office?.export;
+  const bytes = content.bytes;
   const openLink = (url: string) => loader.openLink(url);
   const onOfficeRefresh = () => {
     load();
@@ -209,7 +191,20 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         ))}
       {branch === 'image' && (
         <div className="min-h-0 flex-1 overflow-auto p-4">
-          {blobUrl && <img src={blobUrl} alt={content.title} className="max-w-full" />}
+          {bytes && (
+            <img
+              alt={content.title}
+              className="max-w-full"
+              ref={(image) => {
+                if (!image) return;
+                const url = URL.createObjectURL(
+                  new Blob([new Uint8Array(bytes)], { type: content.mime }),
+                );
+                image.src = url;
+                return () => URL.revokeObjectURL(url);
+              }}
+            />
+          )}
         </div>
       )}
       {(branch === 'docx' || branch === 'xlsx') &&

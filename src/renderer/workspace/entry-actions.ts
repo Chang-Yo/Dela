@@ -3,7 +3,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { sourceTitle } from '../../app/views';
-import { useNoteDrafts } from '../content/note/drafts';
+import { useNoteDrafts } from '../../modules/note/view';
 import { errorText, useWorkspaceStore } from './store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore as useTreeState } from '../navigation/store';

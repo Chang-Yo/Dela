@@ -1,4 +1,4 @@
-// 内容类型注册表：TabKind → { 组件, 图标, 标题解析 }；workbench 引用 content/ 的唯一入口。
+// 内容类型注册表：TabKind → { 组件, 图标, 标题解析 }；workbench 引用内容标签的唯一入口。
 // 标题解析同步读取 workspace/sessions 镜像；镜像变化的即时刷新由装配层（WorkbenchShell）订阅镜像完成。
 import { lazy, type ComponentType } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
@@ -7,16 +7,12 @@ import type { TabId, TabKind } from '../../shared/layout';
 import { useSessions } from '../sessions/store';
 import { titleOf as entryTitleOf } from '../workspace/entry-dialogs';
 import { reviewTabTitle } from '../content/review/tab-id';
+import { NoteTab } from '../../modules/note/view';
+import { PreviewTab } from '../../modules/preview/view';
 
-// 内容域懒加载：组件首次渲染时才求值对应模块（TabGroup 渲染处有 Suspense 骨架兜底）。
+// 聊天、审阅与终端懒加载（TabGroup 渲染处有 Suspense 骨架兜底）；笔记与预览已随外壳静态加载。
 const ChatTab: ComponentType<TabComponentProps> = lazy(() =>
   import('../content/chat').then((m) => ({ default: m.ChatTab })),
-);
-const NoteTab: ComponentType<TabComponentProps> = lazy(() =>
-  import('../content/note').then((m) => ({ default: m.NoteTab })),
-);
-const PreviewTab: ComponentType<TabComponentProps> = lazy(() =>
-  import('../content/preview').then((m) => ({ default: m.PreviewTab })),
 );
 const ReviewTab: ComponentType<TabComponentProps> = lazy(() =>
   import('../content/review').then((m) => ({ default: m.ReviewTab })),

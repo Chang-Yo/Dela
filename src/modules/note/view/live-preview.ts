@@ -14,7 +14,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
-import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
+import { mermaidConfig, renderMermaid } from '../../../renderer/lib/mermaid';
 import { findMath, renderMath } from './math';
 
 /** 光标所在行（含多选区）保持原文，便于编辑标记本身。 */

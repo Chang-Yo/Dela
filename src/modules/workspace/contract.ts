@@ -5,6 +5,17 @@ import type { ResourceRef } from '../../shared/resources';
 import { z } from 'zod';
 import { defineContract } from '../../core/protocol/contract';
 
+// 内容标签（note、preview）的视图经这里取共享类型，shared/ 收进模块后改为就地定义。
+export type {
+  DocumentContent,
+  OfficeExportEvent,
+  OfficeExportInfo,
+  OfficeExportProgress,
+} from '../../shared/documents';
+export type { TabId } from '../../shared/layout';
+export type { ResourceRef } from '../../shared/resources';
+export { parseRemoteNodeId } from '../../shared/remotes';
+
 /** 普通文件使用绝对磁盘路径；UUID 用于已登记的项目与资料条目。 */
 export const workspaceEntryIdSchema = z
   .string()

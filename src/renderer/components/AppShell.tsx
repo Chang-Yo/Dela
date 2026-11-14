@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { Resizer } from '../../ui/resizer';
-import { useEditorSettings } from '../content/editor-settings';
+import { useEditorSettings } from '../lib/editor-settings';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { usePreferences } from '../app/preferences';
 import { showToast, ToastHost } from '../app/toasts';

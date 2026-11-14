@@ -23,7 +23,7 @@ import { useSessions, updateSession } from '../sessions/store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
-import { useNoteDrafts } from '../content/note/drafts';
+import { useNoteDrafts } from '../../modules/note/view';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from './toasts';
 import { useNavigationStore } from '../navigation/view';

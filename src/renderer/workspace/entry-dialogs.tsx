@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import type { WorkspaceEntry } from '../../shared/api';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { workspaceClient } from '../../modules/workspace/view';
-import { useNoteDrafts } from '../content/note/drafts';
+import { useNoteDrafts } from '../../modules/note/view';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { errorText, useWorkspaceStore } from './store';
 import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';

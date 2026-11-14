@@ -5,8 +5,8 @@ import { languages } from '@codemirror/language-data';
 import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
-import { useEditorSettings } from '../editor-settings';
-import { codeHighlightStyle } from '../../lib/syntax-highlight';
+import { useEditorSettings } from '../../../renderer/lib/editor-settings';
+import { codeHighlightStyle } from '../../../renderer/lib/syntax-highlight';
 
 const viewerTheme = EditorView.theme({
   '&': {
@@ -37,6 +37,9 @@ const viewerTheme = EditorView.theme({
 });
 
 /** 按文件名匹配语言：Dockerfile、Makefile 这类无后缀名也能命中。 */
+// Compartment 只是配置槽的标识，可在多个视图间共用。
+const wrappingConf = new Compartment();
+
 function languageForFilename(filename: string): LanguageDescription | null {
   return LanguageDescription.matchFilename(languages, filename);
 }
@@ -57,7 +60,6 @@ export function CodeViewer({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const wrappingConf = useRef(new Compartment()).current;
   const wordWrap = useEditorSettings((state) => state.wordWrap);
 
   useEffect(() => {
@@ -102,7 +104,7 @@ export function CodeViewer({
     viewRef.current?.dispatch({
       effects: wrappingConf.reconfigure(wordWrap ? EditorView.lineWrapping : []),
     });
-  }, [wordWrap, wrappingConf]);
+  }, [wordWrap]);
 
   /* 聚焦刷新等外部重读后的整篇替换：保持滚动位置，不计入编辑（只读本无编辑）。 */
   useEffect(() => {

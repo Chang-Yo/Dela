@@ -1,8 +1,6 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 import type { Navigate, SourceDocumentProps } from '../../../app/module';
-import type { TabId } from '../../../shared/layout';
-import type { DocumentContent } from '../../../shared/api';
-import type { ResourceRef } from '../../../shared/resources';
+import type { DocumentContent, ResourceRef, TabId } from '../../workspace/contract';
 
 /** loadDocument 的结果：文档内容 + 呈现所需的定位上下文（由接线方按条目/资料解析）。 */
 export interface LoadedDocument {

@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorView } from '@codemirror/view';
-import { MarkdownEditor, lineSeparatorOf } from './MarkdownEditor';
+import { MarkdownEditor, lineSeparatorOf } from '../MarkdownEditor';
 
 let root: Root;
 let container: HTMLDivElement;

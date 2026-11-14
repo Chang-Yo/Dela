@@ -5,7 +5,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { markdownImageInsert, markdownLivePreview } from './live-preview';
+import { markdownImageInsert, markdownLivePreview } from '../live-preview';
 
 let view: EditorView | null = null;
 

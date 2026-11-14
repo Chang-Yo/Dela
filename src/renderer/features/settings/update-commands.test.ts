@@ -12,7 +12,7 @@ const invoke = vi.hoisted(() => {
   } as unknown as DelaApi;
   return invoke;
 });
-import { useNoteDrafts } from '../../content/note/drafts';
+import { useNoteDrafts } from '../../../modules/note/view';
 import { useChatDrafts, registerChatAttachmentCheck } from '../../content/chat/drafts';
 import { registerComposeSave } from '../../../modules/mail/view';
 import { useWorkbenchLayout } from '../../workbench/layout-store';

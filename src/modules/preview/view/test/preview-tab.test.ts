@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { previewBranchOf } from './PreviewTab';
-import { parsePreviewTabId, type PreviewTabTarget } from './tab-id';
-import type { LoadedDocument } from './loader';
+import { previewBranchOf } from '../PreviewTab';
+import { parsePreviewTabId, type PreviewTabTarget } from '../tab-id';
+import type { LoadedDocument } from '../loader';
 
 describe('parsePreviewTabId', () => {
   it('工作区条目：preview:{entryId}', () => {

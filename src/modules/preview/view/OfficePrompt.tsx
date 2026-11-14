@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { ExternalLink, FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
-import { onWorkspaceEvent, workspaceClient } from '../../../modules/workspace/view';
+import { showToast } from '../../../renderer/app/toasts';
+import { errorText } from '../../../renderer/workspace/store';
+import { onWorkspaceEvent, workspaceClient } from '../../workspace/view';
 import type {
   OfficeExportEvent,
   OfficeExportInfo,
   OfficeExportProgress,
-} from '../../../shared/api';
-import type { ResourceRef } from '../../../shared/resources';
+  ResourceRef,
+} from '../../workspace/contract';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 
@@ -104,8 +104,8 @@ function useOfficeExport(ref: ResourceRef | undefined, onExported: (() => void) 
   const exporting = !!active && !active.error;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    // 开始前留下的 now 早于 startedAt，elapsed 按 0 计，首个 tick 后即准。
     if (!exporting) return;
-    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [exporting]);

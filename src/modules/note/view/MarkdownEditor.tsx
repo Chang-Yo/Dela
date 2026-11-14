@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
 import { LanguageDescription, syntaxHighlighting } from '@codemirror/language';
@@ -7,8 +7,8 @@ import { Annotation, Compartment, EditorState, Transaction } from '@codemirror/s
 import type { Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
-import { useEditorSettings } from '../editor-settings';
-import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
+import { useEditorSettings } from '../../../renderer/lib/editor-settings';
+import { codeHighlightStyle, markdownHighlightStyle } from '../../../renderer/lib/syntax-highlight';
 import { markdownLivePreview, type ImageResolver } from './live-preview';
 import { formatByName } from '../../../core/protocol/files';
 
@@ -69,11 +69,10 @@ type EditorHandlers = {
 
 type EditorSession = { state: EditorState; scrollTop: number };
 
-/* EditorState lives outside the React tree so switching tabs does not throw away
-   undo history or the cursor. Each editor group passes a different key. */
+/* EditorState 存在 React 树外，切换标签不丢撤销历史与光标；复用的 state 带着首次挂载
+   的扩展闭包，它们经 handlers 按键找到当前组件的回调。 */
 const sessions = new Map<string, EditorSession>();
 const handlers = new Map<string, EditorHandlers>();
-let nextEditorId = 0;
 
 function replaceDocument(current: string, next: string) {
   let from = 0;
@@ -147,18 +146,17 @@ export function MarkdownEditor({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const instanceKey = useRef(editorStateKey ?? `markdown-editor-${nextEditorId++}`).current;
+  const generatedKey = useId();
+  const [instanceKey] = useState(editorStateKey ?? generatedKey);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const wordWrap = useEditorSettings((state) => state.wordWrap) || alwaysWrap;
-  const handlersRef = useRef({ onChange, onSave, onScroll });
-  handlersRef.current = { onChange, onSave, onScroll };
   const latestValue = useRef(value);
   const lastPublishedValue = useRef<string | null>(null);
   const publishChange = (text: string) => {
     lastPublishedValue.current = text;
     // 组词结束的定时回调可能早于 React 提交新的 value。
     latestValue.current = text;
-    handlersRef.current.onChange(text);
+    onChange(text);
   };
   /* 外部值同步：IME 组文期间全量替换文档会打断输入法，推迟到组文结束后再补。 */
   const syncValue = () => {
@@ -300,8 +298,8 @@ export function MarkdownEditor({
     };
     const boundHandlers: EditorHandlers = {
       onChange: publishChange,
-      onSave: handlersRef.current.onSave,
-      onScroll: handlersRef.current.onScroll,
+      onSave,
+      onScroll,
       sync: syncValue,
       onCursor: setCursor,
     };

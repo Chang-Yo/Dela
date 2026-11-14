@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '../../../ui/button';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
-import type { TabId } from '../../../shared/layout';
-import { parseRemoteNodeId } from '../../../shared/remotes';
-import { workspaceClient } from '../../../modules/workspace/view';
+import { showToast } from '../../../renderer/app/toasts';
+import { errorText } from '../../../renderer/workspace/store';
+import { parseRemoteNodeId, type TabId } from '../../workspace/contract';
+import { workspaceClient } from '../../workspace/view';
 import { DocumentToolbar, type NoteMode } from './document-toolbar';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -49,37 +48,37 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const source = useNoteDraftSource();
   const draft = entryId !== null ? source.useDraft(entryId) : undefined;
   const path = source.usePath?.(entryId ?? '');
-  const [error, setError] = useState<string | null>(null);
+  // 失败按条目记：标签改指向别的文件后，旧文件的读取错误不再显示。
+  const [failure, setFailure] = useState<{ entryId: string; message: string } | null>(null);
+  const error = failure && failure.entryId === entryId ? failure.message : null;
   const [confirmReload, setConfirmReload] = useState(false);
   const [mode, setMode] = useState<NoteMode>(() =>
     entryId !== null ? (noteModes.get(entryId) ?? 'live') : 'live',
   );
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
+  const reload = (id: string) => {
+    setFailure(null);
+    void source
+      .acquire(id, true)
+      .catch((cause) => setFailure({ entryId: id, message: errorText(cause) }));
+  };
+  const unsaved = draft !== undefined && (draft.saving || draft.text !== draft.saved);
 
   useEffect(() => {
     if (entryId === null) return;
-    let active = true;
-    setError(null);
-    const refresh = (force: boolean) => {
-      const current = draftRef.current;
-      // 有未保存修改或保存进行中时不刷新，避免覆盖编辑。
-      if (current && (current.saving || current.text !== current.saved)) return;
-      void source.acquire(entryId, force).catch((cause) => {
-        if (active) setError(errorText(cause));
-      });
-    };
-    refresh(false);
-    // 笔记文件可能被外部编辑：窗口聚焦时强制重读（同样不覆盖未保存草稿）。
-    const refreshLocal = () => refresh(true);
-    window.addEventListener('focus', refreshLocal);
-    return () => {
-      active = false;
-      window.removeEventListener('focus', refreshLocal);
-      // 卸载即释放引用：草稿先冲盘，最后一个引用才移除（note/drafts 语义）。
-      void source.release(entryId);
-    };
+    void source
+      .acquire(entryId)
+      .catch((cause) => setFailure({ entryId, message: errorText(cause) }));
+    // 卸载即释放引用：草稿先冲盘，最后一个引用才移除（note/drafts 语义）。
+    return () => void source.release(entryId);
   }, [entryId, source]);
+
+  // 笔记文件可能被外部编辑：窗口聚焦时重读磁盘；有未保存修改时不监听，避免覆盖编辑。
+  useEffect(() => {
+    if (entryId === null || unsaved) return;
+    const refresh = () => reload(entryId);
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [entryId, source, unsaved]);
 
   if (entryId === null)
     return (
@@ -93,13 +92,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         {error ? (
           <div role="alert" className="min-w-0">
             <p className="break-words">{error}</p>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setError(null);
-                void source.acquire(entryId, true).catch((cause) => setError(errorText(cause)));
-              }}
-            >
+            <Button variant="ghost" onClick={() => reload(entryId)}>
               重试
             </Button>
           </div>
@@ -137,10 +130,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
     setMode(next);
   };
   const dirty = draft.text !== draft.saved;
-  const runReload = () => {
-    setError(null);
-    void source.acquire(entryId, true).catch((cause) => setError(errorText(cause)));
-  };
+  const runReload = () => reload(entryId);
   /* 定位入口交给系统文件管理器。 */
   const openInFolder = () => {
     if (window.dela)
