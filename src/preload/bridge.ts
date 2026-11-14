@@ -7,7 +7,7 @@ const eventChannels = new Set(contracts.flatMap(eventChannelsOf));
 
 export const bridge: Bridge = {
   invoke(channel, input) {
-    if (!channels.has(channel)) return Promise.reject(new Error(`未登记的通道：${channel}`));
+    if (!channels.has(channel)) return Promise.reject(new Error('该功能在当前版本中未启用'));
     return ipcRenderer.invoke(channel, input);
   },
   subscribe(channel, listener) {

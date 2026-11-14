@@ -19,6 +19,6 @@ export function registerResourceResolver<Ref extends { type: string }>(
 
 export function resourceResolver(type: string): ResourceResolver {
   const resolver = resolvers.get(type);
-  if (!resolver) throw new Error(`无法读取 ${type} 类型的资源`);
+  if (!resolver) throw new Error(`无法读取 ${type} 类型的资源：对应的功能在当前版本中未启用`);
   return resolver;
 }

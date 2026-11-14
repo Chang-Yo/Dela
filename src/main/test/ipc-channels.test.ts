@@ -5,7 +5,7 @@ import { expect, beforeEach, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   handles: new Map<string, unknown>(),
-  invoke: vi.fn(),
+  invoke: vi.fn(async () => undefined),
 }));
 
 vi.mock('electron', () => ({
