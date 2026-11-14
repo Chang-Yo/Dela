@@ -19,9 +19,10 @@ import { useUpdateState } from '../features/settings/update';
 import { ShuiyuanView } from '../features/shuiyuan';
 import { GlobalSearchDialog } from '../../modules/search/view';
 import { TimetableView } from '../features/timetable';
-import { TodoView } from '../../modules/todo/view';
 import type { ChatSessionSummary } from '../../shared/api';
 import type { SearchHit } from '../../modules/search/contract';
+import type { NavTarget } from '../../app/module';
+import { pageOf } from '../../app/views';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
 import { useRuns } from '../sessions/runs';
 import { useSessions, updateSession } from '../sessions/store';
@@ -71,6 +72,11 @@ function useSessionNavData(): { sessionsByProject: Record<string, NavSessionSumm
   return { sessionsByProject };
 }
 
+function ModulePage({ target }: { target: NavTarget }) {
+  const Page = pageOf(target.page)!.component;
+  return <Page target={target} />;
+}
+
 export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<MobileDrawer | null>(null);
@@ -85,7 +91,7 @@ export default function App() {
   const canBack = useNavigationStore((state) => state.backStack.length > 0);
   const canForward = useNavigationStore((state) => state.forwardStack.length > 0);
   const mailRequest = useNavigationStore((state) => state.mailRequest);
-  const todoRequest = useNavigationStore((state) => state.todoRequest);
+  const target = useNavigationStore((state) => state.target);
   const settingsRequest = useNavigationStore((state) => state.settingsRequest);
 
   const { theme, zoom, fontSize, changeTheme, changeZoom, changeFontSize } = useAppearance();
@@ -200,17 +206,9 @@ export default function App() {
     if (docTab) layout.openTab(docTab);
   };
 
-  // 全局搜索结果分发：chat 深链把旧 scope 身份归一到项目/通用池；course-file 落工作台预览标签。
   const openSearchResult = (result: SearchHit) => {
     if (!leaveComposer(() => openSearchResult(result))) return;
-    const navigation = useNavigationStore.getState();
-    const target = result.target;
-    if (target.page === 'projects') navigation.openProject(target.entryId);
-    else if (target.page === 'chat') navigation.openChat(target.sessionId, target.projectId);
-    else if (target.page === 'mail') navigation.openMail(target.messageId);
-    else if (target.page === 'sources') navigation.openDocument(`source:${target.sourceId}`);
-    else if (target.page === 'todo') navigation.openTodo(target.todoId);
-    else navigation.openSettings(target.section);
+    useNavigationStore.getState().navigate(result.target);
   };
 
   return (
@@ -287,12 +285,14 @@ export default function App() {
                   )}
                   {view === 'timetable' && (
                     <TimetableView
-                      onOpenTodo={(todoId) => void useNavigationStore.getState().openTodo(todoId)}
+                      onOpenTodo={(todoId) =>
+                        void useNavigationStore.getState().navigate({ page: 'todo', todoId })
+                      }
                     />
                   )}
                   {view === 'shuiyuan' && <ShuiyuanView />}
                   {view === 'classroom' && <ClassroomView />}
-                  {view === 'todo' && <TodoView request={todoRequest ?? undefined} />}
+                  {target && <ModulePage target={target} />}
                   {view === 'notifications' && (
                     <NotificationsView
                       jwcNotice={notifications.jwcNotice}

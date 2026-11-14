@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 历史栈记「视图 + 项目」：从项目面板离开后，后退必须回到同一个项目面板（只记视图会退成通用池）。
+// 历史栈记「视图 + 跳转参数 + 项目」：后退必须回到离开时的那个项目面板或那条待办。
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { WorkspaceEntry, WorkspaceState } from '../../shared/api';
 import { useWorkspaceStore } from '../workspace/store';
@@ -18,7 +18,7 @@ const project: WorkspaceEntry = {
 const workspace: WorkspaceState = { entries: [project], directory: 'D:/code' };
 
 function seed(view: 'home' | 'workbench' | 'mail', projectId: string | null): void {
-  useNavigationStore.setState({ view, projectId, backStack: [], forwardStack: [] });
+  useNavigationStore.setState({ view, target: null, projectId, backStack: [], forwardStack: [] });
   localStorage.clear();
 }
 
@@ -52,6 +52,17 @@ describe('导航历史', () => {
     useNavigationStore.getState().goBack();
     useNavigationStore.getState().goForward();
     expect(useNavigationStore.getState()).toMatchObject({ view: 'mail', projectId: 'p1' });
+  });
+
+  it('后退回到模块页面时带回离开时的跳转参数', () => {
+    seed('home', null);
+    useNavigationStore.getState().navigate({ page: 'todo', todoId: 't1' });
+    useNavigationStore.getState().navigate('mail');
+    useNavigationStore.getState().goBack();
+    expect(useNavigationStore.getState()).toMatchObject({
+      view: 'todo',
+      target: { page: 'todo', todoId: 't1' },
+    });
   });
 
   it('当前项目已删除时换池不记历史', () => {

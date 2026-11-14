@@ -31,7 +31,13 @@ import { DelaBrand } from './dela-brand';
 import { cn } from '../../ui/cn';
 import { useMediaQuery } from '../../ui/use-media-query';
 import { fileManagerName, platform } from '../lib/platform';
-import { useNavigationStore, type AppView, type MobileDrawer } from '../navigation/view';
+import type { NavTarget } from '../../app/module';
+import {
+  useNavigationStore,
+  type AppView,
+  type MobileDrawer,
+  type ShellView,
+} from '../navigation/view';
 import { useShortcuts } from '../app/shortcuts';
 import { useExplorerState, useViewportWidth } from '../workbench/explorer-state';
 import {
@@ -153,7 +159,7 @@ function WindowControls() {
 
 type AppShellProps = {
   view: AppView;
-  onNavigate: (view: AppView) => void;
+  onNavigate: (next: ShellView | NavTarget) => void;
   mobileDrawer?: MobileDrawer | null;
   onMobileDrawerChange?: (drawer: MobileDrawer | null) => void;
   onBack: () => void;
@@ -277,7 +283,7 @@ export function AppShell({
       });
   };
 
-  const navigate = (next: AppView) => {
+  const navigate = (next: ShellView | NavTarget) => {
     onNavigate(next);
     if (narrow) onMobileDrawerChange?.(next === 'mail' ? 'mail' : null);
   };
@@ -467,7 +473,7 @@ export function AppShell({
                 aria-current={view === 'todo' ? 'page' : undefined}
                 aria-label={todoUnreadCount > 0 ? `TODO，${todoUnreadCount} 条新消息` : 'TODO'}
 
-                onClick={() => navigate('todo')}
+                onClick={() => navigate({ page: 'todo' })}
                 title="TODO"
               >
                 <SquareCheckBig
@@ -665,7 +671,7 @@ export function AppShell({
               aria-current={view === 'todo' ? 'page' : undefined}
               aria-label={todoUnreadCount > 0 ? `TODO，${todoUnreadCount} 条新消息` : 'TODO'}
 
-              onClick={() => navigate('todo')}
+              onClick={() => navigate({ page: 'todo' })}
               title="TODO"
             >
               <SquareCheckBig

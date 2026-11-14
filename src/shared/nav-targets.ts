@@ -7,7 +7,6 @@ declare module '../app/module' {
     chat: { projectId: string | null; sessionId: string };
     mail: { messageId: number };
     sources: { sourceId: string };
-    todo: { todoId: string };
     settings: { section: SettingsSectionId };
   }
 }

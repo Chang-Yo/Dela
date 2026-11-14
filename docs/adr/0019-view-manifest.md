@@ -9,7 +9,7 @@
 
 ## 决定
 
-- **视图定义**：`app/module.ts` 增加 `defineView`，模块在 `view/index.ts` 导出自己的视图定义，`id` 与主进程的模块定义一致。`view/` 可以引用 `app/module`，仍不能引用 app 的其他文件。
+- **视图定义**：`app/module.ts` 增加 `defineView`，模块在 `view/index.ts` 导出自己的视图定义。`view/` 可以引用 `app/module`，仍不能引用 app 的其他文件。
 - **渲染端清单**：`app/views.ts` 列出各模块的视图定义，它是渲染端唯一可以引用 `sjtu/*/view` 的文件。外壳从清单读取页面，不再直接 import 交大的 view。
 - **页面即跳转目标**：视图定义的 `pages` 以 `NavTargets` 的键登记页面组件。组件收到自己那一项的参数 `target`；带 `nav`（名称、图标）的页面进入侧栏与「导航入口」开关，顺序就是清单顺序。
 - **导航只有一个动作**：路由保存当前的 `NavTarget`，`navigate(target)` 取代 `AppView`、各个 `open*` 与请求脉冲。每次跳转都生成新的 target 对象；页面在同一页内再次被跳转时，按 0009 的写法记下当前 target，渲染期比较后重置本地状态，不用 Effect。搜索结果与通知点击都只携带 `NavTarget`，交给 `navigate`。
@@ -19,8 +19,8 @@
 
 ## 后果
 
-- 新增交大功能的界面时，只需新建 `sjtu/x/view` 并在 `app/views.ts` 中加一行。去掉这一行，对应的页面、入口和订阅会一起消失；跳转到这个页面时，路由回到首页并提示「该功能在当前版本中未启用」。
+- 新增交大功能的界面时，只需新建 `sjtu/x/view` 并在 `app/views.ts` 中加一行。去掉这一行，对应的页面、入口和订阅会一起消失；跳转到这个页面时提示「该功能在当前版本中未启用」，停在当前页。
 - `NavTargets` 的登记从 `shared/nav-targets.ts` 移到各模块的 `contract.ts`，主进程和渲染端两侧都能看到。同一页面在没有参数和有参数时，用同一个键（如 `mail: { messageId?: number }`）。
 - 侧栏入口的隐藏偏好沿用页面键，已有设置继续有效。
 - 通用模块的 view 仍可以被外壳直接引用，例如标题栏的 TODO 与通知按钮。这条清单只是交大模块的强制要求。
-- lint 规则：`modules/*/view` 与 `sjtu/*/view` 可以引用 `app/module`；`app/views.ts` 加入可引用交大模块的例外；`sjtu/*/view` 套用与 `modules/*/view` 相同的限制。清单测试保证 `views.ts` 中的每个 id 都已在 `modules.ts` 登记。
+- lint 规则：`modules/*/view` 与 `sjtu/*/view` 可以引用 `app/module`；`app/views.ts` 加入可引用交大模块的例外；`sjtu/*/view` 套用与 `modules/*/view` 相同的限制。

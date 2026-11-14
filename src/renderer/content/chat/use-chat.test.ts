@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import type { WorkspaceChat } from '../../../shared/api';
 import { chatImageToken } from '../../../core/protocol/chat-input';

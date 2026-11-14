@@ -267,7 +267,7 @@
       }
     },
     {
-      "files": ["src/modules/*/view/**"],
+      "files": ["src/{modules,sjtu}/*/view/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -288,6 +288,7 @@
               {
                 "group": [
                   "**/app/**",
+                  "!**/app/module",
                   "../../main/**",
                   "../../../main/**",
                   "../../../../main/**",
@@ -302,7 +303,7 @@
                   "!**/renderer/app/toasts",
                   "!**/renderer/lib/*"
                 ],
-                "message": "view 只能引用 core/protocol、模块契约、src/ui 与外壳服务（renderer/app/toasts、renderer/lib）。"
+                "message": "view 只能引用 core/protocol、app/module、模块契约、src/ui 与外壳服务（renderer/app/toasts、renderer/lib）。"
               },
               {
                 "group": [
@@ -326,7 +327,7 @@
       }
     },
     {
-      "files": ["src/modules/*/view/test/**"],
+      "files": ["src/{modules,sjtu}/*/view/test/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -347,6 +348,7 @@
               {
                 "group": [
                   "**/app/**",
+                  "!**/app/module",
                   "../../main/**",
                   "../../../main/**",
                   "../../../../main/**",
@@ -361,7 +363,7 @@
                   "!**/renderer/app/toasts",
                   "!**/renderer/lib/*"
                 ],
-                "message": "view 只能引用 core/protocol、模块契约、src/ui 与外壳服务（renderer/app/toasts、renderer/lib）。"
+                "message": "view 只能引用 core/protocol、app/module、模块契约、src/ui 与外壳服务（renderer/app/toasts、renderer/lib）。"
               },
               {
                 "group": [
@@ -465,7 +467,7 @@
       }
     },
     {
-      "files": ["src/app/modules.ts", "src/app/contracts.ts"],
+      "files": ["src/app/modules.ts", "src/app/contracts.ts", "src/app/views.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",

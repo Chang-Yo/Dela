@@ -92,3 +92,9 @@ export const todoStatusLabels: Record<TodoStatus, string> = {
 export function todoCompleted(status: TodoStatus): boolean {
   return ['completed', 'submitted', 'graded', 'excused'].includes(status);
 }
+
+declare module '../../app/module' {
+  interface NavTargets {
+    todo: { todoId?: string };
+  }
+}

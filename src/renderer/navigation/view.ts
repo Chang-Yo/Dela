@@ -11,19 +11,24 @@ import { formatByName, opensInEditor } from '../../core/protocol/files';
 import { parseRemoteNodeId } from '../../shared/remotes';
 import { useSessions } from '../sessions/store';
 import { showToast } from '../app/toasts';
-import { createClient } from '../../core/protocol/contract';
-import { todoContract } from '../../modules/todo/contract';
+import type { NavTarget, NavTargets } from '../../app/module';
+import { pageOf } from '../../app/views';
 
-export type AppView =
+/** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
+export type ShellView =
   | 'home'
   | 'workbench'
   | 'mail'
   | 'timetable'
   | 'classroom'
   | 'shuiyuan'
-  | 'todo'
   | 'notifications'
   | 'settings';
+
+/** 由外壳自己分发的跳转目标：工作台里的标签与尚未迁移的页面。 */
+type ShellTarget = 'projects' | 'chat' | 'sources' | 'mail' | 'settings';
+
+export type AppView = ShellView | Exclude<keyof NavTargets, ShellTarget>;
 
 /** 窄屏抽屉层级：null 关闭；nav 主导航；mail 邮箱功能层（仅邮箱视图可达）。 */
 export type MobileDrawer = 'nav' | 'mail';
@@ -47,12 +52,13 @@ export interface GeneralChatPulse {
 
 interface NavigationState {
   view: AppView;
+  /** 模块页面的跳转参数；外壳视图为 null。 */
+  target: NavTarget | null;
   /** 当前工作台项目；null = 通用池。 */
   projectId: string | null;
   backStack: NavigationRoute[];
   forwardStack: NavigationRoute[];
   mailRequest: { messageId: number } | null;
-  todoRequest: { id: string } | null;
   /** 每次赋新对象，保证已在设置页时也能触发分区切换。 */
   settingsRequest: { section: SettingsSectionId } | null;
   /** 新建项目弹窗脉冲（导航栏/托盘/快捷键），由工作台装配层转成 EntryDialogs 请求。 */
@@ -62,7 +68,8 @@ interface NavigationState {
   generalChat: GeneralChatPulse | null;
   /** 首页上次停留的会话：切走再回首页接着上次，只活在本次运行内（重启后首页回到新对话）。 */
   lastHomeSessionId: string | null;
-  navigate(next: AppView): boolean;
+  /** 唯一的跳转入口：外壳视图传名字，其余传 NavTarget（docs/adr/0019）。 */
+  navigate(next: ShellView | NavTarget): boolean;
   goBack(): boolean;
   goForward(): boolean;
   /** 打开项目工作台；id 为空串/null 切到通用池。 */
@@ -79,7 +86,6 @@ interface NavigationState {
   openDocument(key: string, options?: { keep?: boolean }): boolean;
   openTerminal(projectId: string): boolean;
   openMail(messageId: number): boolean;
-  openTodo(id: string): boolean;
   openSettings(section?: SettingsSectionId): boolean;
   openShuiyuanTopic(topicId: number, postNumber?: number): void;
   /** 新建项目弹窗（先回到工作台）。 */
@@ -89,16 +95,17 @@ interface NavigationState {
   consumeGeneralChat(): void;
 }
 
-/** 历史条目：视图 + 项目（后退要能回到同一个项目面板）。 */
+/** 历史条目：视图、跳转参数与项目（后退要能回到同一个项目面板）。 */
 interface NavigationRoute {
   view: AppView;
+  target: NavTarget | null;
   projectId: string | null;
 }
 
 let pulseSeq = 0;
 
 function routeOf(state: NavigationState): NavigationRoute {
-  return { view: state.view, projectId: state.projectId };
+  return { view: state.view, target: state.target, projectId: state.projectId };
 }
 
 /** 记住当前项目：设置页「重置当前项目布局」读取此键。 */
@@ -142,11 +149,11 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
   };
   return {
     view: 'home',
+    target: null,
     projectId: null,
     backStack: [],
     forwardStack: [],
     mailRequest: null,
-    todoRequest: null,
     settingsRequest: null,
     createProject: false,
     reveal: null,
@@ -154,20 +161,39 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     lastHomeSessionId: null,
 
     navigate: (next) => {
+      if (typeof next !== 'string') {
+        if (next.page === 'projects') return get().openProject(next.entryId);
+        if (next.page === 'chat') return get().openChat(next.sessionId, next.projectId);
+        if (next.page === 'sources') return get().openDocument(`source:${next.sourceId}`);
+        if (next.page === 'mail') return get().openMail(next.messageId);
+        if (next.page === 'settings') return get().openSettings(next.section);
+      }
+      const view = typeof next === 'string' ? next : next.page;
+      const target = typeof next === 'string' ? null : next;
+      const page = target && pageOf(target.page);
+      if (target && !page) {
+        showToast({ variant: 'error', title: '该功能在当前版本中未启用' });
+        return false;
+      }
       const state = get();
-      if (next === state.view) return true;
-      if (!leaveComposer(() => get().navigate(next))) return false;
-      set({
-        view: next,
-        ...(next === 'home' ? { projectId: null } : {}),
-        backStack: [...state.backStack, routeOf(state)],
-        forwardStack: [],
-        mailRequest: null,
-        todoRequest: null,
-        settingsRequest: null,
-        reveal: null,
-        generalChat: null,
-      });
+      // 同一页内再次跳转只换参数、不压栈，页面据新的 target 重置。
+      if (view === state.view) {
+        if (target) set({ target });
+      } else {
+        if (!leaveComposer(() => get().navigate(next))) return false;
+        set({
+          view,
+          target,
+          ...(view === 'home' ? { projectId: null } : {}),
+          backStack: [...state.backStack, routeOf(state)],
+          forwardStack: [],
+          mailRequest: null,
+          settingsRequest: null,
+          reveal: null,
+          generalChat: null,
+        });
+      }
+      if (target) page?.open?.(target);
       return true;
     },
 
@@ -178,11 +204,11 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       rememberProject(prev.projectId);
       set({
         view: prev.view,
+        target: prev.target,
         projectId: prev.projectId,
         backStack: state.backStack.slice(0, -1),
         forwardStack: [routeOf(state), ...state.forwardStack],
         mailRequest: null,
-        todoRequest: null,
         settingsRequest: null,
         reveal: null,
         generalChat: null,
@@ -197,11 +223,11 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       rememberProject(next.projectId);
       set({
         view: next.view,
+        target: next.target,
         projectId: next.projectId,
         backStack: [...state.backStack, routeOf(state)],
         forwardStack: state.forwardStack.slice(1),
         mailRequest: null,
-        todoRequest: null,
         settingsRequest: null,
         reveal: null,
         generalChat: null,
@@ -287,17 +313,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     openMail: (messageId) => {
       if (!get().navigate('mail')) return false;
       set({ mailRequest: { messageId } });
-      return true;
-    },
-
-    openTodo: (id) => {
-      if (!get().navigate('todo')) return false;
-      set({ todoRequest: { id } });
-      void createClient(todoContract, window.dela?.bridge)
-        .markRead(id)
-        .catch((reason: unknown) =>
-          showToast({ variant: 'error', title: '标记已读失败', description: errorText(reason) }),
-        );
       return true;
     },
 

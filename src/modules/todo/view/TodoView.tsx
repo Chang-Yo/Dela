@@ -41,12 +41,21 @@ import { TodoSheet } from './TodoSheet';
 import { useTodoPreferences } from './preferences';
 import { dateLabel } from './todo-format';
 import { ErrorText } from '../../../ui/alert';
+import type { NavTargets } from '../../../app/module';
 
 const todo = createClient(todoContract, window.dela?.bridge);
 
 /** 待办状态的唯一副本：主进程推送 todo:state 时直接写入这一键（docs/adr/0017）。 */
 export function useTodoState() {
   return useQuery({ queryKey: ['todo', 'state'], queryFn: () => todo.state() });
+}
+
+export function markTodoRead(id: string) {
+  void todo
+    .markRead(id)
+    .catch((reason: unknown) =>
+      showToast({ variant: 'error', title: '标记已读失败', description: errorMessage(reason) }),
+    );
 }
 
 /** 外部链接交给主窗口的打开处理（能在应用内打开的会留在应用内）。 */
@@ -217,7 +226,7 @@ function TodoComposer({
   );
 }
 
-export function TodoView({ request }: { request?: { id: string } }) {
+export function TodoView({ target }: { target: NavTargets['todo'] }) {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -231,17 +240,17 @@ export function TodoView({ request }: { request?: { id: string } }) {
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [month, setMonth] = useState(() => startOfDay(new Date()));
   const showCompleted = useTodoPreferences((state) => state.showCompleted);
-  const [detailId, setDetailId] = useState<string | null>(request?.id ?? null);
+  const [detailId, setDetailId] = useState<string | null>(target.todoId ?? null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  // 每次从外部定位待办都是新对象，据此在渲染中切到它的详情。
-  const [shownRequest, setShownRequest] = useState(request);
-  if (request !== shownRequest) {
-    setShownRequest(request);
-    if (request) {
+  // 每次跳转都是新对象，据此在渲染中切到它的详情。
+  const [shownTarget, setShownTarget] = useState(target);
+  if (target !== shownTarget) {
+    setShownTarget(target);
+    if (target.todoId) {
       setCreating(false);
       setEditingId(null);
-      setDetailId(request.id);
+      setDetailId(target.todoId);
     }
   }
   const run = async (

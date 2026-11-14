@@ -78,7 +78,7 @@ beforeEach(() => {
 
 const view = () => (
   <QueryClientProvider client={new QueryClient()}>
-    <TodoView />
+    <TodoView target={{}} />
   </QueryClientProvider>
 );
 
