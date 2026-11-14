@@ -10,26 +10,16 @@ import type {
   LlmVerifyResult,
 } from '../../../../shared/api';
 
-// 契约客户端在模块加载时取 bridge，须先于导入装好；模型用例经 stubLlm 登记 handler。
-const { api, bridge } = vi.hoisted(() => {
+// 契约客户端在模块加载时取 bridge，须先于导入页面装好；设置用例替换 invoke 的实现，
+// 模型用例经 stubLlm 按通道登记 handler。
+const { api, bridge, invoke } = vi.hoisted(() => {
   const api: Record<string, (input: never) => unknown> = {};
-  const bridge = {
-    invoke: async (channel: string, input: never) => api[channel]!(input),
-    subscribe: () => () => {},
-  };
+  const invoke = vi.fn();
+  const bridge = { invoke, subscribe: () => () => {} };
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
-  return { api, bridge };
+  return { api, bridge, invoke };
 });
 import { defaultKeybindings } from '../../../../shared/keybindings';
-
-// 设置的契约客户端在模块加载时取 bridge，须先于导入页面装好；各用例替换 invoke 的实现。
-const invoke = vi.hoisted(() => {
-  const invoke = vi.fn();
-  window.dela = {
-    bridge: { invoke, subscribe: () => () => {} },
-  } as unknown as NonNullable<typeof window.dela>;
-  return invoke;
-});
 import { useShortcuts } from '../../../app/shortcuts';
 import { LlmSection } from './LlmSection';
 import { ShortcutsSection } from './ShortcutsSection';
@@ -42,6 +32,7 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   invoke.mockReset();
+  invoke.mockImplementation(async (channel: string, input: never) => api[channel]!(input));
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
