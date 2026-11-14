@@ -6,15 +6,26 @@ import {
   CheckCheck,
   Mail,
   Megaphone,
+  Plus,
   RefreshCw,
+  Rss,
   SlidersHorizontal,
   GraduationCap,
 } from 'lucide-react';
 import { notificationSources } from '../../../shared/api';
-import type { NotificationItem, NotificationSource, NotificationState } from '../../../shared/api';
+import type {
+  NoticePreview,
+  NotificationItem,
+  NotificationSource,
+  NotificationState,
+  NotificationSubscriptions,
+} from '../../../shared/api';
+import { Switch } from '@/components/ui/beautifului/atoms/Switch';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
 import { ShuiyuanIcon } from '../../components/ui/shuiyuan-icon';
+import { useExperimental, useExperimentEnabled } from '../settings/experimental';
 import { JwcNoticeView } from './JwcNoticeView';
 import { groupNotifications, likeGroupSummary } from './group-notifications';
 import { useNotificationSourceFilter } from './source-filter';
@@ -47,6 +58,7 @@ const filterLabels: Record<NotificationSource, string> = {
   todo: 'TODO',
   jwc: '教务处',
   canvas: 'Canvas',
+  notice: '公告订阅',
 };
 
 function formatTime(value: string): string {
@@ -60,6 +72,15 @@ function formatTime(value: string): string {
   const days = Math.round(hours / 24);
   if (days > -7) return `${Math.abs(days)} 天前`;
   return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric' }).format(date);
+}
+
+function formatItemTime(item: NotificationItem): string {
+  if (item.href.kind === 'notice') {
+    if (item.href.publishedAt === null) return '日期未知';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(item.href.publishedAt)) return item.href.publishedAt;
+    return formatTime(item.href.publishedAt);
+  }
+  return formatTime(item.createdAt);
 }
 
 function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
@@ -83,7 +104,9 @@ function SourceIcon({ source }: { source: NotificationItem['source'] }) {
           ? GraduationCap
           : source === 'canvas'
             ? Megaphone
-            : ShuiyuanIcon;
+            : source === 'notice'
+              ? Rss
+              : ShuiyuanIcon;
   return <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ink-3" />;
 }
 
@@ -152,6 +175,301 @@ function LikeGroupRow({
   );
 }
 
+function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
+  const [subscriptions, setSubscriptions] = useState<NotificationSubscriptions | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
+  const [url, setUrl] = useState('');
+  const [sampleTitle, setSampleTitle] = useState('');
+  const [preview, setPreview] = useState<NoticePreview | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState(0);
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null);
+
+  const loadSubscriptions = async () => {
+    if (!window.dela?.notifications) return;
+    try {
+      setSubscriptions(await window.dela.notifications.getSubscriptions());
+    } catch (cause) {
+      setPanelError(cause instanceof Error ? cause.message : String(cause));
+    }
+  };
+
+  useEffect(() => {
+    void loadSubscriptions();
+  }, [noticeEnabled]);
+
+  const toggleJwc = async (next: boolean) => {
+    if (!window.dela?.notifications || busy) return;
+    setBusy(true);
+    setPanelError(null);
+    try {
+      await window.dela.notifications.setJwcSubscribed(next);
+      await loadSubscriptions();
+    } catch (cause) {
+      setPanelError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePreview = async (targetUrl = url, render = false) => {
+    if (!window.dela?.notifications || !targetUrl.trim() || busy) return;
+    setBusy(true);
+    setPanelError(null);
+    setPreview(null);
+    try {
+      const result = await window.dela.notifications.previewNoticeSubscription(
+        targetUrl.trim(),
+        sampleTitle.trim() || undefined,
+        render,
+      );
+      setPreview(result);
+      setSelectedCandidate(0);
+    } catch (cause) {
+      setPanelError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!window.dela?.notifications || !preview || busy) return;
+    setBusy(true);
+    setPanelError(null);
+    try {
+      await window.dela.notifications.addNoticeSubscription(preview.token, selectedCandidate);
+      setPreview(null);
+      setUrl('');
+      setSampleTitle('');
+      await loadSubscriptions();
+    } catch (cause) {
+      setPanelError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async (id: string) => {
+    if (!window.dela?.notifications || busy) return;
+    setBusy(true);
+    setPanelError(null);
+    try {
+      await window.dela.notifications.removeNoticeSubscription(id);
+      setConfirmingRemoveId(null);
+      await loadSubscriptions();
+    } catch (cause) {
+      setPanelError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section
+      aria-label="订阅管理"
+      className="mt-4 flex flex-col gap-3 rounded-card bg-inset px-4 py-3"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-13 font-medium text-ink">教务处</div>
+          <div className="truncate text-xs text-ink-3">
+            https://jwc.sjtu.edu.cn/index/mxxsdtz.htm
+          </div>
+        </div>
+        <Switch
+          checked={subscriptions?.jwc ?? true}
+          disabled={subscriptions === null || busy}
+          label="订阅教务处通知"
+          onChange={(next) => void toggleJwc(next)}
+        />
+      </div>
+
+      {noticeEnabled ? (
+        <>
+          {subscriptions && subscriptions.notices.length > 0 ? (
+            <div className="flex flex-col gap-2 pt-1">
+              {subscriptions.notices.map((item) => (
+                <div
+                  className="flex items-center justify-between gap-3 rounded-control bg-surface px-3 py-2"
+                  key={item.id}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-13 font-medium text-ink">{item.label}</div>
+                    <div className="truncate text-xs text-ink-3">
+                      {item.pageUrl}
+                      {item.acquisition === 'rendered' ? ' · 页面渲染' : ''}
+                    </div>
+                    {item.error ? <div className="mt-1 text-xs text-red">{item.error}</div> : null}
+                  </div>
+                  {confirmingRemoveId === item.id ? (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        disabled={busy}
+                        onClick={() => void handleRemove(item.id)}
+                        size="sm"
+                        variant="destructive"
+                      >
+                        确认移除
+                      </Button>
+                      <Button
+                        disabled={busy}
+                        onClick={() => setConfirmingRemoveId(null)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        取消
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      disabled={busy}
+                      onClick={() => setConfirmingRemoveId(item.id)}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      移除
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-2 pt-1">
+            <div className="flex gap-2 max-md:flex-col">
+              <Input
+                aria-label="公告列表页网址"
+                disabled={busy}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="输入学院或官网公告列表页 URL，如 https://..."
+                value={url}
+              />
+              <Input
+                aria-label="样本公告标题"
+                className="md:max-w-64"
+                disabled={busy}
+                onChange={(event) => setSampleTitle(event.target.value)}
+                placeholder="可选：某条公告标题（辅助定位）"
+                value={sampleTitle}
+              />
+              <Button
+                className="shrink-0"
+                disabled={busy || !url.trim()}
+                onClick={() => void handlePreview()}
+                size="sm"
+                variant="outline"
+              >
+                <Plus className="size-4" />
+                预览栏目
+              </Button>
+            </div>
+
+            {preview ? (
+              <div className="flex flex-col gap-2 rounded-control bg-surface p-3">
+                <div className="flex items-center justify-between gap-2 text-xs text-ink-3">
+                  <span>
+                    {preview.title || '页面预览'}
+                    {preview.diagnostics.length > 0 ? ` · ${preview.diagnostics.join('；')}` : ''}
+                  </span>
+                  {preview.acquisition === 'http' ? (
+                    <Button
+                      className="shrink-0"
+                      disabled={busy}
+                      onClick={() => void handlePreview(preview.pageUrl, true)}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      使用页面渲染重试
+                    </Button>
+                  ) : null}
+                </div>
+                {preview.feeds.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
+                    <span>发现 Feed：</span>
+                    {preview.feeds.map((feed) => (
+                      <Button
+                        disabled={busy}
+                        key={feed.url}
+                        onClick={() => {
+                          setUrl(feed.url);
+                          void handlePreview(feed.url, false);
+                        }}
+                        size="sm"
+                        variant="outline"
+                      >
+                        {feed.title || feed.url}
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
+                {preview.candidates.length === 0 ? (
+                  <p className="text-13 text-ink-3">未识别到可订阅的公告列表。</p>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      {preview.candidates.map((candidate, index) => (
+                        <button
+                          className={cn(
+                            'flex flex-col gap-1 rounded-control px-3 py-2 text-left transition-colors duration-150',
+                            selectedCandidate === index ? 'bg-inset' : 'hover:bg-hover',
+                          )}
+                          key={`${candidate.label}-${index}`}
+                          onClick={() => setSelectedCandidate(index)}
+                          type="button"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-13 font-medium text-ink">{candidate.label}</span>
+                            <span className="text-xs tabular-nums text-ink-3">
+                              {candidate.entries.length} 条
+                              {candidate.reasons.length > 0
+                                ? ` · ${candidate.reasons.join('、')}`
+                                : ''}
+                            </span>
+                          </div>
+                          {candidate.entries.slice(0, 3).map((entry) => (
+                            <div
+                              className="flex items-baseline justify-between gap-2 text-xs text-ink-3"
+                              key={entry.url}
+                            >
+                              <span className="truncate">{entry.title}</span>
+                              <span className="shrink-0 tabular-nums">
+                                {entry.publishedAt ?? '日期未知'}
+                              </span>
+                            </div>
+                          ))}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        disabled={busy}
+                        onClick={() => setPreview(null)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        取消
+                      </Button>
+                      <Button disabled={busy} onClick={() => void handleConfirm()} size="sm">
+                        订阅所选栏目
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {panelError ? (
+        <p className="text-xs text-red" role="alert">
+          {panelError}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function NotificationsView({
   jwcNotice,
   onCloseJwcNotice,
@@ -166,6 +484,11 @@ export function NotificationsView({
 }: NotificationsViewProps) {
   const sources = useNotificationSourceFilter((store) => store.sources);
   const toggleSource = useNotificationSourceFilter((store) => store.toggleSource);
+  const noticeEnabled = useExperimentEnabled('noticeSubscriptions');
+  const [subscriptionsOpen, setSubscriptionsOpen] = useState(false);
+  useEffect(() => {
+    void useExperimental.getState().load();
+  }, []);
   const allSelected = sources.length === notificationSources.length;
   const [filteredState, setFilteredState] = useState<{
     sources: readonly NotificationSource[];
@@ -242,6 +565,15 @@ export function NotificationsView({
             <CheckCheck className="size-4" />
             全部已读
           </Button>
+          <Button
+            aria-expanded={subscriptionsOpen}
+            onClick={() => setSubscriptionsOpen((value) => !value)}
+            size="sm"
+            variant="ghost"
+          >
+            <Rss className="size-4" />
+            订阅管理
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button aria-label="筛选消息来源" size="icon-sm" title="筛选消息来源" variant="ghost">
@@ -297,6 +629,8 @@ export function NotificationsView({
           </DropdownMenu>
         </div>
       </header>
+
+      {subscriptionsOpen ? <SubscriptionsPanel noticeEnabled={noticeEnabled} /> : null}
 
       {snoozed ? (
         <div className="mt-4 flex items-start gap-2 rounded-card border border-line bg-inset px-4 py-3 text-13 text-ink-3">
@@ -391,7 +725,7 @@ export function NotificationsView({
                     {item.body}
                   </span>
                   <span className="mt-2 block text-xs tabular-nums text-ink-3">
-                    {filterLabels[item.source]} · {formatTime(item.createdAt)}
+                    {filterLabels[item.source]} · {formatItemTime(item)}
                   </span>
                 </span>
                 {!item.readAt ? (

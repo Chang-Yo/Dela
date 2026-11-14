@@ -200,3 +200,48 @@ it('v8→v9：会话表补 parent_id，原有会话都是顶层会话', () => {
   ]);
   db.close();
 });
+
+it('v9→v10：保留教务处通知与已读状态，允许通用公告订阅来源', () => {
+  const before = new Database(dbPath());
+  before.exec(`
+    CREATE TABLE notifications (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc', 'canvas')),
+      account_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      read_at TEXT,
+      source_unread INTEGER NOT NULL DEFAULT 1,
+      href TEXT NOT NULL,
+      category TEXT,
+      count INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE TABLE notification_refreshes (
+      source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc', 'canvas')),
+      account_key TEXT NOT NULL,
+      last_success_at TEXT,
+      error TEXT,
+      PRIMARY KEY (source, account_key)
+    );
+    INSERT INTO notifications VALUES ('jwc:991', 'jwc', 'students', '选课通知', '摘要', '2026-11-01T00:00:00.000Z', '2026-11-02T00:00:00.000Z', 1, '{"kind":"jwc","url":"https://jwc.sjtu.edu.cn/info/1222/991.htm"}', NULL, 1);
+    INSERT INTO notification_refreshes VALUES ('jwc', 'students', '2026-11-01T00:00:00.000Z', NULL);
+  `);
+  before.pragma('user_version = 9');
+  before.close();
+
+  expect(runMigrations({ userData, seal }, 10)).toBe(1);
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(10);
+  expect(db.prepare('SELECT id, source, read_at FROM notifications').get()).toEqual({
+    id: 'jwc:991',
+    source: 'jwc',
+    read_at: '2026-11-02T00:00:00.000Z',
+  });
+  db.prepare(
+    "INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href) VALUES ('notice:sub1:https://example.edu.cn/1.htm', 'notice', 'sub1', '学院公告', '通知公告', '2026-11-10T00:00:00.000Z', NULL, 1, '{\"kind\":\"notice\",\"url\":\"https://example.edu.cn/1.htm\",\"publishedAt\":\"2026-11-10\"}')",
+  ).run();
+  db.prepare("INSERT INTO notification_refreshes VALUES ('notice', 'sub1', NULL, NULL)").run();
+  expect(db.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%_v9'").all()).toEqual([]);
+  db.close();
+});

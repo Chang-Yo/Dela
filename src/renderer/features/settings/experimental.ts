@@ -9,7 +9,12 @@ interface ExperimentalStore {
   set: (key: ExperimentKey, value: boolean) => Promise<void>;
 }
 
-const allOff: ExperimentState = { master: false, shuiyuan: false, videoDownload: false };
+const allOff: ExperimentState = {
+  master: false,
+  shuiyuan: false,
+  videoDownload: false,
+  noticeSubscriptions: false,
+};
 let loading: Promise<void> | null = null;
 
 export const useExperimental = create<ExperimentalStore>((set, get) => ({

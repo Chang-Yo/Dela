@@ -158,6 +158,21 @@ export function GeneralSection() {
           )}
           {master && (
             <SettingRow
+              description="订阅学院或官网公告栏目并汇入通知中心；关闭后停止轮询与展示，已保存的订阅保留。"
+              nested
+              settingId="experimental-notice-subscriptions"
+              title="公告订阅"
+            >
+              <Switch
+                checked={experiments?.noticeSubscriptions ?? false}
+                disabled={experimentBusy}
+                label="公告订阅"
+                onChange={(next) => void toggleExperiment('noticeSubscriptions', next)}
+              />
+            </SettingRow>
+          )}
+          {master && (
+            <SettingRow
               description="在课堂视频页下载录像；关闭时进行中的下载立即取消。"
               nested
               settingId="experimental-video-download"

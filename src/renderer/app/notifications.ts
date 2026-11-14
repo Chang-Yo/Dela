@@ -100,6 +100,12 @@ export function useNotifications(active: boolean) {
             showToast({ variant: 'error', title: '打开原文失败', description: errorText(reason) }),
           );
       }
+    } else if (target.kind === 'notice') {
+      void window.dela?.canvas
+        .openLink(target.url)
+        .catch((reason) =>
+          showToast({ variant: 'error', title: '打开原文失败', description: errorText(reason) }),
+        );
     } else if (target.kind === 'todo') navigation.openTodo(target.todoId);
     else if (target.kind === 'mail') navigation.openMail(target.messageId);
     else if (target.kind === 'canvas') navigation.openDocument(`source:${target.sourceId}`);

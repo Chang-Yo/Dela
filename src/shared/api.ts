@@ -188,6 +188,8 @@ export type {
   NotificationItem,
   NotificationState,
   NotificationsApi,
+  NotificationSubscriptions,
+  NoticePreview,
 } from './notifications';
 export { notificationSources } from './notifications';
 

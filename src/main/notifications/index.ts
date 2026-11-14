@@ -6,6 +6,7 @@ import type {
   NotificationItem,
   NotificationSource,
   NotificationState,
+  NotificationSubscriptions,
   ShuiyuanNotificationItem,
 } from '../../shared/api';
 import { canvasOwner, getTodoState, markTodoRead, todoNotifications } from '../todo';
@@ -17,6 +18,16 @@ import { listShuiyuanNotifications } from '../shuiyuan/api';
 import { listCanvasAnnouncements, listTodoCanvasCourses } from '../canvas/api';
 import { experimentEnabled } from '../settings/prefs';
 import { refreshJwc, getJwcNotice, getJwcCaptcha, downloadJwcAttachment } from './jwc';
+import {
+  addNoticeSubscription,
+  isJwcSubscribed,
+  listNoticeSubscriptions,
+  noticeSubscriptionIds,
+  previewNoticeSubscription,
+  refreshNotices,
+  removeNoticeSubscription,
+  setJwcSubscribedPref,
+} from './notices';
 import {
   armSystemNotifications,
   isWorkspaceWindow,
@@ -49,12 +60,15 @@ function currentAccounts(): ActiveAccount[] {
   const mail = db.prepare('SELECT address FROM mail_accounts ORDER BY id LIMIT 1').get() as
     { address: string } | undefined;
   const accounts: ActiveAccount[] = mail ? [{ source: 'mail', key: mail.address }] : [];
-  accounts.push({ source: 'jwc', key: 'students' });
+  if (isJwcSubscribed()) accounts.push({ source: 'jwc', key: 'students' });
   try {
     const canvas = canvasOwner();
     if (canvas) accounts.push({ source: 'canvas', key: canvas });
   } catch {
     // 与水源同一口径：损坏的 Canvas 令牌不能连带隐藏邮件等其他来源的通知。
+  }
+  if (experimentEnabled('noticeSubscriptions')) {
+    for (const id of noticeSubscriptionIds()) accounts.push({ source: 'notice', key: id });
   }
   // 水源关闭：不轮询、不展示已有通知，凭据保留。
   if (!experimentEnabled('shuiyuan')) return accounts;
@@ -102,6 +116,9 @@ function notificationState(
       const href = JSON.parse(row.href) as NotificationItem['href'];
       const knownHref =
         (href.kind === 'jwc' && typeof href.url === 'string') ||
+        (href.kind === 'notice' &&
+          typeof href.url === 'string' &&
+          (href.publishedAt === null || typeof href.publishedAt === 'string')) ||
         (href.kind === 'canvas' && typeof href.sourceId === 'string') ||
         (href.kind === 'mail' && typeof href.messageId === 'number') ||
         (href.kind === 'shuiyuan' && typeof href.topicId === 'number') ||
@@ -170,6 +187,20 @@ function notificationState(
   const todos = sources.includes('todo') ? todoNotifications() : [];
   const todoState = getTodoState();
   refresh.todo = { lastSuccessAt: todoState.syncedAt, error: todoState.error };
+  const noticeSubs = experimentEnabled('noticeSubscriptions') ? listNoticeSubscriptions() : [];
+  if (noticeSubs.length === 0) {
+    refresh.notice = null;
+  } else {
+    const successes = noticeSubs
+      .map((sub) => sub.lastSuccessAt)
+      .filter((time): time is string => Boolean(time))
+      .sort();
+    const errors = noticeSubs.flatMap((sub) => (sub.error ? [`${sub.label}：${sub.error}`] : []));
+    refresh.notice = {
+      lastSuccessAt: successes.at(-1) ?? null,
+      error: errors.length ? errors.join('\n') : null,
+    };
+  }
   return {
     items: [...items, ...todos]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -484,6 +515,10 @@ async function refreshCanvas(force: boolean): Promise<void> {
   }
 }
 
+export function broadcastNotifications(): NotificationState {
+  return broadcast();
+}
+
 export function initializeNotifications(): void {
   // Database initialization creates the schema. Existing unread mail is intentionally included as passive local inbox state.
   refreshMail(false);
@@ -505,7 +540,12 @@ export function refreshNotifications(force = false): Promise<NotificationState> 
       const key = accountFor('mail');
       if (key) saveRefresh('mail', key, error instanceof Error ? error.message : String(error));
     }
-    await Promise.all([refreshShuiyuan(), refreshJwc(force), refreshCanvas(force)]);
+    await Promise.all([
+      refreshShuiyuan(),
+      isJwcSubscribed() ? refreshJwc(force, isJwcSubscribed) : Promise.resolve(),
+      refreshCanvas(force),
+      refreshNotices(force),
+    ]);
     // 首轮刷新构成启动基线；此后新增的通知才弹系统桌面通知。
     armSystemNotifications();
     return broadcast();
@@ -619,7 +659,54 @@ export function setNotificationSnooze(untilInput: unknown): NotificationState {
   return broadcast();
 }
 
+export function getNotificationSubscriptions(): NotificationSubscriptions {
+  return {
+    jwc: isJwcSubscribed(),
+    notices: experimentEnabled('noticeSubscriptions') ? listNoticeSubscriptions() : [],
+  };
+}
+
+export async function setJwcSubscribed(enabledInput: unknown): Promise<NotificationState> {
+  const enabled = z.boolean().parse(enabledInput);
+  setJwcSubscribedPref(enabled);
+  if (enabled) await refreshJwc(false, isJwcSubscribed);
+  return broadcast();
+}
+
+export function confirmNoticeSubscription(
+  tokenInput: unknown,
+  candidateInput: unknown,
+): NotificationState {
+  addNoticeSubscription(tokenInput, candidateInput);
+  return broadcast();
+}
+
+export function deleteNoticeSubscription(idInput: unknown): NotificationState {
+  removeNoticeSubscription(idInput);
+  return broadcast();
+}
+
 export function registerNotificationsIpc(): void {
+  ipcMain.handle('notifications:get-subscriptions', (event) => {
+    checkWorkspaceSender(event);
+    return getNotificationSubscriptions();
+  });
+  ipcMain.handle('notifications:set-jwc-subscribed', (event, enabled) => {
+    checkWorkspaceSender(event);
+    return setJwcSubscribed(enabled);
+  });
+  ipcMain.handle('notifications:preview-notice', (event, url, sampleTitle, render) => {
+    checkWorkspaceSender(event);
+    return previewNoticeSubscription(url, sampleTitle, render);
+  });
+  ipcMain.handle('notifications:add-notice', (event, token, candidate) => {
+    checkWorkspaceSender(event);
+    return confirmNoticeSubscription(token, candidate);
+  });
+  ipcMain.handle('notifications:remove-notice', (event, id) => {
+    checkWorkspaceSender(event);
+    return deleteNoticeSubscription(id);
+  });
   ipcMain.handle('notifications:jwc-notice', (event, id) => {
     checkWorkspaceSender(event);
     return getJwcNotice(id);

@@ -7,6 +7,13 @@ import type {
 import { invoke, on } from './lib';
 
 export const notifications = {
+  getSubscriptions: () => invoke('notifications:get-subscriptions'),
+  setJwcSubscribed: (enabled: boolean) => invoke('notifications:set-jwc-subscribed', enabled),
+  previewNoticeSubscription: (url: string, sampleTitle?: string, render?: boolean) =>
+    invoke('notifications:preview-notice', url, sampleTitle, render),
+  addNoticeSubscription: (token: string, candidate: number) =>
+    invoke('notifications:add-notice', token, candidate),
+  removeNoticeSubscription: (id: string) => invoke('notifications:remove-notice', id),
   getJwcNotice: (id: string) => invoke('notifications:jwc-notice', id),
   getJwcCaptcha: (id: string, attachmentId: string) =>
     invoke('notifications:jwc-captcha', id, attachmentId),

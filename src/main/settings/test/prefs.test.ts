@@ -38,7 +38,12 @@ beforeEach(() => {
 });
 
 it('keeps experiments on for new or corrupt settings and persists an explicit opt-out', () => {
-  expect(savedExperiments()).toEqual({ master: true, shuiyuan: true, videoDownload: true });
+  expect(savedExperiments()).toEqual({
+    master: true,
+    shuiyuan: true,
+    videoDownload: true,
+    noticeSubscriptions: true,
+  });
   insert("INSERT INTO workspace_settings VALUES ('experimental-features', 'broken')");
   expect(savedExperiments().master).toBe(true);
   expect(setExperiment('shuiyuan', false).shuiyuan).toBe(false);
