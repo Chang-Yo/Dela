@@ -12,15 +12,23 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
+// 尺寸与 Input 一一对应，同一表单里的下拉与输入框等高。
+const triggerSizes = {
+  default: '',
+  lg: 'h-10 rounded-card px-3',
+} as const;
+
 function SelectTrigger({
   className,
   children,
+  size = 'default',
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger>) {
+}: React.ComponentProps<typeof SelectPrimitive.Trigger> & { size?: keyof typeof triggerSizes }) {
   return (
     <SelectPrimitive.Trigger
       className={cn(
         'flex h-8 w-fit min-w-0 max-w-full items-center justify-between gap-1.5 whitespace-nowrap rounded-control bg-field px-2.5 text-sm font-medium text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base hover:shadow-hairline-strong data-[state=open]:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50 data-[placeholder]:text-ink-3 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-3.5 *:data-[slot=select-value]:truncate',
+        triggerSizes[size],
         className,
       )}
       data-slot="select-trigger"
@@ -43,7 +51,7 @@ function SelectContent({
       <SelectPrimitive.Content
         className={cn(
           menuPanel,
-          'relative max-h-(--radix-select-content-available-height) max-w-(--radix-select-content-available-width) origin-(--radix-select-content-transform-origin)',
+          'relative min-w-(--radix-select-trigger-width) max-h-(--radix-select-content-available-height) max-w-(--radix-select-content-available-width) origin-(--radix-select-content-transform-origin)',
           className,
         )}
         data-slot="select-content"
