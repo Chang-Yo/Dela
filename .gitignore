@@ -29,6 +29,9 @@ output/playwright/
 *.sqlite
 *.sqlite-*
 *.log
+# Rebuildable notice verification outputs.
+experiments/notice-subscriptions/validation/framework/host-results/build/
+experiments/notice-subscriptions/validation/remediation/render/acquisition-flow-evidence.json
 .DS_Store
 Thumbs.db
 .idea/
@@ -37,4 +40,5 @@ Thumbs.db
 .zcode/
 .zcodeignore
 .pi/
+.serena/
 .playwright*/

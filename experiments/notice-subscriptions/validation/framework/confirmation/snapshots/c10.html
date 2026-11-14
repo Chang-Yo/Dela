@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="Author" content="微普科技http://www.wiipu.com" />
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>通知公告 - 北京大学教务部</title>
+    <link rel="stylesheet" type="text/css" href="css/basic.css" />
+    <link rel="stylesheet" type="text/css" href="css/style.css" />
+    <link rel="stylesheet" type="text/css" href="css/query.css" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/sHover.min.js"></script>
+    <script type="text/javascript" src="js/iscroll.js"></script>
+    <script type="text/javascript" src="js/common.js"></script>
+    <!--[if IE 6]>
+    <script type="text/javascript" src="js/dd_belatedpng.min.js"></script>
+    <script type="text/javascript">
+        DD_belatedPNG.fix('img,div,span,p');
+    </script>
+    <![endif]-->
+</head>
+
+<body>
+<div id="wrap">
+    <!--右侧菜单-->
+    <div class="iaaa-bar">
+            <a class="iaaa-link iaaa-login" href="https://dean.pku.edu.cn/web/iaaa_login.php?return=http%3A%2F%2Fdean.pku.edu.cn%2Fweb%2Fnotice.php">校内登录</a>
+    </div>
+<!--右侧菜单-->
+<script type="text/javascript" src="js/layer/layer.js"></script>
+<script type="text/javascript">
+    $(function(){
+        /**按Enter登录**/
+        $('.form').keyup(function(event){
+            if(event.keyCode ==13){
+                $("#sear_right_btn").trigger("click");
+            }
+        });
+        $('#sear_right_btn').click(function(){
+            var text = $('#sear_right_txt').val();
+            if (text.length == 0) {
+                return false;
+            }
+            $.ajax({
+                type        : 'POST',
+                data        : {
+                    text    : text
+                },
+                dataType    : 'json',
+                url         : 'right_do.php?act=search',
+                success     : function(data){
+                    var status = data.status;
+                    var msg = data.msg;
+                    if(status){
+                        $('#result').empty();
+                        $('#result').append(msg);
+                    }else {
+                        $('#result').empty();
+                    }
+                }
+            });
+        });
+    });
+</script>
+<div id="right_nav">
+    <div class="btn_closemark"></div>
+    <div class="right_tab right_sub_tab">
+        <div class="right_item">
+            <div class="right_pos">
+                <img src="images/icon_right_menu.png" alt="" />
+            </div>
+            <div class="toright">菜单</div>
+        </div>
+        <div class="right_item right_link">
+            <div class="right_pos">
+                <img src="images/icon_right5.png" alt="" />
+            </div>
+            <div class="toright">链接</div>
+        </div>
+        <div class="right_item right_link">
+            <div class="right_pos">
+                <img src="images/icon_right6.png" alt="" />
+            </div>
+            <div class="toright">搜索</div>
+        </div>
+    </div>
+    <div class="right_con">
+        <div class="subcon block">
+            <div class="student_nav">
+                <ul>
+                    <li>
+                        <p class="bdt tosubnav"><img src="images/public/public1.png" alt=""/><a>学生</a></p>
+                        <div class="sub_stunav">
+                            <span><a href="#" >学生服务中心</a></span><span><a href="student_info.php?type=1&id=8" >课程和培养</a></span><span><a href="student_info.php?type=2&id=15" >选课和退课</a></span><span><a href="student_info.php?type=3&id=18" >考试和成绩</a></span><span><a href="student_info.php?type=4&id=27" >课程评估</a></span><span><a href="student_info.php?type=5&id=28" >双专业/辅修</a></span><span><a href="student_info.php?type=6&id=22" >本科生科研</a></span><span><a href="student_info.php?type=7&id=21" >推免研究生</a></span><span><a href="student_info.php?type=8&id=40" >学籍异动</a></span><span><a href="student_info.php?type=9&id=29" >学籍信息</a></span><span><a href="student_info.php?type=10&id=46" >证件和证明</a></span><span><a href="student_info.php?type=11&id=23" >出境和转学分</a></span><span><a href="student_info.php?type=12&id=51" class="bdn">教室查询预约</a></span>                        </div>
+                    </li>
+                    <li>
+                        <p class="tosubnav"><img src="images/public/public2.png" alt="" /><a>教师</a></p>
+                        <div class="sub_stunav">
+                            <span><a href="teacher_info.php?type=1&id=1" >教师手册</a></span><span><a href="teacher_info.php?type=6&id=28" >教学日历</a></span><span><a href="teacher_info.php?type=2&id=19" >日常教学工作</a></span><span><a href="teacher_info.php?type=3&id=22" >课程和教学改革</a></span><span><a href="teacher_info.php?type=4&id=2" class="bdn">教学质量</a></span><span><a href="teacher_info.php?type=5&id=8" >教材</a></span>                        </div>
+                    </li>
+                    <li>
+                        <p class="tosubnav"><img src="images/public/public3.png" alt="" /><a>校友</a></p>
+                        <div class="sub_stunav">
+                            <span><a href="alumnus_info.php?id=1" >补办毕业/学位证明书（遗失证书者）</a></span><span><a href="alumnus_info.php?id=2" >本科成绩单、学历学位证明</a></span><span><a href="https://dean.pku.edu.cn/service/web/certificateVerification.php" >本科学历学位验证</a></span><span><a href="alumnus_info.php?id=4" class="bdn">学信网相关事项</a></span>                        </div>
+                    </li>
+                    <li>
+                        <p class="tosubnav"><img src="images/public/public4.png" alt="" /><a>公众</a></p>
+                        <div class="sub_stunav">
+                            <span><a href="public_info.php?id=1"  >交换生</a></span><span><a href="public_info.php?id=2"  >旁听</a></span><span><a href="https://bkzs.pku.edu.cn/" target="_blank" >本科招生</a></span><span><a href="http://summer.pku.edu.cn/" target="_blank" >暑期学校</a></span><span><a href="https://dean.pku.edu.cn/service/web/certificateVerification.php" target="_blank" >学历学位验证</a></span><span><a href="public_info.php?id=8"  >2025年教学成果奖材料</a></span><span><a href="public_info.php?id=11"  class="bdn">北京大学成绩单验真方法</a></span>                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="subcon">
+            <div class="link_nav student_nav">
+                <div class="link_item">
+                    <div class="link_wrap">
+                        <a href="http://elective.pku.edu.cn" target="_blank">选课系统</a><a href="http://portal.pku.edu.cn" target="_blank">校内门户</a><a href="http://bdkj.pku.edu.cn/" target="_blank">教室预约</a><a href="https://dean.pku.edu.cn/service/web/courseSearch.php" target="_blank">课表查询</a><a href="http://kcpg.pku.edu.cn/" target="_blank">课程评估</a><a href="http://162.105.209.64/benyan" target="_blank">本科生科研</a><a href="https://dean.pku.edu.cn/service/web/login.php" target="_blank">申办成绩单</a><a href="http://dean.pku.edu.cn/web/student_info.php?type=12&amp;id=47" target="_blank">空闲教室查询</a>                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="subcon">
+            <div class="search_nav student_nav">
+                <div class="form">
+                    <input type="text" name="sear_right_txt" id="sear_right_txt" placeholder="搜索"/>
+                    <input type="button" name="sear_right_btn" id="sear_right_btn"/>
+                </div>
+                <div id="result">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!--点击右侧出现的遮罩层-->
+<div id="right_mark"></div>    <!--二级banner-->
+    <div id="sub_banner">
+        <img class="bg_sunbanner" src="images/banner/banner_notice.jpg" alt="" />
+        <div class="w1200">
+            <div class="sub_log">
+	<a href="http://www.pku.edu.cn/" target="_blank">
+		<img src="images/subtop_logo1.png" alt="北京大学" />
+	</a>
+	<a href="../index.php">
+		<img src="images/subtop_logo2.png" alt="北京大学教务部" />
+	</a>
+</div>
+            <div class="sub_title">
+                <div class="banner_text">
+                    <h2>通知公告</h2>
+                    <span>NOTICE</span>
+                    <div class="sub_title_l"></div>
+                    <div class="sub_title_r"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--二级内容部分-->
+    <div id="sub_content">
+        <!--当前位置-->
+        <div class="top_page">
+            <a href="../index.php">首页</a>
+            <span>&gt;</span>
+            <a class="active">通知公告</a>
+        </div>
+        <!--通知公告-->
+        <div class="notice">
+            <div class="notice_tab">
+                <div class="w1200">
+                    <ul>
+                        <li class="first"><a class="active"  href="notice.php">全部</a></li>
+                        <li><a href="notice.php?type=11">成绩单</a></li><li><a href="notice.php?type=4">选课</a></li><li><a href="notice.php?type=12">退课</a></li><li><a href="notice.php?type=8">项目</a></li><li><a href="notice.php?type=3">转系转专业</a></li><li><a href="notice.php?type=2">辅修双专业</a></li><li><a href="notice.php?type=5">本科生科研</a></li><li><a href="notice.php?type=7">免试推荐研究生</a></li><li><a href="notice.php?type=6">考试</a></li><li><a href="notice.php?type=22">入学与注册</a></li><li><a href="notice.php?type=23">毕业</a></li><li><a href="notice.php?type=9">排课</a></li><li><a href="notice.php?type=14">教室</a></li><li><a href="notice.php?type=13">教学改革</a></li><li><a href="notice.php?type=15">评估</a></li><li><a href="notice.php?type=19">培养</a></li><li><a href="notice.php?type=20">教学名师奖</a></li><li><a href="notice.php?type=21">考试违纪作弊</a></li><li><a href="notice.php?type=17">助教</a></li><li><a href="notice.php?type=24">教材</a></li><li><a href="notice.php?type=30">国际交流</a></li><li><a href="notice.php?type=29">竞赛</a></li><li><a href="notice.php?type=28">体测</a></li><li><a href="notice.php?type=27">官网升级</a></li><li><a href="notice.php?type=26">交流和转学分</a></li><li><a href="notice.php?type=25">学籍相关</a></li><li><a href="notice.php?type=16">值班</a></li><li><a href="notice.php?type=31">成绩</a></li>                    </ul>
+                </div>
+            </div>
+            <div class="clear"></div>
+            <div class="notice_list">
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-11-06</span>
+                            <a href="notice_details.php?id=773" class="active">2027届本科预毕业生学历学位照片拍摄通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-10-22</span>
+                            <a href="notice_details.php?id=772" class="active">2026年陈守仁本科生国际交流基金资助名单公示（第二批）</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-10-21</span>
+                            <a href="notice_details.php?id=771" class="active">关于2026—2027学年春季学期排课的通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-10-21</span>
+                            <a href="notice_details.php?id=770" class="active">2026-2027学年秋季学期本科生中期退课通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-10-21</span>
+                            <a href="notice_details.php?id=769" class="active">2026-2027学年秋季学期本科生课程自选合格制通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-10-13</span>
+                            <a href="notice_details.php?id=768" class="active">关于校本部2026级本科新生填写学籍表的通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-24</span>
+                            <a href="notice_details.php?id=767" class="active">2026年陈守仁本科生国际交流基金资助名单公示（第一批）</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-24</span>
+                            <a href="notice_details.php?id=766" class="active">教务部2026国庆节假期带值班安排</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-21</span>
+                            <a href="notice_details.php?id=765" class="active">26-27学年秋季学期双学位/双专业及结业生课程学费缴纳的通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-11</span>
+                            <a href="notice_details.php?id=764" class="active">2026年下半年全国大学英语四、六级考试报名通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-10</span>
+                            <a href="notice_details.php?id=763" class="active">2026年秋季学期“国家安全理论与实践”课程线下讲座报名通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-03</span>
+                            <a href="notice_details.php?id=762" class="active">2026级本科新生大学英语分级结果及相关通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-01</span>
+                            <a href="notice_details.php?id=761" class="active">2026年秋季学期北京大学陈守仁本科生国际交流基金申请通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-01</span>
+                            <a href="notice_details.php?id=760" class="active">关于2026级本科新生图像采集的通知</a>
+                        </div>
+                    </div>
+
+                                    <div class="notice_item">
+                        <div class="notice_box">
+                            <span>2026-09-01</span>
+                            <a href="notice_details.php?id=759" class="active">关于2027届本科毕业生推免资格申请的通知和推免期间办理英文成绩单办法调整的说明</a>
+                        </div>
+                    </div>
+
+                            </div>
+        </div>
+        <div class="w1200">
+            <!--分页-->
+                        <div id="page_bar">
+                <a class='first_page' href='notice.php?type=0&page=1'>首页</a><a class='prev_page' href='javascript:void(0);'>上一页</a> <a class='active' href="notice.php?type=0&page=1">1</a> <a href="notice.php?type=0&page=2">2</a> <a href="notice.php?type=0&page=3">3</a> <a href="notice.php?type=0&page=4">4</a> <a href="notice.php?type=0&page=5">5</a> ...  <a href="notice.php?type=0&page=44">44</a> <a href="notice.php?type=0&page=45">45</a> <a href="notice.php?type=0&page=46">46</a> <a href="notice.php?type=0&page=47">47</a><a class='next_page' href="notice.php?type=0&page=2">下一页</a><a class='last_page' href='notice.php?type=0&page=47'>尾页</a>            </div>
+                    </div>
+    </div>
+    <!--二级公共底部-->
+    <!-- 二级公共底部 -->
+<div id="sub_footer">
+    <div class="w1200">
+        <div class="footer_l">
+            <a href="http://www.pku.edu.cn/" target="_blank">
+                <img src="images/sub_logo_footer.png" alt="logo"/>
+            </a>
+            <a href="../index.php">
+                <img src="images/sub_logo_footer2.png" alt="logo"/>
+            </a>
+        </div>
+        <div class="footer_r">
+            <div class="footer_rlink">
+                <a href="about.php">了解我们</a>
+                <a href="download.php">信息下载</a>
+                <a>友情链接</a>
+                <a>常用服务</a>
+            </div>
+            <p>Copyright©1998-2018  北京大学教务部  All Rights Reserved. 技术支持：<a href="http://www.wiipu.com" target="_blank">微普科技</a></p>
+        </div>
+    </div>
+    <div id="footer">
+        <div class="footer_con">
+            <div class="footer_logo">
+                <a href="http://www.pku.edu.cn/" target="_blank">
+                    <img src="images/logo1.png" alt="北京大学Logo"/>
+                </a>
+                <a href="../index.php">
+                    <img src="images/logo2.png" alt="北大教务处Logo"/>
+                </a>
+            </div>
+            <ul class="footer_nav">
+                <li>
+                    <a class="a_top">了解我们</a>
+                    <a href="about.php">本科教育概览</a>
+                    <a href="about_inst.php">机构设置</a>
+                    <a href="http://dean.pku.edu.cn/">旧版网站</a>
+                </li>
+                <li>
+                    <a class="a_top">信息下载</a>
+                    <a href="openinfo.php">信息公开</a>
+                    <a href="http://xxgk.pku.edu.cn/" target="_blank">信息公开网</a>
+                    <a href="download.php" target="_blank">下载</a>
+                </li>
+                <li>
+                    <a class="a_top">友情链接</a>
+                    <a href="https://www.pku.edu.cn/campus.html#p3a" target="_blank">校历</a><a href="http://www.lib.pku.edu.cn" target="_blank">图书馆</a><a href="http://www.chsi.com.cn/" target="_blank">学信网</a><a href="http://xgb.pku.edu.cn/jxj/jxjxm/index.htm" target="_blank">奖励奖学金</a><a href="http://www.oir.pku.edu.cn/" target="_blank">国际交流</a><a href="http://hmt.pku.edu.cn/" target="_blank">港澳台交流</a><a href="https://scc.pku.edu.cn/" target="_blank">就业服务</a><a href="http://bdst.pku.edu.cn" target="_blank">北大社团</a><a href="http://bdjcjd.pku.edu.cn/index.php" target="_blank">北京大学教材基地</a>                </li>
+                <li class="last">
+                    <a class="a_top">常用服务</a>
+                    <a href="http://www.pku.edu.cn/academics/index.htm" target="_blank">本科院系</a><a href="http://elective.pku.edu.cn" target="_blank">选课系统</a><a href="http://portal.pku.edu.cn" target="_blank">校内门户</a><a href="https://dean.pku.edu.cn/service/web/courseSearch.php" target="_blank">课表查询</a><a href="http://bdkj.pku.edu.cn/" target="_blank">教室预约</a><a href="https://portal.pku.edu.cn/portal2017/#/pub/freeClassroom" target="_blank">空闲教室查询</a><a href="http://dean.pku.edu.cn/student/" target="_blank">申办成绩单</a><a href="http://kcpg.pku.edu.cn/" target="_blank">课程评估</a><a href="http://162.105.209.64/benyan" target="_blank">本科生科研</a>                </li>
+            </ul>
+            <div class="clear"></div>
+        </div>
+        <div class="footer_copy">Copyright©  北京大学教务部  All Rights Reserved. 技术支持：<a href="http://www.wiipu.com" target="_blank">微普科技</a></div>
+    </div>
+</div>    <div id="return">
+        <img src="images/return_arr.png" alt=""/>
+    </div>
+</div>
+</body>
+
+</html>

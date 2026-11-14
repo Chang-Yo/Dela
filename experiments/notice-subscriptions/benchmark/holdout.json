@@ -1,0 +1,499 @@
+{
+  "version": 1,
+  "split": "holdout",
+  "frozenAt": "2026-11-11T13:18:10.105Z",
+  "cases": [
+    {
+      "id": "icci",
+      "label": "国际文化创意产业学院通知公告",
+      "url": "https://icci.sjtu.edu.cn/announcement/category/29",
+      "finalUrl": "https://icci.sjtu.edu.cn/announcement/category/29",
+      "status": "captured",
+      "httpStatus": 200,
+      "fetchedAt": "2026-11-11T13:18:10.108Z",
+      "contentType": "text/html; charset=UTF-8",
+      "sha256": "7449d5487d36b663c604859728fae04668d67362dadef9920f5a758e8edf61a5",
+      "snapshot": "holdout/icci.html.gz",
+      "annotation": {
+        "selector": ".lists > ul.no-style > li",
+        "titleSelector": "h5.title",
+        "urlSelector": "a",
+        "dateSelector": "span.time",
+        "notes": "独立读取通知公告分类页的 .lists 列表全部15项，标题取h5.title，日期取同条span.time，不取文章正文。已核对首项与末项原始HTML及官方列表文字；未运行待测解析器。"
+      },
+      "expected": [
+        {
+          "title": "国际文化创意产业学院参加上海交通大学第三十八次学生代表大会正式代表名单公示",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2267",
+          "publishedAt": "2026-11-09"
+        },
+        {
+          "title": "上海交通大学国际文化创意产业学院2026级全日制硕士研究生新生学业奖学金评定工作及公示",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2264",
+          "publishedAt": "2026-11-03"
+        },
+        {
+          "title": "上海交通大学国际文化创意产业学院2025级全日制硕士研究生综合学业奖学金评定工作及公示",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2263",
+          "publishedAt": "2026-11-03"
+        },
+        {
+          "title": "上海交通大学国际文化创意产业学院2024级全日制硕士研究生综合学业奖学金评定工作及公示",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2262",
+          "publishedAt": "2026-11-03"
+        },
+        {
+          "title": "上海交通大学国际文化创意产业学院2026级全日制硕士生新生专项奖学金实施细则",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2261",
+          "publishedAt": "2026-11-03"
+        },
+        {
+          "title": "文创学院关于开展2026年上海交通大学学生年度人物评选的通知",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2256",
+          "publishedAt": "2026-10-30"
+        },
+        {
+          "title": "2027年文创学院招收推免生综合考核实施细则",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2241",
+          "publishedAt": "2026-09-18"
+        },
+        {
+          "title": "文创学院2026年度“学术启明星”评选通知",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2218",
+          "publishedAt": "2026-07-21"
+        },
+        {
+          "title": "文创学院2027暑期学术交流营报名通知",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2195",
+          "publishedAt": "2026-07-03"
+        },
+        {
+          "title": "文创学院「I-Share」校友导师计划招募通知",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2126",
+          "publishedAt": "2026-04-10"
+        },
+        {
+          "title": "文创学院2026年硕士研究生复试通知",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2117",
+          "publishedAt": "2026-03-19"
+        },
+        {
+          "title": "文创学院2026届研究生市、校优秀毕业生评选通知",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2055",
+          "publishedAt": "2025-12-03"
+        },
+        {
+          "title": "上海交大-南加州大学文化创意产业学院2026年博士研究生招生办法",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2041",
+          "publishedAt": "2025-11-10"
+        },
+        {
+          "title": "文创学院2026全日制硕士研究生统考全攻略",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/2012",
+          "publishedAt": "2025-10-01"
+        },
+        {
+          "title": "上海交通大学上海交大-南加州大学文化创意产业学院2026年招收优秀应届本科生免试攻读研究生实施办法",
+          "url": "https://icci.sjtu.edu.cn/announcement/view/1995",
+          "publishedAt": "2025-09-20"
+        }
+      ]
+    },
+    {
+      "id": "law",
+      "label": "凯原法学院通知公告",
+      "url": "https://law.sjtu.edu.cn/xw-tzgg/index.html",
+      "finalUrl": "https://law.sjtu.edu.cn/xw-tzgg/index.html",
+      "status": "captured",
+      "httpStatus": 200,
+      "fetchedAt": "2026-11-11T13:18:10.143Z",
+      "contentType": "text/html",
+      "sha256": "0022bf685772bbd33cdf08ddc0357c5adfd25df631153ff916ead43df107a838",
+      "snapshot": "holdout/law.html.gz",
+      "annotation": {
+        "selector": "ul.announcement-txt > li",
+        "titleSelector": "a > h5",
+        "urlSelector": "a",
+        "dateSelector": "a > p",
+        "notes": "独立读取通知公告当前列表全部20项，保留列表中的微信公众号外链；标题取h5，日期取紧邻p。已核对首末项和跨年/置顶记录；列表日期与URL路径日期不同的情况以列表可见日期为准。未运行待测解析器。"
+      },
+      "expected": [
+        {
+          "title": "关于启动凯原法学院2026-2027春季学期留学项目遴选工作的通知",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20260803/11244.html",
+          "publishedAt": "2026-08-03"
+        },
+        {
+          "title": "凯原法学院 2026年博士研究生招生报名通知（非全日制法律博士）",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20260511/11032.html",
+          "publishedAt": "2026-05-11"
+        },
+        {
+          "title": "凯原法学院 2026年博士研究生招生报名通知（非全日制法学博士）",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20260511/11031.html",
+          "publishedAt": "2026-05-11"
+        },
+        {
+          "title": "凯原法学院2026年博士研究生招生报名通知（全日制）",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20260511/11030.html",
+          "publishedAt": "2026-05-11"
+        },
+        {
+          "title": "中达环境法优秀学位论文奖申请公告",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20260417/10977.html",
+          "publishedAt": "2026-04-17"
+        },
+        {
+          "title": "凯原法学院2026年本科生转专业实施细则",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20260410/10958.html",
+          "publishedAt": "2026-04-10"
+        },
+        {
+          "title": "春暖花开，百卅相约 ！@全体交大凯原法学院校友，欢迎回家!",
+          "url": "https://mp.weixin.qq.com/s/f-yo9zW9PpFaCE10oxOsRg",
+          "publishedAt": "2026-03-06"
+        },
+        {
+          "title": "海外优青2026，诚邀您依托上海交通大学凯原法学院申报",
+          "url": "https://mp.weixin.qq.com/s/SY_EsqwnjfgASRid9k1IpQ",
+          "publishedAt": "2026-03-02"
+        },
+        {
+          "title": "关于启动凯原法学院2026-2027秋季学期留学项目遴选工作的通知",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20260130/10864.html",
+          "publishedAt": "2026-01-30"
+        },
+        {
+          "title": "中国刑事诉讼法学研究会中外比较刑事诉讼制度专业论坛“刑事庭审实质化比较法研讨会”征文启事",
+          "url": "https://mp.weixin.qq.com/s/IycOzyMF843xmWns5HM0KQ",
+          "publishedAt": "2026-01-26"
+        },
+        {
+          "title": "2025年上海交通大学第六届法学国际青年学者论坛诚邀海内外青年英才",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20251121/10629.html",
+          "publishedAt": "2025-11-21"
+        },
+        {
+          "title": "上海交通大学凯原法学院2026年全日制法学博士研究生招生办法（第一批）",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20251103/10524.html",
+          "publishedAt": "2025-11-03"
+        },
+        {
+          "title": "关于启动凯原法学院2025-2026春季学期留学项目遴选工作的通知",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20250804/8880.html",
+          "publishedAt": "2025-08-01"
+        },
+        {
+          "title": "海外优青新增批次！诚邀您依托上海交通大学凯原法学院申报",
+          "url": "https://mp.weixin.qq.com/s/QDg0JEJmoJXp63_GmKBplA",
+          "publishedAt": "2025-08-01"
+        },
+        {
+          "title": "上海交通大学凯原法学院2025年本科生转专业实施细则",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20250403/8597.html",
+          "publishedAt": "2025-04-07"
+        },
+        {
+          "title": "关于启动凯原法学院2025-2026秋季学期留学项目遴选工作的通知",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20250202/8495.html",
+          "publishedAt": "2025-01-30"
+        },
+        {
+          "title": "关于启动2025年国家公派留学研究生项目的通知",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20250119/8487.html",
+          "publishedAt": "2025-01-19"
+        },
+        {
+          "title": "凯原法学院2024-2025春季学期留学项目人员名单公示",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20241021/8330.html",
+          "publishedAt": "2024-10-21"
+        },
+        {
+          "title": "2024年上海交通大学第五届法学国际青年学者论坛诚邀海内外青年英才",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20241018/8327.html",
+          "publishedAt": "2024-10-18"
+        },
+        {
+          "title": "凯原法学院部分行政业务办理地点搬迁公告",
+          "url": "https://law.sjtu.edu.cn/xw-tzgg/20240924/8296.html",
+          "publishedAt": "2024-09-24"
+        }
+      ]
+    },
+    {
+      "id": "acem",
+      "label": "安泰经济与管理学院公告",
+      "url": "https://acem.sjtu.edu.cn/news_center/notice.html",
+      "finalUrl": "https://acem.sjtu.edu.cn/news_center/notice.html",
+      "status": "captured",
+      "httpStatus": 200,
+      "fetchedAt": "2026-11-11T13:18:10.144Z",
+      "contentType": "text/html",
+      "sha256": "7174369f63ef9afebf78f6173063ca5888cf7d46e177805e5196fe864f0873d9",
+      "snapshot": "holdout/acem.html.gz",
+      "annotation": {
+        "selector": "ul.list-ty-new-list > li",
+        "titleSelector": "a",
+        "urlSelector": "a",
+        "dateSelector": "span.time",
+        "notes": "通过安泰首页公告区查看更多导航发现此列表，独立读取列表全部10项，保留置顶旧公告及微信公众号外链。标题优先使用同一a的title属性（与可见文本核对一致），日期取同条span.time。已核对首末项，未运行待测解析器。"
+      },
+      "expected": [
+        {
+          "title": "Call for Papers-2026 MRS International Risk Conference",
+          "url": "https://acem.sjtu.edu.cn/notices/92420.html",
+          "publishedAt": "2025-12-22"
+        },
+        {
+          "title": "转发：关于开展第九届上海交通大学网络文化节作品征集的通知",
+          "url": "https://acem.sjtu.edu.cn/notices/97773.html",
+          "publishedAt": "2026-08-14"
+        },
+        {
+          "title": "安泰经济与管理学院关于2026年度教材专项资助的公示",
+          "url": "https://acem.sjtu.edu.cn/notices/99039.html",
+          "publishedAt": "2026-10-26"
+        },
+        {
+          "title": "上海交通大学安泰经济与管理学院2027级非全日制应用经济学（金融学）学术型博士项目学费公示",
+          "url": "https://acem.sjtu.edu.cn/notices/98213.html",
+          "publishedAt": "2026-09-24"
+        },
+        {
+          "title": "征文启事 | 交大会计合作论坛第七届学术年会（2025）",
+          "url": "https://mp.weixin.qq.com/s/1Eh4NnjbCE0mixnqJ-r-ug",
+          "publishedAt": "2025-09-10"
+        },
+        {
+          "title": "转发：关于开展第八届上海交通大学网络文化节作品征集的通知",
+          "url": "https://acem.sjtu.edu.cn/notices/89636.html",
+          "publishedAt": "2025-08-08"
+        },
+        {
+          "title": "上海交通大学中美物流研究院建院20周年1号公告",
+          "url": "https://acem.sjtu.edu.cn/notices/88851.html",
+          "publishedAt": "2025-06-03"
+        },
+        {
+          "title": "征文通知 | 2025年第八届新制度会计学国际研讨会",
+          "url": "https://mp.weixin.qq.com/s/3yDa23JZq--SQMa261Z2ig",
+          "publishedAt": "2025-05-19"
+        },
+        {
+          "title": "日程预告 | 《当代会计评论》“又日新”论坛（上海交通大学站）",
+          "url": "https://mp.weixin.qq.com/s/W_hZeq7OkBV67U4R1703cw",
+          "publishedAt": "2025-05-16"
+        },
+        {
+          "title": "征文 | 第二届国有企业公司治理学术研讨会暨财经类期刊西部学术工作坊",
+          "url": "https://mp.weixin.qq.com/s/3Vs79IH9pB5VZivgoTshkA",
+          "publishedAt": "2025-05-16"
+        }
+      ]
+    },
+    {
+      "id": "sese",
+      "label": "环境科学与工程学院通知公告",
+      "url": "https://sese.sjtu.edu.cn/announcement",
+      "finalUrl": "https://sese.sjtu.edu.cn/announcement",
+      "status": "captured",
+      "httpStatus": 200,
+      "fetchedAt": "2026-11-11T13:18:10.145Z",
+      "contentType": "text/html; charset=UTF-8",
+      "sha256": "a979f6b0e181c9532eb0c29586fca86397b51dbadee14e3d711c50183a2740c4",
+      "snapshot": "holdout/sese.html.gz",
+      "annotation": {
+        "selector": ".post-list > a.post-item",
+        "titleSelector": ".title",
+        "urlSelector": ":self",
+        "dateSelector": ".time",
+        "notes": "独立读取整卡式公告列表全部10项，每张卡片自身href是文章地址，标题与日期取卡片内部title/time。已核对首项置顶记录与末项，未运行待测解析器。"
+      },
+      "expected": [
+        {
+          "title": "生态环境部新污染物环境健康影响评价重点实验室2026年度联合开放基金课题拟立项名单公示",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3523",
+          "publishedAt": "2026-10-13"
+        },
+        {
+          "title": "环境科学与工程学院2026年硕士研究生学业奖学金评定结果公示",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3541",
+          "publishedAt": "2026-11-05"
+        },
+        {
+          "title": "环境科学与工程学院2026年度秋季学期专项奖学金评选通知（第一批）",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3539",
+          "publishedAt": "2026-10-31"
+        },
+        {
+          "title": "环境科学与工程学院关于开展2026年硕士研究生学业奖学金的评定通知",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3535",
+          "publishedAt": "2026-10-28"
+        },
+        {
+          "title": "首届“时代杯”全国大学生零碳科技创新大赛华东赛区区域赛晋级决赛及获奖名单公示",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3522",
+          "publishedAt": "2026-10-09"
+        },
+        {
+          "title": "环境科学与工程学院关于评选2026年度上海市奖学金的通知",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3502",
+          "publishedAt": "2026-09-22"
+        },
+        {
+          "title": "环境科学与工程学院关于评选2026年度本科生国家励志奖学金的通知",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3501",
+          "publishedAt": "2026-09-22"
+        },
+        {
+          "title": "环境科学与工程学院关于评选2026年度宝钢优秀奖学金的通知【提前批专项奖学金】",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3500",
+          "publishedAt": "2026-09-22"
+        },
+        {
+          "title": "2027年上海交通大学环境科学与工程学院招收推免生综合考核实施细则",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3498",
+          "publishedAt": "2026-09-18"
+        },
+        {
+          "title": "环境科学与工程学院关于开展2025-2026学年研究生奖学金评选工作的通知",
+          "url": "https://sese.sjtu.edu.cn/post/detail/3492",
+          "publishedAt": "2026-09-16"
+        }
+      ]
+    },
+    {
+      "id": "scce",
+      "label": "化学化工学院通知公告",
+      "url": "https://scce.sjtu.edu.cn/index_notice.html",
+      "finalUrl": "https://scce.sjtu.edu.cn/index_notice.html",
+      "status": "captured",
+      "httpStatus": 200,
+      "fetchedAt": "2026-11-11T13:18:10.145Z",
+      "contentType": "text/html; charset=UTF-8",
+      "sha256": "8c52a585546466c06a2b0379402387d512016a613d2a885f09c1c2dcd415acd1",
+      "snapshot": "holdout/scce.html.gz",
+      "annotation": {
+        "selector": ".ny_k1 > ul.n2 > li",
+        "titleSelector": "a > h4.bt",
+        "urlSelector": "a",
+        "dateSelector": "a > span.sj > h4 (day) + p (year-month)",
+        "notes": "独立读取通知公告列表全部10项；同一a中有日期h4和标题h4.bt，标注严格使用h4.bt作为标题。日期由span.sj内h4日与p年月拼接。已核对首末项及跨月日期，未运行待测解析器。"
+      },
+      "expected": [
+        {
+          "title": "2026年度全日制硕士研究生学业奖学金评审结果公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5127.html",
+          "publishedAt": "2026-11-11"
+        },
+        {
+          "title": "【奖学金公示】差额奖学金推荐公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5114.html",
+          "publishedAt": "2026-11-04"
+        },
+        {
+          "title": "【“学术之星”推荐公示】化学化工学院研究生“学术之星”推荐公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5111.html",
+          "publishedAt": "2026-11-03"
+        },
+        {
+          "title": "【奖学金公示】汉高卓越奖学金公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5107.html",
+          "publishedAt": "2026-10-30"
+        },
+        {
+          "title": "化学化工学院2026年“三好学生”“优秀学生干部”推荐名单公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5103.html",
+          "publishedAt": "2026-10-27"
+        },
+        {
+          "title": "化学化工学院2026年度全日制硕士研究生学业奖学金评审办法",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5100.html",
+          "publishedAt": "2026-10-21"
+        },
+        {
+          "title": "【奖学金公示】专项奖学金推荐公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5098.html",
+          "publishedAt": "2026-10-15"
+        },
+        {
+          "title": "【奖学金推荐公示】港澳台侨奖学金推荐公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5094.html",
+          "publishedAt": "2026-10-08"
+        },
+        {
+          "title": "【国家奖学金公示】研究生国家奖学金公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5082.html",
+          "publishedAt": "2026-09-29"
+        },
+        {
+          "title": "奖学金推荐公示",
+          "url": "https://scce.sjtu.edu.cn/index_notice/5080.html",
+          "publishedAt": "2026-09-28"
+        }
+      ]
+    },
+    {
+      "id": "pharm",
+      "label": "药学院通知公告",
+      "url": "https://pharm.sjtu.edu.cn/notice.html",
+      "finalUrl": "https://pharm.sjtu.edu.cn/notice.html",
+      "status": "captured",
+      "httpStatus": 200,
+      "fetchedAt": "2026-11-11T13:18:10.146Z",
+      "contentType": "text/html; charset=UTF-8",
+      "sha256": "249d515371635fea2dfae4dd7da5d0e1b21791992e2e7ced0fd90a78f28558f9",
+      "snapshot": "holdout/pharm.html.gz",
+      "annotation": {
+        "selector": ".d2.right > ul.news_lb > li",
+        "titleSelector": "a",
+        "urlSelector": "a",
+        "dateSelector": "span.sj",
+        "notes": "预指定spp.sjtu.edu.cn在发现阶段无法访问；冻结前通过官方搜索及pharm.sjtu.edu.cn首页确认药学院现官网并使用其通知导航。独立读取当前通知列表全部8项，7项为微信公众号外链，均保留；标题与日期分别取同条a和span.sj。已核对首末项，未运行待测解析器。"
+      },
+      "expected": [
+        {
+          "title": "上海交通大学生物医药前沿青年学者论坛诚邀海内外英才",
+          "url": "https://mp.weixin.qq.com/s/7k1Odq5HjykjcG_AKXjOdA",
+          "publishedAt": "2026-11-04"
+        },
+        {
+          "title": "药学院综合发展基金上线，欢迎捐赠支持！",
+          "url": "https://mp.weixin.qq.com/s/PIzhgk6gLnXpIf73D2EDnQ",
+          "publishedAt": "2025-12-30"
+        },
+        {
+          "title": "逐前沿之光，赴时代之约 | 上海交通大学生物医药前沿学院2026年招生咨询会",
+          "url": "https://mp.weixin.qq.com/s/VY6LmfV7qy1Sf3iCUV4QIw",
+          "publishedAt": "2026-07-25"
+        },
+        {
+          "title": "上海交通大学药学院校友会成立公告（二号公告）",
+          "url": "https://mp.weixin.qq.com/s/0OVUee7GyZ7pn95MewaQJQ",
+          "publishedAt": "2026-03-31"
+        },
+        {
+          "title": "全球招贤，诚邀青年学者依托上海交通大学药学院申报（海外）优青",
+          "url": "https://mp.weixin.qq.com/s/RWHitEbL0EHv2rILEHT-WA",
+          "publishedAt": "2026-03-11"
+        },
+        {
+          "title": "上海交通大学药学院诚聘人工智能药学英才",
+          "url": "https://mp.weixin.qq.com/s/adwV6AmOHHA8rj_pu3-c6g",
+          "publishedAt": "2026-03-05"
+        },
+        {
+          "title": "药学院院史资料与实物征集公告",
+          "url": "https://mp.weixin.qq.com/s/zDrG_XQKakhSb0vdJEDDYA",
+          "publishedAt": "2026-01-20"
+        },
+        {
+          "title": "药学院2026年寒假值班表",
+          "url": "https://pharm.sjtu.edu.cn/notice/5994.html",
+          "publishedAt": "2026-01-16"
+        }
+      ]
+    }
+  ],
+  "annotationCompletedAt": "2026-11-11T13:19:58.698Z"
+}

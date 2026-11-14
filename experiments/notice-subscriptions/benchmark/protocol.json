@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "date": "2026-11-11",
+  "baselineParserSha256": "925f817cd9f47842d7a9b821f2322563532b073603aa5912faeb085c6c303097",
+  "frozenParserSha256": "1fbffb5c38db10554c45696b213e0f89c30538fd9c6d346b9928b22a2f473f26",
+  "sealedHoldoutManifestSha256": "f9a1cb35b52e2a4020b9160518e4b3a3ee04e76aa5079ed29b6a5b7052f1304b",
+  "splitPolicy": "Six preselected development domains; six different holdout institutions independently annotated without reading parser outputs. Prior six exploratory domains excluded. CMS/template independence is not guaranteed.",
+  "revealPolicy": "Stage 1 froze parser 1fbffb5c before reading the original holdout and preserved its 4/6 result. Two discovered defects were then fixed; the original holdout became regression data. A new independent four-institution confirmation set is evaluated only after final parser 28991ac4 is frozen; no tuning after confirmation.",
+  "annotationPolicy": "Expected title, absolute URL and visible publication date come from official page DOM, not parser predictions. Raw bytes retained as gzip with SHA256. Site-specific annotation selectors are benchmark data only.",
+  "matching": "Exact absolute URL with fragment removed AND title normalized for whitespace and one leading decorative bullet. Query parameters and title content retained.",
+  "pagePass": {
+    "precisionAtLeast": 0.95,
+    "recallAtLeast": 0.9
+  },
+  "reportSeparately": [
+    "first-ranked candidate",
+    "oracle-best candidate coverage",
+    "sample-assisted first candidate",
+    "sample-assisted candidate coverage",
+    "known-date accuracy",
+    "same-snapshot rule replay",
+    "fetch failure",
+    "target not present on input page"
+  ],
+  "datePolicy": "Dates measured separately from title/link precision; null ground truth excluded from date denominator. Missing predicted dates on known ground truth are incorrect.",
+  "limitations": "Small purposive sample within SJTU; not a random sample or school-wide success-rate estimate. Independent DOM labels are not double-blind expert adjudication. Both all-input and labeled-page denominators must be shown.",
+  "finalParserSha256": "28991ac473580fee1ce27155948908831ce1e418e60b362d46aa616c334c9620",
+  "finalParserFrozenAt": "2026-11-11T13:34:13.8925789Z",
+  "sealedConfirmationManifestSha256": "a9058ae4db593ef890de067fea78b38b6f9215451d1e4acf77e80cd3d37282d7"
+}

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "rule": {
+    "version": 1,
+    "kind": "html",
+    "pageUrl": "https://framework-demo.example/notice",
+    "label": "通知公告",
+    "containerSelector": "body > main > ul",
+    "itemSelector": "li",
+    "linkSelector": "a",
+    "expectsDates": true
+  },
+  "seenIds": [
+    "https://framework-demo.example/notice/1",
+    "https://framework-demo.example/notice/2"
+  ],
+  "checkedAt": "2026-11-12T10:03:31.017Z",
+  "acquisition": "http"
+}

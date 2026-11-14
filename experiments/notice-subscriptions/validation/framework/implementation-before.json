@@ -1,0 +1,43 @@
+{
+  "frozenAt": "2026-11-12T09:25:09.944Z",
+  "gitHead": "18b38193c63fb3d089520d3949771ef415f5286e",
+  "node": "v24.22.1",
+  "files": [
+    {
+      "file": "experiments/notice-subscriptions/parser.ts",
+      "sha256": "dbf01c1327cf3cf377110ca8477285f975bbd485a822e8334f8fd33f861f69c3"
+    },
+    {
+      "file": "experiments/notice-subscriptions/fetch.ts",
+      "sha256": "53d41353f751f610008aa9b78915415bbe0b0bc994d8d16667146b95ae1b04ec"
+    },
+    {
+      "file": "experiments/notice-subscriptions/render.ts",
+      "sha256": "9137527daaec9766d82a79747e30a8b405fefd233307d87be799b27c18505c55"
+    },
+    {
+      "file": "experiments/notice-subscriptions/render-worker.ts",
+      "sha256": "ea1e2b832b9546dd1d58b8d98b8e233f3818a80da8c4fe616296421dfcbde98f"
+    },
+    {
+      "file": "experiments/notice-subscriptions/state.ts",
+      "sha256": "a7d14ad5f963a7fc4cb236e0d922b2c8820d2c941e698ad61c26dc2d5379133f"
+    },
+    {
+      "file": "experiments/notice-subscriptions/cli.ts",
+      "sha256": "abf8f44347490a13d3a25903f3221e512ec928f7d7767ce25584feac427d9d9b"
+    },
+    {
+      "file": "experiments/notice-subscriptions/run.ts",
+      "sha256": "b7ca6fd19caa3c62d6930fbb7dbc07c5b6de4ade4ff5a7faeb9786d976c6f052"
+    },
+    {
+      "file": "experiments/notice-subscriptions/evaluation.ts",
+      "sha256": "02d23aada8e2a577518c41a8dbf4d0f5de946b590bdfa2597491aea7cbc01db7"
+    },
+    {
+      "file": "experiments/notice-subscriptions/benchmark-runner.ts",
+      "sha256": "c799425b67297e260136fcc0632e70acc0d8c056f00750984ba9b82f148d8048"
+    }
+  ]
+}
