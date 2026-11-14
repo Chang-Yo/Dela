@@ -11,11 +11,9 @@ import { closeDatabase, getDatabase } from '../src/main/database';
 import { registerModuleIpc } from '../src/app/ipc';
 import { modules } from '../src/app/modules';
 import { registerAgentIpc } from '../src/app/agent-ipc';
-import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { remoteBackend } from '../src/core/remote/operations';
 import { exec, probeRemote } from '../src/core/remote/transport';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
-import { registerTerminalIpc } from '../src/main/terminal';
 import { registerPreviewProtocol, registerPreviewScheme } from '../src/modules/workspace';
 
 const host = process.env.DELA_REMOTE_HOST;
@@ -54,10 +52,8 @@ app
     );
     await exec(target, `printf 'nested\\n' > ${root}/sub/nested.md`);
 
-    registerRemoteIpc();
     registerSettingsIpc();
     registerAgentIpc();
-    registerTerminalIpc();
     registerModuleIpc(modules);
     for (const module of modules) module.register?.();
     registerPreviewProtocol();
@@ -268,10 +264,13 @@ app
     // 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
     await evaluate(`(async () => {
       window.__term = { id: crypto.randomUUID(), data: '' };
-      window.dela.terminal.onEvent((event) => {
+      window.dela.bridge.subscribe('terminal:event', (event) => {
         if (event.type === 'data') window.__term.data += event.data;
       });
-      await window.dela.terminal.create(${JSON.stringify(entry.id)}, window.__term.id);
+      await window.dela.bridge.invoke('terminal:create', {
+        projectId: ${JSON.stringify(entry.id)},
+        id: window.__term.id,
+      });
     })()`);
     let termData = '';
     try {
@@ -283,21 +282,25 @@ app
       }
       if (!termData.includes(prompt)) {
         const snapshots = await evaluate(
-          `(async () => (await window.dela.terminal.list(${JSON.stringify(entry.id)})).map(s => ({ exitCode: s.exitCode, tail: s.buffer.slice(-400) })))()`,
+          `(async () => (await window.dela.bridge.invoke('terminal:list', ${JSON.stringify(entry.id)})).map(s => ({ exitCode: s.exitCode, tail: s.buffer.slice(-400) })))()`,
         );
         throw new Error(
           `远端终端里没等到项目目录。\n事件数据：${JSON.stringify(termData.slice(-400))}\n快照：${JSON.stringify(snapshots)}`,
         );
       }
-      await evaluate(`window.dela.terminal.write(window.__term.id, 'echo MARK-$(pwd)\\r')`);
+      await evaluate(
+        `window.dela.bridge.invoke('terminal:write', { id: window.__term.id, data: 'echo MARK-$(pwd)\\r' })`,
+      );
       // 只认命令输出：输入回显里是 MARK-$(pwd)，展开成绝对路径的结果不会出现在回显里。
       await wait(`window.__term.data.includes('MARK-${root}')`, '远端终端执行命令的输出');
       const buffer = await evaluate(
-        `(async () => (await window.dela.terminal.list(${JSON.stringify(entry.id)})).map(s => s.buffer).join(''))()`,
+        `(async () => (await window.dela.bridge.invoke('terminal:list', ${JSON.stringify(entry.id)})).map(s => s.buffer).join(''))()`,
       );
       assert.ok(buffer.includes(`MARK-${root}`), '终端快照里没有命令输出');
     } finally {
-      await evaluate(`window.dela.terminal.close(window.__term.id)`).catch(() => {});
+      await evaluate(`window.dela.bridge.invoke('terminal:close', window.__term.id)`).catch(
+        () => {},
+      );
     }
 
     assert.deepEqual(errors, []);

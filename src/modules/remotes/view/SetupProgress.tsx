@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
-import type { RemoteSetupProgress, RemoteSetupStep } from '../../../shared/api';
+import type { RemoteSetupProgress, RemoteSetupStep } from '../contract';
 import { Spinner } from '../../../ui/spinner';
 
 const stepLabels: Record<RemoteSetupStep, string> = {

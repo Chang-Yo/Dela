@@ -191,8 +191,10 @@ describe('closeTab / closeTabs', () => {
   beforeEach(() => installLayoutApi(() => null));
 
   it('Terminal 的最后一处标签关闭才结束项目终端，切换/分屏不结束', () => {
-    const closeProject = vi.fn(async () => {});
-    Object.assign(window.dela!, { terminal: { closeProject } });
+    const closeProject = vi.fn(async (_projectId: string) => {});
+    bridge.invoke.mockImplementation(async (channel: string, input: string) => {
+      if (channel === 'terminal:closeProject') await closeProject(input);
+    });
     const tab = `terminal:${uuid}` as const;
     state().openTab(tab);
     state().splitGroup('primary', 'vertical');

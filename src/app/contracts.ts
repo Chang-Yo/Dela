@@ -5,7 +5,9 @@ import type { Contract } from '../core/protocol/contract';
 import { chatContract } from '../modules/chat/contract';
 import { mailContract } from '../modules/mail/contract';
 import { notificationsContract } from '../modules/notifications/contract';
+import { remotesContract } from '../modules/remotes/contract';
 import { searchContract } from '../modules/search/contract';
+import { terminalContract } from '../modules/terminal/contract';
 import { todoContract } from '../modules/todo/contract';
 import { workspaceContract } from '../modules/workspace/contract';
 import { canvasContract } from '../sjtu/canvas/contract';
@@ -17,6 +19,8 @@ import { timetableContract } from '../sjtu/timetable/contract';
 export const contracts: Contract[] = [
   agentContract,
   workspaceContract,
+  remotesContract,
+  terminalContract,
   chatContract,
   mailContract,
   searchContract,

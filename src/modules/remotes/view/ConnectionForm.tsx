@@ -4,10 +4,9 @@ import { useState, type FormEvent } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
-import type { RemoteConnection, RemoteDraft } from '../../../shared/api';
-import { errorText, useWorkspaceStore } from '../store';
-import { useNavigationStore } from '../../navigation/view';
-import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
+import type { RemoteConnection, RemoteDraft } from '../contract';
+import { errorText, useWorkspaceStore } from '../../../renderer/workspace/store';
+import { remotesClient } from './client';
 import { Callout, ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Field } from '../../../ui/field';
@@ -21,6 +20,8 @@ export function ConnectionForm({
   onBack,
   onSaved,
   onRemoved,
+  onOpenProject,
+  onProjectsRemoved,
 }: {
   /** 编辑已有连接；缺省为新建。 */
   connection?: RemoteConnection;
@@ -29,6 +30,9 @@ export function ConnectionForm({
   onBack: () => void;
   onSaved: (connection: RemoteConnection) => void;
   onRemoved?: (id: string) => void;
+  onOpenProject: (projectId: string) => void;
+  /** 名下项目被级联移除后的工作台清场，参数为仍存活的条目 id 全集。 */
+  onProjectsRemoved: (liveIds: Set<string>) => void;
 }) {
   const start = connection ?? initial;
   const [label, setLabel] = useState(start?.label ?? '');
@@ -58,8 +62,7 @@ export function ConnectionForm({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const remotes = window.dela?.remotes;
-    if (!remotes || busy) return;
+    if (!window.dela || busy) return;
     const invalid = problem();
     if (invalid) {
       setError(invalid);
@@ -69,7 +72,7 @@ export function ConnectionForm({
     setError(null);
     try {
       onSaved(
-        await remotes.save({
+        await remotesClient.save({
           id: connection?.id ?? null,
           label: label.trim() || undefined,
           host: host.trim(),
@@ -85,17 +88,15 @@ export function ConnectionForm({
   };
 
   const remove = async () => {
-    const remotes = window.dela?.remotes;
-    if (!remotes || !connection || busy) return;
+    if (!window.dela || !connection || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await remotes.remove(connection.id);
-      // 名下项目随连接被级联移除，主进程不单推工作区变更：拉一次镜像后做与
-      // 资料树移除同一份的清场（关死标签、退出死项目、清后退栈里的死路由）。
+      await remotesClient.remove(connection.id);
+      // 名下项目随连接被级联移除，主进程不单推工作区变更：拉一次镜像后交外壳清场。
       if (projects.length) {
         await useWorkspaceStore.getState().refresh();
-        purgeRemovedEntries(
+        onProjectsRemoved(
           new Set(useWorkspaceStore.getState().workspace.entries.map((entry) => entry.id)),
         );
       }
@@ -108,10 +109,9 @@ export function ConnectionForm({
   };
 
   const pickKey = async () => {
-    const remotes = window.dela?.remotes;
-    if (!remotes || busy) return;
+    if (!window.dela || busy) return;
     try {
-      const picked = await remotes.pickKey();
+      const picked = await remotesClient.pickKey();
       if (picked) setKeyPath(picked);
     } catch (cause) {
       setError(errorText(cause));
@@ -196,7 +196,7 @@ export function ConnectionForm({
                 </div>
                 <Button
                   disabled={busy}
-                  onClick={() => useNavigationStore.getState().openProject(project.id)}
+                  onClick={() => onOpenProject(project.id)}
                   size="sm"
                   type="button"
                   variant="secondary"

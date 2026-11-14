@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
-import type { SshConfigHost } from '../../shared/remotes';
+import type { SshConfigHost } from '../contract';
 
 /** Include 只展开这么多层：config 互相 Include 成环时不至于死循环。 */
 const INCLUDE_DEPTH = 4;

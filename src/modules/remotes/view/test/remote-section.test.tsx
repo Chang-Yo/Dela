@@ -4,26 +4,26 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type {
-  DelaApi,
-  RemoteChannelState,
-  RemoteConnection,
-  WorkspaceEntry,
-} from '../../../../shared/api';
+import type { WorkspaceEntry } from '../../../workspace/contract';
+import type { RemoteChannelState, RemoteConnection } from '../../contract';
 
-// 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
-const invoke = vi.hoisted(() => {
-  const invoke = vi.fn();
-  const subscribe = () => () => {};
-  window.dela = {
-    bridge: { invoke, subscribe },
-  } as unknown as DelaApi;
-  return invoke;
+// 契约客户端在模块加载时取 bridge、订阅通道推送，须先于导入视图装好。
+const bridge = vi.hoisted(() => {
+  const listeners = new Map<string, (payload: unknown) => void>();
+  const bridge = {
+    invoke: vi.fn(),
+    subscribe: (channel: string, listener: (payload: unknown) => void) => {
+      listeners.set(channel, listener);
+      return () => {};
+    },
+    listeners,
+  };
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
+  return bridge;
 });
-import { useRemoteState } from '../../../workspace/remote/remote-state';
-import { RemoteSection } from './RemoteSection';
-import { useNavigationStore } from '../../../navigation/view';
-import { useWorkspaceStore } from '../../../workspace/store';
+import { useRemoteState } from '../remote-state';
+import { RemoteSection } from '../RemoteSection';
+import { useWorkspaceStore } from '../../../../renderer/workspace/store';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -48,8 +48,28 @@ const project: WorkspaceEntry = {
   updatedAt: '2026-10-19T00:00:00.000Z',
 };
 
+const onOpenProject = vi.fn();
+const onProjectsRemoved = vi.fn();
+
+const render = () =>
+  act(async () =>
+    root.render(
+      <RemoteSection
+        NewProjectDialog={() => null}
+        onOpenProject={onOpenProject}
+        onProjectsRemoved={onProjectsRemoved}
+      />,
+    ),
+  );
+
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
+  bridge.invoke.mockImplementation(async (channel: string) => {
+    if (channel === 'remotes:list') return [connection];
+    if (channel === 'workspace:state') return { entries: [], directory: '' };
+    if (channel === 'remotes:configHosts' || channel === 'remotes:helperStates') return [];
+  });
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -65,7 +85,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   delete window.dela;
-  vi.restoreAllMocks();
+  vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -78,19 +98,7 @@ function button(text: string): HTMLButtonElement {
 }
 
 it('lists connections with their live channel state', async () => {
-  let emit: (states: RemoteChannelState[]) => void = () => {};
-  window.dela = {
-    remotes: {
-      list: async () => [connection],
-      configHosts: async () => [],
-      onHelperState: (listener: (states: RemoteChannelState[]) => void) => {
-        emit = listener;
-        return () => {};
-      },
-    },
-  } as unknown as DelaApi;
-
-  await act(async () => root.render(<RemoteSection />));
+  await render();
   expect(container.textContent).toContain('gpu-box:2222');
   expect(container.textContent).toContain('未连接');
   // 头像方块用该连接自己的取色，而不是固定的灰底。
@@ -98,9 +106,10 @@ it('lists connections with their live channel state', async () => {
     container.querySelector('[data-setting-id="remote-r-1"] [aria-hidden]')?.getAttribute('style'),
   ).toMatch(/--cal-/);
 
-  await act(async () =>
-    emit([{ destination: 'gpu-box', state: 'unavailable', reason: '认证失败', since: 0 }]),
-  );
+  const states: RemoteChannelState[] = [
+    { destination: 'gpu-box', state: 'unavailable', reason: '认证失败', since: 0 },
+  ];
+  await act(async () => bridge.listeners.get('remotes:helperState')!(states));
   expect(container.textContent).toContain('不可用');
   expect(container.querySelector('[role="alert"]')?.textContent).toBe('认证失败');
 });
@@ -111,23 +120,15 @@ it('lists projects using the connection and opens one from the form', async () =
     loaded: true,
     error: null,
   });
-  window.dela = {
-    remotes: {
-      list: async () => [connection],
-      configHosts: async () => [],
-      onHelperState: () => () => {},
-    },
-  } as unknown as DelaApi;
-  const openProject = vi.spyOn(useNavigationStore.getState(), 'openProject').mockReturnValue(true);
 
-  await act(async () => root.render(<RemoteSection />));
+  await render();
   await act(async () => button('编辑').click());
   expect(container.textContent).toContain('使用此连接的项目');
   expect(container.textContent).toContain('Course');
   expect(container.textContent).toContain('/home/u/course');
 
   await act(async () => button('打开项目').click());
-  expect(openProject).toHaveBeenCalledWith('p-1');
+  expect(onOpenProject).toHaveBeenCalledWith('p-1');
 });
 
 it('spells out what connection deletion takes with it before confirming', async () => {
@@ -136,28 +137,14 @@ it('spells out what connection deletion takes with it before confirming', async 
     loaded: true,
     error: null,
   });
-  // 用户可能正站在被删连接的项目里：删除后要被清场退回通用池，不留幽灵工作台。
-  useNavigationStore.setState({ view: 'workbench', projectId: 'p-1' });
-  const remove = vi.fn(async () => {});
-  window.dela = {
-    remotes: {
-      list: async () => [connection],
-      configHosts: async () => [],
-      onHelperState: () => () => {},
-      remove,
-    },
-  } as unknown as DelaApi;
-  // 级联移除项目后表单会拉一次工作区镜像。
-  invoke.mockImplementation(async (channel: string) =>
-    channel === 'workspace:state' ? { entries: [], directory: '' } : undefined,
-  );
 
-  await act(async () => root.render(<RemoteSection />));
+  await render();
   await act(async () => button('编辑').click());
   await act(async () => button('删除连接').click());
-  expect(remove).not.toHaveBeenCalled();
+  expect(bridge.invoke).not.toHaveBeenCalledWith('remotes:remove', expect.anything());
   expect(container.textContent).toContain('同时移除 1 个项目');
   await act(async () => button('确认删除').click());
-  expect(remove).toHaveBeenCalledWith('r-1');
-  expect(useNavigationStore.getState().projectId).toBeNull();
+  expect(bridge.invoke).toHaveBeenCalledWith('remotes:remove', 'r-1');
+  // 级联移除项目后拉一次工作区镜像，再交外壳按存活条目清场。
+  expect(onProjectsRemoved).toHaveBeenCalledWith(new Set());
 });

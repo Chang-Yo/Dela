@@ -3,7 +3,9 @@ import type { ModuleDefinition } from './module';
 import { chatModule } from '../modules/chat';
 import { mailModule } from '../modules/mail';
 import { notificationsModule } from '../modules/notifications';
+import { remotesModule } from '../modules/remotes';
 import { searchModule } from '../modules/search';
+import { terminalModule } from '../modules/terminal';
 import { todoModule } from '../modules/todo';
 import { workspaceModule } from '../modules/workspace';
 import { canvasModule } from '../sjtu/canvas';
@@ -14,6 +16,8 @@ import { timetableModule } from '../sjtu/timetable';
 
 export const modules: ModuleDefinition[] = [
   workspaceModule,
+  remotesModule,
+  terminalModule,
   chatModule,
   mailModule,
   searchModule,

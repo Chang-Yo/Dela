@@ -32,7 +32,7 @@ import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialog
 import { cn } from '../../ui/cn';
 import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../shared/api';
-import { remoteAccent } from './remote-color';
+import { remoteAccent } from '../../modules/remotes/view';
 import { useVisibleNavEntries, type NavEntryId } from './entries';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';

@@ -7,20 +7,28 @@ import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { cn } from '../../../ui/cn';
+import type { WorkspaceEntry } from '../../../shared/api';
 import type {
   RemoteConnection,
   RemoteDraft,
   RemoteSetupProgress,
   SshConfigHost,
-  WorkspaceEntry,
-} from '../../../shared/api';
+} from '../../../modules/remotes/contract';
 import { usePreferences } from '../../app/preferences';
 import { errorText, useWorkspaceStore } from '../store';
 import { workspaceClient } from '../../../modules/workspace/view';
-import { ConnectionForm } from './ConnectionForm';
-import { DirectoryBrowser, tildePath } from './DirectoryBrowser';
-import { SetupProgress } from './SetupProgress';
-import { channelDot, useRemoteState } from './remote-state';
+import {
+  ConnectionForm,
+  DirectoryBrowser,
+  SetupProgress,
+  channelDot,
+  onRemotesEvent,
+  remotesClient,
+  tildePath,
+  useRemoteState,
+} from '../../../modules/remotes/view';
+import { useNavigationStore } from '../../navigation/view';
+import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Dialog, DialogContent, DialogTitle } from '../../../ui/dialog';
@@ -67,7 +75,7 @@ export function NewRemoteProjectDialog({
   const candidates = useRemoteState((state) => state.candidates);
   const channels = useRemoteState((state) => state.channels);
   const homes = useRemoteState((state) => state.homes);
-  const { load, setHome, rememberDirectory } = useRemoteState.getState();
+  const { load, setHome } = useRemoteState.getState();
   const projects = useWorkspaceStore((state) => state.workspace.entries);
 
   const [mode, setMode] = useState<Mode>({ kind: 'browse' });
@@ -114,7 +122,7 @@ export function NewRemoteProjectDialog({
   // 引导进度由主进程推着走：只收当前这一台的（progress 本身不带目的地，靠 attempt 守住）。
   useEffect(() => {
     if (!open) return;
-    return window.dela?.remotes.onSetupProgress((progress) =>
+    return onRemotesEvent('setupProgress', (progress) =>
       setLog((previous) => [...previous, progress]),
     );
   }, [open]);
@@ -125,8 +133,7 @@ export function NewRemoteProjectDialog({
   }, [target, nameTouched]);
 
   async function choose(next: RemoteConnection) {
-    const remotes = window.dela?.remotes;
-    if (!remotes) return;
+    if (!window.dela) return;
     const id = ++attempt.current;
     setConnectionId(next.id);
     setSelected(null);
@@ -139,7 +146,7 @@ export function NewRemoteProjectDialog({
     setPath(usePreferences.getState().remoteLastDirectory[next.host] ?? knownHome ?? null);
     setConnecting(known.channels[next.host]?.state !== 'ready' || !knownHome);
     try {
-      const result = await remotes.prepare(draftOf(next));
+      const result = await remotesClient.prepare(draftOf(next));
       if (id !== attempt.current) return;
       if (!result.ok) {
         setFailure(result.message);
@@ -165,7 +172,8 @@ export function NewRemoteProjectDialog({
     if (value.startsWith('config:')) {
       // config 里的主机：别名就是目的地，其余交给 ssh 解析。先存成连接，再连。
       const alias = value.slice('config:'.length);
-      void window.dela?.remotes
+      if (!window.dela) return;
+      void remotesClient
         .save({ label: alias, host: alias, port: null, keyPath: null })
         .then(async (saved) => {
           await load();
@@ -176,6 +184,11 @@ export function NewRemoteProjectDialog({
     }
     const next = connections?.find((item) => item.id === value);
     if (next) void choose(next);
+  };
+
+  const rememberDirectory = (destination: string, path: string) => {
+    const { remoteLastDirectory, setPreference } = usePreferences.getState();
+    setPreference('remoteLastDirectory', { ...remoteLastDirectory, [destination]: path });
   };
 
   const navigate = (next: string) => {
@@ -243,6 +256,8 @@ export function NewRemoteProjectDialog({
             connection={mode.connection}
             initial={mode.initial}
             onBack={() => setMode({ kind: 'browse' })}
+            onOpenProject={(id) => useNavigationStore.getState().openProject(id)}
+            onProjectsRemoved={purgeRemovedEntries}
             onRemoved={(id) => {
               setMode({ kind: 'browse' });
               if (id === connectionId) setConnectionId(null);

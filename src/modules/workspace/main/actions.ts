@@ -1,8 +1,14 @@
 import { prepareStorage, entry, projectLocation, remoteProjectOf, workspaceFilePath } from './api';
 import { exportOfficePdf } from '../../../main/documents/export';
-import { remoteById, remoteJoin, targetOf, withinRemoteRoot } from '../../../main/remotes/api';
+import {
+  downloadRemoteFile,
+  remoteById,
+  remoteJoin,
+  targetOf,
+  uploadLocalFile,
+  withinRemoteRoot,
+} from '../../remotes';
 import { listRemoteDirectory, remoteFileIndex } from '../../../core/remote/operations';
-import { downloadRemoteFile, uploadLocalFile } from '../../../main/remotes/transfer';
 import { notifyRemoteChange } from '../../../core/remote/events';
 import { watchRemoteProject } from '../../../core/remote/watch';
 import { getLocalWorkspaceState, searchLocalWorkspace } from './local-tree';

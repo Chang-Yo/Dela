@@ -4,9 +4,8 @@ import { stat as fileStat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { Readable } from 'node:stream';
 import { officeZipMime } from '../../../main/documents/parse';
-import { remoteById, targetOf, withinRemoteRoot } from '../../../main/remotes/api';
+import { remoteById, remoteDocumentMime, targetOf, withinRemoteRoot } from '../../remotes';
 import { readRemoteRange, statRemoteFile } from '../../../core/remote/operations';
-import { remoteDocumentMime } from '../../../main/remotes/documents';
 import { projectLocation, resolveWorkspaceAsset, workspacePreviewPath } from './api';
 
 const previewScheme = 'dela-resource';

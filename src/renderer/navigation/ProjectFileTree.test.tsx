@@ -3,31 +3,29 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type {
-  DelaApi,
-  RemoteChannelState,
-  RemoteDirectoryEntry,
-  WorkspaceEntry,
-} from '../../shared/api';
+import type { DelaApi, WorkspaceEntry } from '../../shared/api';
+import type { RemoteChannelState, RemoteDirectoryEntry } from '../../modules/remotes/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入视图装好。
 const workspace = vi.hoisted(() => {
   const handlers: Record<string, (input: never) => unknown> = {};
+  const remotes: Record<string, (input: never) => unknown> = {};
   const listeners = new Map<string, (payload: unknown) => void>();
-  window.dela = {
-    bridge: {
-      invoke: async (channel: string, input: never) =>
-        handlers[channel.slice('workspace:'.length)]?.(input),
-      subscribe: (channel: string, listener: (payload: unknown) => void) => {
-        listeners.set(channel, listener);
-        return () => {};
-      },
+  const bridge = {
+    invoke: async (channel: string, input: never) => {
+      const [namespace, name] = channel.split(':');
+      return (namespace === 'remotes' ? remotes : handlers)[name!]?.(input);
     },
-  } as unknown as NonNullable<typeof window.dela>;
-  return { handlers, listeners };
+    subscribe: (channel: string, listener: (payload: unknown) => void) => {
+      listeners.set(channel, listener);
+      return () => {};
+    },
+  };
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
+  return { handlers, remotes, listeners, bridge };
 });
 import { CONNECT_HINT_DELAY_MS, ProjectFileTree } from './ProjectFileTree';
-import { remoteAccent } from './remote-color';
+import { remoteAccent } from '../../modules/remotes/view';
 import { useRemoteActivity } from './remote-activity';
 import { useWorkspaceStore } from '../workspace/store';
 
@@ -65,6 +63,8 @@ beforeEach(() => {
   );
   window.addEventListener('blur', suppressStrayWindowBlur, true);
   for (const name of Object.keys(workspace.handlers)) delete workspace.handlers[name];
+  workspace.remotes.list = async () => [];
+  workspace.remotes.helperStates = async () => [];
   workspace.listeners.clear();
   // 取数状态是模块级 store：逐条用例清空，免得「正在连接」从上一条带过来。
   useRemoteActivity.setState({ byProject: {} });
@@ -214,9 +214,8 @@ it('loads one remote level when the project is expanded and browses without open
           },
         ],
   );
-  window.dela = {
-    remotes: { list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [{ id: 'r-1', host: 'user@10.0.0.5' }];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   const { onSelect, onExpand } = await renderTree(['p-remote']);
@@ -236,16 +235,10 @@ it('loads one remote level when the project is expanded and browses without open
 });
 
 it('shows the unavailable hint only for projects on the failing destination', async () => {
-  let emit: (states: RemoteChannelState[]) => void = () => {};
-  window.dela = {
-    remotes: {
-      list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }],
-      onHelperState: (listener: (states: RemoteChannelState[]) => void) => {
-        emit = listener;
-        return () => {};
-      },
-    },
-  } as unknown as DelaApi;
+  const emit = (states: RemoteChannelState[]) =>
+    workspace.listeners.get('remotes:helperState')!(states);
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [{ id: 'r-1', host: 'user@10.0.0.5' }];
   workspace.handlers.listRemoteDirectory = vi.fn(async () => []);
 
   await renderTree(['p-remote']);
@@ -285,16 +278,10 @@ it('shows the unavailable hint only for projects on the failing destination', as
 });
 
 it('says the connection is reconnecting without alarming, and says nothing when ready', async () => {
-  let emit: (states: RemoteChannelState[]) => void = () => {};
-  window.dela = {
-    remotes: {
-      list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }],
-      onHelperState: (listener: (states: RemoteChannelState[]) => void) => {
-        emit = listener;
-        return () => {};
-      },
-    },
-  } as unknown as DelaApi;
+  const emit = (states: RemoteChannelState[]) =>
+    workspace.listeners.get('remotes:helperState')!(states);
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [{ id: 'r-1', host: 'user@10.0.0.5' }];
   workspace.handlers.listRemoteDirectory = vi.fn(async () => []);
 
   await renderTree(['p-remote']);
@@ -325,9 +312,8 @@ it('shows no status line while a remote level is loading', async () => {
     });
     return [];
   });
-  window.dela = {
-    remotes: { list: async () => [] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await renderTree(['p-remote', 'p-remote:/home/u/proj/src']);
@@ -364,9 +350,8 @@ it('marks a remote project row with its connection colour and leaves local rows 
   const listRemoteDirectory = vi.fn(async () => [
     { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
   ]);
-  window.dela = {
-    remotes: { list: async () => [] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await act(async () =>
@@ -414,9 +399,8 @@ it('lists a subdirectory lazily and collapses it again', async () => {
           },
         ],
   );
-  window.dela = {
-    remotes: { list: async () => [] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   const { onExpand } = await renderTree(['p-remote', 'p-remote:/home/u/proj/src']);
@@ -432,9 +416,8 @@ it('refreshes a remote directory when it is collapsed and expanded again', async
   const listRemoteDirectory = vi.fn(async () => [
     { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
   ]);
-  window.dela = {
-    remotes: { list: async () => [] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await renderTree(['p-remote']);
@@ -462,9 +445,8 @@ it('loads the remote root when the project itself is the open tree', async () =>
   const listRemoteDirectory = vi.fn(async () => [
     { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
   ]);
-  window.dela = {
-    remotes: { list: async () => [] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   // 打开的项目工作台：项目行不显示，也没有展开态，远端内容直接挂在顶层。
@@ -512,9 +494,8 @@ it('keeps two connections on the same remote path apart', async () => {
           },
         ],
   );
-  window.dela = {
-    remotes: { list: async () => [] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
   const onExpand = vi.fn();
 
@@ -549,9 +530,8 @@ it('refreshes a remote directory after the tools changed it', async () => {
       ? [{ name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null }]
       : [{ name: 'new.txt', path: `${path}/new.txt`, directory: false, size: 1, modifiedAt: null }],
   );
-  window.dela = {
-    remotes: { list: async () => [] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await renderTree(['p-remote', 'p-remote:/home/u/proj/src']);
@@ -596,9 +576,8 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
       ? [{ name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null }]
       : [],
   );
-  window.dela = {
-    remotes: { list: async () => [] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
   workspace.handlers.watchRemoteDirectories = watchRemoteDirectories;
 
@@ -715,9 +694,8 @@ it('shows the connecting hint while a remote root is still being read', async ()
   const listRemoteDirectory = vi.fn(
     () => new Promise<RemoteDirectoryEntry[]>((resolve) => (release = resolve)),
   );
-  window.dela = {
-    remotes: { list: async () => [{ id: 'r-1', host: 'user@10.0.0.5' }] },
-  } as unknown as DelaApi;
+  window.dela = { bridge: workspace.bridge } as unknown as DelaApi;
+  workspace.remotes.list = async () => [{ id: 'r-1', host: 'user@10.0.0.5' }];
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
   const slow: WorkspaceEntry = { ...remoteProject, id: 'p-slow', name: '慢项目' };
 

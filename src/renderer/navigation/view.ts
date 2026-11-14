@@ -8,7 +8,7 @@ import type { SettingsSectionId } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { formatByName, opensInEditor } from '../../core/protocol/files';
-import { parseRemoteNodeId } from '../../shared/remotes';
+import { parseRemoteNodeId } from '../../modules/remotes/contract';
 import { useSessions } from '../sessions/store';
 import { showToast } from '../app/toasts';
 import type { NavTarget, NavTargets } from '../../app/module';

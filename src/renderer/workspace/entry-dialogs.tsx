@@ -8,7 +8,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import type { WorkspaceEntry } from '../../shared/api';
-import { parseRemoteNodeId } from '../../shared/remotes';
+import { parseRemoteNodeId } from '../../modules/remotes/contract';
 import { workspaceClient } from '../../modules/workspace/view';
 import { useNoteDrafts } from '../../modules/note/view';
 import { updateEntry, type EntryAction } from './entry-actions';

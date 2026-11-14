@@ -1,5 +1,11 @@
 // 远程连接契约。ssh 调用与私钥路径只存在于主进程；渲染端只拿到连接信息与目录清单。
-import type { RemoteChannelState, RemoteSetupProgress, RemoteTask } from '../core/protocol/remote';
+import { z } from 'zod';
+import { defineContract } from '../../core/protocol/contract';
+import type {
+  RemoteChannelState,
+  RemoteSetupProgress,
+  RemoteTask,
+} from '../../core/protocol/remote';
 
 export type {
   RemoteChannelState,
@@ -7,7 +13,7 @@ export type {
   RemoteSetupProgress,
   RemoteSetupStep,
   RemoteTask,
-} from '../core/protocol/remote';
+} from '../../core/protocol/remote';
 
 export interface RemoteConnection {
   id: string;
@@ -133,27 +139,77 @@ export interface RemoteBrowseResult {
   directories: RemoteDirectoryEntry[];
 }
 
-export interface RemoteApi {
-  list(): Promise<RemoteConnection[]>;
-  save(draft: RemoteDraft & { id?: string | null }): Promise<RemoteConnection>;
-  remove(id: string): Promise<void>;
-  probe(draft: RemoteDraft): Promise<RemoteProbe>;
-  /** 目录选择器：列出某个远端目录下的子目录（只列目录，含隐藏目录，由界面决定显示与否）。 */
-  browse(draft: RemoteDraft, path: string): Promise<RemoteBrowseResult>;
-  /** 目录选择器里在 parent 下新建一层文件夹，返回新目录的完整路径。 */
-  mkdir(draft: RemoteDraft, parent: string, name: string): Promise<string>;
-  /** 私钥文件选择器：取消返回 null。 */
-  pickKey(): Promise<string | null>;
-  /** 本机 `~/.ssh/config` 里还没保存为连接的主机。 */
-  configHosts(): Promise<SshConfigHost[]>;
-  /** 连接：把 helper 引导起来（已连上就直接返回），过程经 onSetupProgress 一行行送达。 */
-  prepare(draft: RemoteDraft): Promise<RemotePrepare>;
-  onSetupProgress(listener: (progress: RemoteSetupProgress) => void): () => void;
-  /** 全部 helper 通道的状态快照：订阅时立刻推一次当前值，之后每次变化再推。 */
-  onHelperState(listener: (states: RemoteChannelState[]) => void): () => void;
-  /** 这个连接上的远端任务（在跑的与最近结束的）；通道不可用时报错。 */
-  tasks(remoteId: string): Promise<RemoteTask[]>;
-  cancelTask(remoteId: string, taskId: string): Promise<void>;
-  /** 手动重试：通道不可用时立刻重新引导，不等自动重试的间隔。 */
-  retry(remoteId: string): Promise<RemoteChannelState>;
-}
+const hostPattern = /^[A-Za-z0-9._@:[\]-]+$/;
+
+export const remoteDraftSchema = z.object({
+  label: z.string().trim().max(80).optional(),
+  host: z
+    .string()
+    .trim()
+    .min(1)
+    .max(255)
+    .refine((value) => hostPattern.test(value) && !value.startsWith('-'), {
+      message: '目的地只能是 ssh 别名或 user@host',
+    }),
+  port: z.number().int().min(1).max(65535).nullable().optional(),
+  keyPath: z.string().trim().max(4096).nullable().optional(),
+});
+
+const draft = remoteDraftSchema;
+const remoteId = z.string().uuid();
+const directory = z.string().min(1).max(4096).startsWith('/');
+
+export const remotesContract = defineContract(
+  'remotes',
+  {
+    list: { input: z.undefined(), output: z.custom<RemoteConnection[]>() },
+    save: {
+      input: draft.extend({ id: remoteId.nullable().optional() }),
+      output: z.custom<RemoteConnection>(),
+    },
+    remove: { input: remoteId, output: z.void() },
+    probe: { input: draft, output: z.custom<RemoteProbe>() },
+    /** 目录选择器：列出某个远端目录下的子目录（含隐藏目录，由界面决定显示与否）。 */
+    browse: {
+      input: z.object({ draft, path: directory }),
+      output: z.custom<RemoteBrowseResult>(),
+    },
+    /** 在 parent 下新建一层文件夹，返回新目录的完整路径。 */
+    mkdir: {
+      input: z.object({
+        draft,
+        parent: directory,
+        name: z
+          .string()
+          .trim()
+          .min(1)
+          .max(255)
+          .refine(
+            (value) => !/[/\0]/.test(value) && value !== '.' && value !== '..',
+            '文件夹名不合法',
+          ),
+      }),
+      output: z.string(),
+    },
+    /** 私钥文件选择器：取消返回 null。 */
+    pickKey: { input: z.undefined(), output: z.custom<string | null>() },
+    /** 本机 `~/.ssh/config` 里还没保存为连接的主机。 */
+    configHosts: { input: z.undefined(), output: z.custom<SshConfigHost[]>() },
+    /** 连接：把 helper 引导起来（已连上就直接返回），过程经 setupProgress 一行行推送。 */
+    prepare: { input: draft, output: z.custom<RemotePrepare>() },
+    /** 全部 helper 通道的当前快照；之后的变化经 helperState 推送。 */
+    helperStates: { input: z.undefined(), output: z.custom<RemoteChannelState[]>() },
+    /** 这个连接上的远端任务（在跑的与最近结束的）；通道不可用时报错。 */
+    tasks: { input: remoteId, output: z.custom<RemoteTask[]>() },
+    cancelTask: {
+      input: z.object({ remoteId, taskId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/) }),
+      output: z.void(),
+    },
+    /** 手动重试：通道不可用时立刻重新引导，不等自动重试的间隔。 */
+    retry: { input: remoteId, output: z.custom<RemoteChannelState>() },
+  },
+  {
+    setupProgress: z.custom<RemoteSetupProgress>(),
+    helperState: z.custom<RemoteChannelState[]>(),
+  },
+);

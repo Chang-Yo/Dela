@@ -1,5 +1,5 @@
 import type { DocumentContent, OfficeExportEvent } from '../../shared/documents';
-import type { RemoteDirectoryEntry, RemotePortsState } from '../../shared/remotes';
+import type { RemoteDirectoryEntry, RemotePortsState } from '../remotes/contract';
 import { workbenchLayoutSchema, type WorkbenchLayout } from '../../shared/layout';
 import type { ResourceRef } from '../../shared/resources';
 import { z } from 'zod';
@@ -14,7 +14,7 @@ export type {
 } from '../../shared/documents';
 export type { TabId } from '../../shared/layout';
 export type { ResourceRef } from '../../shared/resources';
-export { parseRemoteNodeId } from '../../shared/remotes';
+export { parseRemoteNodeId } from '../remotes/contract';
 
 /** 普通文件使用绝对磁盘路径；UUID 用于已登记的项目与资料条目。 */
 export const workspaceEntryIdSchema = z

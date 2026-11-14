@@ -26,6 +26,7 @@ import {
 import type { EdgeZone } from './tab-dnd';
 import { relocateWorkspacePath } from '../../modules/workspace/contract';
 import { workspaceClient } from '../../modules/workspace/view';
+import { terminalClient } from '../../modules/terminal/view';
 import { errorText } from '../workspace/store';
 import { showToast } from '../app/toasts';
 
@@ -253,7 +254,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       tabId.startsWith('terminal:') &&
       !walkGroups(nextRoot).some((node) => node.tabs.includes(tabId))
     )
-      void window.dela?.terminal.closeProject(tabId.slice('terminal:'.length)).catch((cause) => {
+      void terminalClient.closeProject(tabId.slice('terminal:'.length)).catch((cause) => {
         console.error(cause);
         showToast({ variant: 'error', title: '关闭终端失败', description: errorText(cause) });
       });

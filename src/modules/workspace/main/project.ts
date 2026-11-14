@@ -4,7 +4,7 @@ import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import { remoteById } from '../../../main/remotes/api';
+import { remoteById } from '../../remotes';
 import { workspaceEntryIdSchema } from '../contract';
 import { hostPorts } from '../../../core/ports';
 import { projectDirectory, projectLocation, remoteProjectOf } from './api';

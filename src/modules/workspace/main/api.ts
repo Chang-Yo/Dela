@@ -15,14 +15,14 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { getDatabase } from '../../../main/database';
 import { hostPorts, type Projects } from '../../../core/ports';
-import { remoteById, targetOf } from '../../../main/remotes/api';
+import { remoteById, targetOf } from '../../remotes';
 import { locateRemote } from '../../../core/remote/operations';
 import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from './sources';
 import { availablePath, diskName, storageDirectory as directory } from '../../../main/storage';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../../../main/documents/links';
 import { officeZipMime } from '../../../main/documents/parse';
 import { workspaceArchiveId } from '../../../shared/api';
-import { parseRemoteNodeId } from '../../../shared/remotes';
+import { parseRemoteNodeId } from '../../remotes/contract';
 import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../contract';
 import { imageMimeOf } from '../../../core/protocol/files';
 import {

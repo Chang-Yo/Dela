@@ -3,8 +3,7 @@
  * 真正的凭据始终由 ssh 自己从 ~/.ssh 与 agent 读取，Dela 不落任何密码。
  */
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
-import { getDatabase } from '../database';
+import { getDatabase } from '../../../main/database';
 import type {
   RemoteBrowseResult,
   RemoteConnection,
@@ -13,30 +12,12 @@ import type {
   RemoteProbe,
   RemoteSetupProgress,
   SshConfigHost,
-} from '../../shared/remotes';
-import { withinRemotePath } from '../../shared/remotes';
-import { prepareHelper } from '../../core/remote/helper';
-import { locateRemote, makeRemoteDirectory } from '../../core/remote/operations';
+} from '../contract';
+import { remoteDraftSchema, withinRemotePath } from '../contract';
+import { prepareHelper } from '../../../core/remote/helper';
+import { locateRemote, makeRemoteDirectory } from '../../../core/remote/operations';
 import { sshConfigHosts } from './ssh-config';
-import { probeRemote, type RemoteTarget } from '../../core/remote/transport';
-
-const hostPattern = /^[A-Za-z0-9._@:[\]-]+$/;
-
-export const remoteDraftSchema = z.object({
-  label: z.string().trim().max(80).optional(),
-  host: z
-    .string()
-    .trim()
-    .min(1)
-    .max(255)
-    .refine((value) => hostPattern.test(value) && !value.startsWith('-'), {
-      message: '目的地只能是 ssh 别名或 user@host',
-    }),
-  port: z.number().int().min(1).max(65535).nullable().optional(),
-  keyPath: z.string().trim().max(4096).nullable().optional(),
-});
-
-export const remoteIdSchema = z.string().uuid();
+import { probeRemote, type RemoteTarget } from '../../../core/remote/transport';
 
 interface RemoteRow {
   id: string;
@@ -110,7 +91,7 @@ export async function removeRemote(id: string): Promise<void> {
     .prepare(`SELECT id FROM workspace_entries WHERE remote_id=? AND kind='project'`)
     .all(id) as { id: string }[];
   if (projects.length) {
-    const { removeWorkspaceEntry } = await import('../../modules/workspace');
+    const { removeWorkspaceEntry } = await import('../../workspace');
     for (const project of projects) await removeWorkspaceEntry(project.id);
   }
   getDatabase().prepare('DELETE FROM remotes WHERE id=?').run(id);

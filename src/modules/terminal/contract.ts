@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { defineContract } from '../../core/protocol/contract';
+
 export interface TerminalSession {
   id: string;
   title: string;
@@ -10,12 +13,18 @@ export type TerminalEvent =
   | { type: 'data'; projectId: string; id: string; sequence: number; data: string }
   | { type: 'exit'; projectId: string; id: string; sequence: number; exitCode: number };
 
-export interface TerminalApi {
-  list(projectId: string): Promise<TerminalSession[]>;
-  create(projectId: string, id: string): Promise<TerminalSession>;
-  write(id: string, data: string): Promise<void>;
-  resize(id: string, cols: number, rows: number): Promise<void>;
-  close(id: string): Promise<void>;
-  closeProject(projectId: string): Promise<void>;
-  onEvent(listener: (event: TerminalEvent) => void): () => void;
-}
+const id = z.uuid();
+const size = z.number().int().min(1).max(1000);
+
+export const terminalContract = defineContract(
+  'terminal',
+  {
+    list: { input: id, output: z.custom<TerminalSession[]>() },
+    create: { input: z.object({ projectId: id, id }), output: z.custom<TerminalSession>() },
+    write: { input: z.object({ id, data: z.string().max(2_000_000) }), output: z.void() },
+    resize: { input: z.object({ id, cols: size, rows: size }), output: z.void() },
+    close: { input: id, output: z.void() },
+    closeProject: { input: id, output: z.void() },
+  },
+  { event: z.custom<TerminalEvent>() },
+);

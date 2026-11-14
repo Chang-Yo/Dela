@@ -4,32 +4,37 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import type { DelaApi, WorkspaceEntry, WorkspaceState } from '../../../shared/api';
 import type {
-  DelaApi,
   RemoteBrowseResult,
   RemoteConnection,
   RemoteSetupProgress,
-  WorkspaceEntry,
-  WorkspaceState,
-} from '../../../shared/api';
+} from '../../../modules/remotes/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
-const { workspaceApi, bridge } = vi.hoisted(() => {
+const { workspaceApi, remotesApi, listeners, bridge } = vi.hoisted(() => {
   const handlers: Record<string, (input: never) => unknown> = {};
-  const subscribe = () => () => {};
+  const remotes: Record<string, (input: never) => unknown> = {};
+  const listeners = new Map<string, (payload: unknown) => void>();
+  const subscribe = (channel: string, listener: (payload: unknown) => void) => {
+    listeners.set(channel, listener);
+    return () => {};
+  };
   const bridge = {
-    invoke: async (channel: string, input: never) =>
-      handlers[channel.slice('workspace:'.length)]!(input),
+    invoke: async (channel: string, input: never) => {
+      const [namespace, name] = channel.split(':');
+      return (namespace === 'remotes' ? remotes : handlers)[name!]!(input);
+    },
     subscribe,
   };
   window.dela = {
     bridge,
   } as unknown as DelaApi;
-  return { workspaceApi: handlers, bridge };
+  return { workspaceApi: handlers, remotesApi: remotes, listeners, bridge };
 });
 import { NewRemoteProjectDialog } from '../remote/NewRemoteProjectDialog';
 import { usePreferences } from '../../app/preferences';
-import { useRemoteState } from '../remote/remote-state';
+import { useRemoteState } from '../../../modules/remotes/view';
 import { useWorkspaceStore } from '../store';
 import { showToast } from '../../app/toasts';
 
@@ -115,27 +120,23 @@ function setValue(target: HTMLInputElement, value: string) {
 
 const flush = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
-function api(overrides: Partial<DelaApi['remotes']> = {}, workspace = {}) {
-  const listeners: ((progress: RemoteSetupProgress) => void)[] = [];
+function api(overrides: Record<string, unknown> = {}, workspace = {}) {
   const remotes = {
     list: vi.fn(async () => [saved]),
     configHosts: vi.fn(async () => []),
-    onHelperState: () => () => {},
-    onSetupProgress: (listener: (progress: RemoteSetupProgress) => void) => {
-      listeners.push(listener);
-      return () => {};
-    },
+    helperStates: vi.fn(async () => []),
     prepare: vi.fn(async () => ({ ok: true, message: '', home: '/home/u' })),
-    browse: vi.fn(async (_draft: unknown, path: string) =>
+    browse: vi.fn(async ({ path }: { path: string }) =>
       path === '/home/u' ? listing('/home/u', ['proj', '.cache']) : listing(path, []),
     ),
     ...overrides,
   };
+  Object.assign(remotesApi, remotes);
   Object.assign(workspaceApi, { state: async () => emptyState, ...workspace });
-  window.dela = { remotes, bridge } as unknown as DelaApi;
+  window.dela = { bridge } as unknown as DelaApi;
   return {
     remotes,
-    emit: (progress: RemoteSetupProgress) => listeners.forEach((l) => l(progress)),
+    emit: (progress: RemoteSetupProgress) => listeners.get('remotes:setupProgress')!(progress),
   };
 }
 
@@ -156,10 +157,10 @@ it('connects the first saved server and browses from its home directory', async 
     port: 2222,
     keyPath: null,
   });
-  expect(remotes.browse).toHaveBeenCalledWith(
-    expect.objectContaining({ host: 'gpu-box' }),
-    '/home/u',
-  );
+  expect(remotes.browse).toHaveBeenCalledWith({
+    draft: expect.objectContaining({ host: 'gpu-box' }),
+    path: '/home/u',
+  });
   // 隐藏目录默认不显示，名称默认取当前目录名。
   expect(document.body.textContent).toContain('proj');
   expect(document.body.textContent).not.toContain('.cache');
@@ -195,7 +196,7 @@ it('shows why the server failed, keeps the log open, and retries on demand', asy
 it('selects on click, enters on double click, and imports under a custom name', async () => {
   const importRemoteProject = vi.fn(async () => created);
   const state = vi.fn(async () => ({ ...emptyState, entries: [created] }));
-  api({}, { importRemoteProject, state });
+  const { remotes } = api({}, { importRemoteProject, state });
   const onImported = await render();
 
   const row = () => [...document.querySelectorAll<HTMLButtonElement>('[role="option"] button')][0]!;
@@ -207,7 +208,9 @@ it('selects on click, enters on double click, and imports under a custom name', 
   await act(async () => row().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
   await flush();
   // 进到 proj 里面：项目目录就是当前路径；改过的名字不再跟着目录变。
-  expect(window.dela!.remotes.browse).toHaveBeenLastCalledWith(expect.anything(), '/home/u/proj');
+  expect(remotes.browse).toHaveBeenLastCalledWith(
+    expect.objectContaining({ path: '/home/u/proj' }),
+  );
   expect(input('项目名称').value).toBe('我的实验');
 
   await act(async () => button('添加项目').click());
@@ -232,18 +235,20 @@ it('jumps to a typed path from the path bar', async () => {
     input('远端路径').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })),
   );
   await flush();
-  expect(remotes.browse).toHaveBeenLastCalledWith(expect.anything(), '/home/u/data');
+  expect(remotes.browse).toHaveBeenLastCalledWith(
+    expect.objectContaining({ path: '/home/u/data' }),
+  );
 });
 
 it('creates a folder in the current directory and selects it', async () => {
   let names = ['proj'];
-  const mkdir = vi.fn(async (_draft: unknown, parent: string, name: string) => {
+  const mkdir = vi.fn(async ({ parent, name }: { parent: string; name: string }) => {
     names = [...names, name];
     return `${parent}/${name}`;
   });
   api({
     mkdir,
-    browse: vi.fn(async (_draft: unknown, path: string) => listing(path, names)),
+    browse: vi.fn(async ({ path }: { path: string }) => listing(path, names)),
   });
   await render();
 
@@ -255,11 +260,11 @@ it('creates a folder in the current directory and selects it', async () => {
     ),
   );
   await flush();
-  expect(mkdir).toHaveBeenCalledWith(
-    expect.objectContaining({ host: 'gpu-box' }),
-    '/home/u',
-    'exp2',
-  );
+  expect(mkdir).toHaveBeenCalledWith({
+    draft: expect.objectContaining({ host: 'gpu-box' }),
+    parent: '/home/u',
+    name: 'exp2',
+  });
   expect(document.querySelector('[aria-label="新文件夹名称"]')).toBeNull();
   expect(document.querySelector('[aria-selected="true"]')?.textContent).toContain('exp2');
   expect(input('项目名称').value).toBe('exp2');

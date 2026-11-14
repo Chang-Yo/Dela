@@ -31,7 +31,7 @@ import { getDatabase } from '../main/database';
 import { workspaceWindow } from '../main/ipc';
 import { notifyRunFinished } from '../main/settings/task-notify';
 import { storageDirectory } from '../main/storage';
-import { locateBash } from '../main/terminal/mingit';
+import { locateBash } from '../modules/terminal';
 import { workspaceProjects } from '../modules/workspace';
 
 const secretPath = (namespace: SecretNamespace) =>

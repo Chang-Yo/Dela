@@ -15,7 +15,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { workspaceArchiveId } from '../../shared/api';
-import { parseRemoteNodeId } from '../../shared/remotes';
+import { parseRemoteNodeId } from '../../modules/remotes/contract';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Resizer } from '../../ui/resizer';

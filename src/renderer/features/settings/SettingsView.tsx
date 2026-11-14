@@ -8,7 +8,7 @@ import { GeneralSection } from './sections/GeneralSection';
 import { LlmSection } from './sections/LlmSection';
 import { McpSection } from './sections/McpSection';
 import { PrivacySection } from './sections/PrivacySection';
-import { RemoteSection } from './sections/RemoteSection';
+import { RemoteSection } from '../../../modules/remotes/view';
 import { ShortcutsSection } from './sections/ShortcutsSection';
 import { SkillsSection } from './sections/SkillsSection';
 import { TermsSection } from './sections/TermsSection';
@@ -16,6 +16,9 @@ import { WorkspaceSection } from './sections/WorkspaceSection';
 import { ConnectionsSection } from './connections/ConnectionsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
 import type { ThemePreference, ZoomPreference } from '../../../shared/api';
+import { useNavigationStore } from '../../navigation/view';
+import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
+import { NewRemoteProjectDialog } from '../../workspace/remote/NewRemoteProjectDialog';
 
 type SettingsViewProps = {
   fontSize: number;
@@ -65,7 +68,13 @@ export function SettingsView({
           {section === 'archived' && <ArchivedSection />}
           {section === 'connections' && <ConnectionsSection />}
           {section === 'providers' && <LlmSection />}
-          {section === 'remotes' && <RemoteSection />}
+          {section === 'remotes' && (
+            <RemoteSection
+              NewProjectDialog={NewRemoteProjectDialog}
+              onOpenProject={(id) => useNavigationStore.getState().openProject(id)}
+              onProjectsRemoved={purgeRemovedEntries}
+            />
+          )}
           {section === 'capabilities' && <CapabilitiesSection />}
           {section === 'commands' && <CommandsSection />}
           {section === 'skills' && <SkillsSection />}

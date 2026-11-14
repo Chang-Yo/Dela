@@ -306,7 +306,7 @@ pnpm build
 pnpm test
 ```
 
-- 改动远端（`src/core/remote/`、`src/main/remotes/`、`helper/`）时另用 `pnpm test:remote` 对真机跑一遍（先 `pnpm fetch:remote-rg`），那批用例默认套件与 CI 都会跳过。
+- 改动远端（`src/core/remote/`、`src/modules/remotes/`、`helper/`）时另用 `pnpm test:remote` 对真机跑一遍（先 `pnpm fetch:remote-rg`），那批用例默认套件与 CI 都会跳过。
 - 涉及构建、原生依赖或打包时另验证 `pnpm smoke` 与打包目录启动。
 - 用户能感知的变化写进 [CHANGELOG.md](../CHANGELOG.md)；面向使用者的功能概览更新 [README.md](../README.md)；架构、取舍与平台状态变化更新本文。
 - 单元测试只保留能挡住回归的用例：优先行为契约、边界与错误、安全、持久化/迁移、平台差异。不为字面默认值、setter/getter 往返、第三方库行为或纯 DOM 结构写用例；同一行为只留一处覆盖。

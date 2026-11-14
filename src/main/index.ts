@@ -21,13 +21,10 @@ import { runMigrations } from './migrations';
 import { attachContextMenu, checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../shared/window';
 import { registerPreviewProtocol, registerPreviewScheme } from '../modules/workspace';
-import { registerTerminalIpc } from './terminal';
-import { locateBash, prependRuntimePath } from './terminal/mingit';
+import { closeAllTerminals, locateBash, prependRuntimePath } from '../modules/terminal';
 import { closeHelper } from '../core/remote/helper';
-import { closeAllPortTunnels } from './remotes/ports';
+import { closeAllPortTunnels, closeRemoteOpens } from '../modules/remotes';
 import { closeRemoteWatch } from '../core/remote/watch';
-import { closeRemoteOpens } from './remotes/transfer';
-import { registerRemoteIpc } from './remotes/ipc';
 import { registerSearchProvider } from '../modules/search';
 import { registerBuiltinCapabilities } from './agent/domain';
 import { registerModuleIpc } from '../app/ipc';
@@ -201,8 +198,6 @@ app
     registerBackupIpc();
     registerCacheIpc();
     registerAgentIpc();
-    registerTerminalIpc();
-    registerRemoteIpc();
     registerModuleIpc(modules);
     registerBuiltinCapabilities();
     for (const module of modules) module.register?.();
@@ -271,6 +266,7 @@ async function createWindow(): Promise<void> {
   attachContextMenu(window.webContents);
   window.on('closed', () => {
     mainWindow = undefined;
+    closeAllTerminals();
   });
   window.on('close', (event) => {
     if (quitting) return;

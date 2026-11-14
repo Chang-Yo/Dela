@@ -247,14 +247,18 @@ async function run(window) {
     "window.dela.bridge.invoke('workspace:create', { parentId: null, name: '生命周期测试', kind: 'project' })",
   );
   const id = randomUUID();
-  await js(`window.dela.terminal.create('${project.id}', '${id}')`);
+  await js(
+    `window.dela.bridge.invoke('terminal:create', { projectId: '${project.id}', id: '${id}' })`,
+  );
   const checkRuntime = async (marker) => {
     // 终端跟随系统 shell，不能再假设 bash 语法；echo 在 PowerShell 与 zsh 下一致。
-    await js(`window.dela.terminal.write('${id}', ${JSON.stringify(`echo ${marker}\r`)})`);
+    await js(
+      `window.dela.bridge.invoke('terminal:write', { id: '${id}', data: ${JSON.stringify(`echo ${marker}\r`)} })`,
+    );
     await wait(
       () =>
         js(
-          `window.dela.terminal.list('${project.id}').then(items => items.some(item => item.id === '${id}' && item.buffer.includes('${marker}\\r\\n') && item.exitCode === null))`,
+          `window.dela.bridge.invoke('terminal:list', '${project.id}').then(items => items.some(item => item.id === '${id}' && item.buffer.includes('${marker}\\r\\n') && item.exitCode === null))`,
         ),
       'live PTY',
     );

@@ -1,22 +1,33 @@
 // 设置 › 远程：已保存的 SSH 连接与它们的实时通道状态。编辑与新建用「新建远程项目」面板里同一份表单，
 // 状态点读 helper 通道的推送，不再是一次性的「测试连接」结果。
 // Dela 不保存密码与密钥，凭据由 ssh 从 ~/.ssh 与 agent 读取。
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { Cloud, Plus } from 'lucide-react';
-import type { RemoteConnection } from '../../../../shared/api';
-import { Button } from '../../../../ui/button';
-import { cn } from '../../../../ui/cn';
-import { remoteAccent } from '../../../navigation/remote-color';
-import { ConnectionForm } from '../../../workspace/remote/ConnectionForm';
-import { NewRemoteProjectDialog } from '../../../workspace/remote/NewRemoteProjectDialog';
-import { channelDot, useRemoteState } from '../../../workspace/remote/remote-state';
-import { SectionHeader } from '../SectionHeader';
-import { SettingRow } from '../../../../modules/settings/view';
-import { SettingsGroup } from '../SettingsGroup';
+import type { RemoteConnection } from '../contract';
+import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/cn';
+import { remoteAccent } from './remote-color';
+import { ConnectionForm } from './ConnectionForm';
+import { channelDot, useRemoteState } from './remote-state';
+import { SectionHeader, SettingRow, SettingsGroup } from '../../settings/view';
 
 type Editing = { connection?: RemoteConnection } | null;
 
-export function RemoteSection() {
+export function RemoteSection({
+  NewProjectDialog,
+  onOpenProject,
+  onProjectsRemoved,
+}: {
+  /** 「新建远程项目」面板属于工作区外壳，由设置页传入。 */
+  NewProjectDialog: ComponentType<{
+    initialConnectionId?: string;
+    onClose: () => void;
+    onImported: () => void;
+    open: boolean;
+  }>;
+  onOpenProject: (projectId: string) => void;
+  onProjectsRemoved: (liveIds: Set<string>) => void;
+}) {
   const connections = useRemoteState((state) => state.connections);
   const channels = useRemoteState((state) => state.channels);
   const load = useRemoteState((state) => state.load);
@@ -33,6 +44,8 @@ export function RemoteSection() {
         <ConnectionForm
           connection={editing.connection}
           onBack={() => setEditing(null)}
+          onOpenProject={onOpenProject}
+          onProjectsRemoved={onProjectsRemoved}
           onRemoved={() => {
             setEditing(null);
             void load();
@@ -133,7 +146,7 @@ export function RemoteSection() {
           })}
         </SettingsGroup>
       )}
-      <NewRemoteProjectDialog
+      <NewProjectDialog
         initialConnectionId={projectFor ?? undefined}
         onClose={() => setProjectFor(null)}
         onImported={() => setProjectFor(null)}

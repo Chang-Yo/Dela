@@ -13,8 +13,9 @@ const { api, desktop } = vi.hoisted(() => {
   const subscribe = () => () => {};
   const desktop = {
     bridge: {
+      // 远程连接与通道状态随目录树加载，这里的用例不依赖它们。
       invoke: async (channel: string, input: never) =>
-        handlers[channel.slice('workspace:'.length)]?.(input),
+        channel.startsWith('remotes:') ? [] : handlers[channel.slice('workspace:'.length)]?.(input),
       subscribe,
     },
   } as unknown as NonNullable<typeof window.dela>;

@@ -25,7 +25,7 @@ import {
   withinRemoteRoot,
   removeRemote,
   listRemotes,
-} from '../../../../main/remotes/api';
+} from '../../../remotes/main/api';
 import {
   createWorkspaceEntry,
   entry,

@@ -8,9 +8,10 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { ChevronRight, Clock, Folder, FolderPlus, House, Search } from 'lucide-react';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/cn';
-import type { RemoteBrowseResult, RemoteDraft } from '../../../shared/api';
-import { showToast } from '../../app/toasts';
-import { errorText } from '../store';
+import type { RemoteBrowseResult, RemoteDraft } from '../contract';
+import { showToast } from '../../../renderer/app/toasts';
+import { errorText } from '../../../renderer/workspace/store';
+import { remotesClient } from './client';
 import { useRemoteState } from './remote-state';
 import { IconButton } from '../../../ui/icon-button';
 
@@ -52,8 +53,6 @@ export function DirectoryBrowser({
 }) {
   const cached = useRemoteState((state) => state.listings[`${destination}|${path}`]);
   const cacheListing = useRemoteState((state) => state.cacheListing);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [showHidden, setShowHidden] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -61,45 +60,44 @@ export function DirectoryBrowser({
   /** 新建文件夹的名字；null 表示没在新建。 */
   const [creating, setCreating] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
-  // draft 每次渲染都是新对象：读取只跟着连接参数与路径走，用 ref 拿最新值。
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
-  const draftKey = `${draft.host}|${draft.port ?? ''}|${draft.keyPath ?? ''}`;
+  // draft 每次渲染都是新对象：读取只跟着连接参数与路径走。
+  const request = `${draft.host}|${draft.port ?? ''}|${draft.keyPath ?? ''}|${path}`;
+  /** 最近读完的一次请求及其错误；不是当前请求就算读取中。 */
+  const [settled, setSettled] = useState<{ request: string; error: string | null } | null>(null);
+  const loading = settled?.request !== request;
+  const error = loading ? null : settled.error;
 
   // 进到一个目录就读一次：有缓存先显示缓存，同时静默刷新，远端在 Dela 之外改过也看得到。
   useEffect(() => {
-    const remotes = window.dela?.remotes;
-    if (!remotes) return;
+    if (!window.dela) return;
     let live = true;
-    setError(null);
-    setLoading(true);
-    void remotes.browse(draftRef.current, path).then(
+    void remotesClient.browse({ draft, path }).then(
       (result: RemoteBrowseResult) => {
         if (!live) return;
         cacheListing(destination, result);
-        setLoading(false);
+        setSettled({ request, error: null });
       },
       (cause: unknown) => {
-        if (!live) return;
-        setError(errorText(cause));
-        setLoading(false);
+        if (live) setSettled({ request, error: errorText(cause) });
       },
     );
     return () => {
       live = false;
     };
-  }, [draftKey, path, cacheListing]);
+  }, [request, cacheListing]);
 
-  useEffect(() => {
+  // 换目录时在渲染期清掉筛选、路径输入与新建行。
+  const [shownPath, setShownPath] = useState(path);
+  if (shownPath !== path) {
+    setShownPath(path);
     setFilter('');
     setTyped(path);
     setCreating(null);
-  }, [path]);
+  }
 
   const createFolder = async () => {
-    const remotes = window.dela?.remotes;
     const name = creating?.trim();
-    if (!remotes || !name) return;
+    if (!window.dela || !name) return;
     // 主进程同样会拦；这里先拦是为了给出人话，而不是 zod 的校验转储。
     const invalid = /[/\0]/.test(name)
       ? '文件夹名不能包含 /，只能新建一层'
@@ -111,8 +109,8 @@ export function DirectoryBrowser({
       return;
     }
     try {
-      const created = await remotes.mkdir(draftRef.current, path, name);
-      cacheListing(destination, await remotes.browse(draftRef.current, path));
+      const created = await remotesClient.mkdir({ draft, parent: path, name });
+      cacheListing(destination, await remotesClient.browse({ draft, path }));
       setCreating(null);
       onSelect(created);
     } catch (cause) {

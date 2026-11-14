@@ -248,8 +248,8 @@
     },
     {
       "files": [
-        "src/modules/{mail,workspace,chat}/index.ts",
-        "src/modules/{mail,workspace,chat}/main/**"
+        "src/modules/{mail,workspace,chat,remotes,terminal}/index.ts",
+        "src/modules/{mail,workspace,chat,remotes,terminal}/main/**"
       ],
       "rules": {
         "no-restricted-imports": [
@@ -489,7 +489,7 @@
       }
     },
     {
-      "files": ["src/main/remotes/*.ts"],
+      "files": ["src/modules/remotes/main/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",

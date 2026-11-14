@@ -31,7 +31,7 @@ import {
   useAfterMenuClose,
 } from '../../ui/dropdown-menu';
 import type { EntryAction } from '../workspace/entry-actions';
-import { remoteAccent } from './remote-color';
+import { remoteAccent } from '../../modules/remotes/view';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../app/toasts';
 import { errorText, useWorkspaceStore } from '../workspace/store';

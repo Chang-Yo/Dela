@@ -7,9 +7,7 @@ import { backup } from './backup';
 import { bridge } from './bridge';
 import { llm } from './llm';
 import { capabilityApi as capability } from './capabilities';
-import { remotes } from './remotes';
 import { settings } from './settings';
-import { terminal } from './terminal';
 import { update } from './update';
 import { windowApi } from './window';
 
@@ -19,8 +17,6 @@ contextBridge.exposeInMainWorld('dela', {
   bridge,
   version,
   updatedOnLaunch: process.argv.includes('--dela-updated'),
-  terminal,
-  remotes,
   window: windowApi,
   settings,
   consent,

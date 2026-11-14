@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardPaste, Copy, Plus, SquareTerminal, X } from 'lucide-react';
-import type { TerminalEvent, TerminalSession } from '../../../shared/terminal';
-import type { TabComponentProps } from '../../workbench/registry';
-import { showToast } from '../../app/toasts';
+import type { TerminalEvent, TerminalSession } from '../contract';
+import { onTerminalEvent, terminalClient } from './client';
+import { showToast } from '../../../renderer/app/toasts';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../workspace/store';
+import { errorText } from '../../../renderer/workspace/store';
 import { cn } from '../../../ui/cn';
-import { platform } from '../../lib/platform';
+import { platform } from '../../../renderer/lib/platform';
 import '@xterm/xterm/css/xterm.css';
 import { ErrorText } from '../../../ui/alert';
 
@@ -41,8 +41,8 @@ function applyEvent(session: TerminalSession, event: TerminalEvent): TerminalSes
     : { ...session, sequence: event.sequence, exitCode: event.exitCode };
 }
 
-export function TerminalTab({ tabId }: TabComponentProps) {
-  const api = window.dela?.terminal;
+export function TerminalTab({ tabId }: { tabId: string }) {
+  const desktop = Boolean(window.dela);
   const projectId = tabId.slice('terminal:'.length);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(activeByProject.get(projectId) ?? null);
@@ -95,13 +95,13 @@ export function TerminalTab({ tabId }: TabComponentProps) {
     return merged;
   };
   const create = async () => {
-    if (!api) return;
+    if (!desktop) return;
     setBusy(true);
     setError(null);
     const id = crypto.randomUUID();
     waitingIds.current.add(id);
     try {
-      const item = await api.create(projectId, id);
+      const item = await terminalClient.create({ projectId, id });
       if (!mounted.current) return;
       install([...snapshots.current, item]);
       select(item.id);
@@ -114,14 +114,14 @@ export function TerminalTab({ tabId }: TabComponentProps) {
   };
 
   useEffect(() => {
-    if (!api) {
+    if (!desktop) {
       setError('内置终端仅在桌面应用中可用');
       setBusy(false);
       return;
     }
     let alive = true;
     mounted.current = true;
-    const unsubscribe = api.onEvent((event) => {
+    const unsubscribe = onTerminalEvent('event', (event) => {
       if (event.projectId !== projectId) return;
       const item = snapshots.current.find((item) => item.id === event.id);
       if (!item) {
@@ -139,7 +139,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       }
       setSessions(snapshots.current);
     });
-    void api
+    void terminalClient
       .list(projectId)
       .then(async (items) => {
         if (!alive) return;
@@ -166,13 +166,13 @@ export function TerminalTab({ tabId }: TabComponentProps) {
     };
     // 订阅的生命周期以项目为界；输出、活动会话通过 ref 接入，不反复建立 IPC 订阅。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, projectId]);
+  }, [desktop, projectId]);
 
   const activeExists = sessions.some((item) => item.id === activeId);
   useEffect(() => {
     const element = host.current;
     const session = snapshots.current.find((item) => item.id === activeId);
-    if (!api || !element || !session) return;
+    if (!element || !session) return;
     const style = getComputedStyle(element);
     const foreground = terminalColor(style.color);
     const terminal = new Terminal({
@@ -227,11 +227,13 @@ export function TerminalTab({ tabId }: TabComponentProps) {
     const resize = () => {
       if (!element.clientWidth || !element.clientHeight) return;
       fit.fit();
-      void api.resize(session.id, terminal.cols, terminal.rows).catch(reportError);
+      void terminalClient
+        .resize({ id: session.id, cols: terminal.cols, rows: terminal.rows })
+        .catch(reportError);
     };
     const input = terminal.onData((data) => {
       if (replaying) return;
-      void api.write(session.id, data).catch(reportError);
+      void terminalClient.write({ id: session.id, data }).catch(reportError);
     });
     const observer = new ResizeObserver(resize);
     observer.observe(element);
@@ -263,7 +265,7 @@ export function TerminalTab({ tabId }: TabComponentProps) {
       screen.current = null;
       terminal.dispose();
     };
-  }, [activeId, api, activeExists]);
+  }, [activeId, activeExists]);
 
   const active = sessions.find((item) => item.id === activeId);
   useEffect(() => {
@@ -271,9 +273,8 @@ export function TerminalTab({ tabId }: TabComponentProps) {
   }, [active?.exitCode]);
 
   const close = async (id: string) => {
-    if (!api) return;
     try {
-      await api.close(id);
+      await terminalClient.close(id);
       if (!mounted.current) return;
       const index = snapshots.current.findIndex((item) => item.id === id);
       const remaining = snapshots.current.filter((item) => item.id !== id);

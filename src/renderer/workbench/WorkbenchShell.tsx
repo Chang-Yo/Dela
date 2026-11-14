@@ -5,7 +5,7 @@ import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { DocumentContent, WorkspaceEntry } from '../../shared/api';
 import type { TabId } from '../../shared/layout';
 import { decodeAssetPath, isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
-import { parseRemoteNodeId, remoteAssetUrl } from '../../shared/remotes';
+import { parseRemoteNodeId, remoteAssetUrl } from '../../modules/remotes/contract';
 import type { ResourceRef } from '../../shared/resources';
 // Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/CodeMirror），
 // 静态引入会让 registry 的懒加载分包失效。

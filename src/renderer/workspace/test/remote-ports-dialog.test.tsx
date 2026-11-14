@@ -2,7 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, RemotePortsState } from '../../../shared/api';
+import type { DelaApi } from '../../../shared/api';
+import type { RemotePortsState } from '../../../modules/remotes/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入视图装好。
 const api = vi.hoisted(() => {

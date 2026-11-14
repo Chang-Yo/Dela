@@ -2,7 +2,7 @@
 // 触发与定位由调用方用 ui/tooltip 包住（项目行、资源管理器标题各一处），
 // 这里只管内容，保证两处说法一致。
 import type { WorkspaceEntry } from '../../shared/api';
-import type { RemoteConnection } from '../../shared/remotes';
+import type { RemoteConnection } from '../../modules/remotes/contract';
 import type { RemoteActivity } from './remote-activity';
 import { remoteDestination } from './remote-connections';
 

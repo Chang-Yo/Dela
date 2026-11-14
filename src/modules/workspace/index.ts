@@ -5,9 +5,13 @@ import { registerCommandDomain } from '../../core/capabilities/commands';
 import { onRemoteChange } from '../../core/remote/events';
 import { emit } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
-import { readRemoteDocument } from '../../main/remotes/documents';
-import { closeRemotePort, openRemotePort, remotePortsState } from '../../main/remotes/ports';
-import { openRemoteFile } from '../../main/remotes/transfer';
+import {
+  closeRemotePort,
+  openRemoteFile,
+  openRemotePort,
+  readRemoteDocument,
+  remotePortsState,
+} from '../remotes';
 import { openResourceFile } from '../../main/resources';
 import { resourceRefSchema } from '../../shared/resources';
 import { registerSearchProvider } from '../search';

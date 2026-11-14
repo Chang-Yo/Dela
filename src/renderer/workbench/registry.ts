@@ -9,16 +9,14 @@ import { titleOf as entryTitleOf } from '../workspace/entry-dialogs';
 import { reviewTabTitle } from '../content/review/tab-id';
 import { NoteTab } from '../../modules/note/view';
 import { PreviewTab } from '../../modules/preview/view';
+import { TerminalTab } from '../../modules/terminal/view';
 
-// 聊天、审阅与终端懒加载（TabGroup 渲染处有 Suspense 骨架兜底）；笔记与预览已随外壳静态加载。
+// 聊天与审阅懒加载（TabGroup 渲染处有 Suspense 骨架兜底）；终端由模块出口懒加载，笔记与预览随外壳静态加载。
 const ChatTab: ComponentType<TabComponentProps> = lazy(() =>
   import('../content/chat').then((m) => ({ default: m.ChatTab })),
 );
 const ReviewTab: ComponentType<TabComponentProps> = lazy(() =>
   import('../content/review').then((m) => ({ default: m.ReviewTab })),
-);
-const TerminalTab: ComponentType<TabComponentProps> = lazy(() =>
-  import('../content/terminal/TerminalTab').then((m) => ({ default: m.TerminalTab })),
 );
 
 /** 内容组件契约：tabId 定位数据，groupId 用于按组隔离的编辑器会话键（TabId+groupId）。 */

@@ -6,7 +6,6 @@ import type { CacheApi } from './cache';
 import type { CapabilityApi } from './capabilities';
 import type { ConsentApi } from './consent';
 import type { LlmApi } from './llm';
-import type { RemoteApi } from './remotes';
 import type { SettingsApi } from './settings';
 export type {
   AgentCapabilityView,
@@ -21,7 +20,6 @@ export type {
   WebSearchEntrySummary,
   WebSearchKeySource,
 } from './capabilities';
-import type { TerminalApi } from './terminal';
 import type { UpdateApi } from './update';
 import type { WindowApi } from './window';
 
@@ -32,7 +30,6 @@ export interface DelaApi {
   /** 拖进窗口的文件在本机磁盘上的路径；没有本地路径时为空字符串。 */
   pathForFile(file: File): string;
   capability: CapabilityApi;
-  readonly terminal: TerminalApi;
   readonly version: string;
   /** NSIS 更新安装完成后启动，供界面提示实际运行的版本。 */
   readonly updatedOnLaunch: boolean;
@@ -44,7 +41,6 @@ export interface DelaApi {
   /** 设置 › 通用 底部的缓存占用与清理。 */
   readonly cache: CacheApi;
   readonly llm: LlmApi;
-  readonly remotes: RemoteApi;
   readonly update: UpdateApi;
 }
 
@@ -82,25 +78,6 @@ export type {
   LlmVerifyResult,
   LlmApi,
 } from './llm';
-
-export type {
-  RemoteChannelState,
-  RemoteChannelStatus,
-  RemoteTask,
-  RemoteApi,
-  RemoteBrowseResult,
-  RemoteConnection,
-  RemoteDirectoryEntry,
-  RemoteDraft,
-  RemotePortEntry,
-  RemotePortTunnel,
-  RemotePortsState,
-  RemotePrepare,
-  RemoteProbe,
-  RemoteSetupProgress,
-  RemoteSetupStep,
-  SshConfigHost,
-} from './remotes';
 
 export type {
   ChatAskInput,

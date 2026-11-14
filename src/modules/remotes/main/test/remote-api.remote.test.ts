@@ -11,7 +11,7 @@ vi.mock('electron', () => ({
   app: { getPath: () => state.root, getAppPath: () => process.cwd(), isPackaged: false },
   shell: { openPath: vi.fn() },
 }));
-vi.mock('../../database', () => ({ getDatabase: () => state.db }));
+vi.mock('../../../../main/database', () => ({ getDatabase: () => state.db }));
 
 import {
   browseRemote,
@@ -25,8 +25,8 @@ import {
   listRemoteDirectory,
   remoteFileIndex,
   writeRemoteFile,
-} from '../../../core/remote/operations';
-import { importRemoteProject, projectLocation } from '../../../modules/workspace';
+} from '../../../../core/remote/operations';
+import { importRemoteProject, projectLocation } from '../../../workspace';
 import { parentOf, targetOf } from '../api';
 
 const host = process.env.DELA_REMOTE_HOST!;

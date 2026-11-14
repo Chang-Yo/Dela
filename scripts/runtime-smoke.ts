@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { locateBash, prependRuntimePath } from '../src/main/terminal/mingit';
+import { locateBash, prependRuntimePath } from '../src/modules/terminal';
 import { locateSsh } from '../src/core/remote/transport';
 import { loadPi } from '../src/core/agent/pi';
 import { closeDomainBridge, domainBridge } from '../src/core/agent/environment';

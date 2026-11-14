@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Globe, RefreshCw, Square } from 'lucide-react';
 import { Button } from '../../ui/button';
-import type { RemotePortsState } from '../../shared/api';
+import type { RemotePortsState } from '../../modules/remotes/contract';
 import { errorText } from './store';
 import { workspaceClient } from '../../modules/workspace/view';
 import { ErrorText } from '../../ui/alert';

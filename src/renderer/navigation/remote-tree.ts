@@ -1,14 +1,15 @@
 // 远程项目在文件树里的懒加载：展开一层拉一层，结果只留在组件状态里——远端是这些条目的唯一事实来源。
 // 子条目 id 带项目身份（remoteNodeId）：只用路径会让两台连接上的同路径目录串成同一个节点。
 import { useEffect, useRef, useState } from 'react';
-import type { RemoteChannelState, RemoteDirectoryEntry, WorkspaceEntry } from '../../shared/api';
-import { remoteNodeId } from '../../shared/remotes';
+import type { WorkspaceEntry } from '../../shared/api';
+import type { RemoteChannelState, RemoteDirectoryEntry } from '../../modules/remotes/contract';
+import { remoteNodeId } from '../../modules/remotes/contract';
 import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
+import { onRemotesEvent, remoteAccent, remotesClient } from '../../modules/remotes/view';
 import type { ExplorerItem } from '../components/explorer';
 import { errorText } from '../workspace/store';
 import { useRemoteActivity } from './remote-activity';
-import { remoteAccent } from './remote-color';
 import { useRemoteConnections } from './remote-connections';
 
 /** 项目根的 path 可能带尾斜杠，远端子路径一律不带：统一后再作缓存与展开键。 */
@@ -103,9 +104,11 @@ export function useRemoteTree(
 
   // helper 通道状态由主进程推整份快照：只提示对得上目的地的项目，别的服务器不打扰这棵树。
   useEffect(() => {
-    const remotes = window.dela?.remotes;
-    if (!hasRemote || !remotes?.onHelperState) return;
-    return remotes.onHelperState(setChannels);
+    if (!hasRemote) return;
+    const stop = onRemotesEvent('helperState', setChannels);
+    // 推送只报变化：订阅后补拉一次当前快照，晚挂上的树也能看到已经不可用的通道。
+    void remotesClient.helperStates().then(setChannels);
+    return stop;
   }, [hasRemote]);
 
   // 收起时清掉失败记录：再次展开重试一次，避免一次网络抖动后目录永久打不开。

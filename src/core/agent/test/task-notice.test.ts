@@ -41,7 +41,7 @@ import { sessionBranch, sessionRunning } from '../session/live';
 import { askSession, cancelRun, shutdownSessions, withdrawQueued } from '../session/run';
 import { preloadPi } from '../session/store';
 import { sessionTurns } from '../session-read';
-import { locateBash } from '../../../main/terminal/mingit';
+import { locateBash } from '../../../modules/terminal';
 import { stopTask } from '../tasks';
 import { provideTestHostPorts } from '../../test/host-mock';
 

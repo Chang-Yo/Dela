@@ -36,9 +36,9 @@ import {
   workspaceModule,
 } from '../src/modules/workspace';
 import { registerSettingsIpc } from '../src/main/settings/ipc';
-import { registerRemoteIpc } from '../src/main/remotes/ipc';
 import { registerModuleIpc } from '../src/app/ipc';
 import { notificationsModule } from '../src/modules/notifications';
+import { remotesModule } from '../src/modules/remotes';
 import { canvasModule } from '../src/sjtu/canvas';
 import { registerUpdateIpc } from '../src/main/update';
 import { registerAgentIpc } from '../src/app/agent-ipc';
@@ -382,8 +382,13 @@ app
     registerBuiltinCapabilities();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     registerSettingsIpc();
-    registerRemoteIpc();
-    registerModuleIpc([workspaceModule, notificationsModule, mailModule, canvasModule]);
+    registerModuleIpc([
+      workspaceModule,
+      remotesModule,
+      notificationsModule,
+      mailModule,
+      canvasModule,
+    ]);
     registerUpdateIpc();
     const win = new BrowserWindow({
       show: false,
