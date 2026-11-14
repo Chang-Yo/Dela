@@ -1,5 +1,4 @@
-import ReactMarkdown, { type Components } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { Streamdown, type Components } from 'streamdown';
 
 /**
  * 条款正文（仓库根目录 docs 下的 Markdown）到界面的映射：隐私页、使用条款页与首次启动的
@@ -47,8 +46,15 @@ const components: Components = {
 
 export function LegalMarkdown({ markdown }: { markdown: string }) {
   return (
-    <ReactMarkdown components={components} remarkPlugins={[remarkGfm]}>
+    // 条款是静态正文：小节间距由元素自己给，压掉 streamdown 默认的块间距与表格控件。
+    <Streamdown
+      className="space-y-0"
+      components={components}
+      controls={false}
+      mode="static"
+      skipHtml
+    >
       {markdown}
-    </ReactMarkdown>
+    </Streamdown>
   );
 }
