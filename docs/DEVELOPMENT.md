@@ -68,7 +68,7 @@
 
 ### 2.3 skills
 
-领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。七个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi。
+领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。七个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；校园相关的四个随 `src/sjtu` 下各自的模块注册，模块不登记时 skill 与命令一并缺席。
 
 设置 › Skills 按来源分三组：内置、本机、每个本地项目。**开关的粒度不一样**——全局 skill 按名称记禁用，项目里的按 `SKILL.md` 绝对路径记，因为同名的可以共存且互不牵连。
 
@@ -152,7 +152,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 ## 5. 课堂视频
 
 - 观看与下载都只受「导航入口」显示设置影响。
-- `main/vsjtu` 复用课表的加密校园会话，使用前探测身份。已连接 Canvas 时，登录失效由令牌经 `/login/session_token` 换取网页会话，在隐藏窗口启动「课堂视频」LTI 工具取得交大视频会话后重试一次；未连接或登录失败时由用户在官方窗口手动登录。在途请求合并，短暂网络失败与 408/5xx 延迟重试一次，格式错误不重试。Cookie 与媒体签名留在 main。
+- `sjtu/classroom` 复用课表的加密校园会话，使用前探测身份。已连接 Canvas 时，登录失效由令牌经 `/login/session_token` 换取网页会话，在隐藏窗口启动「课堂视频」LTI 工具取得交大视频会话后重试一次；未连接或登录失败时由用户在官方窗口手动登录。在途请求合并，短暂网络失败与 408/5xx 延迟重试一次，格式错误不重试。Cookie 与媒体签名留在 main。
 - **官方成功空分页可能返回 `records: null`**：只有第一页、外层 `ok`/`dataOk` 均为真、总数与页数均为数字 0 时才当空数组；其余情况继续报错。后续页不能用零总数清空已取结果。
 - 课程优先取本学期课表，**只有成功解析为空列表时**才补查官网「我的课程」的点播列表并按当前学期筛选。原课表非空不补查、不合并；失败就报错，不用备用来源掩盖。
 - 在线播放走主进程代理，本次运行随机密钥签发 HMAC token，Range/HEAD 语义透传，媒体请求不携带校园 Cookie、不跟随重定向。已开始传输的流中断后**不支持无缝续接**，交由页面重试。
@@ -211,7 +211,7 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 按层约定：
 
 - `src/main/` 按业务域分目录，每域一个入口（大域名 `api.ts`，其余 `index.ts`），IPC 注册在入口或并列的 `ipc.ts`；已迁入 `src/modules` 的模块改用契约，由 `app/ipc.ts` 统一注册（见 §10.1）。大域可以在同目录拆模块，但**入口仍是对外唯一 import 点**。根级只放不属于任何业务域的模块。
-- 主进程不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。终端与交大模块尚未迁移，仍直接引用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
+- 主进程不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。终端与 `src/sjtu` 下的交大模块尚未接入端口，仍直接引用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
 - Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本，`shared` 只做转出。
 - 测试与被测代码同层：main 与 core 用各目录的 `test/` 子目录，renderer 与 shared 与源码并排。core 的测试可以引用 main 的实现做集成夹具。
 - `scripts/` 全部为 TypeScript（Node 原生执行，仓库不再有 `.mjs`），纳入 `pnpm typecheck`。
@@ -228,6 +228,10 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 4. **界面**：组件放在 `view/`，从 `view/index.ts` 导出。用 `createClient(contract, window.dela?.bridge)` 加 `useQuery` 取数，不写 Effect、requestId 和定时器。
 5. **跳转**：页面参数通过 `NavTargets` 接口合并登记。
 6. **测试**：主进程查询对着 `database.ts` 建出的真实表跑，不写影子 schema；UI 不写快照和样式断言。
+
+`ModuleDefinition` 除 `ipc` 外还有三个钩子：`register()` 在窗口创建前登记命令域、Skill 与各类注册口（冒烟测试同样调用）；`start()` 启动后台同步并返回停止函数；`openLink(url)` 让模块在应用内接管外部链接。
+
+交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts` 与 `app/contracts.ts` 例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。
 
 Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导，`shared` 只做转出。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
 
