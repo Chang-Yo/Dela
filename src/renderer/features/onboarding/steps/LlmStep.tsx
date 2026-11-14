@@ -152,6 +152,8 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
               <div className="grid gap-4">
                 <StepSelect
                   disabled={catalog === null}
+                  // 目录到达时重挂载：同一实例里值与选项同时出现，表单内的原生 select 会把值清空。
+                  key={catalog === null ? 'loading' : 'ready'}
                   label="服务商"
                   onValueChange={chooseVendor}
                   placeholder="正在读取厂商目录…"
