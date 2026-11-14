@@ -5,13 +5,16 @@ const consentKey = 'dela.onboarding.consent';
 // 冒烟与自动化由 main 或各 smoke 脚本在页面 URL 上注入该参数，整个引导直接短路。
 export const isSmokeTest = new URLSearchParams(window.location.search).has('smoke-test');
 
+// 开发时用 `VITE_REPLAY_ONBOARDING=1 pnpm dev` 每次启动都完整重播引导，不读也不清本机记录。
+const replayOnboarding = import.meta.env.DEV && import.meta.env.VITE_REPLAY_ONBOARDING === '1';
+
 /**
  * 条款接受记录：首次启动的条款接受页写入。
  * 只记「接受过」——使用条款第 14 节写明变更后继续使用即视为接受，所以这里不比对版本、
  * 也不在条款改版后要求重新接受；用户当时读到的是哪一版，由应用版本与 docs 里的日期回溯。
  */
 export function hasConsent() {
-  return localStorage.getItem(consentKey) === '1';
+  return !replayOnboarding && localStorage.getItem(consentKey) === '1';
 }
 
 export function saveConsent() {
@@ -19,7 +22,7 @@ export function saveConsent() {
 }
 
 export function needsWizard() {
-  return localStorage.getItem(completedKey) !== '1';
+  return replayOnboarding || localStorage.getItem(completedKey) !== '1';
 }
 
 /**
@@ -33,7 +36,7 @@ export function onboardingCompleted() {
 /** 当前向导步骤；新启动不再恢复未完成的引导。 */
 export function readWizardStep(): number | null {
   const raw = localStorage.getItem(stepKey);
-  if (raw === null) return null;
+  if (replayOnboarding || raw === null) return null;
   const value = Number(raw);
   return Number.isInteger(value) && value >= 0 ? value : null;
 }
