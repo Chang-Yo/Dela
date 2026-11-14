@@ -158,7 +158,7 @@ Dela/
 │  │  ├─ remote/              远程执行后端与 helper 通道
 │  │  └─ ports.ts             宿主端口（HostPorts）
 │  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册、宿主端口实现
-│  ├─ modules/                v3：已迁移的通用模块（search、todo、notifications；settings、onboarding 暂只有共用控件）
+│  ├─ modules/                v3：已迁移的通用模块（search、todo、notifications、workspace；settings、onboarding 暂只有共用控件）
 │  ├─ sjtu/                   v3：交大模块（主进程部分），经 register() 向通用模块的注册口登记
 │  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
 │  │  ├─ canvas/              Canvas 课程资料、作业与公告
@@ -175,8 +175,7 @@ Dela/
 │  │  ├─ remotes/             SSH 连接管理、端口转发与文件传输
 │  │  ├─ settings/            设置与模型/网络配置
 │  │  ├─ terminal/            内置终端与 Bash 定位
-│  │  ├─ update/              应用内更新
-│  │  └─ workspace/           工作区文件
+│  │  └─ update/              应用内更新
 │  ├─ preload/                contextBridge 与按契约白名单放行的 bridge
 │  ├─ renderer/               React 界面
 │  │  ├─ app/                 应用外壳、主题与全局状态
@@ -184,7 +183,7 @@ Dela/
 │  │  ├─ content/             聊天、笔记、预览、审阅、终端内容区
 │  │  ├─ navigation/          侧栏与导航
 │  │  ├─ sessions/            会话管理
-│  │  ├─ workspace/           工作区浏览
+│  │  ├─ workspace/           工作区目录树与条目动作（主进程部分已在 modules/workspace）
 │  │  ├─ features/            业务功能页（mail、settings，以及尚未纵切的交大页面）
 │  │  ├─ components/          应用外壳与跨功能组件
 │  │  ├─ lib/                 渲染层工具
