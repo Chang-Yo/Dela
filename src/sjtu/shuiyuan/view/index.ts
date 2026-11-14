@@ -10,12 +10,11 @@ import { ShuiyuanSourceDoc, SnapshotBadge } from './SourceRefCard';
 import { openTopic } from './store';
 import { openPost, SOURCE_PREFIX } from './use-shuiyuan';
 
-export { ShuiyuanIcon } from './shuiyuan-icon';
-
 export const shuiyuanView = defineView({
   pages: {
     shuiyuan: {
       component: ShuiyuanView,
+      nav: { label: '水源(beta)', icon: ShuiyuanIcon },
       open({ topicId, postNumber, postId }) {
         if (topicId !== undefined) openTopic(topicId, postNumber);
         else if (postId !== undefined) openPost(postId);

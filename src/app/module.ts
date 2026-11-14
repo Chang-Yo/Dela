@@ -35,6 +35,8 @@ export type Navigate = (target: NavTarget) => boolean;
 /** 模块的一个页面：组件收到跳转参数 target，每次跳转都是新对象，可据此重置本地状态。 */
 export interface PageDefinition<Page extends keyof NavTargets> {
   component: ComponentType<{ target: NavTargets[Page]; navigate: Navigate }>;
+  /** 侧栏入口，顺序为清单顺序；带入口的页面须能不带参数打开。 */
+  nav?: { label: string; icon: ComponentType<{ className?: string; strokeWidth?: number }> };
   /** navigate 跳到此页时调用，承载随跳转发生的副作用，例如标记已读；后退与前进不调用。 */
   open?(target: NavTargets[Page]): void;
 }

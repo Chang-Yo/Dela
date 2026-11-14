@@ -1,7 +1,15 @@
 // 渲染端清单：外壳据此渲染模块的页面（docs/adr/0019）；去掉一行，对应页面随之消失。
 import type { ComponentType } from 'react';
 import { Mail, Megaphone } from 'lucide-react';
-import type { NavTarget, Navigate, NoticeKind, SourceDefinition, ViewDefinition } from './module';
+import type {
+  NavTarget,
+  NavTargets,
+  Navigate,
+  NoticeKind,
+  PageDefinition,
+  SourceDefinition,
+  ViewDefinition,
+} from './module';
 import { notificationsView } from '../modules/notifications/view';
 import { todoView } from '../modules/todo/view';
 import { classroomView } from '../sjtu/classroom/view';
@@ -32,6 +40,12 @@ interface AnyPage {
 
 const pages = new Map(
   views.flatMap((view) => Object.entries(view.pages) as Array<[string, AnyPage]>),
+);
+
+export const navPages = views.flatMap((view) =>
+  (Object.entries(view.pages) as Array<[keyof NavTargets, PageDefinition<keyof NavTargets>]>)
+    .filter(([, page]) => page.nav)
+    .map(([id, page]) => ({ id, ...page.nav! })),
 );
 
 export function pageOf(page: string): AnyPage | undefined {

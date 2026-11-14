@@ -58,7 +58,7 @@ import {
 import { drawerFromLeft, fadeIn, overlayFade } from '../../ui/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../features/settings/UpdateBadge';
-import { useVisibleNavEntries } from '../navigation/entries';
+import { navEntries, useVisibleNavEntries } from '../navigation/entries';
 import { IconButton } from '../../ui/icon-button';
 import {
   Dialog,
@@ -708,11 +708,7 @@ export function AppShell({
             </IconButton>
           </div>
           <ProjectSessionNav
-            activeBusinessId={
-              view === 'mail' || view === 'timetable' || view === 'classroom' || view === 'shuiyuan'
-                ? view
-                : null
-            }
+            activeBusinessId={navEntries.find((entry) => entry.id === view)?.id ?? null}
             activeProjectId={view === 'workbench' ? projectId : null}
             activeSessionId={view === 'home' ? null : activeSessionId}
             collapsed={!narrow && sidebarCollapsed}

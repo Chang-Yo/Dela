@@ -1,22 +1,22 @@
 // 功能入口的单一真源：侧栏、折叠后标题栏图标与设置 › 通用 的显示开关都读这里。
 // 隐藏只影响导航，能力仍在。首页固定显示，不在此列表。
-import { CalendarDays, FolderOpen, Mail, MonitorPlay } from 'lucide-react';
+// 模块页面的入口来自视图清单（docs/adr/0019）。
+import type { ComponentType } from 'react';
+import { FolderOpen, Mail } from 'lucide-react';
+import type { NavTargets } from '../../app/module';
+import { navPages } from '../../app/views';
 import { usePreferences } from '../app/preferences';
-// oxlint-disable-next-line no-restricted-imports -- 过渡：侧栏入口改由视图清单生成后移除
-import { ShuiyuanIcon } from '../../sjtu/shuiyuan/view';
 
-export type NavEntryId = 'sources' | 'mail' | 'timetable' | 'classroom' | 'shuiyuan';
+export type NavEntryId = 'sources' | keyof NavTargets;
 
 export const navEntries: Array<{
   id: NavEntryId;
   label: string;
-  icon: typeof Mail | typeof ShuiyuanIcon;
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
 }> = [
   { id: 'sources', label: '资料', icon: FolderOpen },
   { id: 'mail', label: '邮箱', icon: Mail },
-  { id: 'timetable', label: '课表', icon: CalendarDays },
-  { id: 'classroom', label: '课堂视频', icon: MonitorPlay },
-  { id: 'shuiyuan', label: '水源(beta)', icon: ShuiyuanIcon },
+  ...navPages,
 ];
 
 export function useVisibleNavEntries() {

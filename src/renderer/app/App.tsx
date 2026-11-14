@@ -244,7 +244,9 @@ export default function App() {
           }}
           onOpenGeneralChat={() => void useNavigationStore.getState().openGeneralChat(false)}
           onNavigateBusiness={(id) =>
-            void useNavigationStore.getState().navigate(id === 'mail' ? id : { page: id })
+            void useNavigationStore
+              .getState()
+              .navigate(id === 'mail' ? id : ({ page: id } as NavTarget))
           }
         >
           <MotionConfig reducedMotion="user">

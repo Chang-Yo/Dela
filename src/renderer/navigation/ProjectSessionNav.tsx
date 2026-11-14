@@ -105,7 +105,7 @@ export function ProjectSessionNav({
   sourcesActive?: boolean;
   activeProjectId?: string | null;
   onNavigateBusiness?: (id: BusinessNavId) => void;
-  activeBusinessId?: BusinessNavId | null;
+  activeBusinessId?: NavEntryId | null;
   collapsed?: boolean;
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
