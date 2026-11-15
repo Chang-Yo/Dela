@@ -15,6 +15,7 @@ import {
   FolderInput,
   FileInput,
   PanelRightOpen,
+  SquareArrowOutUpRight,
   TriangleAlert,
   Upload,
 } from 'lucide-react';
@@ -85,6 +86,7 @@ export function ProjectFileTree({
   canDrop,
   onImportFiles,
   onOpenToSide,
+  onOpenProject,
   onRemoteAction,
   query,
   excludeIds = emptyExcludedIds,
@@ -103,6 +105,7 @@ export function ProjectFileTree({
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
   onOpenToSide?: (id: string) => void;
+  onOpenProject?: (id: string) => void;
   /** 远端条目动作。端口预览是项目级动作，在文件树 header，不进条目菜单。 */
   onRemoteAction?: (action: 'download' | 'open' | 'upload', id: string) => void;
   query: string;
@@ -396,6 +399,12 @@ export function ProjectFileTree({
             <DropdownMenu>
               {menuTrigger(item.name)}
               <DropdownMenuContent align="start" onCloseAutoFocus={afterMenuClose.onCloseAutoFocus}>
+                {item.project && onOpenProject && (
+                  <DropdownMenuItem onSelect={() => onOpenProject(item.id)}>
+                    <SquareArrowOutUpRight />
+                    打开项目
+                  </DropdownMenuItem>
+                )}
                 {/* 远端项目行没有本地目录，main 对它的新建一律拒绝，入口就不必给。 */}
                 {item.container && !item.readOnly && (
                   <>

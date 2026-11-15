@@ -23,6 +23,7 @@ const { api, desktop } = vi.hoisted(() => {
   return { api: handlers, desktop };
 });
 import { useTreeState } from '../../navigation/store';
+import { useNavigationStore } from '../../navigation/view';
 import { useWorkspaceStore } from '../../../../modules/workspace/view';
 
 const mediaStub = () => ({
@@ -30,6 +31,8 @@ const mediaStub = () => ({
   addEventListener: () => {},
   removeEventListener: () => {},
 });
+
+const openProjectOriginal = useNavigationStore.getState().openProject;
 
 let container: HTMLDivElement;
 let root: Root;
@@ -152,6 +155,7 @@ beforeEach(() => {
   for (const name of Object.keys(api)) delete api[name];
   useWorkspaceStore.setState({ workspace, loaded: true, error: null });
   useTreeState.setState({ expanded: [], query: '', selected: null, pendingCreate: null });
+  useNavigationStore.setState({ openProject: openProjectOriginal });
 });
 
 afterEach(async () => {
@@ -433,4 +437,37 @@ it('clicking the blank area targets the project root for new entries', async () 
   act(() => useTreeState.getState().select(localFolder.id));
   await act(async () => blank().click());
   expect(useTreeState.getState().selected).toBe(localProject.id);
+});
+
+const treeRow = (label: string) =>
+  [...document.querySelectorAll('[role="treeitem"]')].find(
+    (el) => el.getAttribute('aria-label') === label,
+  );
+
+// 资料里的项目和文件夹一样先展开；进入项目工作台只走行菜单。
+it('expands a project row in the library tree without opening it', async () => {
+  const openProject = vi.fn();
+  useNavigationStore.setState({ openProject });
+  useWorkspaceStore.setState({
+    workspace: { ...workspace, entries: [...workspace.entries, localFolder] },
+    loaded: true,
+    error: null,
+  });
+  await render(null);
+  expect(treeRow('资料')).toBeUndefined();
+  await act(async () => (treeRow('本地项目') as HTMLElement).click());
+  expect(useTreeState.getState().expanded).toContain(localProject.id);
+  expect(treeRow('资料')).toBeTruthy();
+  expect(openProject).not.toHaveBeenCalled();
+});
+
+it('opens the project from its row menu', async () => {
+  const openProject = vi.fn();
+  useNavigationStore.setState({ openProject });
+  await render(null);
+  await chooseMenu(
+    document.querySelector<HTMLElement>('[aria-label="本地项目 的操作"]')!,
+    '打开项目',
+  );
+  expect(openProject).toHaveBeenCalledWith(localProject.id);
 });

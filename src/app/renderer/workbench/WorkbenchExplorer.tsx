@@ -143,10 +143,7 @@ export function WorkbenchExplorer({
       if (parseRemoteNodeId(id)) onOpenDocument(id);
       return;
     }
-    if (item.kind === 'project') {
-      void useAppNavigation.getState().openProject(id);
-      useMobileDrawer.getState().setDrawer(null);
-    } else if (item.kind === 'folder') {
+    if (item.kind === 'folder' || item.kind === 'project') {
       useTreeState.getState().select(id);
       expand(id, !expanded.includes(id));
     } else onOpenDocument(id);
@@ -154,14 +151,18 @@ export function WorkbenchExplorer({
 
   const openToSide = (key: string) => {
     const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === key);
-    if (item?.kind === 'project') void useAppNavigation.getState().openProject(key);
-    else if (item?.kind === 'folder') selectEntry(key);
+    if (item?.kind === 'folder' || item?.kind === 'project') selectEntry(key);
     else onOpenToSide(key);
   };
 
   /** 双击文件：打开并保留（预览标签转常驻）。 */
   const keepDocument = (key: string) =>
     void useAppNavigation.getState().openDocument(key, { keep: true });
+
+  const openProject = (id: string) => {
+    void useAppNavigation.getState().openProject(id);
+    useMobileDrawer.getState().setDrawer(null);
+  };
 
   const move = (dragId: string, targetId: string | null) =>
     moveEntry(dragId, targetId, rootId, (target) => {
@@ -497,6 +498,7 @@ export function WorkbenchExplorer({
                   onExpand={expand}
                   onImportFiles={rootId ? importDroppedAnywhere : undefined}
                   onMove={remoteRoot ? undefined : move}
+                  onOpenProject={openProject}
                   onOpenToSide={openToSide}
                   onActivate={keepDocument}
                   onRemoteAction={remoteAction}
@@ -539,6 +541,7 @@ export function WorkbenchExplorer({
                       onAction={treeAction}
                       onExpand={expand}
                       onMove={move}
+                      onOpenProject={openProject}
                       onOpenToSide={openToSide}
                       onSelect={selectEntry}
                       query={query}
