@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import type { CalendarEventColor } from '../../../modules/todo/contract';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
+import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
 import { DateTimeStepper, EventColorRow, roundToMinute } from '../../../modules/todo/view';
 import { sheetUp } from '../../../ui/motion';
@@ -103,7 +104,7 @@ export function NewEventDialog({
             value={title}
             variant="ghost"
           />
-          <div className="grid divide-y overflow-hidden rounded-card border border-line">
+          <Card className="grid divide-y">
             <div className="flex min-h-11 items-center gap-2 px-3">
               <span className="w-8 shrink-0 text-xs text-ink-3">开始</span>
               <div className="flex-1">
@@ -128,7 +129,7 @@ export function NewEventDialog({
               />
             </div>
             <EventColorRow className="transition-colors" onColorChange={setColor} value={color} />
-          </div>
+          </Card>
           {error ? <ErrorText>{error}</ErrorText> : null}
           <div className="flex justify-end gap-2">
             <Button onClick={onClose} variant="ghost">

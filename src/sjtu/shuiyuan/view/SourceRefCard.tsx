@@ -3,6 +3,7 @@ import { ExternalLink, MessageSquare, RefreshCw, RotateCw } from 'lucide-react';
 import type { SourceDocumentProps } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
+import { Card } from '../../../ui/card';
 import { cn } from '../../../ui/cn';
 import { showToast } from '../../../ui/toast';
 import type { ShuiyuanSnapshotState } from '../contract';
@@ -111,54 +112,53 @@ export function ShuiyuanSourceDoc({ sourceId, content, navigate, onReload }: Sou
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4 max-md:p-3">
       <div className="mx-auto grid w-full max-w-3xl gap-4">
-        <section
-          aria-label="水源来源"
-          className="flex flex-wrap items-start gap-3 rounded-card border border-line bg-surface p-4"
-        >
-          <ShuiyuanIcon className="size-10 shrink-0 rounded-card" />
-          <div className="grid min-w-0 flex-1 gap-1">
-            <p className="flex items-center gap-1.5 text-xs text-ink-3">
-              <span className="font-medium">水源社区</span>
-              {ref?.categoryName ? (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span>{ref.categoryName}</span>
-                </>
-              ) : null}
-            </p>
-            <p className="line-clamp-2 text-sm font-semibold leading-snug">
-              <ShuiyuanTitle text={ref?.title ?? content.title} />
-            </p>
-            <p className="text-xs text-ink-3">{meta.join(' · ') || '来自水源社区的帖子'}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              disabled={!window.dela}
-              onClick={() => openInShuiyuan(topicId)}
-              size="sm"
-              variant="outline"
-            >
-              <MessageSquare className="size-3.5" />
-              在水源页打开
-            </Button>
-            {content.url ? (
+        <Card asChild className="flex flex-wrap items-start gap-3" variant="surface">
+          <section aria-label="水源来源">
+            <ShuiyuanIcon className="size-10 shrink-0 rounded-card" />
+            <div className="grid min-w-0 flex-1 gap-1">
+              <p className="flex items-center gap-1.5 text-xs text-ink-3">
+                <span className="font-medium">水源社区</span>
+                {ref?.categoryName ? (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>{ref.categoryName}</span>
+                  </>
+                ) : null}
+              </p>
+              <p className="line-clamp-2 text-sm font-semibold leading-snug">
+                <ShuiyuanTitle text={ref?.title ?? content.title} />
+              </p>
+              <p className="text-xs text-ink-3">{meta.join(' · ') || '来自水源社区的帖子'}</p>
+            </div>
+            <div className="flex items-center gap-2">
               <Button
-                onClick={() => void shuiyuanClient.openInBrowser(topicId)}
+                disabled={!window.dela}
+                onClick={() => openInShuiyuan(topicId)}
                 size="sm"
-                variant="ghost"
+                variant="outline"
               >
-                <ExternalLink className="size-3.5" />
-                打开原帖
+                <MessageSquare className="size-3.5" />
+                在水源页打开
               </Button>
-            ) : null}
-          </div>
-          <SnapshotStatus
-            topicId={topicId}
-            snapshot={query.isPending ? undefined : (ref?.snapshot ?? null)}
-            content={content}
-            onReload={onReload}
-          />
-        </section>
+              {content.url ? (
+                <Button
+                  onClick={() => void shuiyuanClient.openInBrowser(topicId)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <ExternalLink className="size-3.5" />
+                  打开原帖
+                </Button>
+              ) : null}
+            </div>
+            <SnapshotStatus
+              topicId={topicId}
+              snapshot={query.isPending ? undefined : (ref?.snapshot ?? null)}
+              content={content}
+              onReload={onReload}
+            />
+          </section>
+        </Card>
         {content.shuiyuanSnapshot ? (
           <ShuiyuanSnapshotBody
             key={`${topicId}:${content.updatedAt}`}

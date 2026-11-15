@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Bookmark, Lock, Mail, MessageSquare, Pin } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { ShuiyuanTopicSummary } from '../contract';
+import { Card } from '../../../ui/card';
 import { cn } from '../../../ui/cn';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { isTopicUnread, openTopic, useShuiyuan } from './store';
@@ -134,7 +135,7 @@ function TopicRow({
 
 function TopicCardSkeleton() {
   return (
-    <div aria-hidden="true" className="rounded-card border border-line bg-surface p-5 max-md:p-4">
+    <Card aria-hidden="true" className="p-5 max-md:p-4" variant="surface">
       <div className="flex items-start gap-3.5">
         <div className="mt-0.5 size-10 shrink-0 animate-pulse rounded-full bg-inset max-md:size-8" />
         <div className="flex min-w-0 flex-1 flex-col gap-3 py-0.5">
@@ -142,7 +143,7 @@ function TopicCardSkeleton() {
           <div className="h-3 w-1/3 animate-pulse rounded-chip bg-inset" />
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
