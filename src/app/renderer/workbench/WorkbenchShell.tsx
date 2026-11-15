@@ -60,14 +60,81 @@ function tabDocumentKey(tabId: TabId | null): string | null {
   return null;
 }
 
-/** 空组空态的「新建对话」：与侧栏同一入口，按当前池落位（项目内落焦点组，通用池分屏）。
- *  模块级函数引用稳定，不破坏 SplitNode/TabGroup 的 memo 比较。 */
 const flattenReferences = (results: Array<{ data?: Array<{ path: string; title: string }> }>) =>
   results.flatMap((result) => result.data ?? []);
 
+/** 空组空态的「新建对话」：与侧栏同一入口，按当前池落位（项目内落焦点组，通用池分屏）。 */
 function newChatInCurrentPool() {
   void useNavigationStore.getState().newChat(useWorkbenchLayout.getState().projectId);
 }
+
+// 注入给标签的 hook 定义在模块级：组件体里的 hook 函数表达式会让编译器放弃整个 WorkbenchShell。
+function useReferenceEntries(projectId: string | null, cwd: string | null) {
+  const entries = useWorkspaceStore((state) => state.workspace.entries);
+  const remote = entries.find((item) => item.id === projectId)?.remoteId;
+  const remoteEntries = useRemoteReferences(remote ? projectId : null);
+  const localFiles = useLocalReferences(remote ? null : cwd);
+  const courseFiles = useQueries({
+    queries: referenceQueries.map((query) => ({
+      ...query,
+      enabled: projectId === null && !remote,
+      staleTime: 30_000,
+    })),
+    combine: flattenReferences,
+  });
+  return referenceEntryCandidates(
+    [...new Map([...entries, ...localFiles].map((item) => [item.id, item])).values()],
+    cwd,
+    projectId,
+    remote,
+    remoteEntries,
+    courseFiles,
+  );
+}
+
+// @ 引用候选即 cwd 下的文件路径；通用池另并入模块登记的候选，如已下载的课件。
+const referenceSource: ReferenceSource = {
+  useEntries: useReferenceEntries,
+  // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
+  flushReference: async (key) => {
+    if (!(await useNoteDrafts.getState().save(key)))
+      throw new Error('引用的笔记尚未保存成功，请先保存或移除该引用');
+  },
+};
+
+function useNotePath(entryId: string) {
+  const entries = useWorkspaceStore((state) => state.workspace.entries);
+  return ancestorChainOf(entries, entryId).flatMap((id) => {
+    const entry = entries.find((entry) => entry.id === id);
+    return entry ? [entry.name] : [];
+  });
+}
+
+function useNoteDraft(entryId: string) {
+  return useNoteDrafts((state) => state.drafts[entryId]);
+}
+
+const draftBase: Omit<NoteDraftSource, 'saveAsNewNote'> = {
+  usePath: useNotePath,
+  useDraft: useNoteDraft,
+  resolveImage: (entryId, src) => {
+    if (!isRelativeAssetPath(src)) return src;
+    const remote = parseRemoteNodeId(entryId);
+    if (!remote) return noteAssetUrl(entryId, decodeAssetPath(src));
+    const root =
+      useWorkspaceStore.getState().workspace.entries.find((e) => e.id === remote.projectId)?.path ??
+      '/';
+    return remoteAssetUrl(remote.projectId, root, remote.path, src);
+  },
+  acquire: (key, force) => useNoteDrafts.getState().acquire(key, force),
+  release: (key) => useNoteDrafts.getState().release(key),
+  edit: (key, text) => {
+    // 改过的文件不再是「只是看看」：预览标签转常驻，不会被下一次单击替换掉。
+    useWorkbenchLayout.getState().keepTab(`note:${key}`);
+    useNoteDrafts.getState().edit(key, text);
+  },
+  save: (key) => useNoteDrafts.getState().save(key),
+};
 
 export function WorkbenchShell({ home }: { home?: boolean }) {
   const projectId = useNavigationStore((s) => (home ? null : s.projectId));
@@ -130,37 +197,6 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
     void useWorkbenchLayout.getState().init(projectId);
   }, [loaded, projectId]);
 
-  const referenceSource: ReferenceSource = {
-    // @ 引用候选即 cwd 下的文件路径；通用池另并入模块登记的候选，如已下载的课件。
-    useEntries: (projectId, cwd) => {
-      const entries = useWorkspaceStore((state) => state.workspace.entries);
-      const remote = entries.find((item) => item.id === projectId)?.remoteId;
-      const remoteEntries = useRemoteReferences(remote ? projectId : null);
-      const localFiles = useLocalReferences(remote ? null : cwd);
-      const courseFiles = useQueries({
-        queries: referenceQueries.map((query) => ({
-          ...query,
-          enabled: projectId === null && !remote,
-          staleTime: 30_000,
-        })),
-        combine: flattenReferences,
-      });
-      return referenceEntryCandidates(
-        [...new Map([...entries, ...localFiles].map((item) => [item.id, item])).values()],
-        cwd,
-        projectId,
-        remote,
-        remoteEntries,
-        courseFiles,
-      );
-    },
-    // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
-    flushReference: async (key) => {
-      if (!(await useNoteDrafts.getState().save(key)))
-        throw new Error('引用的笔记尚未保存成功，请先保存或移除该引用');
-    },
-  };
-
   const chatSource: ChatTabSource = {
     referenceSource,
     mailDialog: MailDraftDialog,
@@ -183,31 +219,7 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
   };
 
   const draftSource: NoteDraftSource = {
-    usePath: (entryId) => {
-      const entries = useWorkspaceStore((state) => state.workspace.entries);
-      return ancestorChainOf(entries, entryId).flatMap((id) => {
-        const entry = entries.find((entry) => entry.id === id);
-        return entry ? [entry.name] : [];
-      });
-    },
-    useDraft: (entryId) => useNoteDrafts((state) => state.drafts[entryId]),
-    resolveImage: (entryId, src) => {
-      if (!isRelativeAssetPath(src)) return src;
-      const remote = parseRemoteNodeId(entryId);
-      if (!remote) return noteAssetUrl(entryId, decodeAssetPath(src));
-      const root =
-        useWorkspaceStore.getState().workspace.entries.find((e) => e.id === remote.projectId)
-          ?.path ?? '/';
-      return remoteAssetUrl(remote.projectId, root, remote.path, src);
-    },
-    acquire: (key, force) => useNoteDrafts.getState().acquire(key, force),
-    release: (key) => useNoteDrafts.getState().release(key),
-    edit: (key, text) => {
-      // 改过的文件不再是「只是看看」：预览标签转常驻，不会被下一次单击替换掉。
-      useWorkbenchLayout.getState().keepTab(`note:${key}`);
-      useNoteDrafts.getState().edit(key, text);
-    },
-    save: (key) => useNoteDrafts.getState().save(key),
+    ...draftBase,
     saveAsNewNote: (entryId, text) =>
       openDialog(
         'note',
