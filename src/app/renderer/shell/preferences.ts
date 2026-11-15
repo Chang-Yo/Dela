@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { z } from 'zod';
-import { useResizerWidth } from '../../ui/resizer';
+import { useResizerWidth } from '../../../ui/resizer';
 
 export type ProjectNavPreference = { pinned?: boolean; section?: string };
 

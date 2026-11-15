@@ -7,7 +7,7 @@ import {
   type GroupNode,
   type LayoutNode,
   type WorkbenchLayout,
-} from '../../modules/workspace/contract';
+} from '../../../modules/workspace/contract';
 
 export type {
   GroupNode,
@@ -17,13 +17,13 @@ export type {
   TabId,
   TabKind,
   WorkbenchLayout,
-} from '../../modules/workspace/contract';
+} from '../../../modules/workspace/contract';
 export {
   maxLayoutNodes,
   maxTabsPerGroup,
   ratioMax,
   ratioMin,
-} from '../../modules/workspace/contract';
+} from '../../../modules/workspace/contract';
 
 /** 固定区恒在未固定区之前（VS Code 语义）：载入时归一，过滤失效引用，容忍手工改动。 */
 function normalizeGroup(group: GroupNode): GroupNode {

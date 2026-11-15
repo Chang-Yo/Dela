@@ -2,19 +2,19 @@
 // 状态都在主进程（清单 + 隧道注册表），面板每次打开/动作后拉一次快照，自己不记隧道。
 import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Globe, RefreshCw, Square } from 'lucide-react';
-import { Button } from '../../ui/button';
-import type { RemotePortsState } from '../../modules/remotes/contract';
-import { workspaceClient } from '../../modules/workspace/view';
-import { ErrorText } from '../../ui/alert';
-import { Spinner } from '../../ui/spinner';
+import { Button } from '../../../ui/button';
+import type { RemotePortsState } from '../../../modules/remotes/contract';
+import { workspaceClient } from '../../../modules/workspace/view';
+import { ErrorText } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '../../ui/dialog';
-import { errorMessage } from '../../core/protocol/contract';
+} from '../../../ui/dialog';
+import { errorMessage } from '../../../core/protocol/contract';
 
 export function RemotePortsDialog({
   projectId,

@@ -4,18 +4,24 @@
 import { useState } from 'react';
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Settings2 } from 'lucide-react';
-import { Button } from '../../../ui/button';
-import { Input } from '../../../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
-import { cn } from '../../../ui/cn';
-import type { WorkspaceEntry } from '../../../modules/workspace/contract';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../../ui/select';
+import { cn } from '../../../../ui/cn';
+import type { WorkspaceEntry } from '../../../../modules/workspace/contract';
 import type {
   RemoteConnection,
   RemoteDraft,
   SshConfigHost,
-} from '../../../modules/remotes/contract';
-import { usePreferences } from '../../app/preferences';
-import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
+} from '../../../../modules/remotes/contract';
+import { usePreferences } from '../../shell/preferences';
+import { workspaceClient, useWorkspaceStore } from '../../../../modules/workspace/view';
 import {
   ConnectionForm,
   DirectoryBrowser,
@@ -28,14 +34,14 @@ import {
   tildePath,
   useRemoteChannels,
   useRemoteState,
-} from '../../../modules/remotes/view';
+} from '../../../../modules/remotes/view';
 import { useNavigationStore } from '../../navigation/view';
 import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
-import { ErrorText } from '../../../ui/alert';
-import { Spinner } from '../../../ui/spinner';
-import { Dialog, DialogContent, DialogTitle } from '../../../ui/dialog';
-import { Field } from '../../../ui/field';
-import { errorMessage } from '../../../core/protocol/contract';
+import { ErrorText } from '../../../../ui/alert';
+import { Spinner } from '../../../../ui/spinner';
+import { Dialog, DialogContent, DialogTitle } from '../../../../ui/dialog';
+import { Field } from '../../../../ui/field';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 /** 下拉框的值：已保存连接用 id，ssh config 候选用 `config:<别名>`，新建用哨兵。 */
 const NEW_CONNECTION = '__new__';

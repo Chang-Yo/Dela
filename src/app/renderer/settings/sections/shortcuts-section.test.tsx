@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi } from '../../../../preload/api';
+import type { DelaApi } from '../../../preload/api';
 
 // 契约客户端在模块加载时取 bridge，须先于导入页面装好。
 const { invoke } = vi.hoisted(() => {
@@ -13,7 +13,7 @@ const { invoke } = vi.hoisted(() => {
   return { invoke };
 });
 import { defaultKeybindings } from '../../../../modules/settings/contract';
-import { useShortcuts } from '../../../app/shortcuts';
+import { useShortcuts } from '../../shell/shortcuts';
 import { ShortcutsSection } from './ShortcutsSection';
 
 let container: HTMLDivElement;

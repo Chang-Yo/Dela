@@ -1,5 +1,5 @@
 // 侧栏与标题栏共用样式（beautiful-ui token）。
-import { cn } from '../../ui/cn';
+import { cn } from '../../../ui/cn';
 
 export const navRow = (active: boolean) =>
   cn(

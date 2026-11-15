@@ -1,8 +1,8 @@
 // 连接悬浮提示的内容：这个项目连的是哪台机器、远端根目录在哪、此刻在不在连。
 // 触发与定位由调用方用 ui/tooltip 包住（项目行、资源管理器标题各一处），
 // 这里只管内容，保证两处说法一致。
-import type { WorkspaceEntry } from '../../modules/workspace/contract';
-import type { RemoteConnection } from '../../modules/remotes/contract';
+import type { WorkspaceEntry } from '../../../modules/workspace/contract';
+import type { RemoteConnection } from '../../../modules/remotes/contract';
 import type { RemoteActivity } from './remote-activity';
 import { remoteDestination } from './remote-connections';
 

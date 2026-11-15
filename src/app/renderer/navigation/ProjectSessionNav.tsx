@@ -1,8 +1,8 @@
 // 项目会话导航：顶部功能入口，中部按项目分组的会话历史（前 3 条 + 「显示更多」）。
 // 会话数据与运行徽标由接入方注入（本组件不 import sessions/）；通用池会话不入项目树。
 import { useEffect, useState } from 'react';
-import { Button } from '../../ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
+import { Button } from '../../../ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { DropdownMenu as Menu } from 'radix-ui';
 import {
   ChevronRight,
@@ -27,35 +27,35 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../../ui/dropdown-menu';
+} from '../../../ui/dropdown-menu';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
-import { cn } from '../../ui/cn';
-import type { WorkspaceEntry } from '../../modules/workspace/contract';
-import { remoteAccent } from '../../modules/remotes/view';
+import { cn } from '../../../ui/cn';
+import type { WorkspaceEntry } from '../../../modules/workspace/contract';
+import { remoteAccent } from '../../../modules/remotes/view';
 import { useVisibleNavEntries, type NavEntryId } from './entries';
-import { showToast } from '../../ui/toast';
+import { showToast } from '../../../ui/toast';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
-import { usePreferences } from '../app/preferences';
+import { usePreferences } from '../shell/preferences';
 import { useNavigationStore } from './store';
-import { refreshSessionLists, chatClient } from '../../modules/chat/view';
+import { refreshSessionLists, chatClient } from '../../../modules/chat/view';
 import { closeTabEverywhere } from '../workbench/layout-store';
-import { Input } from '../../ui/input';
+import { Input } from '../../../ui/input';
 import { purgeRemovedEntries } from '../workbench/removed-cleanup';
-import { menuItem, menuPanel } from '../../ui/menu-styles';
+import { menuItem, menuPanel } from '../../../ui/menu-styles';
 import { navIcon, navRow, navSectionTitle, rowActions } from './nav-styles';
 import { useRemoteActivity } from './remote-activity';
 import { RemoteConnectionTip } from './remote-connection-tip';
 import { useRemoteConnections } from './remote-connections';
-import { IconButton } from '../../ui/icon-button';
-import { workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
+import { IconButton } from '../../../ui/icon-button';
+import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogTitle,
-} from '../../ui/dialog';
-import { errorMessage } from '../../core/protocol/contract';
+} from '../../../ui/dialog';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源管理器';
 

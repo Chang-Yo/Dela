@@ -79,7 +79,7 @@ jobs:
               - 'src/core/remote/**'
               - 'src/main/documents/**'
               - 'src/main/update/**'
-              - 'src/preload/**'
+              - 'src/app/preload/**'
               - 'vendor/bin/*'
             windows:
               - 'vendor/openssh/**'

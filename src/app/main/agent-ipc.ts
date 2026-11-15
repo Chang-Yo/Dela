@@ -1,7 +1,7 @@
 // agent 域入口：注册 Agent 协议与桌面私有的 llm、capabilities 契约；会话的桌面操作在 modules/chat。
 import { ipcMain } from 'electron';
 import { z } from 'zod';
-import { checkWorkspaceSender } from '../main/ipc';
+import { checkWorkspaceSender } from '../../main/ipc';
 import {
   listLlmProviders,
   removeLlmProvider,
@@ -9,21 +9,21 @@ import {
   setLlmProviderEnabled,
   verifyLlm,
   verifyLlmModel,
-} from '../core/agent/providers';
-import { agentContract } from '../core/protocol/agent';
-import { capabilitiesContract } from '../core/protocol/capabilities';
-import { channelsOf, implement } from '../core/protocol/contract';
-import { llmContract } from '../core/protocol/llm';
-import { agentProtocol } from '../core/agent/protocol';
+} from '../../core/agent/providers';
+import { agentContract } from '../../core/protocol/agent';
+import { capabilitiesContract } from '../../core/protocol/capabilities';
+import { channelsOf, implement } from '../../core/protocol/contract';
+import { llmContract } from '../../core/protocol/llm';
+import { agentProtocol } from '../../core/agent/protocol';
 import {
   hasLiveSessions as hasLiveMainSessions,
   invalidateSessions,
   shutdownSessions as shutdownMainSessions,
-} from '../core/agent/session/run';
-import { preloadPi } from '../core/agent/session/store';
-import { emit, hostPorts } from '../core/ports';
-import { hasSidechats, shutdownSidechats } from '../core/agent/sidechat';
-import { gcChatMedia } from '../core/agent/media';
+} from '../../core/agent/session/run';
+import { preloadPi } from '../../core/agent/session/store';
+import { emit, hostPorts } from '../../core/ports';
+import { hasSidechats, shutdownSidechats } from '../../core/agent/sidechat';
+import { gcChatMedia } from '../../core/agent/media';
 import {
   findSkill,
   listSkills,
@@ -32,15 +32,15 @@ import {
   setGlobalSkillEnabled,
   setSkillEnabled,
   skillDirectory,
-} from '../core/capabilities/skills';
+} from '../../core/capabilities/skills';
 import {
   DOCUMENT_SKILL,
   cancelDocumentInstallation,
   installDocumentDependency,
-} from '../main/documents/runtime';
-import { remoteById, targetOf } from '../modules/remotes';
-import { uploadSkillToRemote } from '../core/remote/context';
-import { remoteProjectOf } from '../modules/workspace';
+} from '../../main/documents/runtime';
+import { remoteById, targetOf } from '../../modules/remotes';
+import { uploadSkillToRemote } from '../../core/remote/context';
+import { remoteProjectOf } from '../../modules/workspace';
 import {
   addMcpServer,
   listMcpServers,
@@ -49,14 +49,14 @@ import {
   refreshMcpServer,
   removeMcpServer,
   updateMcpServer,
-} from '../core/capabilities/mcp';
+} from '../../core/capabilities/mcp';
 import {
   domainTools,
   listBuiltinCapabilities,
   setBuiltinCapabilities,
-} from '../core/capabilities/tools';
-import { readSubagentLimit, setSubagentLimit } from '../core/agent/subagent';
-import { llmCatalog, loadPi } from '../core/agent/pi';
+} from '../../core/capabilities/tools';
+import { readSubagentLimit, setSubagentLimit } from '../../core/agent/subagent';
+import { llmCatalog, loadPi } from '../../core/agent/pi';
 import {
   listWebSearchEntries,
   listWebSearchKeySources,
@@ -66,9 +66,9 @@ import {
   saveWebSearchEntry,
   selectWebSearchEntry,
   webSearchEntryInputSchema,
-} from '../core/capabilities/web-search';
+} from '../../core/capabilities/web-search';
 
-export { closeDomainBridge, domainBridge } from '../core/agent/environment';
+export { closeDomainBridge, domainBridge } from '../../core/agent/environment';
 export { gcChatMedia, hasLiveSessions, invalidateSessions, loadPi, shutdownSessions };
 
 function hasLiveSessions() {

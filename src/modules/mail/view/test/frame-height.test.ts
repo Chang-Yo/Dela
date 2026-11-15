@@ -6,7 +6,7 @@ import { expect, it, vi } from 'vitest';
 import { injectFrameHeightReport } from '../frame-height';
 
 const appHtml = readFileSync(
-  resolve(import.meta.dirname, '../../../../renderer/index.html'),
+  resolve(import.meta.dirname, '../../../../app/renderer/index.html'),
   'utf8',
 );
 

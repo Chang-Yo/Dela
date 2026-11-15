@@ -1,7 +1,7 @@
 import { Switch } from '../../../../ui/switch';
 import { SettingRow, SettingsGroup } from '../../../../modules/settings/view';
-import { usePreferences } from '../../../app/preferences';
-import { navEntries } from '../../../navigation/entries';
+import { usePreferences } from '../../shell/preferences';
+import { navEntries } from '../../navigation/entries';
 
 export function NavEntriesGroup() {
   const hiddenEntries = usePreferences((state) => state.hiddenNavEntries);

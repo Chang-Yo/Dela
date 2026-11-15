@@ -1,7 +1,7 @@
 // 捕获子树渲染期异常并降级为静态提示，避免单个标签/视图崩溃带走整个应用，不做错误上报。
 // 包渲染层（TabGroup 标签内容、App 视图切换层）与 main.tsx 根部（兜住 AppShell/侧栏）。
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { Button } from '../../ui/button';
+import { Button } from '../../../ui/button';
 
 interface ErrorBoundaryProps {
   children: ReactNode;

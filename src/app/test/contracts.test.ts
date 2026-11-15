@@ -8,7 +8,7 @@ import { agentContract } from '../../core/protocol/agent';
 import { capabilitiesContract } from '../../core/protocol/capabilities';
 import { channelsOf } from '../../core/protocol/contract';
 import { llmContract } from '../../core/protocol/llm';
-import { bridge } from '../../preload/bridge';
+import { bridge } from '../preload/bridge';
 import { contracts } from '../contracts';
 import { modules } from '../modules';
 

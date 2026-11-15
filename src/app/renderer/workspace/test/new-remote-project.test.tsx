@@ -6,12 +6,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi } from '../../../preload/api';
-import type { WorkspaceEntry, WorkspaceState } from '../../../modules/workspace/contract';
+import type { WorkspaceEntry, WorkspaceState } from '../../../../modules/workspace/contract';
 import type {
   RemoteBrowseResult,
   RemoteConnection,
   RemoteSetupProgress,
-} from '../../../modules/remotes/contract';
+} from '../../../../modules/remotes/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
 const { workspaceApi, remotesApi, listeners, bridge } = vi.hoisted(() => {
@@ -35,12 +35,12 @@ const { workspaceApi, remotesApi, listeners, bridge } = vi.hoisted(() => {
   return { workspaceApi: handlers, remotesApi: remotes, listeners, bridge };
 });
 import { NewRemoteProjectDialog } from '../remote/NewRemoteProjectDialog';
-import { usePreferences } from '../../app/preferences';
-import { useRemoteState } from '../../../modules/remotes/view';
-import { useWorkspaceStore } from '../../../modules/workspace/view';
-import { showToast } from '../../../ui/toast';
+import { usePreferences } from '../../shell/preferences';
+import { useRemoteState } from '../../../../modules/remotes/view';
+import { useWorkspaceStore } from '../../../../modules/workspace/view';
+import { showToast } from '../../../../ui/toast';
 
-vi.mock('../../../ui/toast', () => ({ showToast: vi.fn() }));
+vi.mock('../../../../ui/toast', () => ({ showToast: vi.fn() }));
 
 let container: HTMLDivElement;
 let root: Root;

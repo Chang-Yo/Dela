@@ -31,7 +31,7 @@ const rules: Record<string, RegExp> = {
   ),
 };
 // token 定义本身，以及给 streamdown 的 shadcn 兼容名。
-const tokenFiles = new Set(['src/ui/tokens.css', 'src/renderer/styles/globals.css']);
+const tokenFiles = new Set(['src/ui/tokens.css', 'src/app/renderer/styles/globals.css']);
 
 function* sourceFiles(dir: string): Generator<string> {
   for (const name of readdirSync(dir)) {
@@ -60,14 +60,14 @@ const viteRequire = createRequire(
 const { compile } = viteRequire('@tailwindcss/node') as typeof import('@tailwindcss/node');
 const { Scanner } = viteRequire('@tailwindcss/oxide') as typeof import('@tailwindcss/oxide');
 
-const entry = resolve(root, 'src/renderer/styles/globals.css');
+const entry = resolve(root, 'src/app/renderer/styles/globals.css');
 const compiler = await compile(readFileSync(entry, 'utf8'), {
   base: dirname(entry),
   onDependency: () => {},
 });
 const candidates = new Scanner({
   sources: [
-    { base: resolve(root, 'src/renderer'), pattern: '**/*', negated: false },
+    { base: resolve(root, 'src/app/renderer'), pattern: '**/*', negated: false },
     ...compiler.sources,
   ],
 }).scan();

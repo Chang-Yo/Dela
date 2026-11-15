@@ -3,12 +3,12 @@
 import type { ComponentType } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { Eye, FileText, GitCompare, MessageSquare, SquareTerminal } from 'lucide-react';
-import type { TabId, TabKind } from '../../modules/workspace/contract';
-import { ChatTab, ReviewTab, reviewTabTitle, useSessions } from '../../modules/chat/view';
+import type { TabId, TabKind } from '../../../modules/workspace/contract';
+import { ChatTab, ReviewTab, reviewTabTitle, useSessions } from '../../../modules/chat/view';
 import { titleOf as entryTitleOf } from '../workspace/entry-dialogs';
-import { NoteTab } from '../../modules/note/view';
-import { PreviewTab } from '../../modules/preview/view';
-import { TerminalTab } from '../../modules/terminal/view';
+import { NoteTab } from '../../../modules/note/view';
+import { PreviewTab } from '../../../modules/preview/view';
+import { TerminalTab } from '../../../modules/terminal/view';
 
 // 聊天、审阅与终端由模块出口懒加载（TabGroup 渲染处有 Suspense 骨架兜底），笔记与预览随外壳静态加载。
 

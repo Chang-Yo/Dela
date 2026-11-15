@@ -1,5 +1,5 @@
 import { contextBridge, webUtils } from 'electron';
-import { version } from '../../package.json';
+import { version } from '../../../package.json';
 import type { DelaApi } from './api';
 import { bridge } from './bridge';
 import { windowApi } from './window';

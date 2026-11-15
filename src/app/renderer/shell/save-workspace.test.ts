@@ -10,14 +10,14 @@ const invoke = vi.hoisted(() => {
   } as unknown as NonNullable<typeof window.dela>;
   return invoke;
 });
-import { registerComposeSave } from '../../modules/mail/view';
-import { useNoteDrafts } from '../../modules/note/view';
-import { deferInstall, runUpdateAction, useUpdateState } from '../../modules/update/view';
-import { chatImageToken } from '../../core/protocol/chat-input';
-import { registerChatAttachmentCheck, useChatDrafts, useRuns } from '../../modules/chat/view';
+import { registerComposeSave } from '../../../modules/mail/view';
+import { useNoteDrafts } from '../../../modules/note/view';
+import { deferInstall, runUpdateAction, useUpdateState } from '../../../modules/update/view';
+import { chatImageToken } from '../../../core/protocol/chat-input';
+import { registerChatAttachmentCheck, useChatDrafts, useRuns } from '../../../modules/chat/view';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { saveWorkspace } from './save-workspace';
-import { dismissToast, toasts } from '../../ui/toast';
+import { dismissToast, toasts } from '../../../ui/toast';
 
 const originalSave = useNoteDrafts.getState().save;
 let install: Mock<() => Promise<unknown>>;

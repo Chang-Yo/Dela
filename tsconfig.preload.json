@@ -6,7 +6,7 @@
     "resolveJsonModule": true
   },
   "include": [
-    "src/preload/**/*.ts",
+    "src/app/preload/**/*.ts",
     "src/core/protocol/**/*.ts",
     "src/app/contracts.ts",
     "src/modules/*/contract.ts"

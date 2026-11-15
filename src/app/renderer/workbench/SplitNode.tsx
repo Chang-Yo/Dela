@@ -1,9 +1,9 @@
 // 分割节点：递归渲染纵横分屏，组间比例经 Resizer 拖拽调整；store 只产生二元 split
 // （三屏经嵌套），渲染兼容 ≥2 子节点。
 import { memo, useLayoutEffect, useRef, useState } from 'react';
-import type { LayoutNode } from '../../modules/workspace/contract';
-import { Resizer } from '../../ui/resizer';
-import { cn } from '../../ui/cn';
+import type { LayoutNode } from '../../../modules/workspace/contract';
+import { Resizer } from '../../../ui/resizer';
+import { cn } from '../../../ui/cn';
 import { useWorkbenchLayout } from './layout-store';
 import { TabGroup } from './TabGroup';
 

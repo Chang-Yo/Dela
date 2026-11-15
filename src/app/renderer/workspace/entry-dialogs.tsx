@@ -3,20 +3,20 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { Cloud, FolderOpen } from 'lucide-react';
-import { sourceTitle } from '../../app/views';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import type { WorkspaceEntry } from '../../modules/workspace/contract';
-import { parseRemoteNodeId } from '../../modules/remotes/contract';
-import { workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
-import { useNoteDrafts } from '../../modules/note/view';
+import { sourceTitle } from '../../views';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
+import type { WorkspaceEntry } from '../../../modules/workspace/contract';
+import { parseRemoteNodeId } from '../../../modules/remotes/contract';
+import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
+import { useNoteDrafts } from '../../../modules/note/view';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';
-import { ErrorText } from '../../ui/alert';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../ui/dialog';
-import { Field } from '../../ui/field';
-import { errorMessage } from '../../core/protocol/contract';
+import { ErrorText } from '../../../ui/alert';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../ui/dialog';
+import { Field } from '../../../ui/field';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';

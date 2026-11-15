@@ -13,6 +13,7 @@
   "exclude": [
     "src/main/**/test/fixtures/**",
     "src/app/views.ts",
+    "src/app/renderer/**",
     "src/modules/*/view/**",
     "src/sjtu/*/view/**"
   ]

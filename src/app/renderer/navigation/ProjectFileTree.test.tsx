@@ -5,8 +5,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi } from '../../preload/api';
-import type { WorkspaceEntry } from '../../modules/workspace/contract';
-import type { RemoteChannelState, RemoteDirectoryEntry } from '../../modules/remotes/contract';
+import type { WorkspaceEntry } from '../../../modules/workspace/contract';
+import type { RemoteChannelState, RemoteDirectoryEntry } from '../../../modules/remotes/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入视图装好。
 const workspace = vi.hoisted(() => {
@@ -27,9 +27,9 @@ const workspace = vi.hoisted(() => {
   return { handlers, remotes, listeners, bridge };
 });
 import { CONNECT_HINT_DELAY_MS, ProjectFileTree } from './ProjectFileTree';
-import { remoteAccent, useRemoteState } from '../../modules/remotes/view';
+import { remoteAccent, useRemoteState } from '../../../modules/remotes/view';
 import { useRemoteActivity } from './remote-activity';
-import { useWorkspaceStore } from '../../modules/workspace/view';
+import { useWorkspaceStore } from '../../../modules/workspace/view';
 
 let container: HTMLDivElement;
 let root: Root;

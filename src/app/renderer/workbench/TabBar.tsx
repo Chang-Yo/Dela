@@ -3,21 +3,21 @@
 import { memo, useEffect, useRef, type DragEvent, type KeyboardEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
-import type { GroupNode, TabId } from '../../modules/workspace/contract';
+import type { GroupNode, TabId } from '../../../modules/workspace/contract';
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from '../../ui/context-menu';
-import { cn } from '../../ui/cn';
-import { useHorizontalWheel } from '../../ui/use-horizontal-wheel';
+} from '../../../ui/context-menu';
+import { cn } from '../../../ui/cn';
+import { useHorizontalWheel } from '../../../ui/use-horizontal-wheel';
 import { useWorkbenchLayout } from './layout-store';
 import { iconOf, titleOf } from './registry';
 import { ExplorerRevealButton } from './explorer-state';
 import { encodeTabDrag, hasTabDrag, parseTabDrag, setCurrentTabDrag, tabDragType } from './tab-dnd';
 import { GroupToolbar } from './GroupToolbar';
-import { IconButton } from '../../ui/icon-button';
+import { IconButton } from '../../../ui/icon-button';
 
 export const TabBar = memo(function TabBar({
   group,

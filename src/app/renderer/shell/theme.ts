@@ -7,8 +7,8 @@ import {
   fontSizeMin,
   type ThemePreference,
   type ZoomPreference,
-} from '../../modules/settings/contract';
-import { settingsClient } from '../../modules/settings/view';
+} from '../../../modules/settings/contract';
+import { settingsClient } from '../../../modules/settings/view';
 
 const themeStorageKey = 'dela.theme';
 const fontSizeStorageKey = 'dela.font-size';

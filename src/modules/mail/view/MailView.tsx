@@ -23,7 +23,7 @@ import { Resizer } from '../../../ui/resizer';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { useMediaQuery } from '../../../ui/use-media-query';
-import { useMobileDrawer } from '../../../renderer/lib/mobile-drawer';
+import { useMobileDrawer } from '../../../app/renderer/shell/mobile-drawer';
 import { useMailPreferences } from './store';
 import { draftsKey, mailBoxKey, mailClient, mailStateKey, useMailState } from './use-mail';
 import { showToast } from '../../../ui/toast';

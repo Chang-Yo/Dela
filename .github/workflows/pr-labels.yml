@@ -65,11 +65,11 @@ jobs:
               },
               frontend: {
                 color: '1D76DB',
-                description: '涉及 src/renderer 或 .tsx 的前端改动',
+                description: '涉及 src/app/renderer 或 .tsx 的前端改动',
               },
               backend: {
                 color: '5319E7',
-                description: '涉及 src/main、src/preload 或 helper 的后端改动',
+                description: '涉及 src/main、src/app/preload 或 helper 的后端改动',
               },
               bug: {
                 color: 'D73A4A',
@@ -139,10 +139,10 @@ jobs:
 
             const isDocs = (name) => name.startsWith('docs/') || /\.(?:md|mdx)$/i.test(name)
             const isFrontend = (name) =>
-              name.startsWith('src/renderer/') || name.endsWith('.tsx')
+              name.startsWith('src/app/renderer/') || name.endsWith('.tsx')
             const isBackend = (name) =>
               name.startsWith('src/main/') ||
-              name.startsWith('src/preload/') ||
+              name.startsWith('src/app/preload/') ||
               name.startsWith('helper/')
             const countsForSize = (name) =>
               !SIZE_IGNORES.some((pattern) => pattern.test(name))

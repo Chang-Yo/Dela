@@ -14,25 +14,25 @@ import {
   Search,
   Upload,
 } from 'lucide-react';
-import { workspaceArchiveId, type WorkspaceEntry } from '../../modules/workspace/contract';
-import { parseRemoteNodeId } from '../../modules/remotes/contract';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { Resizer } from '../../ui/resizer';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
+import { workspaceArchiveId, type WorkspaceEntry } from '../../../modules/workspace/contract';
+import { parseRemoteNodeId } from '../../../modules/remotes/contract';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { Resizer } from '../../../ui/resizer';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   useAfterMenuClose,
-} from '../../ui/dropdown-menu';
+} from '../../../ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
-import type { ExplorerPending } from '../../modules/workspace/view';
+import type { ExplorerPending } from '../../../modules/workspace/view';
 import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
-import { libraries } from '../../app/views';
+import { libraries } from '../../views';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from '../navigation/view';
 import {
@@ -44,15 +44,15 @@ import {
   promoteEntry,
   runEntryWork,
 } from '../workspace/entry-actions';
-import { usePreferenceWidth, usePreferences } from '../app/preferences';
+import { usePreferenceWidth, usePreferences } from '../shell/preferences';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState } from './explorer-state';
-import { useViewportWidth } from '../../ui/use-viewport-width';
-import { cn } from '../../ui/cn';
-import { overlayFade } from '../../ui/motion';
-import { IconButton } from '../../ui/icon-button';
-import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
-import { errorMessage } from '../../core/protocol/contract';
+import { useViewportWidth } from '../../../ui/use-viewport-width';
+import { cn } from '../../../ui/cn';
+import { overlayFade } from '../../../ui/motion';
+import { IconButton } from '../../../ui/icon-button';
+import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const SIDEBAR_MIN_WIDTH = 160;
 /** 目录宽度上界：再宽会明显挤占右侧内容栏。 */

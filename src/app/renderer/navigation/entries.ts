@@ -3,9 +3,9 @@
 // 模块页面的入口来自视图清单（docs/adr/0019）。
 import type { ComponentType } from 'react';
 import { FolderOpen } from 'lucide-react';
-import type { NavTargets } from '../../app/module';
-import { navPages } from '../../app/views';
-import { usePreferences } from '../app/preferences';
+import type { NavTargets } from '../../module';
+import { navPages } from '../../views';
+import { usePreferences } from '../shell/preferences';
 
 export type NavEntryId = 'sources' | keyof NavTargets;
 

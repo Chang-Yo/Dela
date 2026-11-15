@@ -2,15 +2,15 @@
 // 子条目 id 带项目身份（remoteNodeId）：只用路径会让两台连接上的同路径目录串成同一个节点。
 import { useEffect, useState } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import { type WorkspaceEntry, hiddenWorkspaceNames } from '../../modules/workspace/contract';
-import type { RemoteDirectoryEntry } from '../../modules/remotes/contract';
-import { remoteNodeId } from '../../modules/remotes/contract';
-import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
-import { remoteAccent, useRemoteChannels } from '../../modules/remotes/view';
-import type { ExplorerItem } from '../../modules/workspace/view';
+import { type WorkspaceEntry, hiddenWorkspaceNames } from '../../../modules/workspace/contract';
+import type { RemoteDirectoryEntry } from '../../../modules/remotes/contract';
+import { remoteNodeId } from '../../../modules/remotes/contract';
+import { onWorkspaceEvent, workspaceClient } from '../../../modules/workspace/view';
+import { remoteAccent, useRemoteChannels } from '../../../modules/remotes/view';
+import type { ExplorerItem } from '../../../modules/workspace/view';
 import { useRemoteActivity } from './remote-activity';
 import { useRemoteConnections } from './remote-connections';
-import { errorMessage } from '../../core/protocol/contract';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** 项目根的 path 可能带尾斜杠，远端子路径一律不带：统一后再作缓存与展开键。 */
 const trimSlash = (path: string) => path.replace(/\/+$/, '');

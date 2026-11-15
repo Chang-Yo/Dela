@@ -10,7 +10,7 @@ import {
   shortcutGroups,
   type ShortcutActionId,
 } from '../../../../modules/settings/contract';
-import { useShortcuts } from '../../../app/shortcuts';
+import { useShortcuts } from '../../shell/shortcuts';
 import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { showToast } from '../../../../ui/toast';
 import { ErrorText } from '../../../../ui/alert';

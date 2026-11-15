@@ -1,17 +1,17 @@
 // 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性定位脉冲；
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
-import { agentClient, type HomeChatRequest, useSessions } from '../../modules/chat/view';
+import { agentClient, type HomeChatRequest, useSessions } from '../../../modules/chat/view';
 import { ancestorChainOf } from './store';
-import type { SettingsSectionId } from '../../modules/settings/contract';
-import type { TabId } from '../../modules/workspace/contract';
-import { useWorkspaceStore } from '../../modules/workspace/view';
-import { formatByName, opensInEditor } from '../../core/protocol/files';
-import { parseRemoteNodeId } from '../../modules/remotes/contract';
-import { showToast } from '../../ui/toast';
-import type { NavTarget, NavTargets } from '../../app/module';
-import { pageOf, views } from '../../app/views';
-import { errorMessage } from '../../core/protocol/contract';
+import type { SettingsSectionId } from '../../../modules/settings/contract';
+import type { TabId } from '../../../modules/workspace/contract';
+import { useWorkspaceStore } from '../../../modules/workspace/view';
+import { formatByName, opensInEditor } from '../../../core/protocol/files';
+import { parseRemoteNodeId } from '../../../modules/remotes/contract';
+import { showToast } from '../../../ui/toast';
+import type { NavTarget, NavTargets } from '../../module';
+import { pageOf, views } from '../../views';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
 export type ShellView = 'home' | 'workbench' | 'settings';

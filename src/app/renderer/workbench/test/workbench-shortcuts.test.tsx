@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { defaultKeybindings } from '../../../modules/settings/contract';
+import { defaultKeybindings } from '../../../../modules/settings/contract';
 
 const state = vi.hoisted(() => ({ closeTab: vi.fn() }));
 const layout = {

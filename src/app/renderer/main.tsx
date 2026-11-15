@@ -1,13 +1,13 @@
 import { StrictMode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
-import { contracts } from '../app/contracts';
-import { views } from '../app/views';
-import { useUpdateState } from '../modules/update/view';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import App from './app/App';
-import { connectQueryEvents } from './app/query-events';
-import { saveWorkspace } from './app/save-workspace';
+import { contracts } from '../contracts';
+import { views } from '../views';
+import { useUpdateState } from '../../modules/update/view';
+import { ErrorBoundary } from './shell/ErrorBoundary';
+import App from './shell/App';
+import { connectQueryEvents } from './shell/query-events';
+import { saveWorkspace } from './shell/save-workspace';
 import { useNavigationStore } from './navigation/view';
 import './styles/globals.css';
 

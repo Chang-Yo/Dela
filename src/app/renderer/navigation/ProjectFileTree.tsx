@@ -23,30 +23,30 @@ import {
   workspaceArchiveId,
   type WorkspaceEntry,
   hiddenWorkspaceNames,
-} from '../../modules/workspace/contract';
+} from '../../../modules/workspace/contract';
 import {
   Explorer,
   type ExplorerItem,
   type ExplorerPending,
   useWorkspaceStore,
-} from '../../modules/workspace/view';
-import { sourceOf } from '../../app/views';
+} from '../../../modules/workspace/view';
+import { sourceOf } from '../../views';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   useAfterMenuClose,
-} from '../../ui/dropdown-menu';
+} from '../../../ui/dropdown-menu';
 import type { EntryAction } from '../workspace/entry-actions';
-import { remoteAccent } from '../../modules/remotes/view';
+import { remoteAccent } from '../../../modules/remotes/view';
 import { remoteTitle, useRemoteTree } from './remote-tree';
-import { showToast } from '../../ui/toast';
-import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
-import { ErrorText } from '../../ui/alert';
-import { Spinner } from '../../ui/spinner';
-import { IconButton } from '../../ui/icon-button';
-import { errorMessage } from '../../core/protocol/contract';
+import { showToast } from '../../../ui/toast';
+import { onWorkspaceEvent, workspaceClient } from '../../../modules/workspace/view';
+import { ErrorText } from '../../../ui/alert';
+import { Spinner } from '../../../ui/spinner';
+import { IconButton } from '../../../ui/icon-button';
+import { errorMessage } from '../../../core/protocol/contract';
 
 export type { EntryAction };
 

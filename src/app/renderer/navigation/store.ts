@@ -1,6 +1,6 @@
 // 导航视图状态（不持久化）；条目与会话事实由 workspace 镜像与注入的 sessions 数据提供。
 import { create } from 'zustand';
-import type { WorkspaceEntry } from '../../modules/workspace/contract';
+import type { WorkspaceEntry } from '../../../modules/workspace/contract';
 
 export function ancestorChainOf(entries: WorkspaceEntry[], id: string): string[] {
   const chain = [id];

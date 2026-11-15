@@ -1,9 +1,9 @@
 @import 'tailwindcss';
 @import 'streamdown/styles.css';
-@import '../../ui/tokens.css';
-@source '../../../node_modules/streamdown/dist/*.js';
-@source '../../modules';
-@source '../../ui';
+@import '../../../ui/tokens.css';
+@source '../../../../node_modules/streamdown/dist/*.js';
+@source '../../../modules';
+@source '../../../ui';
 
 /* 品牌图随明暗主题切换：浅色用白底、深色用黑底。 */
 .dela-brand-dark {
@@ -21,7 +21,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('../../../assets/fonts/Italianno.woff2') format('woff2');
+  src: url('../../../../assets/fonts/Italianno.woff2') format('woff2');
 }
 
 /* 只为 streamdown 保留，Dela 代码不使用，换掉 Markdown 渲染器时删除。 */

@@ -13,7 +13,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { provideHostPorts } from '../src/core/ports';
-import { electronPorts } from '../src/app/host-electron';
+import { electronPorts } from '../src/app/main/host-electron';
 import { closeDatabase, getDatabase } from '../src/main/database';
 import { mailModule, prepareEmail } from '../src/modules/mail';
 import {
@@ -35,13 +35,13 @@ import {
   updateWorkspaceEntry,
   workspaceModule,
 } from '../src/modules/workspace';
-import { registerModuleIpc } from '../src/app/ipc';
+import { registerModuleIpc } from '../src/app/main/ipc';
 import { notificationsModule } from '../src/modules/notifications';
 import { remotesModule } from '../src/modules/remotes';
 import { settingsModule } from '../src/modules/settings';
 import { updateModule } from '../src/modules/update';
 import { canvasModule } from '../src/sjtu/canvas';
-import { registerAgentIpc } from '../src/app/agent-ipc';
+import { registerAgentIpc } from '../src/app/main/agent-ipc';
 import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));

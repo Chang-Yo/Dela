@@ -12,7 +12,7 @@ import { closeDomainBridge, domainBridge } from '../src/core/agent/environment';
 import { COMMAND_BRIDGE } from '../src/core/capabilities/command-server';
 import { closeDatabase } from '../src/main/database';
 import { provideHostPorts } from '../src/core/ports';
-import { electronPorts } from '../src/app/host-electron';
+import { electronPorts } from '../src/app/main/host-electron';
 import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 
 const root = resolve('.');

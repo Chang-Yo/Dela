@@ -10,8 +10,8 @@ import {
   isRelativeAssetPath,
   noteAssetUrl,
   type ResourceRef,
-} from '../../modules/workspace/contract';
-import { parseRemoteNodeId, remoteAssetUrl } from '../../modules/remotes/contract';
+} from '../../../modules/workspace/contract';
+import { parseRemoteNodeId, remoteAssetUrl } from '../../../modules/remotes/contract';
 // 模块出口里的标签组件懒加载，这里静态引入 Provider 不影响 registry 的分包。
 import {
   ChatTabSourceProvider,
@@ -20,20 +20,20 @@ import {
   useSessions,
   ChatHome,
   referenceEntryCandidates,
-} from '../../modules/chat/view';
+} from '../../../modules/chat/view';
 import {
   NoteDraftSourceProvider,
   useNoteDrafts,
   type NoteDraftSource,
-} from '../../modules/note/view';
+} from '../../../modules/note/view';
 import {
   ContentLoaderProvider,
   parsePreviewTabId,
   type ContentLoader,
   type LoadedDocument,
-} from '../../modules/preview/view';
+} from '../../../modules/preview/view';
 import { closeTabEverywhere, useWorkbenchLayout } from './layout-store';
-import { useShortcuts } from '../app/shortcuts';
+import { useShortcuts } from '../shell/shortcuts';
 import { walkGroups } from './layout-schema';
 import { purgeRemovedEntries } from './removed-cleanup';
 import { Workbench } from './Workbench';
@@ -42,14 +42,14 @@ import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from '../navigation/view';
-import { showToast } from '../../ui/toast';
-import { MailDraftDialog } from '../../modules/mail/view';
+import { showToast } from '../../../ui/toast';
+import { MailDraftDialog } from '../../../modules/mail/view';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
-import { ErrorText } from '../../ui/alert';
-import { opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../app/views';
-import { workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
-import { errorMessage } from '../../core/protocol/contract';
+import { ErrorText } from '../../../ui/alert';
+import { opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../views';
+import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** TabId → 旧文档键（entryId 或 source:{sourceId}）；chat 无对应文档。 */
 function tabDocumentKey(tabId: TabId | null): string | null {

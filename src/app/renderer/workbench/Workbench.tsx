@@ -1,8 +1,8 @@
 // 工作台根：渲染项目布局（或最大化组/窄屏单列），承接布局类快捷键。
 // 布局载入由 WorkbenchShell 负责；home 不挂载本组件，预热后进入可避免首帧空白。
 import { type KeyboardEvent } from 'react';
-import type { KeybindingMap } from '../../modules/settings/contract';
-import { digitFromEvent, matchShortcut } from '../../modules/settings/contract';
+import type { KeybindingMap } from '../../../modules/settings/contract';
+import { digitFromEvent, matchShortcut } from '../../../modules/settings/contract';
 import { useWorkbenchLayout } from './layout-store';
 import { findGroup, walkGroups } from './layout-schema';
 import { SplitNodeView } from './SplitNode';

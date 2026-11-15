@@ -8,7 +8,7 @@ const isTest = (file: string) => /(^|\/)test\/|\.test\.tsx?$/.test(file);
 const source = tracked.filter((file) => !isTest(file));
 const tests = tracked.filter(isTest);
 const renderer = source.filter((file) =>
-  /^src\/(renderer|ui|modules\/[^/]+\/view|sjtu\/[^/]+\/view)\//.test(file),
+  /^src\/(app\/renderer|ui|modules\/[^/]+\/view|sjtu\/[^/]+\/view)\//.test(file),
 );
 const read = (file: string) => readFileSync(file, 'utf8');
 const count = (files: string[], pattern: RegExp) =>

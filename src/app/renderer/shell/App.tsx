@@ -3,35 +3,35 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { AppShell } from '../components/AppShell';
-import { ErrorBoundary } from '../components/ErrorBoundary';
+import { AppShell } from './AppShell';
+import { ErrorBoundary } from './ErrorBoundary';
 import {
   CompletionOverlay,
   OnboardingFlow,
   isSmokeTest,
   readOnboardingState,
-} from '../../modules/onboarding/view';
-import { SettingsPage } from '../features/settings';
-import { ReleaseNotesDialog, UpdatePrompt } from '../../modules/update/view';
-import { GlobalSearchDialog } from '../../modules/search/view';
-import type { ChatSessionSummary } from '../../core/protocol/agent';
-import type { SearchHit } from '../../modules/search/contract';
-import type { NavTarget } from '../../app/module';
-import { pageOf, views } from '../../app/views';
+} from '../../../modules/onboarding/view';
+import { SettingsPage } from '../settings';
+import { ReleaseNotesDialog, UpdatePrompt } from '../../../modules/update/view';
+import { GlobalSearchDialog } from '../../../modules/search/view';
+import type { ChatSessionSummary } from '../../../core/protocol/agent';
+import type { SearchHit } from '../../../modules/search/contract';
+import type { NavTarget } from '../../module';
+import { pageOf, views } from '../../views';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
-import { useRuns, useSessions, updateSession, onAgentEvent } from '../../modules/chat/view';
+import { useRuns, useSessions, updateSession, onAgentEvent } from '../../../modules/chat/view';
 import { closeTabEverywhere, useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
-import { useNoteDrafts } from '../../modules/note/view';
-import { useWorkspaceStore } from '../../modules/workspace/view';
-import { showToast } from '../../ui/toast';
+import { useNoteDrafts } from '../../../modules/note/view';
+import { useWorkspaceStore } from '../../../modules/workspace/view';
+import { showToast } from '../../../ui/toast';
 import { useNavigationStore } from '../navigation/view';
-import { useMobileDrawer } from '../lib/mobile-drawer';
-import { useNotificationCounts } from '../../modules/notifications/view';
+import { useMobileDrawer } from './mobile-drawer';
+import { useNotificationCounts } from '../../../modules/notifications/view';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
-import { errorMessage } from '../../core/protocol/contract';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
  *  通用池（键 'general'）不入项目树，但保留镜像预热：会话标签标题解析（registry

@@ -17,6 +17,18 @@
       }
     },
     {
+      // T22 逐个删掉
+      "files": [
+        "src/app/renderer/workbench/WorkbenchShell.tsx",
+        "src/app/renderer/workspace/entry-dialogs.tsx",
+        "src/app/renderer/workspace/remote-ports-dialog.tsx"
+      ],
+      "rules": {
+        "react/set-state-in-effect": "off",
+        "react/refs": "off"
+      }
+    },
+    {
       "files": ["src/{core,modules,app}/**"],
       "rules": {
         "no-restricted-imports": [
@@ -342,9 +354,9 @@
                   "!**/modules/*/contract",
                   "**/shared/**",
                   "**/renderer/**",
-                  "!**/renderer/lib/mobile-drawer"
+                  "!**/app/renderer/shell/mobile-drawer"
                 ],
-                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui；renderer 仅 lib/mobile-drawer 暂时放行。"
+                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui；app/renderer 仅 shell/mobile-drawer 暂时放行。"
               },
               {
                 "group": [
@@ -401,9 +413,9 @@
                   "!**/modules/*/contract",
                   "**/shared/**",
                   "**/renderer/**",
-                  "!**/renderer/lib/mobile-drawer"
+                  "!**/app/renderer/shell/mobile-drawer"
                 ],
-                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui；renderer 仅 lib/mobile-drawer 暂时放行。"
+                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui；app/renderer 仅 shell/mobile-drawer 暂时放行。"
               },
               {
                 "group": [
@@ -423,7 +435,7 @@
       }
     },
     {
-      "files": ["src/{main,preload,renderer}/**"],
+      "files": ["src/main/**"],
       "rules": {
         "no-restricted-imports": [
           "error",

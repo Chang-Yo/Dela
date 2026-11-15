@@ -1,4 +1,4 @@
-import type { Bridge } from '../core/protocol/contract';
+import type { Bridge } from '../../core/protocol/contract';
 
 export interface DelaApi {
   /** 已迁入 modules/ 的模块经契约客户端调用主进程，见 core/protocol/contract。 */

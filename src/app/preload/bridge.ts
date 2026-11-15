@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
-import { channelsOf, eventChannelsOf, type Bridge } from '../core/protocol/contract';
-import { contracts } from '../app/contracts';
+import { channelsOf, eventChannelsOf, type Bridge } from '../../core/protocol/contract';
+import { contracts } from '../contracts';
 
 const channels = new Set(contracts.flatMap(channelsOf));
 const eventChannels = new Set(contracts.flatMap(eventChannelsOf));

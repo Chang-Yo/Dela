@@ -1,11 +1,11 @@
 // 设置页装配：模块的设置框架加上依赖外壳状态的分区。
-import { views } from '../../../app/views';
+import { views } from '../../views';
 import { RemoteSection } from '../../../modules/remotes/view';
 import type { ThemePreference, ZoomPreference } from '../../../modules/settings/contract';
 import { SettingsView } from '../../../modules/settings/view';
-import { useNavigationStore } from '../../navigation/view';
-import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
-import { NewRemoteProjectDialog } from '../../workspace/remote/NewRemoteProjectDialog';
+import { useNavigationStore } from '../navigation/view';
+import { purgeRemovedEntries } from '../workbench/removed-cleanup';
+import { NewRemoteProjectDialog } from '../workspace/remote/NewRemoteProjectDialog';
 import { ArchivedSection } from '../../../modules/chat/view';
 import { NavEntriesGroup } from './sections/NavEntriesGroup';
 import { ShortcutsSection } from './sections/ShortcutsSection';

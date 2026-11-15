@@ -3,7 +3,7 @@ import { act } from 'react';
 import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkspaceChat } from '../../core/protocol/agent';
+import type { WorkspaceChat } from '../../../core/protocol/agent';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好；各用例按通道替换或监视 handler。
 const { api, dela } = vi.hoisted(() => {
@@ -18,16 +18,16 @@ const { api, dela } = vi.hoisted(() => {
   return { api, dela };
 });
 import { useNavigationStore } from '../navigation/view';
-import { toasts } from '../../ui/toast';
+import { toasts } from '../../../ui/toast';
 import {
   ChatHome,
   ChatTabSourceProvider,
   useChatDrafts,
   useSessions,
-} from '../../modules/chat/view';
+} from '../../../modules/chat/view';
 
 // 保留 ChatHome、ChatTab、发送逻辑与导航 store；输入编辑器和消息排版不参与路由验证。
-vi.mock('../../modules/chat/view/ChatComposer', () => ({
+vi.mock('../../../modules/chat/view/ChatComposer', () => ({
   ChatComposer: ({
     value,
     onChange,
@@ -50,7 +50,7 @@ vi.mock('../../modules/chat/view/ChatComposer', () => ({
     </>
   ),
 }));
-vi.mock('../../modules/chat/view/ChatThread', () => ({
+vi.mock('../../../modules/chat/view/ChatThread', () => ({
   ChatThread: ({ chat }: { chat: WorkspaceChat }) => (
     <div aria-label="对话消息">{chat.messages.map((message) => message.content).join('\n')}</div>
   ),

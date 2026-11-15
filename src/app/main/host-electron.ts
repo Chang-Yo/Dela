@@ -26,13 +26,13 @@ import {
   type Desktop,
   type HostPorts,
   type SecretNamespace,
-} from '../core/ports';
-import { getDatabase } from '../main/database';
-import { workspaceWindow } from '../main/ipc';
-import { notifyRunFinished } from '../modules/settings';
-import { storageDirectory } from '../main/storage';
-import { locateBash } from '../modules/terminal';
-import { workspaceProjects } from '../modules/workspace';
+} from '../../core/ports';
+import { getDatabase } from '../../main/database';
+import { workspaceWindow } from '../../main/ipc';
+import { notifyRunFinished } from '../../modules/settings';
+import { storageDirectory } from '../../main/storage';
+import { locateBash } from '../../modules/terminal';
+import { workspaceProjects } from '../../modules/workspace';
 
 const secretPath = (namespace: SecretNamespace) =>
   join(app.getPath('userData'), `${namespace}.bin`);

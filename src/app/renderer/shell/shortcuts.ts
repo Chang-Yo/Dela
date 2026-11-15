@@ -6,8 +6,8 @@ import {
   mergeKeybindings,
   type KeybindingMap,
   type ShortcutActionId,
-} from '../../modules/settings/contract';
-import { settingsClient } from '../../modules/settings/view';
+} from '../../../modules/settings/contract';
+import { settingsClient } from '../../../modules/settings/view';
 
 type Store = {
   bindings: KeybindingMap;

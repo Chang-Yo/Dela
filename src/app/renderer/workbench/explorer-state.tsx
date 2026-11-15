@@ -2,8 +2,8 @@
 // 展开入口在最左上组标签栏左侧（空组由 TabGroup 锚定同一坐标），与目录本体共享此 store。
 import { create } from 'zustand';
 import { PanelLeft } from 'lucide-react';
-import { usePreferences } from '../app/preferences';
-import { IconButton } from '../../ui/icon-button';
+import { usePreferences } from '../shell/preferences';
+import { IconButton } from '../../../ui/icon-button';
 
 const NARROW_QUERY = '(max-width: 767px)';
 

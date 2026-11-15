@@ -22,39 +22,39 @@ import {
   SquareTerminal,
   X,
 } from 'lucide-react';
-import { Resizer } from '../../ui/resizer';
-import { useEditorSettings } from '../../modules/preview/view';
-import { usePreferences } from '../app/preferences';
-import { showToast, Toaster } from '../../ui/toast';
-import { DelaBrand } from '../../modules/settings/view';
-import { cn } from '../../ui/cn';
-import { useMediaQuery } from '../../ui/use-media-query';
-import type { NavTarget } from '../../app/module';
+import { Resizer } from '../../../ui/resizer';
+import { useEditorSettings } from '../../../modules/preview/view';
+import { usePreferences } from './preferences';
+import { showToast, Toaster } from '../../../ui/toast';
+import { DelaBrand } from '../../../modules/settings/view';
+import { cn } from '../../../ui/cn';
+import { useMediaQuery } from '../../../ui/use-media-query';
+import type { NavTarget } from '../../module';
 import { useNavigationStore, type AppView, type ShellView } from '../navigation/view';
-import type { MobileDrawer } from '../lib/mobile-drawer';
-import { useShortcuts } from '../app/shortcuts';
+import type { MobileDrawer } from './mobile-drawer';
+import { useShortcuts } from './shortcuts';
 import { useExplorerState } from '../workbench/explorer-state';
-import { useViewportWidth } from '../../ui/use-viewport-width';
+import { useViewportWidth } from '../../../ui/use-viewport-width';
 import {
   ProjectSessionNav,
   type BusinessNavId,
   type NavSessionSummary,
   type SessionRunBadge,
 } from '../navigation/ProjectSessionNav';
-import { zoomLevels, type ZoomPreference } from '../../modules/settings/contract';
-import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../modules/settings/contract';
+import { zoomLevels, type ZoomPreference } from '../../../modules/settings/contract';
+import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../../modules/settings/contract';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../../ui/dropdown-menu';
-import { drawerFromLeft, fadeIn, overlayFade } from '../../ui/motion';
+} from '../../../ui/dropdown-menu';
+import { drawerFromLeft, fadeIn, overlayFade } from '../../../ui/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
-import { UpdateBadge } from '../../modules/update/view';
+import { UpdateBadge } from '../../../modules/update/view';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';
-import { IconButton } from '../../ui/icon-button';
-import { workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
+import { IconButton } from '../../../ui/icon-button';
+import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import {
   Dialog,
   DialogClose,
@@ -62,8 +62,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '../../ui/dialog';
-import { errorMessage } from '../../core/protocol/contract';
+} from '../../../ui/dialog';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const platform = window.dela?.platform === 'darwin' ? 'mac' : 'other';
 const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源管理器';

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkbenchLayout } from '../../../modules/workspace/contract';
+import type { WorkbenchLayout } from '../../../../modules/workspace/contract';
 import { createDefaultLayout, findGroup, splitDepth, walkGroups } from '../layout-schema';
 
 // 契约客户端在模块加载时取 bridge，须先于导入 store 装好。
