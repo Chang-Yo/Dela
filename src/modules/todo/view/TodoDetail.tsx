@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import {
   BookOpen,
   CalendarCheck,
@@ -13,12 +12,10 @@ import { todoCompleted, todoStatusLabels } from '../contract';
 import { Button } from '../../../ui/button';
 import { useRootFontSize } from '../../../renderer/lib/root-font-size';
 import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
+import { useFrameBodyHeight } from '../../../renderer/lib/use-frame-body-height';
 import { cn } from '../../../ui/cn';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
-
-/** 未量到真实高度前的初始描述高度(px)，与邮件正文一致。 */
-const INITIAL_BODY_HEIGHT = 240;
 
 /**
  * 作业描述经清洗后放入沙箱 iframe 渲染。阅读器默认样式禁止文档纵向滚动，
@@ -27,16 +24,7 @@ const INITIAL_BODY_HEIGHT = 240;
 function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => void }) {
   const rootSize = useRootFontSize();
   const doc = sanitizeHtml(html, 'https://oc.sjtu.edu.cn', rootSize);
-  const [body, setBody] = useState<HTMLElement | null>(null);
-  const [height, setHeight] = useState(INITIAL_BODY_HEIGHT);
-  useEffect(() => {
-    if (!body) return;
-    const update = () => setHeight(body.scrollHeight);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(body);
-    return () => observer.disconnect();
-  }, [body]);
+  const [height, setBody] = useFrameBodyHeight();
   // 白底文档以圆角卡片呈现：暗色模式下避免白色大块与面板生硬相接。
   return (
     <div className="overflow-hidden rounded-card border border-line">

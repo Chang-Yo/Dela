@@ -1,4 +1,4 @@
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Download, ExternalLink, Paperclip } from 'lucide-react';
 import type { Navigate } from '../../../app/module';
@@ -6,6 +6,7 @@ import { createClient, errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../renderer/app/toasts';
 import { useRootFontSize } from '../../../renderer/lib/root-font-size';
 import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
+import { useFrameBodyHeight } from '../../../renderer/lib/use-frame-body-height';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { jwcContract, type JwcNotice } from '../contract';
@@ -13,8 +14,6 @@ import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../ui/dialog';
 import { Field } from '../../../ui/field';
-
-const INITIAL_BODY_HEIGHT = 240;
 
 const jwcClient = createClient(jwcContract, window.dela?.bridge);
 
@@ -31,18 +30,9 @@ export function JwcNoticeView({
   });
   const notice = query.data;
   const [attachment, setAttachment] = useState<JwcNotice['attachments'][number] | null>(null);
-  const [body, setBody] = useState<HTMLElement | null>(null);
-  const [height, setHeight] = useState(INITIAL_BODY_HEIGHT);
+  const [height, setBody] = useFrameBodyHeight();
   const attachmentsRef = useRef<HTMLElement>(null);
   const rootSize = useRootFontSize();
-  useEffect(() => {
-    if (!body) return;
-    const update = () => setHeight(body.scrollHeight);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(body);
-    return () => observer.disconnect();
-  }, [body]);
   const html = notice ? sanitizeHtml(notice.html, notice.url, rootSize) : '';
   const openLink = (url: string) => {
     const file = notice?.attachments.find((entry) => entry.url === url);
