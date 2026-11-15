@@ -10,6 +10,7 @@ import { isTopicUnread, openTopic, useShuiyuan } from './store';
 import { avatarUrl, categoryOf, formatCount, formatListDate, tagColor } from './shuiyuan-format';
 import { useFeed, useSiteStructure, type FeedSelection } from './use-shuiyuan';
 import { Callout } from '../../../ui/alert';
+import { Skeleton } from '../../../ui/skeleton';
 import { Spinner } from '../../../ui/spinner';
 
 /** 分类色索引（Discourse 式）：12px 色方 + 文字，颜色只做索引不做底色。 */
@@ -138,10 +139,10 @@ function TopicCardSkeleton() {
   return (
     <Card aria-hidden="true" className="p-5 max-md:p-4" variant="surface">
       <div className="flex items-start gap-3.5">
-        <div className="mt-0.5 size-10 shrink-0 animate-pulse rounded-full bg-inset max-md:size-8" />
+        <Skeleton className="mt-0.5 size-10 shrink-0 rounded-full max-md:size-8" />
         <div className="flex min-w-0 flex-1 flex-col gap-3 py-0.5">
-          <div className="h-5 w-2/3 animate-pulse rounded-chip bg-inset" />
-          <div className="h-3 w-1/3 animate-pulse rounded-chip bg-inset" />
+          <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="h-3 w-1/3" />
         </div>
       </div>
     </Card>
