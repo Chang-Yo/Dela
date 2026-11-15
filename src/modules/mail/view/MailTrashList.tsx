@@ -2,6 +2,7 @@ import { Paperclip, RotateCcw, Trash2 } from 'lucide-react';
 import type { MailTrashItem } from '../contract';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/cn';
+import { PanelHeader } from '../../../ui/panel-header';
 import { ErrorText } from '../../../ui/alert';
 import { IconButton } from '../../../ui/icon-button';
 
@@ -31,7 +32,7 @@ export function MailTrashList({
 }: Props) {
   return (
     <section aria-label="已删除邮件" className={cn('flex min-h-0 flex-col', className)}>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
+      <PanelHeader size="lg">
         <div className="flex min-w-0 items-baseline gap-1.5">
           <strong className="truncate text-sm">已删除</strong>
           <small className="shrink-0 text-xs text-ink-3">{items.length} 封</small>
@@ -46,7 +47,7 @@ export function MailTrashList({
         >
           <Trash2 strokeWidth={1.8} />
         </IconButton>
-      </div>
+      </PanelHeader>
       {error && <ErrorText className="px-4 py-2">{error}</ErrorText>}
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1">
         {loading && <p className="p-4 text-xs text-ink-3">加载中…</p>}

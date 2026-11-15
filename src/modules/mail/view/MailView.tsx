@@ -22,6 +22,7 @@ import { MailTrashList } from './MailTrashList';
 import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
 import { Resizer } from '../../../ui/resizer';
 import { Button } from '../../../ui/button';
+import { PanelHeader } from '../../../ui/panel-header';
 import { cn } from '../../../ui/cn';
 import { ConnectCard } from '../../../ui/connect-card';
 import { useMediaQuery } from '../../../ui/use-media-query';
@@ -701,13 +702,13 @@ function DesktopMailView({
             aria-label="本地草稿"
           >
             {/* 与文件夹/列表/回收站同一 h-11 头部规格，含计数。 */}
-            <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
+            <PanelHeader size="lg">
               <h2 className="flex items-center gap-2 text-sm font-medium">
                 <FilePenLine className="size-4" />
                 本地草稿
               </h2>
               <small className="text-xs text-ink-3">{localDrafts.length} 份</small>
-            </div>
+            </PanelHeader>
             <div className="min-h-0 flex-1 p-4">
               {draftError && <ErrorText size="sm">{draftError}</ErrorText>}
               {!localDrafts.length && <p className="text-sm text-ink-3">暂无草稿</p>}

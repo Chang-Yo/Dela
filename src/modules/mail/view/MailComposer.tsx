@@ -14,6 +14,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { mailContract, type MailComposeFile, type PreparedEmail } from '../contract';
 import { Button } from '../../../ui/button';
+import { PanelHeader } from '../../../ui/panel-header';
 import { cn } from '../../../ui/cn';
 import { formatSize } from './mail-format';
 import { showToast } from '../../../ui/toast';
@@ -587,7 +588,7 @@ export function MailComposer({
       )}
       onSubmit={submit}
     >
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
+      <PanelHeader size="lg">
         {leaveBlocked && (
           <span role="status" className="text-xs text-ink-3">
             正在发送/保存邮件，完成后即可离开
@@ -628,7 +629,7 @@ export function MailComposer({
           )}
           {sending ? '正在发送' : '发送邮件'}
         </Button>
-      </header>
+      </PanelHeader>
 
       <div
         className={cn(

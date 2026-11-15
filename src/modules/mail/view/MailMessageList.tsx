@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { MailFolderInfo, MailMessageSummary } from '../contract';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/cn';
+import { PanelHeader } from '../../../ui/panel-header';
 import { Shimmer } from '../../../ui/shimmer';
 import { Input } from '../../../ui/input';
 import { IconButton } from '../../../ui/icon-button';
@@ -45,7 +46,7 @@ export function MailMessageList({
 
   return (
     <section className={cn('flex min-h-0 flex-col', className)}>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
+      <PanelHeader size="lg">
         <div className="flex min-w-0 items-baseline gap-1.5">
           <strong className="truncate text-sm font-semibold text-ink">
             {selectedFolder?.name ?? '邮件'}
@@ -72,7 +73,7 @@ export function MailMessageList({
           type="search"
           value={search}
         />
-      </div>
+      </PanelHeader>
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1">
         {listLoading && (
           <p className="p-4 text-xs">
