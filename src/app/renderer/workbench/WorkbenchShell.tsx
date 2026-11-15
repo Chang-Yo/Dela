@@ -1,6 +1,6 @@
 // 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏、
 // EntryDialogs 都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   type DocumentContent,
@@ -37,7 +37,8 @@ import { useShortcuts } from '../shell/shortcuts';
 import { walkGroups } from './layout-schema';
 import { purgeRemovedEntries } from './removed-cleanup';
 import { Workbench } from './Workbench';
-import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
+import { EntryDialogs } from '../workspace/entry-dialogs';
+import { useEntryDialog } from '../workspace/entry-dialog-store';
 import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { ancestorChainOf, useTreeState } from '../navigation/store';
 import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
@@ -70,7 +71,6 @@ function newChatInCurrentPool() {
 
 export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const projectId = useNavigationStore((s) => (home ? null : s.projectId));
-  const createProject = useNavigationStore((s) => s.createProject);
   const generalChat = useNavigationStore((s) => s.generalChat);
   const loaded = useWorkspaceStore((s) => s.loaded);
   // 订阅键位表：用户改键后工作台快捷键立即跟随（Workbench 不自行订阅 app 的 store）。
@@ -79,7 +79,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   // 订阅镜像仅为让标签标题随条目/会话变化重渲染（registry 的 title 是同步读取）。
   useWorkspaceStore((s) => s.workspace.entries);
   useSessions((s) => s.lists);
-  const [dialog, setDialog] = useState<EntryDialogRequest | null>(null);
+  const dialog = useEntryDialog((s) => s.request);
   const queryClient = useQueryClient();
 
   const activeTab = useWorkbenchLayout((s) => {
@@ -95,15 +95,9 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     s.workspace.entries.some((entry) => entry.id === projectId) ? projectId : null,
   );
 
-  useEffect(() => {
-    if (!createProject || !loaded) return;
-    setDialog({ action: 'project', id: null });
-    useNavigationStore.getState().setCreateProject(false);
-  }, [createProject, loaded]);
-
   const openDialog = useCallback(
     (action: EntryAction | 'link', id: string | null, text?: string) =>
-      setDialog({
+      useEntryDialog.getState().open({
         action,
         id,
         text,
@@ -352,7 +346,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
               )}
             </div>
             <EntryDialogs
-              onClose={() => setDialog(null)}
+              onClose={() => useEntryDialog.getState().close()}
               onCreated={onCreated}
               onOpenProject={(id) => void useNavigationStore.getState().openProject(id)}
               onRemoved={onRemoved}

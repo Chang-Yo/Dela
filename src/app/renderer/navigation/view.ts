@@ -2,8 +2,8 @@
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
 import { agentClient, type HomeChatRequest, useSessions } from '../../../modules/chat/view';
-import { ancestorChainOf } from './store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
+import { useEntryDialog } from '../workspace/entry-dialog-store';
 import type { SettingsSectionId } from '../../../modules/settings/contract';
 import type { TabId } from '../../../modules/workspace/contract';
 import { useWorkspaceStore } from '../../../modules/workspace/view';
@@ -34,10 +34,10 @@ interface NavigationState {
   forwardStack: NavigationRoute[];
   /** 设置页当前分区；离开设置页回到「通用」。 */
   settingsSection: SettingsSectionId;
-  /** 新建项目弹窗脉冲（导航栏/托盘/快捷键），由工作台装配层转成 EntryDialogs 请求。 */
-  createProject: boolean;
   /** 首页聊天请求，由工作台装配层交给首页。 */
   generalChat: HomeChatRequest | null;
+  /** 首页聊天请求的序号，单调递增：同一请求再次发出时首页据此重建会话。 */
+  homeSeq: number;
   /** 唯一的跳转入口：外壳视图传名字，其余传 NavTarget（docs/adr/0019）。 */
   navigate(next: ShellView | NavTarget): boolean;
   goBack(): boolean;
@@ -49,15 +49,12 @@ interface NavigationState {
   newChat(projectId: string | null): Promise<string | null>;
   /** 项目会话定位到项目工作台；随聊会话在资料工作台里就地开标签，否则回首页聊天。 */
   openChat(sessionId: string, projectId: string | null): boolean;
-  /** 打开笔记标签，自动归属其所在项目。 */
-  openNote(entryId: string): boolean;
   /** 打开文档（entryId 或 source: 资料键）为工作台标签，留在当前工作台；keep 时不作预览。 */
   openDocument(key: string, options?: { keep?: boolean }): boolean;
   openTerminal(projectId: string): boolean;
   openSettings(section?: SettingsSectionId): boolean;
   /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
-  setCreateProject(value: boolean): void;
 }
 
 /** 历史条目：视图、跳转参数与项目（后退要能回到同一个项目面板）。 */
@@ -66,8 +63,6 @@ interface NavigationRoute {
   target: NavTarget | null;
   projectId: string | null;
 }
-
-let pulseSeq = 0;
 
 const leaveViews = (proceed: () => void) =>
   views.every((view) => view.leaveGuard?.(proceed) ?? true);
@@ -122,8 +117,8 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     backStack: [],
     forwardStack: [],
     settingsSection: 'general',
-    createProject: false,
     generalChat: null,
+    homeSeq: 0,
 
     navigate: (next) => {
       if (typeof next !== 'string') {
@@ -219,7 +214,8 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
 
     openGeneralChat: (create) => {
       if (!get().navigate('home')) return false;
-      set({ projectId: null, generalChat: { create, seq: ++pulseSeq } });
+      const seq = get().homeSeq + 1;
+      set({ projectId: null, homeSeq: seq, generalChat: { create, seq } });
       return true;
     },
 
@@ -255,18 +251,9 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         return revealInProject(`chat:${sessionId}`, null);
       if (projectId !== null) return revealInProject(`chat:${sessionId}`, projectId);
       if (!get().navigate('home')) return false;
-      set({ projectId: null, generalChat: { create: false, sessionId, seq: ++pulseSeq } });
+      const seq = get().homeSeq + 1;
+      set({ projectId: null, homeSeq: seq, generalChat: { create: false, sessionId, seq } });
       return true;
-    },
-
-    openNote: (entryId) => {
-      const entries = useWorkspaceStore.getState().workspace.entries;
-      // 最近的项目祖先决定归属；无项目祖先（顶层笔记/孤儿）落通用池。
-      const project = ancestorChainOf(entries, entryId)
-        .slice(0, -1)
-        .reverse()
-        .find((id) => entries.find((e) => e.id === id)?.kind === 'project');
-      return revealInProject(`note:${entryId}`, project ?? null);
     },
 
     openDocument: (key, options) =>
@@ -281,10 +268,8 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
 
     newProject: () => {
       if (!get().navigate('workbench')) return false;
-      set({ createProject: true });
+      useEntryDialog.getState().open({ action: 'project', id: null });
       return true;
     },
-
-    setCreateProject: (value) => set({ createProject: value }),
   };
 });
