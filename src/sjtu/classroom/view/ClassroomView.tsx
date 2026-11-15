@@ -3,6 +3,7 @@ import { KeyRound, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { ConnectCard } from '../../../ui/connect-card';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
+import { EmptyState } from '../../../ui/empty-state';
 import { PanelHeader } from '../../../ui/panel-header';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
 import { Resizer, useResizerWidth } from '../../../ui/resizer';
@@ -176,11 +177,11 @@ function PlayerSection({
             <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
           </div>
         )}
-        <div className="flex flex-col items-center gap-2 text-sm text-ink-3">
-          <MonitorPlay aria-hidden className="size-7 opacity-45" />
-          <p>从左侧选择一场录像开始观看</p>
-          <p className="text-xs text-ink-3/80">支持跳转、拖拽进度、音量与倍速，也可下载</p>
-        </div>
+        <EmptyState
+          description="支持跳转、拖拽进度、音量与倍速，也可下载"
+          icon={MonitorPlay}
+          title="从左侧选择一场录像开始观看"
+        />
       </section>
     );
   }
