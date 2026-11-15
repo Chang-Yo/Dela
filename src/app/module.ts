@@ -45,9 +45,21 @@ export interface Workbench {
   close(tab: TabId): void;
 }
 
+/** 窄屏页面抽屉：容器由外壳提供，页面往里渲染内容，选定后调用 close 收起。 */
+export interface PageDrawer {
+  container: HTMLElement;
+  close(): void;
+}
+
 /** 模块的一个页面：组件收到跳转参数 target，每次跳转都是新对象，可据此重置本地状态。 */
 export interface PageDefinition<Page extends keyof NavTargets> {
-  component: ComponentType<{ target: NavTargets[Page]; navigate: Navigate }>;
+  component: ComponentType<{
+    target: NavTargets[Page];
+    navigate: Navigate;
+    drawer: PageDrawer | null;
+  }>;
+  /** 窄屏下本页有自己的抽屉，由外壳在主导航位置渲染挂载点。 */
+  drawer?: boolean;
   /** 侧栏入口，顺序为清单顺序；带入口的页面须能不带参数打开。 */
   nav?: { label: string; icon: ComponentType<{ className?: string; strokeWidth?: number }> };
   /** navigate 跳到此页时调用，承载随跳转发生的副作用，例如标记已读；后退与前进不调用。 */

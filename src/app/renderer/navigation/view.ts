@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { agentClient, type HomeChatRequest, useSessions } from '../../../modules/chat/view';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useEntryDialog } from '../workspace/entry-dialog-store';
+import { useMobileDrawer } from '../shell/mobile-drawer';
 import type { SettingsSectionId } from '../../../modules/settings/contract';
 import type { TabId } from '../../../modules/workspace/contract';
 import { useWorkspaceStore } from '../../../modules/workspace/view';
@@ -146,6 +147,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       if (view === state.view) {
         if (target) set({ target });
       } else {
+        useMobileDrawer.getState().setDrawer(null);
         set({
           view,
           target,
@@ -165,6 +167,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       const prev = state.backStack[state.backStack.length - 1];
       if (prev === undefined || !leaveViews(() => get().goBack())) return false;
       rememberProject(prev.projectId);
+      useMobileDrawer.getState().setDrawer(null);
       set({
         view: prev.view,
         target: prev.target,
@@ -182,6 +185,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       const next = state.forwardStack[0];
       if (next === undefined || !leaveViews(() => get().goForward())) return false;
       rememberProject(next.projectId);
+      useMobileDrawer.getState().setDrawer(null);
       set({
         view: next.view,
         target: next.target,

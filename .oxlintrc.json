@@ -349,10 +349,9 @@
                   "**/modules/*",
                   "!**/modules/*/contract",
                   "**/shared/**",
-                  "**/renderer/**",
-                  "!**/app/renderer/shell/mobile-drawer"
+                  "**/renderer/**"
                 ],
-                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui；app/renderer 仅 shell/mobile-drawer 暂时放行。"
+                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui。"
               },
               {
                 "group": [
@@ -408,10 +407,9 @@
                   "**/modules/*",
                   "!**/modules/*/contract",
                   "**/shared/**",
-                  "**/renderer/**",
-                  "!**/app/renderer/shell/mobile-drawer"
+                  "**/renderer/**"
                 ],
-                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui；app/renderer 仅 shell/mobile-drawer 暂时放行。"
+                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui。"
               },
               {
                 "group": [

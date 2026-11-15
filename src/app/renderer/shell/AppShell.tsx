@@ -34,7 +34,6 @@ import type { NavTarget } from '../../module';
 import { useNavigationStore, type AppView, type ShellView } from '../navigation/view';
 import type { MobileDrawer } from './mobile-drawer';
 import { useShortcuts } from './shortcuts';
-import { useExplorerState } from '../workbench/explorer-state';
 import { useViewportWidth } from '../../../ui/use-viewport-width';
 import {
   ProjectSessionNav,
@@ -54,6 +53,7 @@ import { drawerFromLeft, fadeIn, overlayFade } from '../../../ui/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../../../modules/update/view';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';
+import { pageHasDrawer } from '../../views';
 import { IconButton } from '../../../ui/icon-button';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import {
@@ -160,6 +160,8 @@ type AppShellProps = {
   onNavigate: (next: ShellView | NavTarget) => void;
   mobileDrawer?: MobileDrawer | null;
   onMobileDrawerChange?: (drawer: MobileDrawer | null) => void;
+  /** 页面抽屉的挂载点，窄屏时由当前页面往里渲染。 */
+  onDrawerSlot: (element: HTMLElement | null) => void;
   onBack: () => void;
   onForward: () => void;
   canBack: boolean;
@@ -194,6 +196,7 @@ export function AppShell({
   onNavigate,
   mobileDrawer,
   onMobileDrawerChange,
+  onDrawerSlot,
   onBack,
   onForward,
   canBack,
@@ -226,8 +229,8 @@ export function AppShell({
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const narrow = useMediaQuery('(max-width: 767px)');
   const drawer = mobileDrawer ?? null;
+  const navDrawerOpen = drawer === 'nav' || drawer === 'page';
   const [helpOpen, setHelpOpen] = useState(false);
-  const explorerMobileOpen = useExplorerState((s) => s.mobileOpen);
   const viewportWidth = useViewportWidth();
   // 远端项目的目录在远端：VS Code 是经 Remote-SSH 打开的，文案必须写明，否则会被当成开本地目录。
   const projectIsRemote = useWorkspaceStore(
@@ -237,17 +240,6 @@ export function AppShell({
   const effectiveOpenTarget: 'vscode' | 'explorer' = projectIsRemote ? 'vscode' : projectOpenTarget;
   const vscodeOpenLabel = projectIsRemote ? '在 VS Code 中打开（SSH）' : '在 VS Code 打开项目';
 
-  // 窄屏双抽屉互斥：两个抽屉都锚定屏幕左侧，叠开会出「点了没反应/凭空出现」的假象。
-  // 目录抽屉只在 workbench 视图挂载，互斥也只在该视图生效，避免残留状态误关其他视图的抽屉。
-  useEffect(() => {
-    if (!narrow || view !== 'workbench' || !explorerMobileOpen || drawer === null) return;
-    onMobileDrawerChange?.(null);
-  }, [drawer, narrow, view, explorerMobileOpen, onMobileDrawerChange]);
-  useEffect(() => {
-    if (!narrow || drawer === null) return;
-    if (useExplorerState.getState().mobileOpen) useExplorerState.getState().setMobileOpen(false);
-  }, [drawer, narrow]);
-
   // 视口钳制：壳侧栏渲染宽度不超过视口约 28%（下限 200），给内容区保留可用宽度；
   // 用户拖拽偏好保留原值，仅渲染时钳制（与目录侧栏的钳制合计 ≤ 约 56% 视口）。
   const effectiveSidebarWidth = Math.min(
@@ -255,12 +247,7 @@ export function AppShell({
     Math.max(200, Math.round(viewportWidth * 0.28)),
   );
 
-  // 拉宽窗口,或经后退/前进离开邮箱视图时,收起可能残留的邮箱级抽屉。
-  useEffect(() => {
-    if (!narrow || (drawer === 'mail' && view !== 'mail')) onMobileDrawerChange?.(null);
-  }, [drawer, narrow, onMobileDrawerChange, view]);
-
-  const navHidden = narrow ? drawer === null : sidebarCollapsed;
+  const navHidden = narrow ? !navDrawerOpen : sidebarCollapsed;
   const visibleEntries = useVisibleNavEntries();
   /** 「资料」入口高亮：通用池内看文档标签时才算资料（与会话标签互斥）。 */
   const sourcesActive = view === 'workbench' && projectId === null && !activeTabIsChat;
@@ -284,7 +271,7 @@ export function AppShell({
   const navigate = (next: ShellView | NavTarget) => {
     onNavigate(next);
     if (narrow)
-      onMobileDrawerChange?.(typeof next !== 'string' && next.page === 'mail' ? 'mail' : null);
+      onMobileDrawerChange?.(typeof next !== 'string' && pageHasDrawer(next.page) ? 'page' : null);
   };
 
   // Ctrl/⌘ +/-/0 的缩放步进：在设置页同一组档位间移动，两端保持不动；0 重置。
@@ -380,7 +367,9 @@ export function AppShell({
             )}
             onClick={() =>
               narrow
-                ? onMobileDrawerChange?.(drawer ? null : view === 'mail' ? 'mail' : 'nav')
+                ? onMobileDrawerChange?.(
+                    navDrawerOpen ? null : pageHasDrawer(view) ? 'page' : 'nav',
+                  )
                 : setPreference('shellSidebarCollapsed', !sidebarCollapsed)
             }
             title={navHidden ? '展开侧边栏' : '收起侧边栏'}
@@ -610,7 +599,7 @@ export function AppShell({
           </div>
         </DialogContent>
       </Dialog>
-      {narrow && drawer !== null && (
+      {narrow && navDrawerOpen && (
         <div
           aria-hidden="true"
           className={cn(overlayFade, 'absolute inset-x-0 bottom-0 top-10 z-scrim bg-scrim')}
@@ -626,7 +615,7 @@ export function AppShell({
             ? cn(
                 drawerFromLeft,
                 'absolute bottom-0 left-0 top-10 z-overlay w-[17.5rem] max-w-[85vw] px-2 shadow-overlay',
-                drawer === null && 'hidden',
+                !navDrawerOpen && 'hidden',
               )
             : cn(
                 // 收起时延后 invisible,让文字先随宽度动画淡出;w-0 会让内容立即消失。
@@ -640,7 +629,7 @@ export function AppShell({
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col',
-            narrow ? cn('min-w-0', drawer === 'mail' && 'hidden') : 'px-2',
+            narrow ? cn('min-w-0', drawer === 'page' && 'hidden') : 'px-2',
           )}
           style={narrow ? undefined : { width: effectiveSidebarWidth }}
         >
@@ -745,7 +734,7 @@ export function AppShell({
         <div
           className={cn(
             'min-h-0 min-w-0 flex-1 flex-col',
-            narrow && drawer === 'mail' ? cn('flex', fadeIn) : 'hidden',
+            narrow && drawer === 'page' ? cn('flex', fadeIn) : 'hidden',
           )}
         >
           <div className="flex h-11 shrink-0 items-center px-1">
@@ -759,7 +748,7 @@ export function AppShell({
               <span>主菜单</span>
             </button>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col" id="mail-drawer-slot" />
+          <div className="flex min-h-0 flex-1 flex-col" ref={onDrawerSlot} />
         </div>
       </aside>
       <Resizer

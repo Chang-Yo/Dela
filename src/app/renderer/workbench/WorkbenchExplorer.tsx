@@ -45,6 +45,7 @@ import {
   runEntryWork,
 } from '../workspace/entry-actions';
 import { usePreferenceWidth, usePreferences } from '../shell/preferences';
+import { useMobileDrawer } from '../shell/mobile-drawer';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState } from './explorer-state';
 import { useViewportWidth } from '../../../ui/use-viewport-width';
@@ -115,7 +116,7 @@ export function WorkbenchExplorer({
   const { width, resizing, onChange, onResizingChange } =
     usePreferenceWidth('workspaceSidebarWidth');
   const collapsed = usePreferences((s) => s.workspaceSidebarCollapsed);
-  const mobileOpen = useExplorerState((s) => s.mobileOpen);
+  const mobileOpen = useMobileDrawer((s) => s.drawer === 'explorer');
   const narrow = useExplorerState((s) => s.narrow);
   const viewportWidth = useViewportWidth();
   const drawerRef = useRef<HTMLElement>(null);
@@ -126,7 +127,7 @@ export function WorkbenchExplorer({
     if (!narrow || !mobileOpen) return;
     drawerRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') useExplorerState.getState().setMobileOpen(false);
+      if (event.key === 'Escape') useMobileDrawer.getState().setDrawer(null);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -144,7 +145,7 @@ export function WorkbenchExplorer({
     }
     if (item.kind === 'project') {
       void useAppNavigation.getState().openProject(id);
-      useExplorerState.getState().setMobileOpen(false);
+      useMobileDrawer.getState().setDrawer(null);
     } else if (item.kind === 'folder') {
       useTreeState.getState().select(id);
       expand(id, !expanded.includes(id));
@@ -275,7 +276,7 @@ export function WorkbenchExplorer({
         <div
           aria-hidden="true"
           className={cn(overlayFade, 'absolute inset-0 z-20 bg-scrim')}
-          onMouseDown={() => useExplorerState.getState().setMobileOpen(false)}
+          onMouseDown={() => useMobileDrawer.getState().setDrawer(null)}
         />
       )}
       <aside
@@ -307,7 +308,7 @@ export function WorkbenchExplorer({
               aria-label={visible ? '收起目录' : '展开目录'}
 
               onClick={() => {
-                if (narrow) useExplorerState.getState().setMobileOpen(false);
+                if (narrow) useMobileDrawer.getState().setDrawer(null);
                 else
                   usePreferences.getState().setPreference('workspaceSidebarCollapsed', !collapsed);
               }}

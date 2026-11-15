@@ -18,7 +18,9 @@ export { renderMailHtml } from './mail-html-display';
 export { sanitizeHtml } from './sanitize-html';
 
 export const mailView = defineView({
-  pages: { mail: { component: MailPage, nav: { label: '邮箱', icon: Mail } } },
+  pages: {
+    mail: { component: MailPage, nav: { label: '邮箱', icon: Mail }, drawer: true },
+  },
   notices: { mail: { label: '邮件', icon: Mail } },
   settings: { credentials: MailCredential, storage: MailStorage },
   onboarding: MailOnboardingStep,

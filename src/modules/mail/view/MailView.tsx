@@ -1,4 +1,5 @@
 import { leaveComposer } from './compose-close';
+import type { PageDrawer } from '../../../app/module';
 import type { PreparedEmail, MailConfigureInput } from '../contract';
 import { FilePenLine, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -23,7 +24,6 @@ import { Resizer } from '../../../ui/resizer';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { useMediaQuery } from '../../../ui/use-media-query';
-import { useMobileDrawer } from '../../../app/renderer/shell/mobile-drawer';
 import { useMailPreferences } from './store';
 import { draftsKey, mailBoxKey, mailClient, mailStateKey, useMailState } from './use-mail';
 import { showToast } from '../../../ui/toast';
@@ -71,6 +71,8 @@ type MailViewProps = {
   /** 窄屏邮箱级抽屉是否展开,受控于外壳的抽屉状态。 */
   mobileDrawerOpen?: boolean;
   onMobileDrawerClose?: () => void;
+  /** 外壳提供的抽屉挂载点，抽屉展开时才有。 */
+  drawerContainer?: HTMLElement;
 };
 
 function MailUnavailable() {
@@ -90,6 +92,7 @@ function MailUnavailable() {
 export function MailView({
   mobileDrawerOpen = false,
   onMobileDrawerClose,
+  drawerContainer,
   openRequest,
 }: MailViewProps = {}) {
   if (!window.dela) return <MailUnavailable />;
@@ -97,18 +100,25 @@ export function MailView({
     <DesktopMailView
       mobileDrawerOpen={mobileDrawerOpen}
       onMobileDrawerClose={onMobileDrawerClose}
+      drawerContainer={drawerContainer}
       openRequest={openRequest}
     />
   );
 }
 
 /** 模块页面入口：跳转参数交给邮件定位，窄屏抽屉状态来自外壳。 */
-export function MailPage({ target }: { target: { messageId?: number } }) {
-  const drawer = useMobileDrawer((state) => state.drawer);
+export function MailPage({
+  target,
+  drawer,
+}: {
+  target: { messageId?: number };
+  drawer: PageDrawer | null;
+}) {
   return (
     <MailView
-      mobileDrawerOpen={drawer === 'mail'}
-      onMobileDrawerClose={() => useMobileDrawer.getState().setDrawer(null)}
+      drawerContainer={drawer?.container}
+      mobileDrawerOpen={drawer !== null}
+      onMobileDrawerClose={drawer?.close}
       openRequest={target}
     />
   );
@@ -174,6 +184,7 @@ function refreshMailbox(client: QueryClient) {
 function DesktopMailView({
   mobileDrawerOpen = false,
   onMobileDrawerClose,
+  drawerContainer,
   openRequest,
 }: MailViewProps) {
   const queryClient = useQueryClient();
@@ -201,8 +212,6 @@ function DesktopMailView({
   const [openingDraft, setOpeningDraft] = useState(false);
   const composer = useRef<MailComposerHandle>(null);
   const narrow = useMediaQuery(NARROW_MEDIA_QUERY);
-  // 抽屉挂载点由 AppShell 的 aside 常驻渲染，抽屉打开时它一定已在文档里。
-  const drawerSlot = mobileDrawerOpen ? document.getElementById('mail-drawer-slot') : null;
   // 邮箱 grid 容器实测宽度,挂载前按最宽处理。
   const [contentWidth, setContentWidth] = useState(Number.POSITIVE_INFINITY);
 
@@ -806,7 +815,7 @@ function DesktopMailView({
         )}
       </div>
       {mobileDrawerOpen &&
-        drawerSlot &&
+        drawerContainer &&
         createPortal(
           <MailFolders
             className="min-h-0 flex-1 border-r-0"
@@ -831,7 +840,7 @@ function DesktopMailView({
             sync={sync}
             setFoldersCollapsed={setFoldersCollapsed}
           />,
-          drawerSlot,
+          drawerContainer,
         )}
     </div>
   );

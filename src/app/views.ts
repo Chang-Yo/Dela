@@ -6,6 +6,7 @@ import type {
   NavTargets,
   Navigate,
   PageDefinition,
+  PageDrawer,
   SourceDefinition,
   ViewDefinition,
 } from './module';
@@ -38,7 +39,8 @@ export const views: ViewDefinition[] = [
 
 /** 页面的参数类型因页而异，按 target.page 取出的定义与 target 必然匹配，这里统一放宽。 */
 interface AnyPage {
-  component: ComponentType<{ target: NavTarget; navigate: Navigate }>;
+  component: ComponentType<{ target: NavTarget; navigate: Navigate; drawer: PageDrawer | null }>;
+  drawer?: boolean;
   open?(target: NavTarget): void;
 }
 
@@ -54,6 +56,10 @@ export const navPages = views.flatMap((view) =>
 
 export function pageOf(page: string): AnyPage | undefined {
   return pages.get(page);
+}
+
+export function pageHasDrawer(page: string): boolean {
+  return pages.get(page)?.drawer === true;
 }
 
 export function sourceOf(sourceId: string): SourceDefinition | undefined {

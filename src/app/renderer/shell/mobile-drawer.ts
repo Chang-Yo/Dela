@@ -1,8 +1,8 @@
-// 窄屏抽屉由外壳开合，邮箱页要读同一份状态往 #mail-drawer-slot 里渲染文件夹。
+// 窄屏三种抽屉共用一个状态，保证同一时刻只开一个。
 import { create } from 'zustand';
 
-/** null 关闭；nav 主导航；mail 邮箱功能层（仅邮箱页可达）。 */
-export type MobileDrawer = 'nav' | 'mail';
+/** null 全部关闭；nav 主导航；page 当前页面自带的抽屉；explorer 工作台目录。 */
+export type MobileDrawer = 'nav' | 'page' | 'explorer';
 
 export const useMobileDrawer = create<{
   drawer: MobileDrawer | null;

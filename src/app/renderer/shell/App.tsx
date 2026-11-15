@@ -15,7 +15,7 @@ import { ReleaseNotesDialog, UpdatePrompt } from '../../../modules/update/view';
 import { GlobalSearchDialog } from '../../../modules/search/view';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import type { SearchHit } from '../../../modules/search/contract';
-import type { NavTarget } from '../../module';
+import type { NavTarget, PageDrawer } from '../../module';
 import { pageOf, views } from '../../views';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
 import { useRuns, useSessions, updateSession, onAgentEvent } from '../../../modules/chat/view';
@@ -66,13 +66,14 @@ function useSessionNavData(): { sessionsByProject: Record<string, NavSessionSumm
   return { sessionsByProject };
 }
 
-function ModulePage({ target }: { target: NavTarget }) {
+function ModulePage({ target, drawer }: { target: NavTarget; drawer: PageDrawer | null }) {
   const Page = pageOf(target.page)!.component;
-  return <Page navigate={useNavigationStore.getState().navigate} target={target} />;
+  return <Page drawer={drawer} navigate={useNavigationStore.getState().navigate} target={target} />;
 }
 
 export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [drawerSlot, setDrawerSlot] = useState<HTMLElement | null>(null);
   const mobileDrawer = useMobileDrawer((state) => state.drawer);
   const setMobileDrawer = useMobileDrawer((state) => state.setDrawer);
   // 首次启动引导：flow 期间主界面不渲染；completion 时主界面已挂载、完成动画叠在其上渐隐。
@@ -203,6 +204,7 @@ export default function App() {
           onBack={() => void useNavigationStore.getState().goBack()}
           onForward={() => void useNavigationStore.getState().goForward()}
           onMobileDrawerChange={setMobileDrawer}
+          onDrawerSlot={setDrawerSlot}
           onNavigate={(next) => void useNavigationStore.getState().navigate(next)}
           onZoomChange={(next) =>
             void changeZoom(next).catch((cause) =>
@@ -259,7 +261,16 @@ export default function App() {
               {(view === 'workbench' || view === 'home') && (
                 <WorkbenchShell home={view === 'home'} />
               )}
-              {target && <ModulePage target={target} />}
+              {target && (
+                <ModulePage
+                  drawer={
+                    mobileDrawer === 'page' && drawerSlot
+                      ? { container: drawerSlot, close: () => setMobileDrawer(null) }
+                      : null
+                  }
+                  target={target}
+                />
+              )}
               {view === 'settings' && (
                 <SettingsPage
                   fontSize={fontSize}
