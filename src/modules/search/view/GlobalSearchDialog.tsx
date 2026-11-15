@@ -15,6 +15,7 @@ import { createClient } from '../../../core/protocol/contract';
 import { cn } from '../../../ui/cn';
 import { SEARCH_LIMIT, searchContract, type SearchHit, type SearchIcon } from '../contract';
 import { ErrorText } from '../../../ui/alert';
+import { EmptyState } from '../../../ui/empty-state';
 import { Spinner } from '../../../ui/spinner';
 import {
   Dialog,
@@ -135,9 +136,9 @@ export function GlobalSearchDialog({
             </div>
           ) : null}
           {!hasContent && !busy && !error ? (
-            <p className="px-3 py-5 text-sm text-ink-3">
-              {isRecent ? '还没有可显示的最近记录。' : '没有找到匹配的本地数据。'}
-            </p>
+            <EmptyState
+              title={isRecent ? '还没有可显示的最近记录。' : '没有找到匹配的本地数据。'}
+            />
           ) : null}
           {hasContent ? (
             <div id={listId} role="listbox">

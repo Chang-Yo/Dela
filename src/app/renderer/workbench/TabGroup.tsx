@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { GroupNode, TabId } from '../../../modules/workspace/contract';
 import { ErrorBoundary } from '../shell/ErrorBoundary';
 import { cn } from '../../../ui/cn';
-import { EmptyState } from './EmptyState';
+import { GroupEmptyState } from './GroupEmptyState';
 import { ExplorerRevealButton } from './explorer-state';
 import { walkGroups } from './layout-schema';
 import { useWorkbenchLayout } from './layout-store';
@@ -156,7 +156,7 @@ export function TabGroup({ group, onNewChat }: { group: GroupNode; onNewChat: ()
             </ErrorBoundary>
           </div>
         ) : (
-          <EmptyState onNewChat={onNewChat} />
+          <GroupEmptyState onNewChat={onNewChat} />
         )}
         {/* 预览覆盖正文、不染组背景；半屏与实际二等分结果一致。
             复用现有明暗主题蓝色 token，15% 不透明度保持正文可读。 */}

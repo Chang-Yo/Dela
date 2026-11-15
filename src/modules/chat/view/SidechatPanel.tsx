@@ -17,6 +17,7 @@ import {
   chatFileKindOfFile,
 } from '../../../core/protocol/chat-input';
 import { agentClient } from './client';
+import { EmptyState } from '../../../ui/empty-state';
 import { IconButton } from '../../../ui/icon-button';
 import { showToast } from '../../../ui/toast';
 import { cn } from '../../../ui/cn';
@@ -238,10 +239,7 @@ export function SidechatPanel({
           {view.messages.length > 0 ? (
             <ChatThread chat={thread} draftKey={key} onOpenSource={onOpenSource} />
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-ink-3">
-              <MessageCircleDashed className="size-8" strokeWidth={1.5} />
-              <p className="text-sm">随口一问，不扰主线</p>
-            </div>
+            <EmptyState className="flex-1" icon={MessageCircleDashed} title="随口一问，不扰主线" />
           )}
         </div>
         <div className="shrink-0 p-2">

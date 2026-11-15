@@ -5,6 +5,7 @@ import { useDebounce } from 'use-debounce';
 import { Archive, MessageSquare, Search, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { Button } from '../../../ui/button';
+import { EmptyState } from '../../../ui/empty-state';
 import { IconButton } from '../../../ui/icon-button';
 import { cn } from '../../../ui/cn';
 import { poolKey, querySessions } from './sessions';
@@ -207,9 +208,7 @@ export function ChatSessions({
             </div>
           )}
           {allLoaded && totalCount === 0 && (
-            <p className="px-3 py-6 text-center text-sm text-ink-3">
-              {query ? '没有匹配的对话' : '还没有历史对话'}
-            </p>
+            <EmptyState title={query ? '没有匹配的对话' : '还没有历史对话'} />
           )}
           {sections.map((section) =>
             section.list && section.list.length > 0 ? (
