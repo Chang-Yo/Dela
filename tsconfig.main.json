@@ -3,7 +3,6 @@
   "compilerOptions": { "lib": ["ES2023"], "types": ["node"] },
   "include": [
     "src/main/**/*.ts",
-    "src/shared/**/*.ts",
     "src/core/**/*.ts",
     "src/app/**/*.ts",
     "src/modules/**/*.ts",

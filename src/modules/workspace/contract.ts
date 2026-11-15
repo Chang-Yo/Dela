@@ -94,7 +94,7 @@ export interface WorkspaceEntry {
   id: string;
   parentId: string | null;
   name: string;
-  /** file 是磁盘上的任意文件，格式在打开时按内容判定（shared/files）。 */
+  /** file 是磁盘上的任意文件，格式在打开时按内容判定（core/protocol/files）。 */
   kind: 'folder' | 'project' | 'file' | 'source';
   sourceId: string | null;
   path?: string;

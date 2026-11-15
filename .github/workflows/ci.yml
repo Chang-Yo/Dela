@@ -80,7 +80,6 @@ jobs:
               - 'src/main/documents/**'
               - 'src/main/update/**'
               - 'src/preload/**'
-              - 'src/shared/**'
               - 'vendor/bin/*'
             windows:
               - 'vendor/openssh/**'

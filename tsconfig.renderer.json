@@ -12,7 +12,6 @@
     "src/renderer/**/*.tsx",
     "src/ui/**/*.ts",
     "src/ui/**/*.tsx",
-    "src/shared/**/*.ts",
     "src/core/protocol/**/*.ts",
     "src/app/contracts.ts",
     "src/app/views.ts",

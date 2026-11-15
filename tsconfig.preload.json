@@ -7,7 +7,6 @@
   },
   "include": [
     "src/preload/**/*.ts",
-    "src/shared/**/*.ts",
     "src/core/protocol/**/*.ts",
     "src/app/contracts.ts",
     "src/modules/*/contract.ts"

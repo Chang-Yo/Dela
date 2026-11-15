@@ -425,7 +425,7 @@
       }
     },
     {
-      "files": ["src/{main,preload,renderer,shared}/**"],
+      "files": ["src/{main,preload,renderer}/**"],
       "rules": {
         "no-restricted-imports": [
           "error",

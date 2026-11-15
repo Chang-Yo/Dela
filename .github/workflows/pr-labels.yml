@@ -71,10 +71,6 @@ jobs:
                 color: '5319E7',
                 description: '涉及 src/main、src/preload 或 helper 的后端改动',
               },
-              shared: {
-                color: '006B75',
-                description: '涉及 src/shared 跨进程契约的改动',
-              },
               bug: {
                 color: 'D73A4A',
                 description: "Something isn't working",
@@ -117,7 +113,7 @@ jobs:
               'size/XL',
               'size/XXL',
             ]
-            const SCOPE_LABELS = ['frontend', 'backend', 'shared']
+            const SCOPE_LABELS = ['frontend', 'backend']
             const TYPE_LABELS = [
               'bug',
               'enhancement',
@@ -148,7 +144,6 @@ jobs:
               name.startsWith('src/main/') ||
               name.startsWith('src/preload/') ||
               name.startsWith('helper/')
-            const isShared = (name) => name.startsWith('src/shared/')
             const countsForSize = (name) =>
               !SIZE_IGNORES.some((pattern) => pattern.test(name))
 
@@ -224,7 +219,6 @@ jobs:
             const scopeFiles = files.filter((file) => !isDocs(file.filename))
             if (scopeFiles.some((file) => isFrontend(file.filename))) targets.add('frontend')
             if (scopeFiles.some((file) => isBackend(file.filename))) targets.add('backend')
-            if (scopeFiles.some((file) => isShared(file.filename))) targets.add('shared')
 
             // 类型优先取 closing issue 的 labels（Fixes/Closes/Resolves）；
             // Refs 只是普通引用，不构成关闭关系，不参与判断。

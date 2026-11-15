@@ -1,4 +1,4 @@
-// 本地文件的读与写：工作区、Agent 资源读取都从这里拿字节与格式，分类规则在 shared/files。
+// 本地文件的读与写：工作区、Agent 资源读取都从这里拿字节与格式，分类规则在 core/protocol/files。
 // 写入的唯一承诺是「用户改了什么就只改什么」：不改换行符、不改 BOM、不换掉文件本身
 // （原地覆写保住可执行位、硬链接与符号链接指向；先写临时文件再 rename 会把它们全丢掉）。
 import { closeSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
