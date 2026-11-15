@@ -5,7 +5,7 @@ import {
   frameImageFromEvent,
   frameLinkFromEvent,
   injectFrameHeightReport,
-} from '../../../renderer/lib/frame-height';
+} from '../../../modules/mail/view';
 import { openLightbox } from '../../../ui/lightbox';
 import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from '../contract';
 import { useRootFontSize } from '../../../ui/root-font-size';

@@ -11,7 +11,7 @@ import type { TodoItem } from '../contract';
 import { todoCompleted, todoStatusLabels } from '../contract';
 import { Button } from '../../../ui/button';
 import { useRootFontSize } from '../../../ui/root-font-size';
-import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
+import { sanitizeHtml } from '../../mail/view';
 import { useFrameBodyHeight } from '../../../ui/use-frame-body-height';
 import { cn } from '../../../ui/cn';
 import { TodoSheet } from './TodoSheet';

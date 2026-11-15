@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import { renderMailHtml } from '../../modules/mail/view';
+import { renderMailHtml } from './mail-html-display';
 
 /**
  * 清洗 Canvas 网页正文，供沙箱 iframe 的 srcDoc 使用；资料详情与 TODO 详情共用。

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '../../../ui/button';
 import { useRootFontSize } from '../../../ui/root-font-size';
-import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
+import { sanitizeHtml } from '../../mail/view';
 import { showToast } from '../../../ui/toast';
 import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';

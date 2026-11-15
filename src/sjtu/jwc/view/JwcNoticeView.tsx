@@ -5,7 +5,7 @@ import type { Navigate } from '../../../app/module';
 import { createClient, errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import { useRootFontSize } from '../../../ui/root-font-size';
-import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
+import { sanitizeHtml } from '../../../modules/mail/view';
 import { useFrameBodyHeight } from '../../../ui/use-frame-body-height';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';

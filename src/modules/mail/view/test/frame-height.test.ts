@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
+/// <reference types="node" />
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { expect, it, vi } from 'vitest';
-import appHtml from '../index.html?raw';
-import { injectFrameHeightReport } from './frame-height';
+import { injectFrameHeightReport } from '../frame-height';
+
+const appHtml = readFileSync(
+  resolve(import.meta.dirname, '../../../../renderer/index.html'),
+  'utf8',
+);
 
 function clickLightboxImage(lightbox: boolean) {
   document.documentElement.removeAttribute('data-dela-lightbox');

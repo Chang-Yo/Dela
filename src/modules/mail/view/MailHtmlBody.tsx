@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
 import { cn } from '../../../ui/cn';
-import { frameHeightFromEvent, injectFrameHeightReport } from '../../../renderer/lib/frame-height';
+import { frameHeightFromEvent, injectFrameHeightReport } from './frame-height';
 import { useRootFontSize } from '../../../ui/root-font-size';
 
 const toolbarToggle = cn(
