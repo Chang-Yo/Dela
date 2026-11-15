@@ -81,8 +81,8 @@ export function MailAccountForm({
             value={password}
           />
         </label>
-        <Collapse className={wizard ? 'pt-5' : 'pt-4'} open={custom}>
-          <div className="grid gap-4">
+        <Collapse open={custom}>
+          <div className={cn('grid gap-4', wizard ? 'pt-5' : 'pt-4')}>
             <ServerRow
               field={field}
               host={imapHost}

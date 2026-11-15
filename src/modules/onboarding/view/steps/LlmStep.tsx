@@ -169,8 +169,8 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                   ))}
                   <SelectItem value={CUSTOM}>自定义（OpenAI 兼容）</SelectItem>
                 </StepSelect>
-                <Collapse className="pt-4" open={custom}>
-                  <div className="grid gap-4">
+                <Collapse open={custom}>
+                  <div className="grid gap-4 pt-4">
                     <label className="grid gap-2">
                       <span className="text-sm font-medium text-ink-2">名称</span>
                       <Input
