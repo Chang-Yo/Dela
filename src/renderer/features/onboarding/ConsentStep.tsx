@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import privacy from '../../../../docs/privacy.md?raw';
 import terms from '../../../../docs/terms.md?raw';
-import { LegalMarkdown } from '../../components/legal-markdown';
+import { LegalMarkdown } from '../../../modules/settings/view';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 import { Button } from '../../../ui/button';
 import { settingsClient } from '../../../modules/settings/view';

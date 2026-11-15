@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import type { McpServerView } from '../../../../../shared/api';
-import { Button } from '../../../../../ui/button';
-import { Switch } from '../../../../../ui/switch';
-import { cn } from '../../../../../ui/cn';
-import { errorText } from '../../../../workspace/store';
-import { showToast } from '../../../../app/toasts';
-import { SectionHeader, SettingsGroup } from '../../../../../modules/settings/view';
+import type { McpServerView } from '../../../../core/protocol/capabilities';
+import { Button } from '../../../../ui/button';
+import { Switch } from '../../../../ui/switch';
+import { cn } from '../../../../ui/cn';
+import { errorText } from '../../../../renderer/workspace/store';
+import { showToast } from '../../../../renderer/app/toasts';
+import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup } from '../SettingsGroup';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
-import { ConfirmDialog } from '../../../../../ui/dialog';
-import { ErrorText } from '../../../../../ui/alert';
-import { Spinner } from '../../../../../ui/spinner';
-import { capabilitiesClient } from '../../../../../modules/chat/view';
+import { ConfirmDialog } from '../../../../ui/dialog';
+import { ErrorText } from '../../../../ui/alert';
+import { Spinner } from '../../../../ui/spinner';
+import { capabilitiesClient } from '../../../chat/view';
 
 /** 设置 › MCP Server：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {

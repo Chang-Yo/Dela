@@ -3,7 +3,7 @@ import { Check, FileText } from 'lucide-react';
 import type { SkillView } from '../../../shared/capabilities';
 import { ToastCard } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
-import { DownloadProgressRow } from '../../components/download-progress';
+import { DownloadProgressRow } from '../../../ui/download-progress';
 import { errorText } from '../../workspace/store';
 import { StepButton } from '../../../modules/onboarding/view';
 import { ErrorText } from '../../../ui/alert';

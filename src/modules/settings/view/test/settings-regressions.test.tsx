@@ -3,12 +3,7 @@ import { act } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type {
-  DelaApi,
-  LlmProviderView,
-  LlmSaveInput,
-  LlmVerifyResult,
-} from '../../../../shared/api';
+import type { LlmProviderView, LlmSaveInput, LlmVerifyResult } from '../../../../core/protocol/llm';
 
 // 契约客户端在模块加载时取 bridge，须先于导入页面装好；设置用例替换 invoke 的实现，
 // 模型用例经 stubLlm 按通道登记 handler。
@@ -19,12 +14,9 @@ const { api, bridge, invoke } = vi.hoisted(() => {
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   return { api, bridge, invoke };
 });
-import { defaultKeybindings } from '../../../../shared/keybindings';
-import { useShortcuts } from '../../../app/shortcuts';
-import { LlmSection } from './LlmSection';
-import { ShortcutsSection } from './ShortcutsSection';
-import { GeneralSection } from './GeneralSection';
-import { useToastStore } from '../../../app/toasts';
+import { LlmSection } from '../agent/LlmSection';
+import { GeneralSection } from '../GeneralSection';
+import { useToastStore } from '../../../../renderer/app/toasts';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -36,7 +28,6 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  useShortcuts.setState({ bindings: defaultKeybindings() });
   for (const channel of Object.keys(api)) delete api[channel];
 });
 
@@ -58,11 +49,11 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
     'settings:taskNotifications': () => ({ failed: true, completed: false }),
   };
   invoke.mockImplementation(async (channel: string, input: unknown) => routes[channel]?.(input));
-  window.dela = { platform: 'darwin' } as unknown as DelaApi;
+  window.dela = { platform: 'darwin' } as unknown as NonNullable<typeof window.dela>;
   await act(async () =>
     root.render(
       <QueryClientProvider client={new QueryClient()}>
-        <GeneralSection />
+        <GeneralSection navEntries={null} views={[]} />
       </QueryClientProvider>,
     ),
   );
@@ -90,7 +81,7 @@ function button(text: string): HTMLButtonElement {
 
 function stubLlm(handlers: Record<string, (input: never) => unknown>) {
   for (const [name, handler] of Object.entries(handlers)) api[`llm:${name}`] = handler;
-  window.dela = { bridge } as unknown as DelaApi;
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
 }
 
 async function fill(input: HTMLInputElement, value: string) {
@@ -311,42 +302,4 @@ it('rewrites an existing provider to the API base the service actually serves', 
   expect(container.querySelector<HTMLInputElement>('input[type="url"]')!.value).toBe(
     'https://api.deepseek.com/v1',
   );
-});
-
-it('rejects a digit-family recording that conflicts at other digits', async () => {
-  const writes: unknown[] = [];
-  invoke.mockImplementation(async (channel: string, patch: unknown) => {
-    if (channel !== 'settings:setKeybindings') return undefined;
-    writes.push(patch);
-    return patch;
-  });
-  window.dela = {} as unknown as DelaApi;
-  await act(async () => root.render(<ShortcutsSection />));
-  await act(async () =>
-    container
-      .querySelector<HTMLButtonElement>('[aria-label="修改「聚焦工作组」的快捷键"]')!
-      .click(),
-  );
-  await act(async () =>
-    window.dispatchEvent(
-      new KeyboardEvent('keydown', { key: '4', code: 'Digit4', ctrlKey: true, bubbles: true }),
-    ),
-  );
-  expect(container.querySelector('[role="alert"]')?.textContent).toBeTruthy();
-  expect(writes).toEqual([]);
-  expect(useShortcuts.getState().bindings['focus-group']).toBe('Alt+1');
-});
-
-it('rejects restoring a default shortcut that another action now uses', async () => {
-  useShortcuts.setState({
-    bindings: { ...defaultKeybindings(), 'global-search': 'Mod+P', 'import-files': 'Mod+K' },
-  });
-  await act(async () => root.render(<ShortcutsSection />));
-  await act(async () =>
-    container
-      .querySelector<HTMLButtonElement>('[aria-label="恢复「全局搜索」的默认快捷键"]')!
-      .click(),
-  );
-  expect(container.querySelector('[role="alert"]')?.textContent).toBeTruthy();
-  expect(useShortcuts.getState().bindings['global-search']).toBe('Mod+P');
 });

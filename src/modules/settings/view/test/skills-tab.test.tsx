@@ -3,7 +3,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, SkillView, WorkspaceEntry, WorkspaceState } from '../../../../../shared/api';
+import type { SkillView } from '../../../../core/protocol/capabilities';
+import type { WorkspaceEntry, WorkspaceState } from '../../../workspace/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好；用例经 stubCapabilities 登记 handler。
 const { api, bridge } = vi.hoisted(() => {
@@ -15,9 +16,9 @@ const { api, bridge } = vi.hoisted(() => {
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   return { api, bridge };
 });
-import { useToastStore } from '../../../../app/toasts';
-import { useWorkspaceStore } from '../../../../workspace/store';
-import { SkillsTab } from './SkillsTab';
+import { useToastStore } from '../../../../renderer/app/toasts';
+import { useWorkspaceStore } from '../../../../renderer/workspace/store';
+import { SkillsTab } from '../agent/SkillsTab';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -80,7 +81,7 @@ afterEach(async () => {
 
 function stubCapabilities(handlers: Record<string, (input: never) => unknown>) {
   for (const [name, handler] of Object.entries(handlers)) api[`capabilities:${name}`] = handler;
-  window.dela = { bridge } as unknown as DelaApi;
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
 }
 
 async function openDialog(

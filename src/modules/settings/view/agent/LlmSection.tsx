@@ -18,7 +18,7 @@ import type {
   LlmModelSettings,
   LlmProviderView,
   LlmVerifyResult,
-} from '../../../../shared/api';
+} from '../../../../core/protocol/llm';
 import {
   reasoningEffortLevels,
   llmModelSettings,
@@ -26,9 +26,10 @@ import {
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
 } from '../../../../core/protocol/llm-models';
-import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
-import { errorText } from '../../../workspace/store';
-import { showToast } from '../../../app/toasts';
+import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup } from '../SettingsGroup';
+import { errorText } from '../../../../renderer/workspace/store';
+import { showToast } from '../../../../renderer/app/toasts';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import {
@@ -40,7 +41,7 @@ import {
   DialogTitle,
 } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
-import { llmClient } from '../../../../modules/chat/view';
+import { llmClient } from '../../../chat/view';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 

@@ -7,19 +7,17 @@ import {
   type IconPreference,
   type ThemePreference,
   type ZoomPreference,
-} from '../../../../modules/settings/contract';
-import { cn } from '../../../../ui/cn';
-import { StepperControl } from '../../../../ui/stepper';
-import blackLogo from '../../../../../assets/Dela_black_bg.svg';
-import whiteLogo from '../../../../../assets/Dela_white_bg.svg';
-import {
-  SectionHeader,
-  SettingRow,
-  SettingsGroup,
-  settingsClient,
-} from '../../../../modules/settings/view';
-import { errorText } from '../../../workspace/store';
-import { showToast } from '../../../app/toasts';
+} from '../contract';
+import { cn } from '../../../ui/cn';
+import { StepperControl } from '../../../ui/stepper';
+import blackLogo from '../../../../assets/Dela_black_bg.svg';
+import whiteLogo from '../../../../assets/Dela_white_bg.svg';
+import { SectionHeader } from './SectionHeader';
+import { SettingRow } from './SettingRow';
+import { SettingsGroup } from './SettingsGroup';
+import { settingsClient } from './client';
+import { errorText } from '../../../renderer/workspace/store';
+import { showToast } from '../../../renderer/app/toasts';
 
 const themes: Array<{ id: ThemePreference; label: string }> = [
   { id: 'light', label: '浅色' },

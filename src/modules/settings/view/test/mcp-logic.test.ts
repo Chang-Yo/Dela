@@ -6,7 +6,7 @@ import {
   parseArgsText,
   parseMcpForm,
   parsePairs,
-} from './mcp-logic';
+} from '../agent/mcp-logic';
 
 describe('parseArgsText', () => {
   it('每行一个参数：去空白、忽略空行', () => {

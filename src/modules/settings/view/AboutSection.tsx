@@ -1,7 +1,7 @@
 import { Feather, Globe, Heart } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Button } from '../../../../ui/button';
-import { DelaBrand } from '../../../components/dela-brand';
+import { Button } from '../../../ui/button';
+import { DelaBrand } from './dela-brand';
 import {
   creditSections,
   type CreditPerson,
@@ -9,8 +9,8 @@ import {
   type SocialLink,
   type SocialLinkKind,
   type SponsorChannelKind,
-} from '../credits';
-import { SectionHeader } from '../../../../modules/settings/view';
+} from './credits';
+import { SectionHeader } from './SectionHeader';
 import {
   Dialog,
   DialogTrigger,
@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogClose,
-} from '../../../../ui/dialog';
+} from '../../../ui/dialog';
 
 // lucide 不再提供品牌图标，GitHub/知乎/B 站标记内联自 simple-icons。
 function GithubMark() {

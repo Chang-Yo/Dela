@@ -9,7 +9,7 @@ import { CompletionOverlay } from '../features/onboarding/CompletionOverlay';
 import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
 import { isSmokeTest, readOnboardingState } from '../features/onboarding/onboarding-state';
 import { leaveComposer } from '../../modules/mail/view';
-import { SettingsView } from '../features/settings';
+import { SettingsPage } from '../features/settings';
 import { ReleaseNotesDialog, UpdatePrompt, useUpdateState } from '../../modules/update/view';
 import { GlobalSearchDialog } from '../../modules/search/view';
 import type { ChatSessionSummary } from '../../shared/api';
@@ -94,7 +94,6 @@ export default function App() {
   const canBack = useNavigationStore((state) => state.backStack.length > 0);
   const canForward = useNavigationStore((state) => state.forwardStack.length > 0);
   const target = useNavigationStore((state) => state.target);
-  const settingsRequest = useNavigationStore((state) => state.settingsRequest);
 
   const { theme, zoom, fontSize, changeTheme, changeZoom, changeFontSize } = useAppearance();
   const notifications = useNotificationCounts();
@@ -272,12 +271,11 @@ export default function App() {
                   )}
                   {target && <ModulePage target={target} />}
                   {view === 'settings' && (
-                    <SettingsView
+                    <SettingsPage
                       fontSize={fontSize}
                       onFontSizeChange={changeFontSize}
                       onThemeChange={changeTheme}
                       onZoomChange={changeZoom}
-                      sectionRequest={settingsRequest ?? undefined}
                       theme={theme}
                       zoom={zoom}
                     />

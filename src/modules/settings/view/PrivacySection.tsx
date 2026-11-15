@@ -1,4 +1,4 @@
-import privacy from '../../../../../docs/privacy.md?raw';
+import privacy from '../../../../docs/privacy.md?raw';
 import { LegalDocument } from './legal-doc';
 
 /**

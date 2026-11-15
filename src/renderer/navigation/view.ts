@@ -47,8 +47,8 @@ interface NavigationState {
   projectId: string | null;
   backStack: NavigationRoute[];
   forwardStack: NavigationRoute[];
-  /** 每次赋新对象，保证已在设置页时也能触发分区切换。 */
-  settingsRequest: { section: SettingsSectionId } | null;
+  /** 设置页当前分区；离开设置页回到「通用」。 */
+  settingsSection: SettingsSectionId;
   /** 新建项目弹窗脉冲（导航栏/托盘/快捷键），由工作台装配层转成 EntryDialogs 请求。 */
   createProject: boolean;
   /** 工作台标签定位脉冲（chat/note/preview 深链）。 */
@@ -139,7 +139,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     projectId: null,
     backStack: [],
     forwardStack: [],
-    settingsRequest: null,
+    settingsSection: 'general',
     createProject: false,
     reveal: null,
     generalChat: null,
@@ -171,7 +171,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
           ...(view === 'home' ? { projectId: null } : {}),
           backStack: [...state.backStack, routeOf(state)],
           forwardStack: [],
-          settingsRequest: null,
+          settingsSection: 'general',
           reveal: null,
           generalChat: null,
         });
@@ -191,7 +191,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         projectId: prev.projectId,
         backStack: state.backStack.slice(0, -1),
         forwardStack: [routeOf(state), ...state.forwardStack],
-        settingsRequest: null,
+        settingsSection: 'general',
         reveal: null,
         generalChat: null,
       });
@@ -209,7 +209,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         projectId: next.projectId,
         backStack: [...state.backStack, routeOf(state)],
         forwardStack: state.forwardStack.slice(1),
-        settingsRequest: null,
+        settingsSection: 'general',
         reveal: null,
         generalChat: null,
       });
@@ -296,7 +296,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
 
     openSettings: (section) => {
       if (!get().navigate('settings')) return false;
-      set({ settingsRequest: section ? { section } : null });
+      if (section) set({ settingsSection: section });
       return true;
     },
 

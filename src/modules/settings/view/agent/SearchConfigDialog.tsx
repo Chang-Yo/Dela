@@ -14,13 +14,13 @@ import type {
   WebSearchEntry,
   WebSearchEntryInput,
   WebSearchKeySource,
-} from '../../../../shared/api';
-import { errorText } from '../../../workspace/store';
+} from '../../../../core/protocol/capabilities';
+import { errorText } from '../../../../renderer/workspace/store';
 import { Switch } from '../../../../ui/switch';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
-import { capabilitiesClient } from '../../../../modules/chat/view';
+import { capabilitiesClient } from '../../../chat/view';
 
 /** 各类型展示名（键序即表单类型按钮的排列顺序，DeepSeek 置首）。 */
 const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {

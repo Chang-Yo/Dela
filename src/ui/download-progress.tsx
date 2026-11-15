@@ -1,10 +1,8 @@
-import { formatBytes } from '../lib/format-bytes';
-import { cn } from '../../ui/cn';
+import { formatBytes } from './format-bytes';
+import { cn } from './cn';
 
-/** 下载进度一行式（「软件更新」「Skills 组件」「能力拓展」共用）：左「已接收 / 总量」、
- *  中间进度条、右百分比。百分比向下取整，传输未完成时不提前显示 100%；总量未知显示
- *  「—」并停在 0%。尺寸列给最小宽，数字增长时行不左右抖动；进度条宽度由 barClassName
- *  给（设置行定宽、卡片里 flex-1）。 */
+/** 下载进度一行：百分比向下取整，未完成不显示 100%；尺寸列定最小宽，数字增长时不抖动。
+ *  进度条宽度由调用方经 barClassName 给。 */
 export function DownloadProgressRow({
   barClassName,
   label,

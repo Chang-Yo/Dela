@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, WebSearchEntryInput } from '../../../../shared/api';
+import type { WebSearchEntryInput } from '../../../../core/protocol/capabilities';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好；用例按通道登记 handler。
 const { api, bridge } = vi.hoisted(() => {
@@ -14,7 +14,7 @@ const { api, bridge } = vi.hoisted(() => {
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   return { api, bridge };
 });
-import { SearchConfigDialog } from './SearchConfigDialog';
+import { SearchConfigDialog } from '../agent/SearchConfigDialog';
 
 let host: HTMLDivElement;
 let root: Root;
@@ -51,7 +51,7 @@ it('导入 DeepSeek 密钥后切换到 Brave，不应把 DeepSeek 密钥保存�
   ];
   api['capabilities:readWebSearchKey'] = readWebSearchKey;
   api['capabilities:saveWebSearchEntry'] = saveWebSearchEntry;
-  window.dela = { bridge } as unknown as DelaApi;
+  window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
 
   await act(async () => root.render(<SearchConfigDialog onClose={() => {}} />));
   await act(async () => button('添加搜索服务').click());

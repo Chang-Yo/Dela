@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
-import { agentClient, chatClient } from '../../../../modules/chat/view';
+import { agentClient, chatClient } from '../../../chat/view';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
-import type { ChatCommandView } from '../../../../shared/api';
-import {
-  SectionHeader,
-  SettingsGroup,
-  SettingsGroupLabel,
-  settingsClient,
-} from '../../../../modules/settings/view';
-import { errorText } from '../../../workspace/store';
-import { showToast } from '../../../app/toasts';
+import type { ChatCommandView } from '../../../../core/protocol/agent';
+import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
+import { settingsClient } from '../client';
+import { errorText } from '../../../../renderer/workspace/store';
+import { showToast } from '../../../../renderer/app/toasts';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';

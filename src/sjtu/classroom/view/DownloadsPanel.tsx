@@ -6,7 +6,7 @@ import { ProgressRing } from '../../../ui/progress-ring';
 import { Button } from '../../../ui/button';
 import { menuPanel } from '../../../ui/menu-styles';
 import { cn } from '../../../ui/cn';
-import { formatBytes } from '../../../renderer/lib/format-bytes';
+import { formatBytes } from '../../../ui/format-bytes';
 import type { VideoDownload } from '../contract';
 import { classroomClient, useDownloads } from './use-classroom';
 

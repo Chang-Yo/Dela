@@ -1,16 +1,15 @@
 import { useState } from 'react';
-import { Button } from '../../../../../ui/button';
-import { Input } from '../../../../../ui/input';
-import { Textarea } from '../../../../../ui/textarea';
-import { SegmentedControl } from '../../../../../ui/segmented-control';
-import type { McpServerView } from '../../../../../shared/api';
-import type { McpTransportConfig } from '../../../../../shared/capabilities';
-import { errorText } from '../../../../workspace/store';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
+import { Textarea } from '../../../../ui/textarea';
+import { SegmentedControl } from '../../../../ui/segmented-control';
+import type { McpServerView, McpTransportConfig } from '../../../../core/protocol/capabilities';
+import { errorText } from '../../../../renderer/workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
-import { ErrorText } from '../../../../../ui/alert';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../../ui/dialog';
-import { Field } from '../../../../../ui/field';
-import { capabilitiesClient } from '../../../../../modules/chat/view';
+import { ErrorText } from '../../../../ui/alert';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
+import { Field } from '../../../../ui/field';
+import { capabilitiesClient } from '../../../chat/view';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 

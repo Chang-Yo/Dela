@@ -1,4 +1,4 @@
-import terms from '../../../../../docs/terms.md?raw';
+import terms from '../../../../docs/terms.md?raw';
 import { LegalDocument } from './legal-doc';
 
 /**

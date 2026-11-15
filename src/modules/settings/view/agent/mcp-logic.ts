@@ -5,7 +5,7 @@ import type {
   McpServerInput,
   McpServerPatch,
   McpTransportConfig,
-} from '../../../../../shared/capabilities';
+} from '../../../../core/protocol/capabilities';
 
 export function parseArgsText(text: string): string[] {
   return text

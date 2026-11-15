@@ -1,6 +1,6 @@
-import blackLogo from '../../../assets/Dela_black_bg.svg';
-import whiteLogo from '../../../assets/Dela_white_bg.svg';
-import { cn } from '../../ui/cn';
+import blackLogo from '../../../../assets/Dela_black_bg.svg';
+import whiteLogo from '../../../../assets/Dela_white_bg.svg';
+import { cn } from '../../../ui/cn';
 
 /**
  * 应用内品牌图：浅色主题显示白底、深色显示黑底，切换规则在 globals.css

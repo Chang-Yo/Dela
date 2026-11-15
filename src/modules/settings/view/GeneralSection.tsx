@@ -1,26 +1,26 @@
-import { useEffect, useState } from 'react';
-import { Switch } from '../../../../ui/switch';
-import { views } from '../../../../app/views';
-import { usePreferences } from '../../../app/preferences';
-import { navEntries } from '../../../navigation/entries';
-import {
-  SectionHeader,
-  SettingRow,
-  SettingsGroup,
-  settingsClient,
-} from '../../../../modules/settings/view';
-import { errorText } from '../../../workspace/store';
-import { showToast } from '../../../app/toasts';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Switch } from '../../../ui/switch';
+import type { ViewDefinition } from '../../../app/module';
+import { SectionHeader } from './SectionHeader';
+import { SettingRow } from './SettingRow';
+import { SettingsGroup } from './SettingsGroup';
+import { settingsClient } from './client';
+import { errorText } from '../../../renderer/workspace/store';
+import { showToast } from '../../../renderer/app/toasts';
 import { SystemNotifications } from './SystemNotifications';
 import { CacheUsage } from './CacheUsage';
-import { UpdateControl } from '../../../../modules/update/view';
+import { UpdateControl } from '../../update/view';
 
-export function GeneralSection() {
+export function GeneralSection({
+  navEntries,
+  views,
+}: {
+  navEntries: ReactNode;
+  views: ViewDefinition[];
+}) {
   // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
   const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  const hiddenEntries = usePreferences((state) => state.hiddenNavEntries);
-  const setEntryVisible = usePreferences((state) => state.setNavEntryVisible);
 
   useEffect(() => {
     if (!window.dela) return;
@@ -58,19 +58,7 @@ export function GeneralSection() {
           </SettingRow>
         </SettingsGroup>
       </div>
-      <div className="grid gap-2">
-        <SettingsGroup settingId="nav-entries" title="导航入口">
-          {navEntries.map((entry) => (
-            <SettingRow key={entry.id} settingId={`nav-entry-${entry.id}`} title={entry.label}>
-              <Switch
-                checked={!hiddenEntries.includes(entry.id)}
-                label={`在导航中显示${entry.label}`}
-                onChange={(next) => setEntryVisible(entry.id, next)}
-              />
-            </SettingRow>
-          ))}
-        </SettingsGroup>
-      </div>
+      {navEntries}
       <SystemNotifications />
       <UpdateControl />
       <div className="grid gap-2">

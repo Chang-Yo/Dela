@@ -1,25 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { Cloud, CloudUpload, FileText, FolderOpen, RefreshCw } from 'lucide-react';
-import type { SkillOrigin, SkillView, WorkspaceEntry } from '../../../../../shared/api';
-import type { RemoteSkillUpload } from '../../../../../shared/capabilities';
-import { Button } from '../../../../../ui/button';
-import { DownloadProgressRow } from '../../../../components/download-progress';
-import { Switch } from '../../../../../ui/switch';
-import { SegmentedControl } from '../../../../../ui/segmented-control';
-import { errorText, useWorkspaceStore } from '../../../../workspace/store';
-import { showToast } from '../../../../app/toasts';
-import { cn } from '../../../../../ui/cn';
-import { SectionHeader, SettingsGroup } from '../../../../../modules/settings/view';
-import { ErrorText } from '../../../../../ui/alert';
-import { Spinner } from '../../../../../ui/spinner';
+import type {
+  RemoteSkillUpload,
+  SkillOrigin,
+  SkillView,
+} from '../../../../core/protocol/capabilities';
+import type { WorkspaceEntry } from '../../../workspace/contract';
+import { Button } from '../../../../ui/button';
+import { DownloadProgressRow } from '../../../../ui/download-progress';
+import { Switch } from '../../../../ui/switch';
+import { SegmentedControl } from '../../../../ui/segmented-control';
+import { errorText, useWorkspaceStore } from '../../../../renderer/workspace/store';
+import { showToast } from '../../../../renderer/app/toasts';
+import { cn } from '../../../../ui/cn';
+import { SectionHeader } from '../SectionHeader';
+import { SettingsGroup } from '../SettingsGroup';
+import { ErrorText } from '../../../../ui/alert';
+import { Spinner } from '../../../../ui/spinner';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogTitle,
-} from '../../../../../ui/dialog';
-import { capabilitiesClient } from '../../../../../modules/chat/view';
+} from '../../../../ui/dialog';
+import { capabilitiesClient } from '../../../chat/view';
 
 const ORIGINS = ['builtin', 'user', 'project'] as const;
 const ORIGIN_LABELS: Record<SkillOrigin, string> = {

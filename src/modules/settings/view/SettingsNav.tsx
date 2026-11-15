@@ -16,10 +16,9 @@ import {
   Terminal,
   type LucideIcon,
 } from 'lucide-react';
-import type { SettingsSectionId } from '../../../modules/settings/contract';
+import { settingsSectionLabels, type SettingsSectionId } from '../contract';
 import { cn } from '../../../ui/cn';
-import { useHorizontalWheel } from '../../lib/use-horizontal-wheel';
-import { settingsSectionLabels } from '../../../shared/settings-search';
+import { useHorizontalWheel } from '../../../renderer/lib/use-horizontal-wheel';
 
 export type { SettingsSectionId };
 

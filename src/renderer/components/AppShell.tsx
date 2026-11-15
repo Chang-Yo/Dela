@@ -27,7 +27,7 @@ import { useEditorSettings } from '../lib/editor-settings';
 import { errorText, useWorkspaceStore } from '../workspace/store';
 import { usePreferences } from '../app/preferences';
 import { showToast, ToastHost } from '../app/toasts';
-import { DelaBrand } from './dela-brand';
+import { DelaBrand } from '../../modules/settings/view';
 import { cn } from '../../ui/cn';
 import { useMediaQuery } from '../../ui/use-media-query';
 import { fileManagerName, platform } from '../lib/platform';

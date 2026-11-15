@@ -44,6 +44,24 @@ export type SettingsSectionId =
   | 'privacy'
   | 'terms';
 
+export const settingsSectionLabels: Record<SettingsSectionId, string> = {
+  general: '通用',
+  appearance: '外观',
+  shortcuts: '快捷键',
+  workspace: '工作区',
+  archived: '已归档',
+  connections: '连接',
+  remotes: '远程',
+  providers: '模型供应商',
+  capabilities: '内置能力',
+  commands: '自定义指令',
+  skills: 'Skills',
+  mcp: 'MCP Server',
+  about: '关于',
+  privacy: '隐私条款',
+  terms: '使用条款',
+};
+
 export type ConsentDocument = 'terms' | 'privacy';
 
 export type BackupResult =

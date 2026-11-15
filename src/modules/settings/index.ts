@@ -1,4 +1,4 @@
-// 设置：偏好读写、条款接受记录、导出本机数据与缓存清理。设置页本身仍在 renderer/features/settings。
+// 设置：偏好读写、条款接受记录、导出本机数据与缓存清理。设置页在 view/，依赖外壳的分区由 renderer/features/settings 注入。
 import { defineModule } from '../../app/module';
 import { getAgentInstruction, setAgentInstruction } from '../../core/agent/instruction';
 import { implement } from '../../core/protocol/contract';

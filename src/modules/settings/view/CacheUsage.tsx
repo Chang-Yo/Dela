@@ -1,33 +1,30 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
-import { Button } from '../../../../ui/button';
-import { formatBytes } from '../../../lib/format-bytes';
-import { SettingRow, SettingsGroup, settingsClient } from '../../../../modules/settings/view';
-import { errorText } from '../../../workspace/store';
-import { showToast } from '../../../app/toasts';
+import { Button } from '../../../ui/button';
+import { formatBytes } from '../../../ui/format-bytes';
+import { SettingRow } from './SettingRow';
+import { SettingsGroup } from './SettingsGroup';
+import { settingsClient } from './client';
+import { errorText } from '../../../renderer/workspace/store';
+import { showToast } from '../../../renderer/app/toasts';
 
 /**
  * 通用 › 缓存占用：占用量跟在标题后面（Chromium 的可再生缓存，本机实测数百 MB），右侧只放动作。
  * 缓存目录多达成千上万个小文件，量一次要扫盘，所以量完之前不显示数字也不让点。
  */
 export function CacheUsage() {
-  const [bytes, setBytes] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
-    if (!window.dela) return;
-    try {
-      setBytes(await settingsClient.cacheSize());
-    } catch {
-      // 量不出来就保持「正在计算」，用户仍可点清除（清理本身不依赖这个数）。
-      setBytes(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  // 量不出来就保持「正在计算」，用户仍可点清除（清理本身不依赖这个数）。
+  const size = useQuery({
+    queryKey: ['settings', 'cacheSize'],
+    queryFn: () => settingsClient.cacheSize(),
+    enabled: Boolean(window.dela),
+    retry: false,
+  });
+  const bytes = size.data ?? null;
 
   const clear = async () => {
     if (!window.dela || busy) return;
@@ -35,7 +32,7 @@ export function CacheUsage() {
     try {
       const result = await settingsClient.clearCache();
       setConfirming(false);
-      void refresh();
+      void size.refetch();
       const freed = formatBytes(result.freed);
       showToast({
         variant: 'success',

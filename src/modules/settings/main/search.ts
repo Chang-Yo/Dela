@@ -1,9 +1,6 @@
 import type { SearchProvider } from '../../search';
-import {
-  settingsSectionLabels,
-  settingsSectionsMatching,
-  settingsSectionSummaries,
-} from '../../../shared/settings-search';
+import { settingsSectionLabels } from '../contract';
+import { settingsSectionsMatching, settingsSectionSummaries } from './search-index';
 
 export const settingsSearch: SearchProvider = {
   id: 'setting',

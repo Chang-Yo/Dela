@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { BellOff } from 'lucide-react';
-import type { TaskNotificationPrefs } from '../../../../modules/settings/contract';
-import { notificationsClient, useNotificationState } from '../../../../modules/notifications/view';
-import { Button } from '../../../../ui/button';
-import { Switch } from '../../../../ui/switch';
-import { SettingRow, SettingsGroup, settingsClient } from '../../../../modules/settings/view';
-import { errorText } from '../../../workspace/store';
-import { showToast } from '../../../app/toasts';
-import { ErrorText } from '../../../../ui/alert';
+import type { TaskNotificationPrefs } from '../contract';
+import { notificationsClient, useNotificationState } from '../../notifications/view';
+import { Button } from '../../../ui/button';
+import { Switch } from '../../../ui/switch';
+import { SettingRow } from './SettingRow';
+import { SettingsGroup } from './SettingsGroup';
+import { settingsClient } from './client';
+import { errorText } from '../../../renderer/workspace/store';
+import { showToast } from '../../../renderer/app/toasts';
+import { ErrorText } from '../../../ui/alert';
 
 /** 暂停期限选项与通知中心一致（同一份 workspace_settings 暂停状态）。 */
 function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
