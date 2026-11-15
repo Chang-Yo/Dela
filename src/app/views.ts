@@ -12,6 +12,7 @@ import type {
 import { mailView } from '../modules/mail/view';
 import { notificationsView } from '../modules/notifications/view';
 import { todoView } from '../modules/todo/view';
+import { updateView } from '../modules/update/view';
 import { canvasView } from '../sjtu/canvas/view';
 import { classroomView } from '../sjtu/classroom/view';
 import { jwcView } from '../sjtu/jwc/view';
@@ -31,6 +32,7 @@ const moduleViews = [
 export const views: ViewDefinition[] = [
   ...moduleViews,
   notificationsView(Object.assign({}, ...moduleViews.map((view) => view.notices))),
+  updateView,
 ];
 
 /** 页面的参数类型因页而异，按 target.page 取出的定义与 target 必然匹配，这里统一放宽。 */

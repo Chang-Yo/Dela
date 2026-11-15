@@ -13,7 +13,7 @@ import {
 } from '../../modules/onboarding/view';
 import { leaveComposer } from '../../modules/mail/view';
 import { SettingsPage } from '../features/settings';
-import { ReleaseNotesDialog, UpdatePrompt, useUpdateState } from '../../modules/update/view';
+import { ReleaseNotesDialog, UpdatePrompt } from '../../modules/update/view';
 import { GlobalSearchDialog } from '../../modules/search/view';
 import type { ChatSessionSummary } from '../../shared/api';
 import type { SearchHit } from '../../modules/search/contract';
@@ -115,11 +115,6 @@ export default function App() {
     const group = walkGroups(state.root).find((node) => node.id === state.focus);
     return group?.active?.startsWith('chat:') ?? false;
   });
-
-  // 更新快照的订阅属于应用而不是设置页：标题栏要在用户从没打开过设置页时也能提示有新版本。
-  useEffect(() => {
-    useUpdateState.getState().attach();
-  }, []);
 
   // 工作区镜像载入 + 会话静默后的条目/干净草稿刷新（工具可能写过工作区）。
   useEffect(() => {
