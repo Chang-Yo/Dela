@@ -10,27 +10,31 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   className = '',
+  'aria-label': label,
 }: {
   options: readonly T[];
   /** 选项的显示文案；缺省直接用选项值本身。 */
   labels?: Readonly<Record<T, string>>;
   /** 选项文案前的图标，可只给部分选项。 */
   icons?: Readonly<Partial<Record<T, LucideIcon>>>;
-  value: T;
+  /** null 表示当前不在任何一段上（如列表改按别的条件筛选），滑块隐藏。 */
+  value: T | null;
   onChange: (v: T) => void;
   className?: string;
+  'aria-label'?: string;
 }) {
-  const index = options.indexOf(value);
+  const index = value === null ? -1 : options.indexOf(value);
   return (
     <div
       className={`relative inline-grid select-none rounded-card bg-inset p-0.5 ${className}`}
       style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}
       role="group"
+      aria-label={label}
     >
       <span
         aria-hidden
-        className="absolute inset-y-0.5 rounded-control bg-surface shadow-hairline
-          transition-transform duration-slow"
+        className={`absolute inset-y-0.5 rounded-control bg-surface shadow-hairline
+          transition-transform duration-slow ${index === -1 ? 'hidden' : ''}`}
         style={{
           width: `calc((100% - 0.25rem) / ${options.length})`,
           left: '0.125rem',
