@@ -5,6 +5,7 @@ import type { Navigate } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { CalendarEvent } from '../contract';
 import { Button } from '../../../ui/button';
+import { SegmentedControl } from '../../../ui/segmented-control';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { MonthCalendar } from './MonthCalendar';
@@ -252,20 +253,12 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
             >
               <RefreshCw className={cn('size-3.5', busy && 'animate-spin')} />
             </Button>
-            <div className="flex items-center rounded-control bg-fill p-0.5">
-              {(['week', 'month'] as const).map((value) => (
-                <button
-                  className={cn(
-                    'h-7 rounded px-3 text-xs font-medium transition-colors',
-                    mode === value ? 'bg-surface shadow-hairline' : 'text-ink-3 hover:text-ink',
-                  )}
-                  key={value}
-                  onClick={() => setMode(value)}
-                >
-                  {value === 'week' ? '周' : '月'}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              labels={{ week: '周', month: '月' }}
+              onChange={setMode}
+              options={['week', 'month']}
+              value={mode}
+            />
             <Button onClick={() => openNewEvent()} size="sm">
               <Plus />
               新建事件
