@@ -18,11 +18,7 @@
     },
     {
       // T22 逐个删掉
-      "files": [
-        "src/app/renderer/workbench/WorkbenchShell.tsx",
-        "src/app/renderer/workspace/entry-dialogs.tsx",
-        "src/app/renderer/workspace/remote-ports-dialog.tsx"
-      ],
+      "files": ["src/app/renderer/workbench/WorkbenchShell.tsx"],
       "rules": {
         "react/set-state-in-effect": "off",
         "react/refs": "off"

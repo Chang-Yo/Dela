@@ -1,6 +1,6 @@
 // 工作区 CRUD 弹窗：新建项目/文件夹/文件、重命名、移动、移除、链接资料。
 // 弹窗只负责表单与 workspace:* 通道调用，「成功之后」的动作由接线方经回调接手。
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { Cloud, FolderOpen } from 'lucide-react';
 import { sourceTitle } from '../../views';
@@ -77,25 +77,26 @@ export function EntryDialogs({
 }) {
   const workspace = useWorkspaceStore((s) => s.workspace);
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const [target, setTarget] = useState('');
+  const nameOf = (next: EntryDialogRequest | null) =>
+    next?.action === 'rename'
+      ? (useWorkspaceStore.getState().workspace.entries.find((e) => e.id === next.id)?.name ?? '')
+      : next?.action === 'note' && next.text !== undefined
+        ? '新笔记.md'
+        : '';
+  const [shownRequest, setShownRequest] = useState(request);
+  const [name, setName] = useState(() => nameOf(request));
+  const [target, setTarget] = useState(request?.initialTarget ?? '');
   const [busy, setBusy] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   /** 远程向导：自带对话框与进行中状态，打开时让出外层弹窗（避免两层遮罩叠在一起）。 */
   const [wizard, setWizard] = useState(false);
 
-  useEffect(() => {
-    setName(
-      request?.action === 'rename'
-        ? (useWorkspaceStore.getState().workspace.entries.find((e) => e.id === request.id)?.name ??
-            '')
-        : request?.action === 'note' && request.text !== undefined
-          ? '新笔记.md'
-          : '',
-    );
+  if (request !== shownRequest) {
+    setShownRequest(request);
+    setName(nameOf(request));
     setTarget(request?.initialTarget ?? '');
     setModalError(null);
-  }, [request]);
+  }
 
   const projects = workspace.entries.filter((entry) => entry.kind === 'project' && !entry.remoteId);
   let targetProject = workspace.entries.find((entry) => entry.id === target);

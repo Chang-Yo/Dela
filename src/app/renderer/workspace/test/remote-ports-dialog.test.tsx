@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi } from '../../../preload/api';
 import type { RemotePortsState } from '../../../../modules/remotes/contract';
@@ -49,7 +50,15 @@ const snapshot: RemotePortsState = {
 };
 
 async function renderDialog() {
-  await act(async () => root.render(<RemotePortsDialog onClose={() => {}} open projectId="p-1" />));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <RemotePortsDialog onClose={() => {}} open projectId="p-1" />
+      </QueryClientProvider>,
+    ),
+  );
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 }
 
 it('lists ports with process names and active tunnels, and wires open/stop to the workspace API', async () => {

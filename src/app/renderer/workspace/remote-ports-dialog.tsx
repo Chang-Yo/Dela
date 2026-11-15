@@ -1,9 +1,9 @@
 // 远端端口预览面板：远端监听中的端口开成 `ssh -L` 隧道，浏览器从本机回环访问。
 // 状态都在主进程（清单 + 隧道注册表），面板每次打开/动作后拉一次快照，自己不记隧道。
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Globe, RefreshCw, Square } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import type { RemotePortsState } from '../../../modules/remotes/contract';
 import { workspaceClient } from '../../../modules/workspace/view';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
@@ -25,27 +25,23 @@ export function RemotePortsDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const [state, setState] = useState<RemotePortsState | null>(null);
-  const [working, setWorking] = useState(false);
+  const queryClient = useQueryClient();
+  const ports = useQuery({
+    queryKey: ['workspace', 'remote-ports', projectId],
+    queryFn: () => workspaceClient.remotePorts(projectId),
+    enabled: open && Boolean(window.dela),
+    gcTime: 0,
+  });
+  const state = ports.data ?? null;
+  const working = ports.isFetching;
   const [busyPort, setBusyPort] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error = actionError ?? (ports.error ? errorMessage(ports.error) : null);
 
-  const reload = useCallback(async () => {
-    if (!window.dela) return;
-    setWorking(true);
-    try {
-      setState(await workspaceClient.remotePorts(projectId));
-      setError(null);
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setWorking(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    if (open) void reload();
-  }, [open, reload]);
+  const reload = async () => {
+    setActionError(null);
+    await queryClient.invalidateQueries({ queryKey: ['workspace', 'remote-ports', projectId] });
+  };
 
   const openPort = async (port: number) => {
     if (!window.dela || busyPort !== null) return;
@@ -54,7 +50,7 @@ export function RemotePortsDialog({
       await workspaceClient.openRemotePort({ projectId, port });
       await reload();
     } catch (cause) {
-      setError(errorMessage(cause));
+      setActionError(errorMessage(cause));
     } finally {
       setBusyPort(null);
     }
@@ -67,7 +63,7 @@ export function RemotePortsDialog({
       await workspaceClient.closeRemotePort({ projectId, port });
       await reload();
     } catch (cause) {
-      setError(errorMessage(cause));
+      setActionError(errorMessage(cause));
     } finally {
       setBusyPort(null);
     }
