@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Clock, Folder, FolderPlus, House, Search } from 'lucide-react';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
+import { Skeleton } from '../../../ui/skeleton';
 import { cn } from '../../../ui/cn';
 import type { RemoteDraft } from '../contract';
 import { showToast } from '../../../ui/toast';
@@ -331,11 +332,8 @@ export function DirectoryBrowser({
           loading &&
           [0, 1, 2, 3].map((index) => (
             <li className="flex h-7 items-center gap-2 px-3" key={index}>
-              <span className="size-4 rounded-chip bg-hover" />
-              <span
-                className="h-2.5 rounded-full bg-hover"
-                style={{ width: `${40 + index * 12}%` }}
-              />
+              <Skeleton className="size-4" />
+              <Skeleton className="h-2.5 rounded-full" style={{ width: `${40 + index * 12}%` }} />
             </li>
           ))}
         {cached && directories.length === 0 && (
