@@ -107,7 +107,7 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
             首楼
           </Button>
           {/* 轨道随阅读页高度伸缩，上限 32rem。 */}
-          <div className="relative my-2 max-h-[32rem] min-h-24 w-full flex-1">
+          <div className="relative my-2 max-h-128 min-h-24 w-full flex-1">
             <SliderPrimitive.Root
               aria-label="楼层"
               className="relative flex h-full w-4 cursor-pointer touch-none select-none flex-col items-center"

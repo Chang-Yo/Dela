@@ -73,7 +73,7 @@ export function EventDetailDialog({
 
   return (
     <Dialog onOpenChange={(open) => !open && !deleting && onClose()} open>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[25rem] max-w-[calc(100vw-2rem)] overflow-y-auto p-5">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-100 max-w-[calc(100vw-2rem)] overflow-y-auto p-5">
         <div className="flex items-start gap-2.5">
           <span
             aria-hidden="true"

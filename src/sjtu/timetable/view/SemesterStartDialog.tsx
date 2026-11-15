@@ -54,7 +54,7 @@ export function SemesterStartDialog({
       <form
         className={cn(
           dialogIn,
-          'flex w-full max-w-[22.5rem] flex-col gap-4 rounded-window bg-surface p-5 shadow-overlay',
+          'flex w-full max-w-90 flex-col gap-4 rounded-window bg-surface p-5 shadow-overlay',
         )}
         onSubmit={(event) => void submit(event)}
       >
