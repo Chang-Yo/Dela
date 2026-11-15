@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
-import { Bell, Bookmark, Mail, RefreshCw, Search } from 'lucide-react';
-import { Input } from '../../../ui/input';
+import { Bell, Bookmark, Mail, RefreshCw } from 'lucide-react';
+import { SearchInput } from '../../../ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { cn } from '../../../ui/cn';
 import { useShuiyuan, type ListSelection } from './store';
@@ -116,20 +116,14 @@ export function ShuiyuanHeader() {
             />
           </div>
           <div className="ml-auto flex flex-1 flex-wrap items-center justify-end gap-2.5 lg:col-start-3 lg:row-start-1 lg:ml-0 lg:justify-self-end">
-            <div className="relative min-w-32 max-w-56 flex-1">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-3"
-              />
-              <Input
-                aria-label="搜索水源"
-                className="h-8 pl-8 text-xs"
-                onChange={(event) => changeSearch(event.target.value)}
-                placeholder="搜索帖子"
-                type="search"
-                value={search}
-              />
-            </div>
+            <SearchInput
+              aria-label="搜索水源"
+              className="min-w-32 max-w-56 flex-1"
+              onChange={(event) => changeSearch(event.target.value)}
+              placeholder="搜索帖子"
+              type="search"
+              value={search}
+            />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 lg:col-start-2 lg:row-start-1 lg:justify-self-center">
