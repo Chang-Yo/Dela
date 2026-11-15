@@ -71,7 +71,7 @@ const visibleFolders = (list: readonly MailFolderInfo[]) =>
 type MailViewProps = {
   openRequest?: { messageId?: number };
   /** 窄屏邮箱级抽屉是否展开,受控于外壳的抽屉状态。 */
-  mobileDrawerOpen?: boolean;
+  mobileDrawerOpen: boolean;
   onMobileDrawerClose?: () => void;
   /** 外壳提供的抽屉挂载点，抽屉展开时才有。 */
   drawerContainer?: HTMLElement;
@@ -92,11 +92,11 @@ function MailUnavailable() {
 }
 
 export function MailView({
-  mobileDrawerOpen = false,
+  mobileDrawerOpen,
   onMobileDrawerClose,
   drawerContainer,
   openRequest,
-}: MailViewProps = {}) {
+}: MailViewProps) {
   if (!window.dela) return <MailUnavailable />;
   return (
     <DesktopMailView
@@ -184,7 +184,7 @@ function refreshMailbox(client: QueryClient) {
 }
 
 function DesktopMailView({
-  mobileDrawerOpen = false,
+  mobileDrawerOpen,
   onMobileDrawerClose,
   drawerContainer,
   openRequest,
@@ -345,9 +345,8 @@ function DesktopMailView({
       setComposing(true);
     } catch (reason) {
       showToast({ variant: 'error', title: '打开草稿失败', description: errorMessage(reason) });
-    } finally {
-      setOpeningDraft(false);
     }
+    setOpeningDraft(false);
   };
 
   // 容器宽度驱动分级降档;挂载时在提交阶段同步测量,避免按旧宽度先渲染再闪烁。
@@ -423,16 +422,12 @@ function DesktopMailView({
     setConfigureError(null);
     try {
       const result = await mailClient.configure(input);
-      if (!result.ok) {
-        setConfigureError(result.error);
-        return;
-      }
-      queryClient.setQueryData(mailStateKey, await mailClient.state());
+      if (result.ok) queryClient.setQueryData(mailStateKey, await mailClient.state());
+      else setConfigureError(result.error);
     } catch (reason) {
       setConfigureError(errorMessage(reason));
-    } finally {
-      setConfiguring(false);
     }
+    setConfiguring(false);
   };
 
   const handleDisconnect = async () => {
@@ -483,6 +478,7 @@ function DesktopMailView({
   };
 
   const handleRestore = async (item: MailTrashItem) => {
+    const folderName = item.folderName ?? '原文件夹';
     try {
       const result = await mailClient.restoreMessage(item.id);
       if (!result.ok) {
@@ -492,7 +488,7 @@ function DesktopMailView({
       queryClient.setQueryData<MailTrashItem[]>(trashKey, (prev) =>
         prev?.filter((row) => row.id !== item.id),
       );
-      showToast({ variant: 'success', title: `已恢复到 ${item.folderName ?? '原文件夹'}` });
+      showToast({ variant: 'success', title: `已恢复到 ${folderName}` });
       refreshMailbox(queryClient);
     } catch (reason) {
       showToast({ variant: 'error', title: '恢复邮件失败', description: errorMessage(reason) });

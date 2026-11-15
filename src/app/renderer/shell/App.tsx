@@ -68,7 +68,8 @@ function useSessionNavData(): { sessionsByProject: Record<string, NavSessionSumm
 
 function ModulePage({ target, drawer }: { target: NavTarget; drawer: PageDrawer | null }) {
   const Page = pageOf(target.page)!.component;
-  return <Page drawer={drawer} navigate={useNavigationStore.getState().navigate} target={target} />;
+  const navigate = useNavigationStore((state) => state.navigate);
+  return <Page drawer={drawer} navigate={navigate} target={target} />;
 }
 
 export default function App() {

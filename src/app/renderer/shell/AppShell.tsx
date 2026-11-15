@@ -174,7 +174,7 @@ type AppShellProps = {
   todoUnreadCount: number;
   sessionsByProject: Record<string, NavSessionSummary[]>;
   runBadge: (sessionId: string) => SessionRunBadge;
-  activeSessionId?: string | null;
+  activeSessionId: string | null;
   projectId: string | null;
   onOpenProject: (id: string) => void;
   onOpenSession: (sessionId: string) => void;
@@ -207,7 +207,7 @@ export function AppShell({
   todoUnreadCount,
   sessionsByProject,
   runBadge,
-  activeSessionId = null,
+  activeSessionId,
   projectId,
   onOpenProject,
   onOpenSession,
