@@ -258,3 +258,10 @@ export const workspaceContract = defineContract(
     remoteChange: z.string(),
   },
 );
+
+declare module '../../app/module' {
+  interface NavTargets {
+    projects: { entryId: string };
+    sources: { sourceId: string };
+  }
+}
