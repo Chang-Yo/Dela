@@ -144,38 +144,31 @@ pnpm test
 ```text
 Dela/
 ├─ src/
-│  ├─ core/protocol/          v3：模块契约工具（defineContract、implement、createClient）
-│  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册
-│  ├─ ui/                     v3：Design System（fork 自 beautiful-ui）
-│  ├─ modules/                v3：已迁移的通用模块（search）
-│  ├─ main/                   Electron 主进程，按业务域分目录
-│  │  ├─ agent/               Pi 会话、工具、MCP、Skills 与模型接入
-│  │  ├─ canvas/              Canvas 课程与资料
-│  │  ├─ documents/           文档解析、导出与读取组件
-│  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
-│  │  ├─ notifications/       系统通知
-│  │  ├─ remotes/             远程项目、SSH 传输与 helper 隧道
-│  │  ├─ settings/            设置、偏好与任务通知
+│  ├─ core/                   Agent 内核，只依赖 Pi 与 Node
+│  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
+│  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
+│  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
+│  │  ├─ remote/              远程执行后端与 helper 通道
+│  │  └─ ports.ts             宿主端口（HostPorts）
+│  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
+│  ├─ modules/                通用模块（chat、mail、note、notifications、onboarding、preview、
+│  │                          remotes、search、settings、terminal、todo、update、workspace）
+│  ├─ sjtu/                   交大模块，经 register() 向通用模块的注册口登记
+│  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
+│  │  ├─ canvas/              Canvas 课程资料、作业与公告
+│  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
+│  │  ├─ jwc/                 教务处通知
 │  │  ├─ shuiyuan/            水源社区
-│  │  ├─ terminal/            内置终端、Bash 与 MinGit
-│  │  ├─ timetable/           课表
-│  │  ├─ todo/                TODO
-│  │  ├─ update/              应用内更新
-│  │  ├─ vsjtu/               致远一号
-│  │  └─ workspace/           工作区、项目目录与预览
-│  ├─ preload/                contextBridge 与按契约白名单放行的 bridge
-│  ├─ renderer/               React 界面
-│  │  ├─ app/                 应用外壳、主题与全局状态
-│  │  ├─ workbench/           标签工作台
-│  │  ├─ content/             聊天、笔记、预览、审阅与终端
-│  │  ├─ navigation/          侧栏与导航
-│  │  ├─ sessions/            会话
-│  │  ├─ workspace/           工作区浏览
-│  │  ├─ features/            业务功能页（邮箱、设置、课表、水源等）
-│  │  ├─ components/          应用外壳与跨功能组件
-│  │  ├─ lib/                 渲染层工具
-│  │  └─ styles/              全局样式与设计 token
-│  └─ shared/                 进程间 IPC 契约与纯函数
+│  │  └─ timetable/           课表与日历事件
+│  ├─ app/                    宿主与外壳
+│  │  ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
+│  │  ├─ modules.ts           主进程模块清单
+│  │  ├─ contracts.ts         IPC 契约清单
+│  │  ├─ views.ts             渲染端视图清单
+│  │  ├─ main/                Electron 入口、IPC 注册与宿主端口实现
+│  │  ├─ preload/             contextBridge 与按契约白名单放行的 bridge
+│  │  └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
+│  └─ main/                   尚未迁出的 v2 主进程代码（数据库与迁移、凭据、文档读取、待办命令）
 ├─ helper/                    远端项目 helper（Go，仅标准库）
 ├─ scripts/                   开发、冒烟、打包与校验脚本
 ├─ docs/                      开发文档、条款与接口资料
@@ -185,12 +178,12 @@ Dela/
    └─ openssh/                Windows 兜底 OpenSSH
 ```
 
-`src/main/` 根级只保留数据库、凭据、存储、IPC 注册等跨业务模块；各模块的 `test/` 存放对应单元测试。
+每个模块由 `index.ts`（模块定义与唯一出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/` 组成，依赖规则见 [AGENTS.md](AGENTS.md)，由 oxlint 检查。测试放在源码旁或同目录的 `test/` 下。
 
 硬性约束：
 
 - 保持单应用、单 `package.json`。`pnpm-workspace.yaml` 只放 pnpm 12 设置，不引入子包或 monorepo。
-- renderer 不导入 main，不访问凭据和数据库，所有通信均经有限的 preload API。
+- 界面代码不导入主进程代码，不访问凭据和数据库，所有通信均经按契约白名单放行的 preload bridge。
 - 请勿提交 `.env`、个人数据、日志与本地工具；打包只包含明确产物。
 - 保持精确依赖与锁文件（`saveExact` 与 `engineStrict` 已开启），不要在 `package.json` 中写入范围版本。新增依赖应连同锁文件一起提交，并说明必要性。
 - 优先复用现有函数或文件；仅在出现真实重复与多个调用方后提取抽象。

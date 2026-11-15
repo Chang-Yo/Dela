@@ -146,42 +146,36 @@ src/
 
 # 文件目录
 
-下面是 Dela 项目当前（v2）的文件结构，v3 迁移完成后替换为上面的目标结构。在修改对应的代码前应该先定位代码对应的模块位置，并阅读足够的代码来获取到足够的上下文：
+下面是 Dela 项目当前的文件结构。在修改对应的代码前应该先定位代码对应的模块位置，并阅读足够的代码来获取到足够的上下文：
 
 ```
 Dela/
 ├─ src/
-│  ├─ core/                   v3：Agent 内核，只依赖 Pi 与 Node
+│  ├─ core/                   Agent 内核，只依赖 Pi 与 Node
 │  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
 │  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
 │  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
 │  │  ├─ remote/              远程执行后端与 helper 通道
 │  │  └─ ports.ts             宿主端口（HostPorts）
-│  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册、宿主端口实现
-│  ├─ modules/                v3：已迁移的通用模块（search、todo、notifications、workspace、mail、note、preview、chat、remotes、terminal、settings、update、onboarding）
-│  ├─ sjtu/                   v3：交大模块（主进程部分），经 register() 向通用模块的注册口登记
+│  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
+│  ├─ modules/                通用模块（chat、mail、note、notifications、onboarding、preview、
+│  │                          remotes、search、settings、terminal、todo、update、workspace）
+│  ├─ sjtu/                   交大模块，经 register() 向通用模块的注册口登记
 │  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
 │  │  ├─ canvas/              Canvas 课程资料、作业与公告
 │  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
 │  │  ├─ jwc/                 教务处通知
 │  │  ├─ shuiyuan/            水源社区
 │  │  └─ timetable/           课表与日历事件
-│  ├─ ui/                     v3：Design System（fork 自 beautiful-ui）
-│  ├─ main/                   Electron 主进程
-│  │  ├─ agent/               通用的 dela 命令域与内置 Skills（P5 随各模块迁出）
-│  │  ├─ documents/           文档读取与 Skill 组件
-│  │  └─ migrations/          旧版用户的数据库迁移
-│  ├─ preload/                contextBridge 与按契约白名单放行的 bridge
-│  ├─ renderer/               React 界面
-│  │  ├─ app/                 应用外壳、主题与全局状态
-│  │  ├─ workbench/           标签工作台
-│  │  ├─ navigation/          侧栏与导航
-│  │  ├─ workspace/           工作区条目动作与对话框（条目镜像、目录树组件与主进程部分已在 modules/workspace）
-│  │  ├─ features/            设置页的外壳分区装配
-│  │  ├─ components/          应用外壳与错误边界
-│  │  ├─ lib/                 渲染层工具
-│  │  └─ styles/              全局样式与设计 token
-│  └─ shared/                 进程间 IPC 契约与纯函数
+│  ├─ app/                    宿主与外壳
+│  │  ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
+│  │  ├─ modules.ts           主进程模块清单
+│  │  ├─ contracts.ts         IPC 契约清单
+│  │  ├─ views.ts             渲染端视图清单
+│  │  ├─ main/                Electron 入口、IPC 注册与宿主端口实现
+│  │  ├─ preload/             contextBridge 与按契约白名单放行的 bridge
+│  │  └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
+│  └─ main/                   尚未迁出的 v2 主进程代码（数据库与迁移、凭据、文档读取、待办命令）
 ├─ helper/                    Go 远端 helper
 ├─ scripts/                   开发、冒烟、打包与校验脚本
 ├─ docs/                      开发文档、条款与接口资料
