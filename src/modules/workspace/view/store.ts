@@ -10,6 +10,9 @@ type Store = {
   directories: Record<string, WorkspaceEntry[]>;
   ensureDirectory: (id: string, force?: boolean) => Promise<void>;
   releaseDirectory: (id: string) => void;
+  /** 目录按持有者计数：同一目录被多个视图持有时，最后一个放手才释放。 */
+  holdDirectories: (owner: string, ids: string[]) => Promise<void>;
+  directoryOwners: Record<string, string[]>;
   rememberEntries: (entries: WorkspaceEntry[]) => void;
   loaded: boolean;
   error: string | null;
@@ -122,6 +125,15 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
       workspace: mergeDirectories(get().overview ?? get().workspace, directories, get().workspace),
     });
   },
+  holdDirectories: async (owner, ids) => {
+    const others = without(get().directoryOwners, owner);
+    for (const id of get().directoryOwners[owner] ?? [])
+      if (!ids.includes(id) && !Object.values(others).some((held) => held.includes(id)))
+        get().releaseDirectory(id);
+    set({ directoryOwners: ids.length ? { ...others, [owner]: ids } : others });
+    await Promise.all(ids.map((id) => get().ensureDirectory(id)));
+  },
+  directoryOwners: {},
   loaded: false,
   error: null,
   loading: null,

@@ -28,6 +28,7 @@ function resetStore() {
   useWorkspaceStore.setState({
     overview: null,
     directories: {},
+    directoryOwners: {},
     workspace: { entries: [], directory: '' },
     loaded: false,
     error: null,
@@ -92,6 +93,18 @@ describe('workspace store mirror', () => {
     resolve([]);
     await request;
     expect(useWorkspaceStore.getState().directories['C:/closed']).toBeUndefined();
+  });
+  it('keeps a directory while another owner still holds it', async () => {
+    installDela({});
+    api.listLocalDirectory = async () => [];
+    const shared = 'C:/shared';
+    const { holdDirectories } = useWorkspaceStore.getState();
+    await holdDirectories('first', [shared]);
+    await holdDirectories('second', [shared]);
+    await holdDirectories('first', []);
+    expect(useWorkspaceStore.getState().directories[shared]).toBeDefined();
+    await holdDirectories('second', []);
+    expect(useWorkspaceStore.getState().directories[shared]).toBeUndefined();
   });
   it('shares one request between concurrent load callers', async () => {
     const { state, onChanged } = installDela({});

@@ -18,7 +18,9 @@ import {
   TriangleAlert,
   Upload,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from 'use-debounce';
 import {
   workspaceArchiveId,
   type WorkspaceEntry,
@@ -112,116 +114,85 @@ export function ProjectFileTree({
 }) {
   // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
   const afterMenuClose = useAfterMenuClose();
-  const [search, setSearch] = useState<{ key: string; entries: WorkspaceEntry[] } | null>(null);
+  const queryClient = useQueryClient();
   const [localError, setLocalError] = useState<string | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [searchVersion, setSearchVersion] = useState(0);
-  const searchKey = `${rootId ?? ''}\0${query.trim()}`;
-  useEffect(() => {
-    if (!query.trim()) return;
-    return onWorkspaceEvent('changed', () => setSearchVersion((value) => value + 1));
-  }, [query]);
-  const entries = useMemo(() => {
-    if (!query.trim() || search?.key !== searchKey) return baseEntries;
-    return [
-      ...new Map([...baseEntries, ...search.entries].map((item) => [item.id, item])).values(),
-    ];
-  }, [baseEntries, query, search, searchKey]);
-  useEffect(() => {
-    if (!query.trim() || !window.dela) return;
-    let live = true;
-    const timer = setTimeout(() => {
-      setSearching(true);
-      setLocalError(null);
-      void workspaceClient.searchLocal({ rootId, query: query.trim() }).then(
-        (items) => {
-          if (live) {
-            setSearch({ key: searchKey, entries: items });
-            setSearching(false);
-          }
-        },
-        (error) => {
-          if (live) {
-            setLocalError(errorMessage(error));
-            setSearching(false);
-          }
-        },
+  const trimmedQuery = query.trim();
+  const [term] = useDebounce(trimmedQuery, 250);
+  const search = useQuery({
+    queryKey: ['workspace', 'search-local', rootId, term],
+    queryFn: ({ signal }) => {
+      signal.addEventListener(
+        'abort',
+        () => void workspaceClient.searchLocal({ rootId, query: '' }).catch(() => {}),
       );
-    }, 250);
-    return () => {
-      live = false;
-      clearTimeout(timer);
-      void workspaceClient.searchLocal({ rootId, query: '' }).catch(() => {});
-    };
-  }, [rootId, query, searchKey, searchVersion]);
-  const directoryIds = useMemo(() => {
-    const ids = new Set(expanded);
-    if (rootId) ids.add(rootId);
-    const parents = new Map(entries.map((item) => [item.id, item.parentId]));
-    const belongs = (id: string) => {
-      const seen = new Set<string>();
-      let current: string | null | undefined = id;
-      while (current !== undefined && !seen.has(current ?? '')) {
-        if (current === rootId) return true;
-        if (current === null) return false;
-        seen.add(current);
-        current = parents.get(current);
-        if (current && current !== rootId && !ids.has(current)) return false;
-      }
-      return false;
-    };
-    const result = entries
-      .filter(
-        (item) =>
-          ids.has(item.id) &&
-          belongs(item.id) &&
-          !item.remoteId &&
-          (item.kind === 'folder' || item.kind === 'project'),
-      )
-      .map((item) => item.id);
-    if (rootId === workspaceArchiveId) result.push(rootId);
-    return result;
-  }, [entries, expanded, rootId]);
-  const directoriesKey = directoryIds.sort().join('\0');
-  const ownedDirectories = useRef(new Set<string>());
-  useEffect(() => {
-    const next = new Set(directoryIds);
-    const store = useWorkspaceStore.getState();
-    for (const id of ownedDirectories.current) if (!next.has(id)) store.releaseDirectory(id);
-    ownedDirectories.current = next;
-    for (const id of next)
-      void store.ensureDirectory(id).catch((error) => setLocalError(errorMessage(error)));
-  }, [directoriesKey]);
-  useEffect(
-    () => () => {
-      for (const id of ownedDirectories.current) useWorkspaceStore.getState().releaseDirectory(id);
+      return workspaceClient.searchLocal({ rootId, query: term });
     },
-    [],
-  );
-  const { included, visible } = useMemo(() => {
-    const excluded = new Set(excludeIds);
-    const children = new Map<string | null, WorkspaceEntry[]>();
-    for (const entry of entries) {
-      const group = children.get(entry.parentId) ?? [];
-      group.push(entry);
-      children.set(entry.parentId, group);
+    enabled: Boolean(term) && Boolean(window.dela),
+  });
+  const searching = trimmedQuery !== '';
+  useEffect(() => {
+    if (!searching) return;
+    return onWorkspaceEvent(
+      'changed',
+      () => void queryClient.invalidateQueries({ queryKey: ['workspace', 'search-local', rootId] }),
+    );
+  }, [searching, rootId, queryClient]);
+  const searchEntries = search.data && term === trimmedQuery ? search.data : [];
+  const entries = searchEntries.length
+    ? [...new Map([...baseEntries, ...searchEntries].map((item) => [item.id, item])).values()]
+    : baseEntries;
+  const ids = new Set(expanded);
+  if (rootId) ids.add(rootId);
+  const parents = new Map(entries.map((item) => [item.id, item.parentId]));
+  const belongs = (id: string) => {
+    const seen = new Set<string>();
+    let current: string | null | undefined = id;
+    while (current !== undefined && !seen.has(current ?? '')) {
+      if (current === rootId) return true;
+      if (current === null) return false;
+      seen.add(current);
+      current = parents.get(current);
+      if (current && current !== rootId && !ids.has(current)) return false;
     }
-    const included = new Set<string>();
-    const pending = [rootId];
-    while (pending.length) {
-      for (const entry of children.get(pending.pop()!) ?? []) {
-        if (
-          excluded.has(entry.id) ||
-          included.has(entry.id) ||
-          hiddenWorkspaceNames.has(entry.name)
-        )
-          continue;
-        included.add(entry.id);
-        pending.push(entry.id);
-      }
+    return false;
+  };
+  const directoryIds = entries
+    .filter(
+      (item) =>
+        ids.has(item.id) &&
+        belongs(item.id) &&
+        !item.remoteId &&
+        (item.kind === 'folder' || item.kind === 'project'),
+    )
+    .map((item) => item.id);
+  if (rootId === workspaceArchiveId) directoryIds.push(rootId);
+  const directoriesKey = directoryIds.sort().join('\0');
+  const owner = useId();
+  useEffect(() => {
+    void useWorkspaceStore
+      .getState()
+      .holdDirectories(owner, directoryIds)
+      .catch((error) => setLocalError(errorMessage(error)));
+  }, [directoriesKey]);
+  useEffect(() => () => void useWorkspaceStore.getState().holdDirectories(owner, []), []);
+  const excluded = new Set(excludeIds);
+  const children = new Map<string | null, WorkspaceEntry[]>();
+  for (const entry of entries) {
+    const group = children.get(entry.parentId) ?? [];
+    group.push(entry);
+    children.set(entry.parentId, group);
+  }
+  const included = new Set<string>();
+  const queue = [rootId];
+  while (queue.length) {
+    for (const entry of children.get(queue.pop()!) ?? []) {
+      if (excluded.has(entry.id) || included.has(entry.id) || hiddenWorkspaceNames.has(entry.name))
+        continue;
+      included.add(entry.id);
+      queue.push(entry.id);
     }
-    return { included, visible: entries.filter((entry) => included.has(entry.id)) };
-  }, [entries, rootId, excludeIds]);
+  }
+  const visible = entries.filter((entry) => included.has(entry.id));
   /** 条目级文件动作：失败统一走浮窗，不打断文件树。 */
   const runFileCommand = (title: string, command: () => Promise<void> | undefined) => {
     void Promise.resolve(command()).catch((cause: unknown) =>
@@ -282,7 +253,7 @@ export function ProjectFileTree({
   const rememberResult = (id: string) => {
     const result = entries.find((item) => item.id === id);
     if (!result || baseEntries.some((item) => item.id === id)) return;
-    const byId = new Map((search?.entries ?? []).map((item) => [item.id, item]));
+    const byId = new Map(searchEntries.map((item) => [item.id, item]));
     const chain: WorkspaceEntry[] = [];
     let current: WorkspaceEntry | undefined = result;
     while (current && !chain.some((item) => item.id === current!.id)) {
@@ -357,8 +328,10 @@ export function ProjectFileTree({
   );
   return (
     <>
-      {localError && <ErrorText className="px-3 py-2">{localError}</ErrorText>}
-      {query.trim() && searching && (
+      {(localError ?? (search.error ? errorMessage(search.error) : null)) && (
+        <ErrorText className="px-3 py-2">{localError ?? errorMessage(search.error)}</ErrorText>
+      )}
+      {searching && search.isFetching && (
         <p role="status" className="px-3 py-2 text-xs text-ink-3">
           正在搜索…
         </p>
