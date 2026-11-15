@@ -322,9 +322,7 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
       ) : null}
 
       {!state.lastSyncedAt ? (
-        <div className="grid flex-1 place-items-center p-6">
-          <TimetableConnectCard semester={semester} />
-        </div>
+        <TimetableConnectCard semester={semester} />
       ) : mode === 'week' ? (
         <WeekCalendar
           events={semesterWeekStart ? calendarEvents : []}

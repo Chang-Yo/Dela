@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { KeyRound, LogIn } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
+import { ConnectCard } from '../../../ui/connect-card';
 import { ShuiyuanIcon } from './shuiyuan-icon';
 import { Textarea } from '../../../ui/textarea';
 import { showToast } from '../../../ui/toast';
@@ -44,15 +45,13 @@ export function BindCard() {
   };
 
   return (
-    <div className="flex h-full overflow-y-auto p-6">
-      <section className="m-auto grid w-full max-w-[30rem] justify-items-start gap-3 rounded-card border border-line bg-surface p-6">
-        <ShuiyuanIcon className="size-10 rounded-card" />
-        <div className="grid gap-1">
-          <h2 className="text-lg font-semibold tracking-tight">连接水源社区</h2>
-          <p className="text-sm leading-relaxed text-ink-3">
-            授权 Dela 读取你的水源数据并支持回复、私信（读取 + 写入）。登录与授权在独立窗口完成。
-          </p>
-        </div>
+    <div className="flex h-full min-h-0 flex-1 overflow-y-auto p-6">
+      <ConnectCard
+        className="m-auto"
+        description="授权 Dela 读取你的水源数据并支持回复、私信（读取 + 写入）。登录与授权在独立窗口完成。"
+        icon={ShuiyuanIcon}
+        title="连接水源社区"
+      >
         <Button disabled={authBusy} onClick={() => void startAuth()}>
           <LogIn className="size-4" />
           {authBusy ? '正在打开授权窗口…' : '登录并授权'}
@@ -80,7 +79,7 @@ export function BindCard() {
             {bindBusy ? '正在绑定…' : '绑定'}
           </Button>
         </form>
-      </section>
+      </ConnectCard>
     </div>
   );
 }
