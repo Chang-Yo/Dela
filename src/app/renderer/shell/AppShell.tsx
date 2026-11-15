@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useState, type CSSProperties, type ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRight,
@@ -103,23 +104,20 @@ function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; la
 }
 
 function WindowControls() {
-  const [maximized, setMaximized] = useState(false);
-  useEffect(() => {
-    const desktopWindow = window.dela?.window;
-    if (!desktopWindow) return undefined;
-    let active = true;
-    void desktopWindow
-      .getState()
-      .then((state) => {
-        if (active) setMaximized(state.maximized);
-      })
-      .catch(() => {});
-    const unsubscribe = desktopWindow.onStateChange((state) => setMaximized(state.maximized));
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, []);
+  const queryClient = useQueryClient();
+  const windowState = useQuery({
+    queryKey: ['window', 'state'],
+    queryFn: () => window.dela!.window.getState(),
+    enabled: Boolean(window.dela),
+  });
+  const maximized = windowState.data?.maximized ?? false;
+  useEffect(
+    () =>
+      window.dela?.window.onStateChange((state) =>
+        queryClient.setQueryData(['window', 'state'], state),
+      ),
+    [queryClient],
+  );
 
   if (!window.dela || platform === 'mac') return null;
 
@@ -299,10 +297,45 @@ export function AppShell({
     onZoomChange(zoomLevels[Math.max(0, Math.min(index + direction, zoomLevels.length - 1))]!);
   };
 
-  // 快捷键回调经 ref 取最新值：keydown 监听只注册一次，避免每次渲染重绑。
-  const shortcutsRef = useRef({ navigate, onImportFiles, onNewProject, onSearch, stepZoom });
-  useEffect(() => {
-    shortcutsRef.current = { navigate, onImportFiles, onNewProject, onSearch, stepZoom };
+  const runShortcut = useEffectEvent((action: NonNullable<ReturnType<typeof matchShortcut>>) => {
+    switch (action) {
+      case 'new-project':
+        onNewProject();
+        break;
+      case 'import-files':
+        onImportFiles();
+        break;
+      case 'global-search':
+        onSearch();
+        break;
+      case 'zoom-in':
+        stepZoom(1);
+        break;
+      case 'zoom-out':
+        stepZoom(-1);
+        break;
+      case 'zoom-reset':
+        stepZoom(0);
+        break;
+      case 'toggle-word-wrap':
+        useEditorSettings.getState().toggleWordWrap();
+        break;
+      case 'open-home':
+        navigate('home');
+        break;
+      case 'open-mail':
+        navigate({ page: 'mail' });
+        break;
+      case 'open-timetable':
+        navigate({ page: 'timetable' });
+        break;
+      case 'open-settings':
+        navigate('settings');
+        break;
+      case 'open-shortcuts':
+        setHelpOpen(true);
+        break;
+    }
   });
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -310,46 +343,8 @@ export function AppShell({
       // 动作由键位表解析：用户改键后此处无需改动，未绑定/未命中即不拦截。
       const action = matchShortcut(useShortcuts.getState().bindings, event, 'global', platform);
       if (!action) return;
-      const { navigate, onImportFiles, onNewProject, onSearch, stepZoom } = shortcutsRef.current;
       event.preventDefault();
-      switch (action) {
-        case 'new-project':
-          onNewProject();
-          break;
-        case 'import-files':
-          onImportFiles();
-          break;
-        case 'global-search':
-          onSearch();
-          break;
-        case 'zoom-in':
-          stepZoom(1);
-          break;
-        case 'zoom-out':
-          stepZoom(-1);
-          break;
-        case 'zoom-reset':
-          stepZoom(0);
-          break;
-        case 'toggle-word-wrap':
-          useEditorSettings.getState().toggleWordWrap();
-          break;
-        case 'open-home':
-          navigate('home');
-          break;
-        case 'open-mail':
-          navigate({ page: 'mail' });
-          break;
-        case 'open-timetable':
-          navigate({ page: 'timetable' });
-          break;
-        case 'open-settings':
-          navigate('settings');
-          break;
-        case 'open-shortcuts':
-          setHelpOpen(true);
-          break;
-      }
+      runShortcut(action);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
