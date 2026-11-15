@@ -1,11 +1,9 @@
 // 侧栏下载任务面板：环形进度 + 名称与字节摘要；进行中可取消、完成可打开位置。
 import { useState } from 'react';
-import { Popover } from 'radix-ui';
 import { Check, Download, FolderOpen, X } from 'lucide-react';
 import { ProgressRing } from '../../../ui/progress-ring';
 import { Button } from '../../../ui/button';
-import { menuPanel } from '../../../ui/menu-styles';
-import { cn } from '../../../ui/cn';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { formatBytes } from '../../../ui/format-bytes';
 import type { VideoDownload } from '../contract';
 import { classroomClient, useDownloads } from './use-classroom';
@@ -16,8 +14,8 @@ export function DownloadsPanel() {
   const activeCount = list.filter((download) => download.state === 'progressing').length;
 
   return (
-    <Popover.Root onOpenChange={setOpen} open={open}>
-      <Popover.Trigger asChild>
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
         <span className="relative inline-flex">
           <Button
             aria-label={`下载任务，${activeCount} 个进行中`}
@@ -35,33 +33,31 @@ export function DownloadsPanel() {
             />
           )}
         </span>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content align="end" className={cn(menuPanel, 'w-80')} sideOffset={6}>
-          <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-ink-3">
-            下载任务{activeCount > 0 ? ` · ${activeCount} 个进行中` : ''}
-          </p>
-          {list.length === 0 ? (
-            <div className="flex flex-col items-center gap-1.5 px-4 pb-4 pt-2 text-ink-3">
-              <Download aria-hidden className="size-5 opacity-40" />
-              <p className="text-xs">暂无下载任务</p>
-              <p className="text-xs text-ink-3/80">在录像行或播放器里点下载</p>
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              {list.map((download) => (
-                <DownloadRow
-                  download={download}
-                  key={download.id}
-                  onCancel={() => void classroomClient.cancelDownload(download.id).catch(() => {})}
-                  onReveal={() => void classroomClient.revealDownload(download.id).catch(() => {})}
-                />
-              ))}
-            </div>
-          )}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-ink-3">
+          下载任务{activeCount > 0 ? ` · ${activeCount} 个进行中` : ''}
+        </p>
+        {list.length === 0 ? (
+          <div className="flex flex-col items-center gap-1.5 px-4 pb-4 pt-2 text-ink-3">
+            <Download aria-hidden className="size-5 opacity-40" />
+            <p className="text-xs">暂无下载任务</p>
+            <p className="text-xs text-ink-3/80">在录像行或播放器里点下载</p>
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {list.map((download) => (
+              <DownloadRow
+                download={download}
+                key={download.id}
+                onCancel={() => void classroomClient.cancelDownload(download.id).catch(() => {})}
+                onReveal={() => void classroomClient.revealDownload(download.id).catch(() => {})}
+              />
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 

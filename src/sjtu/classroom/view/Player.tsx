@@ -2,7 +2,6 @@
 // 键盘：Space 播放暂停、←→ ±5s、↑↓ 音量（焦点在按钮/滑杆上时让位于原生行为）。
 import { useEffect, useRef, useState } from 'react';
 import type * as React from 'react';
-import { Popover } from 'radix-ui';
 import {
   Check,
   Download,
@@ -25,9 +24,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
-import { menuPanel } from '../../../ui/menu-styles';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
-import { cn } from '../../../ui/cn';
 import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import type { ClassroomVideo, VideoCourse } from '../contract';
@@ -417,22 +415,20 @@ function VolumeControl({ value, onChange }: { value: number; onChange: (v: numbe
   const [open, setOpen] = useState(false);
   const Icon = value === 0 ? VolumeX : value < 0.5 ? Volume1 : Volume2;
   return (
-    <Popover.Root onOpenChange={setOpen} open={open}>
-      <Popover.Trigger asChild>
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
         <IconButton aria-label={`音量 ${Math.round(value * 100)}%`} title="音量">
           <Icon />
         </IconButton>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content align="end" className={cn(menuPanel, 'w-44 px-3 py-2.5')} sideOffset={6}>
-          <div className="mb-1.5 flex items-center justify-between text-xs text-ink-3">
-            <span>音量</span>
-            <span className="tabular-nums">{Math.round(value * 100)}%</span>
-          </div>
-          <Slider ariaLabel="音量" max={1} onValueChange={onChange} step={0.05} value={value} />
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 px-3 py-2.5">
+        <div className="mb-1.5 flex items-center justify-between text-xs text-ink-3">
+          <span>音量</span>
+          <span className="tabular-nums">{Math.round(value * 100)}%</span>
+        </div>
+        <Slider ariaLabel="音量" max={1} onValueChange={onChange} step={0.05} value={value} />
+      </PopoverContent>
+    </Popover>
   );
 }
 

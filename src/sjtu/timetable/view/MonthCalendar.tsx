@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Popover } from 'radix-ui';
 import type { CalendarEvent, TimetableLesson } from '../contract';
 import { activeInWeek, localEventsByDay, weekForDate } from './timetable-format';
 import {
@@ -14,7 +13,7 @@ import {
   mondayOf,
   weekDays,
 } from '../../../modules/todo/view';
-import { menuPanel } from '../../../ui/menu-styles';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { cn } from '../../../ui/cn';
 
 export function MonthCalendar({
@@ -180,48 +179,37 @@ export function MonthCalendar({
                   </span>
                 ))}
                 {items.length > 3 ? (
-                  <Popover.Root>
-                    <Popover.Trigger
+                  <Popover>
+                    <PopoverTrigger
                       className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint"
                       // 不让「更多」上的按下冒泡成日格拖拽的起点。
                       onMouseDown={(event) => event.stopPropagation()}
                     >
                       +{items.length - 3}
                       <span className="@max-[320px]:hidden"> 更多</span>
-                    </Popover.Trigger>
-                    <Popover.Portal>
-                      <Popover.Content
-                        align="start"
-                        className={cn(
-                          menuPanel,
-                          'max-h-(--radix-popover-content-available-height) w-56 origin-(--radix-popover-content-transform-origin)',
-                        )}
-                        sideOffset={4}
-                      >
-                        <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-ink-3">
-                          {formatMonthDay(date)}
-                        </p>
-                        <ul className="grid gap-0.5 p-1">
-                          {items.map((item) => (
-                            <li
-                              className="flex h-6 min-w-0 items-center gap-1.5 rounded px-1.5 text-xs"
-                              key={item.id}
-                              style={item.tone}
-                            >
-                              {item.time ? (
-                                <span className="shrink-0 tabular-nums opacity-70">
-                                  {item.time}
-                                </span>
-                              ) : null}
-                              <span className="truncate font-medium" title={item.title}>
-                                {item.title}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </Popover.Content>
-                    </Popover.Portal>
-                  </Popover.Root>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-56" sideOffset={4}>
+                      <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-ink-3">
+                        {formatMonthDay(date)}
+                      </p>
+                      <ul className="grid gap-0.5 p-1">
+                        {items.map((item) => (
+                          <li
+                            className="flex h-6 min-w-0 items-center gap-1.5 rounded px-1.5 text-xs"
+                            key={item.id}
+                            style={item.tone}
+                          >
+                            {item.time ? (
+                              <span className="shrink-0 tabular-nums opacity-70">{item.time}</span>
+                            ) : null}
+                            <span className="truncate font-medium" title={item.title}>
+                              {item.title}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </PopoverContent>
+                  </Popover>
                 ) : null}
               </span>
             </div>
