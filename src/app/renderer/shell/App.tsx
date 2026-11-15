@@ -2,7 +2,7 @@
 // 视图路由在 ./navigation；主题/缩放在 ./theme；工作台在 workbench/WorkbenchShell。
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
 import { ErrorBoundary } from './ErrorBoundary';
 import {
@@ -43,18 +43,17 @@ function useSessionNavData(): { sessionsByProject: Record<string, NavSessionSumm
   const entries = useWorkspaceStore((state) => state.workspace.entries);
   const projects = entries.filter((entry) => entry.kind === 'project');
   const projectIds = projects.map((project) => project.id);
-  const projectKey = projectIds.join('\n');
-  useEffect(() => {
-    for (const id of projectKey.split('\n').filter(Boolean))
-      void useSessions
-        .getState()
-        .refresh(id)
-        .catch(() => {});
-    void useSessions
-      .getState()
-      .refresh(null)
-      .catch(() => {});
-  }, [projectKey]);
+  useQueries({
+    queries: [null, ...projectIds].map((id) => ({
+      queryKey: ['chat', 'session-list', id],
+      queryFn: () =>
+        useSessions
+          .getState()
+          .refresh(id)
+          .then(() => null),
+      staleTime: Infinity,
+    })),
+  });
   const toSummaries = (list: ChatSessionSummary[]): NavSessionSummary[] =>
     list.map((session) => ({
       id: session.id,
