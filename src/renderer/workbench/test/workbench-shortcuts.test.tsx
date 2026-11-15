@@ -4,12 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { defaultKeybindings } from '../../../modules/settings/contract';
 
-const state = vi.hoisted(() => ({ platform: 'mac', closeTab: vi.fn() }));
-vi.mock('../../lib/platform', () => ({
-  get platform() {
-    return state.platform;
-  },
-}));
+const state = vi.hoisted(() => ({ closeTab: vi.fn() }));
 const layout = {
   ready: true,
   root: { type: 'group', id: 'group', tabs: ['note'], active: 'note' },
@@ -40,7 +35,7 @@ let container: HTMLDivElement;
 let root: Root;
 beforeEach(async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  state.platform = 'mac';
+  window.dela = { platform: 'darwin' } as unknown as NonNullable<typeof window.dela>;
   state.closeTab.mockReset();
   container = document.createElement('div');
   document.body.append(container);
@@ -52,6 +47,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  delete window.dela;
   vi.unstubAllGlobals();
 });
 const press = (target: Element, modifiers: KeyboardEventInit) => {
@@ -77,7 +73,7 @@ it('弹窗内不关闭后方工作台标签', () => {
   expect(state.closeTab).not.toHaveBeenCalled();
 });
 it('Windows 保留原有输入区域守卫与 Ctrl+W 行为', () => {
-  state.platform = 'other';
+  window.dela = { platform: 'win32' } as unknown as NonNullable<typeof window.dela>;
   expect(press(container.querySelector('textarea')!, { ctrlKey: true }).defaultPrevented).toBe(
     false,
   );

@@ -8,7 +8,6 @@ import { useTerminalStore } from './store';
 import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
-import { platform } from '../../../renderer/lib/platform';
 import '@xterm/xterm/css/xterm.css';
 import { ErrorText } from '../../../ui/alert';
 import { errorMessage } from '../../../core/protocol/contract';
@@ -136,7 +135,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
     const selection = terminal.onSelectionChange(() => setHasSelection(terminal.hasSelection()));
     terminal.attachCustomKeyEventHandler((event) => {
       const clipboardModifier =
-        platform === 'mac'
+        window.dela?.platform === 'darwin'
           ? event.metaKey && !event.ctrlKey && !event.shiftKey
           : event.ctrlKey && !event.metaKey && event.shiftKey;
       if (event.type === 'keydown' && clipboardModifier && !event.altKey) {
@@ -252,7 +251,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
         </div>
         <Button
           aria-label="复制终端选区"
-          title={platform === 'mac' ? '复制选区（⌘C）' : '复制选区（Ctrl+Shift+C）'}
+          title={window.dela?.platform === 'darwin' ? '复制选区（⌘C）' : '复制选区（Ctrl+Shift+C）'}
           disabled={!hasSelection}
           variant="ghost"
           size="icon-sm"
@@ -262,7 +261,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
         </Button>
         <Button
           aria-label="粘贴到终端"
-          title={platform === 'mac' ? '粘贴（⌘V）' : '粘贴（Ctrl+Shift+V）'}
+          title={window.dela?.platform === 'darwin' ? '粘贴（⌘V）' : '粘贴（Ctrl+Shift+V）'}
           disabled={!active || active.exitCode !== null}
           variant="ghost"
           size="icon-sm"

@@ -5,7 +5,6 @@ import type { LibraryProps } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import { Explorer, type ExplorerItem } from '../../../modules/workspace/view';
-import { fileManagerName } from '../../../renderer/lib/platform';
 import { ConfirmDialog } from '../../../ui/dialog';
 import {
   DropdownMenu,
@@ -16,6 +15,8 @@ import {
 import { IconButton } from '../../../ui/icon-button';
 import { compareCanvasTerms, latestTermOf } from '../contract';
 import { canvasClient, stateKey, useCanvasState, useLibraryGrouping } from './use-canvas';
+
+const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源管理器';
 
 export function SourcesTree({
   expanded,

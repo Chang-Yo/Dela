@@ -13,9 +13,10 @@ import {
 import { useShortcuts } from '../../../app/shortcuts';
 import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { showToast } from '../../../../ui/toast';
-import { platform } from '../../../lib/platform';
 import { ErrorText } from '../../../../ui/alert';
 import { errorMessage } from '../../../../core/protocol/contract';
+
+const platform = window.dela?.platform === 'darwin' ? 'mac' : 'other';
 
 /** 键位串 → 可读文本（错误提示用）。 */
 function acceleratorText(accelerator: string | null, family?: 'digit'): string {

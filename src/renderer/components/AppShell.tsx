@@ -29,7 +29,6 @@ import { showToast, Toaster } from '../../ui/toast';
 import { DelaBrand } from '../../modules/settings/view';
 import { cn } from '../../ui/cn';
 import { useMediaQuery } from '../../ui/use-media-query';
-import { fileManagerName, platform } from '../lib/platform';
 import type { NavTarget } from '../../app/module';
 import { useNavigationStore, type AppView, type ShellView } from '../navigation/view';
 import type { MobileDrawer } from '../lib/mobile-drawer';
@@ -65,6 +64,9 @@ import {
   DialogTitle,
 } from '../../ui/dialog';
 import { errorMessage } from '../../core/protocol/contract';
+
+const platform = window.dela?.platform === 'darwin' ? 'mac' : 'other';
+const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源管理器';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-slow ease-out';

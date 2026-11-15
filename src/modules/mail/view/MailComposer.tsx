@@ -20,7 +20,6 @@ import { showToast } from '../../../ui/toast';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
 import { draftsKey, mailClient } from './use-mail';
 import { acceleratorFromEvent } from '../../settings/contract';
-import { platform } from '../../../renderer/lib/platform';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { IconButton } from '../../../ui/icon-button';
@@ -510,7 +509,10 @@ export function MailComposer({
 
   const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const editor = editorRef.current;
-    const accelerator = acceleratorFromEvent(event.nativeEvent, platform);
+    const accelerator = acceleratorFromEvent(
+      event.nativeEvent,
+      window.dela?.platform === 'darwin' ? 'mac' : 'other',
+    );
     if (accelerator === 'Mod+B') {
       event.preventDefault();
       format('bold');

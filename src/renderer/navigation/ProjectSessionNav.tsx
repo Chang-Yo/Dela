@@ -30,7 +30,6 @@ import {
 } from '../../ui/dropdown-menu';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
 import { cn } from '../../ui/cn';
-import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../modules/workspace/contract';
 import { remoteAccent } from '../../modules/remotes/view';
 import { useVisibleNavEntries, type NavEntryId } from './entries';
@@ -57,6 +56,8 @@ import {
   DialogTitle,
 } from '../../ui/dialog';
 import { errorMessage } from '../../core/protocol/contract';
+
+const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源管理器';
 
 export type { NavSessionSummary, SessionRunBadge };
 

@@ -15,10 +15,11 @@ import {
 import { useChatTabSource } from './chat-source';
 import { reviewTabId } from './review/tab-id';
 import { FileIcon, basenameOf, dirnameOf } from './review/view-utils';
-import { fileManagerName } from '../../../renderer/lib/platform';
 import { showToast } from '../../../ui/toast';
 import { agentClient, chatClient } from './client';
 import { errorMessage } from '../../../core/protocol/contract';
+
+const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源管理器';
 
 function StatSpan({ stat }: { stat: DiffStat }) {
   return (
