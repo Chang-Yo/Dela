@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 const FILE = 'churn.ts';
 
@@ -211,13 +211,13 @@ export default function CodeBlock({
   const text = { ...DEFAULT_LABELS, ...labels };
   const raw = code ?? lines.join('\n');
 
-  const copy = useCallback(() => {
+  const copy = () => {
     navigator.clipboard.writeText(raw).then(() => {
       setCopied(true);
       onCopy?.(raw);
       setTimeout(() => setCopied(false), 1500);
     });
-  }, [raw, onCopy]);
+  };
 
   const added = diff.filter((r) => r.type === 'add').length;
   const removed = diff.filter((r) => r.type === 'del').length;

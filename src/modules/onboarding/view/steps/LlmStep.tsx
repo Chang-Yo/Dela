@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CircleCheck, CircleX, Eye, EyeOff, ListPlus, PlugZap } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
@@ -20,7 +21,6 @@ const CUSTOM = 'custom';
 
 /** 向导 · 模型服务步骤：选 Pi 内置厂商或自定义 OpenAI 兼容服务，可先检测再保存。 */
 export function LlmStep({ onDone }: { onDone: () => void }) {
-  const [catalog, setCatalog] = useState<LlmCatalogProvider[] | null>(null);
   const [vendorChoice, setVendorChoice] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
@@ -35,12 +35,14 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
   const [state, setState] = useState<StepButtonState>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    void llmClient
-      .catalog()
-      .then(setCatalog)
-      .catch(() => setCatalog([]));
-  }, []);
+  const catalogQuery = useQuery({
+    queryKey: ['llm', 'catalog'],
+    queryFn: () => llmClient.catalog(),
+    enabled: Boolean(window.dela),
+    retry: false,
+  });
+  const catalog: LlmCatalogProvider[] | null =
+    catalogQuery.data ?? (catalogQuery.isError ? [] : null);
 
   if (!window.dela) {
     return (

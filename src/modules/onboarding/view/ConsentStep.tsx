@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import privacy from '../../../../docs/privacy.md?raw';
 import terms from '../../../../docs/terms.md?raw';
 import { LegalMarkdown } from '../../settings/view';
@@ -19,6 +19,11 @@ const documents = [
 
 // 滚动位置的浮点误差与浏览器取整能差几个像素，留一点容差，别让按钮卡在临界点上。
 const bottomSlackPx = 8;
+
+// 读到底就不再回退：导出提示出现、窗口变矮这类只改变文本框高度的抖动不该把已经读完的人
+// 重新锁住——正文没变，读过的就是读过了，否则刚点完导出还得再滚一下才能同意。
+const reachedEnd = (box: HTMLElement) =>
+  box.scrollHeight - box.scrollTop - box.clientHeight <= bottomSlackPx;
 
 type BackupState =
   | { kind: 'idle' }
@@ -51,16 +56,6 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
   // 界面里能拿到 window.dela 才谈得上导出；浏览器预览下这一页仍然只是只读正文。
   const offersBackup = canBackup && Boolean(window.dela);
 
-  const sync = useCallback(() => {
-    const box = boxRef.current;
-    if (!box) return;
-    // 读到底就不再回退：导出提示出现、窗口变矮这类只改变文本框高度的抖动不该把已经读完的人
-    // 重新锁住——正文没变，读过的就是读过了，否则刚点完导出还得再滚一下才能同意。
-    setReadToEnd(
-      (was) => was || box.scrollHeight - box.scrollTop - box.clientHeight <= bottomSlackPx,
-    );
-  }, []);
-
   // 文本框与正文都要观察：窗口只往两侧拉宽时文本框自身高度不变（它由 grid 轨道决定），
   // 但正文会重排——可能不再溢出，也可能多出几行，两种情况下都没有滚动事件可听。
   // 换条款时另外把焦点交给正文：「同意并继续」在那一刻变回禁用，焦点留在它身上会被浏览器
@@ -68,13 +63,14 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
+    const sync = () => setReadToEnd((was) => was || reachedEnd(box));
     sync();
     if (index > 0) box.focus();
     const observer = new ResizeObserver(sync);
     observer.observe(box);
     if (contentRef.current) observer.observe(contentRef.current);
     return () => observer.disconnect();
-  }, [index, sync]);
+  }, [index]);
 
   const agree = () => {
     if (!readToEnd) return;
@@ -141,7 +137,10 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
           className="w-full max-w-[42rem] min-h-0 overflow-y-auto overscroll-contain rounded-card border border-line bg-page px-5 py-4 text-sm leading-relaxed text-ink-2"
           data-consent-text=""
           key={current.key}
-          onScroll={sync}
+          onScroll={(event) => {
+            const box = event.currentTarget;
+            setReadToEnd((was) => was || reachedEnd(box));
+          }}
           ref={boxRef}
           role="region"
           tabIndex={0}
