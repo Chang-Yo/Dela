@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Popover } from 'radix-ui';
 import type { TodoItem } from '../contract';
 import { todoCompleted } from '../contract';
-import { menuPanel } from '../../../ui/menu-styles';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { cn } from '../../../ui/cn';
 import { dateKey, eventColorStyle, formatMonthDay, formatTime, weekDays } from './calendar';
 import { groupTodosByDay, monthGridDays, todoCalendarColor } from './todo-calendar';
@@ -42,60 +41,51 @@ function DayOverflow({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint">
         +{items.length - 3}
         <span className="@max-[320px]:hidden"> 更多</span>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          align="start"
-          className={cn(
-            menuPanel,
-            'max-h-(--radix-popover-content-available-height) w-60 origin-(--radix-popover-content-transform-origin)',
-          )}
-          sideOffset={4}
-        >
-          <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-ink-3">{formatMonthDay(date)}</p>
-          <ul className="grid gap-0.5 p-1">
-            {items.map((item) => {
-              const done = todoCompleted(item.status);
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className={cn(
-                      'flex w-full min-w-0 items-start gap-1.5 rounded px-1.5 py-1 text-left text-xs transition-opacity hover:opacity-80',
-                      done && 'opacity-60',
-                    )}
-                    onClick={() => {
-                      setOpen(false);
-                      onOpen(item);
-                    }}
-                    style={eventColorStyle(todoCalendarColor(item))}
-                  >
-                    <span className="shrink-0 tabular-nums opacity-70">
-                      {item.dueAt ? formatTime(new Date(item.dueAt)) : ''}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-60">
+        <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-ink-3">{formatMonthDay(date)}</p>
+        <ul className="grid gap-0.5 p-1">
+          {items.map((item) => {
+            const done = todoCompleted(item.status);
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex w-full min-w-0 items-start gap-1.5 rounded px-1.5 py-1 text-left text-xs transition-opacity hover:opacity-80',
+                    done && 'opacity-60',
+                  )}
+                  onClick={() => {
+                    setOpen(false);
+                    onOpen(item);
+                  }}
+                  style={eventColorStyle(todoCalendarColor(item))}
+                >
+                  <span className="shrink-0 tabular-nums opacity-70">
+                    {item.dueAt ? formatTime(new Date(item.dueAt)) : ''}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn('block truncate font-medium', done && 'line-through')}
+                      title={item.title}
+                    >
+                      {item.title}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={cn('block truncate font-medium', done && 'line-through')}
-                        title={item.title}
-                      >
-                        {item.title}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs opacity-70">
-                        {item.courseName ?? '个人待办'}
-                      </span>
+                    <span className="mt-0.5 block truncate text-xs opacity-70">
+                      {item.courseName ?? '个人待办'}
                     </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
 
