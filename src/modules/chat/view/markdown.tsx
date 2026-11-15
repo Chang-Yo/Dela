@@ -12,7 +12,7 @@ import {
   type LinkSafetyConfig,
 } from 'streamdown';
 import { cn } from '../../../ui/cn';
-import { mermaidConfig, renderMermaid } from '../../../renderer/lib/mermaid';
+import { mermaidConfig, renderMermaid } from '../../preview/view';
 import { useChatTabSource } from './chat-source';
 
 // mermaid 本体体积大，这里只注册插件对象，首次渲染图表时才动态加载真正的库。

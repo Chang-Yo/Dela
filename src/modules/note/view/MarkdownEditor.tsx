@@ -7,8 +7,7 @@ import { Annotation, Compartment, EditorState, Transaction } from '@codemirror/s
 import type { Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
-import { useEditorSettings } from '../../../renderer/lib/editor-settings';
-import { codeHighlightStyle, markdownHighlightStyle } from '../../../renderer/lib/syntax-highlight';
+import { codeHighlightStyle, markdownHighlightStyle, useEditorSettings } from '../../preview/view';
 import { markdownLivePreview, type ImageResolver } from './live-preview';
 import { formatByName } from '../../../core/protocol/files';
 

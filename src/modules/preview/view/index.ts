@@ -7,3 +7,6 @@ export {
   type ContentLoader,
   type LoadedDocument,
 } from './loader';
+export { useEditorSettings } from './editor-settings';
+export { mermaidConfig, renderMermaid } from './mermaid';
+export { codeHighlightStyle, markdownHighlightStyle } from './syntax-highlight';

@@ -5,8 +5,8 @@ import { languages } from '@codemirror/language-data';
 import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { search, searchKeymap } from '@codemirror/search';
-import { useEditorSettings } from '../../../renderer/lib/editor-settings';
-import { codeHighlightStyle } from '../../../renderer/lib/syntax-highlight';
+import { useEditorSettings } from './editor-settings';
+import { codeHighlightStyle } from './syntax-highlight';
 
 const viewerTheme = EditorView.theme({
   '&': {

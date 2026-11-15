@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { Resizer } from '../../ui/resizer';
-import { useEditorSettings } from '../lib/editor-settings';
+import { useEditorSettings } from '../../modules/preview/view';
 import { usePreferences } from '../app/preferences';
 import { showToast, Toaster } from '../../ui/toast';
 import { DelaBrand } from '../../modules/settings/view';
