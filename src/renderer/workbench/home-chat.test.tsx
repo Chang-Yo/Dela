@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { act, type ComponentProps } from 'react';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkspaceChat } from '../../../shared/api';
+import type { WorkspaceChat } from '../../core/protocol/agent';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好；各用例按通道替换或监视 handler。
 const { api, dela } = vi.hoisted(() => {
@@ -16,17 +16,28 @@ const { api, dela } = vi.hoisted(() => {
   window.dela = dela;
   return { api, dela };
 });
-import { useNavigationStore } from '../../navigation/view';
-import { useSessions } from '../../sessions/store';
-import { useChatDrafts } from './drafts';
-import { useToastStore } from '../../app/toasts';
-import { ChatHome } from './ChatHome';
-import { ChatTabSourceProvider } from './chat-source';
-import type { ChatComposer } from './ChatComposer';
+import { useNavigationStore } from '../navigation/view';
+import { useToastStore } from '../app/toasts';
+import {
+  ChatHome,
+  ChatTabSourceProvider,
+  useChatDrafts,
+  useSessions,
+} from '../../modules/chat/view';
 
 // 保留 ChatHome、ChatTab、发送逻辑与导航 store；输入编辑器和消息排版不参与路由验证。
-vi.mock('./ChatComposer', () => ({
-  ChatComposer: ({ value, onChange, onSend, notice }: ComponentProps<typeof ChatComposer>) => (
+vi.mock('../../modules/chat/view/ChatComposer', () => ({
+  ChatComposer: ({
+    value,
+    onChange,
+    onSend,
+    notice,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    onSend: () => void;
+    notice?: string | null;
+  }) => (
     <>
       <input
         aria-label="消息输入"
@@ -38,7 +49,7 @@ vi.mock('./ChatComposer', () => ({
     </>
   ),
 }));
-vi.mock('./ChatThread', () => ({
+vi.mock('../../modules/chat/view/ChatThread', () => ({
   ChatThread: ({ chat }: { chat: WorkspaceChat }) => (
     <div aria-label="对话消息">{chat.messages.map((message) => message.content).join('\n')}</div>
   ),

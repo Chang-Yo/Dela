@@ -2,7 +2,7 @@
 // 覆盖 bash 等一切写文件的途径）；默认折叠防大轮次刷屏。
 import { memo, useEffect, useState } from 'react';
 import { ChevronDown, CodeXml, FolderOpen } from 'lucide-react';
-import type { FileChangeSummary, TurnChanges } from '../../../shared/api';
+import type { FileChangeSummary, TurnChanges } from '../../../core/protocol/agent';
 import type { DiffStat } from '../../../core/protocol/diff';
 import { Button } from '../../../ui/button';
 import {
@@ -12,11 +12,11 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
 import { useChatTabSource } from './chat-source';
-import { reviewTabId } from '../review/tab-id';
-import { FileIcon, basenameOf, dirnameOf } from '../review/view-utils';
-import { fileManagerName } from '../../lib/platform';
-import { showToast } from '../../app/toasts';
-import { agentClient, chatClient } from '../../../modules/chat/view';
+import { reviewTabId } from './review/tab-id';
+import { FileIcon, basenameOf, dirnameOf } from './review/view-utils';
+import { fileManagerName } from '../../../renderer/lib/platform';
+import { showToast } from '../../../renderer/app/toasts';
+import { agentClient, chatClient } from './client';
 import { errorMessage } from '../../../core/protocol/contract';
 
 // 冻结记录写后不变：按「会话:轮次」缓存读取，卡片随展开/收起与切标签重挂载时不重复走 IPC。

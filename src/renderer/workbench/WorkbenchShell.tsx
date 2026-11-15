@@ -7,13 +7,15 @@ import type { TabId } from '../../shared/layout';
 import { decodeAssetPath, isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../modules/remotes/contract';
 import type { ResourceRef } from '../../shared/resources';
-// Provider 均取自轻量叶子模块：barrel 会连带重依赖标签组件（Streamdown/CodeMirror），
-// 静态引入会让 registry 的懒加载分包失效。
+// 模块出口里的标签组件懒加载，这里静态引入 Provider 不影响 registry 的分包。
 import {
   ChatTabSourceProvider,
   type ChatTabSource,
   type ReferenceSource,
-} from '../content/chat/chat-source';
+  useSessions,
+  ChatHome,
+  referenceEntryCandidates,
+} from '../../modules/chat/view';
 import {
   NoteDraftSourceProvider,
   useNoteDrafts,
@@ -25,7 +27,6 @@ import {
   type ContentLoader,
   type LoadedDocument,
 } from '../../modules/preview/view';
-import { useSessions } from '../sessions/store';
 import { useWorkbenchLayout } from './layout-store';
 import { useShortcuts } from '../app/shortcuts';
 import { walkGroups } from './layout-schema';
@@ -38,8 +39,6 @@ import { useLocalReferences, useRemoteReferences } from '../navigation/remote-re
 import { documentTabId, useNavigationStore } from '../navigation/view';
 import { showToast } from '../app/toasts';
 import { MailDraftDialog } from '../../modules/mail/view';
-import { ChatHome } from '../content/chat/ChatHome';
-import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../ui/alert';

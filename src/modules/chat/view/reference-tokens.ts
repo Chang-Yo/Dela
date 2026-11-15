@@ -1,7 +1,8 @@
 // 引用内联 token：文本即引用的唯一事实源。composer 里「@ + 已知相对路径（title）」或「# + 会话标题」的
 // 连续文本是一个引用 token，编辑器按此高亮、发送时解析回绝对路径或 sessionId（key）；手打错误或
 // 已删除的只是普通文本，不高亮也不进上下文。
-import type { ChatSessionSummary, WorkspaceEntry } from '../../../shared/api';
+import type { ChatSessionSummary } from '../../../core/protocol/agent';
+import type { WorkspaceEntry } from '../../workspace/contract';
 import type { ChatReference } from './drafts';
 
 /** 文本中的一个引用 token：[start, end) 覆盖「@路径」全段（含 @，不含尾部标点）。 */

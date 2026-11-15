@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import type { WorkspaceEntry } from '../../../shared/api';
-import type { ChatReference } from './drafts';
+import type { WorkspaceEntry } from '../../../workspace/contract';
+import type { ChatReference } from '../drafts';
 import {
   matchReferenceTokens,
   referenceCandidates,
@@ -9,7 +9,7 @@ import {
   referenceEntryCandidates,
   sessionReferences,
   withCourseReferences,
-} from './reference-tokens';
+} from '../reference-tokens';
 
 const ref = (key: string, title = key): ChatReference => ({ key, title });
 

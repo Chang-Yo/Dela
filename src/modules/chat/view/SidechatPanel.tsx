@@ -9,19 +9,19 @@ import {
   SquareArrowOutUpRight,
   X,
 } from 'lucide-react';
-import type { ChatMediaView, WorkspaceChat } from '../../../shared/api';
+import type { ChatMediaView, WorkspaceChat } from '../../../core/protocol/agent';
 import {
   CHAT_ATTACHMENT_MAX,
   CHAT_DOCUMENT_MAX_BYTES,
   CHAT_TEXT_ATTACHMENT_MAX_BYTES,
   chatFileKindOfFile,
 } from '../../../core/protocol/chat-input';
-import { agentClient } from '../../../modules/chat/view';
+import { agentClient } from './client';
 import { IconButton } from '../../../ui/icon-button';
-import { showToast } from '../../app/toasts';
+import { showToast } from '../../../renderer/app/toasts';
 import { cn } from '../../../ui/cn';
 import { useChatTabSource } from './chat-source';
-import { useSessions } from '../../sessions/store';
+import { useSessions } from './sessions';
 import { ChatComposer } from './ChatComposer';
 import { ChatThread } from './ChatThread';
 import type { ReferenceSource } from './chat-source';

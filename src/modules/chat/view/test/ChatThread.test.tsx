@@ -2,13 +2,13 @@
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { WorkspaceChat } from '../../../shared/api';
-import { setChatMediaPreview } from './media';
-import { ChatThread } from './ChatThread';
+import type { WorkspaceChat } from '../../../../core/protocol/agent';
+import { setChatMediaPreview } from '../media';
+import { ChatThread } from '../ChatThread';
 
 // jsdom 不排版；只替换 Markdown 渲染和浏览器尺寸边界，滚动逻辑使用真实组件。
 const motion = vi.hoisted(() => ({ reduced: true }));
-vi.mock('./markdown', () => ({
+vi.mock('../markdown', () => ({
   ChatMarkdown: ({
     children,
     mode,
@@ -24,7 +24,7 @@ vi.mock('./markdown', () => ({
   ),
 }));
 vi.mock('framer-motion', () => ({ useReducedMotion: () => motion.reduced }));
-vi.mock('./TurnChangesCard', () => ({
+vi.mock('../TurnChangesCard', () => ({
   TurnChangesCard: ({ turnId }: { turnId: string }) => <div data-turn-card={turnId} />,
 }));
 

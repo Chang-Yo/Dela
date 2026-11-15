@@ -25,7 +25,7 @@ const creates = vi.hoisted(() => {
   } as unknown as NonNullable<typeof window.dela>;
   return creates;
 });
-import { useSessions } from '../sessions/store';
+import { useSessions } from '../../modules/chat/view';
 import { createDefaultLayout, walkGroups } from '../workbench/layout-schema';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore } from './view';

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { onAgentEvent } from '../../modules/chat/view';
-import type { RunEvent, RunStatus } from '../../shared/api';
+import { onAgentEvent } from './client';
+import type { RunEvent, RunStatus } from '../../../core/protocol/agent';
 
 // Run 状态镜像：按 sessionId 归并 run-event 推送，供导航行徽标与 ChatTab 共用；
 // 只订阅，不发起执行。

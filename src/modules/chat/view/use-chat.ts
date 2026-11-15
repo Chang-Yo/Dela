@@ -3,11 +3,11 @@ import type {
   ChatComment,
   ChatMediaView,
   ChatQueuedDraft,
-  LlmProviderView,
   SessionCommandName,
   WorkspaceChat,
-} from '../../../shared/api';
-import { parseSessionCommand } from '../../../shared/api';
+} from '../../../core/protocol/agent';
+import type { LlmProviderView } from '../../../core/protocol/llm';
+import { parseSessionCommand } from '../../../core/protocol/agent';
 import {
   CHAT_ATTACHMENT_MAX,
   CHAT_DOCUMENT_MAX_BYTES,
@@ -16,11 +16,11 @@ import {
   hasChatImages,
   stripChatImageTokens,
 } from '../../../core/protocol/chat-input';
-import { agentClient } from '../../../modules/chat/view';
-import { showToast } from '../../app/toasts';
+import { agentClient } from './client';
+import { showToast } from '../../../renderer/app/toasts';
 import { useChatTabSource } from './chat-source';
-import { useSessions } from '../../sessions/store';
-import { runBadge, useRuns } from '../../sessions/runs';
+import { useSessions } from './sessions';
+import { runBadge, useRuns } from './runs';
 import {
   emptyDraft,
   registerChatAttachmentCheck,

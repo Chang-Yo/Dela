@@ -2,15 +2,15 @@
 // （按请求时点重算，手动刷新）共用一个标签类型，载荷由 tab-id 区分。
 import { useEffect, useState, type ReactNode } from 'react';
 import { FileCode2, TriangleAlert } from 'lucide-react';
-import type { FileChangeDetail } from '../../../shared/api';
-import type { TabId } from '../../../shared/layout';
-import { diffStatOf } from '../../../core/protocol/diff';
-import { agentClient } from '../../../modules/chat/view';
+import type { FileChangeDetail } from '../../../../core/protocol/agent';
+import type { TabId } from '../../../../app/module';
+import { diffStatOf } from '../../../../core/protocol/diff';
+import { agentClient } from '../client';
 import { parseReviewTabId } from './tab-id';
 import { UncommittedReview } from './UncommittedReview';
 import { Centered, STATUS_TEXT, basenameOf, dirnameOf } from './view-utils';
 import { DiffView } from './DiffView';
-import { errorMessage } from '../../../core/protocol/contract';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 export function ReviewTab({ tabId }: { tabId: TabId; groupId: string }) {
   const target = parseReviewTabId(tabId);

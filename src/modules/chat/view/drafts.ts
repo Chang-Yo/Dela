@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ChatComment } from '../../../shared/api';
+import type { ChatComment } from '../../../core/protocol/agent';
 import { hasChatImages } from '../../../core/protocol/chat-input';
 
 /** session：# 引用的同项目会话，key 是 sessionId；其余是 @ 引用的文件，key 是绝对路径。 */

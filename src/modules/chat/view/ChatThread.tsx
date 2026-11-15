@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { Shimmer } from '../../../ui/shimmer';
 import { useReducedMotion } from 'framer-motion';
-import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../shared/api';
+import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';

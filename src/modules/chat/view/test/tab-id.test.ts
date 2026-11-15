@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseReviewTabId, reviewTabId, reviewTabTitle } from './tab-id';
+import { parseReviewTabId, reviewTabId, reviewTabTitle } from '../review/tab-id';
 
 const sessionId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4d';
 const turnId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4e';

@@ -1,10 +1,17 @@
 // 随聊的新建、发送与历史查看留在首页聊天；会话与运行状态由 sessions 管理。
 import { useEffect, useRef, useState } from 'react';
-import { agentClient, type HomeChatRequest } from '../../../modules/chat/view';
-import type { WorkspaceChat } from '../../../shared/api';
-import { useSessions } from '../../sessions/store';
+import { agentClient } from './client';
+import type { WorkspaceChat } from '../../../core/protocol/agent';
+import { useSessions } from './sessions';
 import { ChatTab } from './ChatTab';
 import { errorMessage } from '../../../core/protocol/contract';
+
+/** 首页聊天请求：sessionId 打开指定历史，否则 create 决定新建还是接着上次；seq 区分同内容的再次请求。 */
+export interface HomeChatRequest {
+  create: boolean;
+  sessionId?: string;
+  seq: number;
+}
 
 /**
  * 首页要打开的会话，优先级：指定历史 > 显式新对话 > 上次停留的会话 > 未发送的空会话 > 新建。

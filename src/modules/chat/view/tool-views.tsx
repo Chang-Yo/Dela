@@ -1,17 +1,17 @@
 import { diffLines, diffWords } from 'diff';
-import type { AgentToolResult, SubagentDetails } from '../../../shared/api';
+import type { AgentToolResult, SubagentDetails } from '../../../core/protocol/agent';
 import type { CodePiece, DiffRow } from '../../../ui/code-block';
 import CodeBlock from '../../../ui/code-block';
 import { openLightbox } from '../../../ui/lightbox';
 import { Button } from '../../../ui/button';
-import { agentClient } from '../../../modules/chat/view';
+import { agentClient } from './client';
 import type { Navigate } from '../../../app/module';
 import { useChatTabSource } from './chat-source';
-import { useSessions } from '../../sessions/store';
+import { useSessions } from './sessions';
 import { ChatMarkdown } from './markdown';
 
 // 工具卡片的正文视图：按 Pi 内置工具（read/write/edit/bash/grep/find/ls）渲染输入与文本输出，
-// read 读到图片时直接预览图片本体。输出形状见 shared/session.ts 的 AgentToolOutput（text + image + 工具 details）。
+// read 读到图片时直接预览图片本体。输出形状见 core/protocol/agent 的 AgentToolOutput（text + image + 工具 details）。
 
 function Caption({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-ink-3">{children}</p>;

@@ -35,10 +35,10 @@ import type {
   ChatComment,
   ChatMediaView,
   ContextUsageView,
-  LlmProviderView,
-  WebSearchEntrySummary,
-} from '../../../shared/api';
-import { SESSION_COMMANDS } from '../../../shared/api';
+} from '../../../core/protocol/agent';
+import type { LlmProviderView } from '../../../core/protocol/llm';
+import type { WebSearchEntrySummary } from '../../../core/protocol/capabilities';
+import { SESSION_COMMANDS } from '../../../core/protocol/agent';
 import {
   CHAT_ATTACHMENT_MAX,
   chatFileKindOfFile,
@@ -56,7 +56,7 @@ import {
   chatClient,
   llmClient,
   onWebSearchChanged,
-} from '../../../modules/chat/view';
+} from './client';
 import { errorMessage } from '../../../core/protocol/contract';
 
 const builtinCommands = [

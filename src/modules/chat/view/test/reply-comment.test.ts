@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import { commentRange, placeFloating } from './reply-comment';
+import { commentRange, placeFloating } from '../reply-comment';
 
 const view = { width: 600, height: 400 };
 const box = { width: 120, height: 32 };

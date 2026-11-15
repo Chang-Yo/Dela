@@ -1,8 +1,7 @@
 // 安装更新前的工作区保存：登记给 update 模块的 beforeInstall，任何一步失败都不安装。
 import { saveComposers } from '../../modules/mail/view';
 import { useNoteDrafts } from '../../modules/note/view';
-import { saveChatDrafts } from '../content/chat/drafts';
-import { runBadge, useRuns } from '../sessions/runs';
+import { saveChatDrafts, runBadge, useRuns } from '../../modules/chat/view';
 import { saveWorkbenchLayout } from '../workbench/layout-store';
 
 /** 保存所有已打开文件、聊天文字草稿、邮件草稿和工作台布局。 */

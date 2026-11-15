@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import type { ChatStreamEvent, SidechatView } from '../../../shared/api';
+import type { ChatStreamEvent, SidechatView } from '../../../../core/protocol/agent';
 
 // 契约客户端与旁问镜像在模块加载时取 bridge，须先于导入装好。
 const { invoke, listeners } = vi.hoisted(() => {
@@ -25,8 +25,8 @@ const { invoke, listeners } = vi.hoisted(() => {
   });
   return { invoke, listeners };
 });
-import { useChatDrafts } from './drafts';
-import { openSidechat, sidechatDraftKey, useSidechats } from './sidechat-store';
+import { useChatDrafts } from '../drafts';
+import { openSidechat, sidechatDraftKey, useSidechats } from '../sidechat-store';
 
 const pushUpdate = (view: SidechatView) => listeners['agent:sidechat-update']![0]!(view);
 const pushStream = (event: ChatStreamEvent) => listeners['agent:sidechat-stream']![0]!(event);

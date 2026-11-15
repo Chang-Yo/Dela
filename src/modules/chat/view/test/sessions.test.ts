@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ChatSessionSummary, ChatStreamEvent, WorkspaceChat } from '../../shared/api';
+import type {
+  ChatSessionSummary,
+  ChatStreamEvent,
+  WorkspaceChat,
+} from '../../../../core/protocol/agent';
 
 // 契约客户端与镜像订阅在模块加载时取 bridge，须先于导入 store 装好（全文件共享）；
 // 之后各用例只重编程 invoke 的返回值。
@@ -22,7 +26,7 @@ const { invoke, listeners } = vi.hoisted(() => {
   });
   return { invoke, listeners };
 });
-import { poolKey, querySessions, useSessions } from './store';
+import { poolKey, querySessions, useSessions } from '../sessions';
 
 const pushUpdate = (sessionId: string, chat: WorkspaceChat) =>
   listeners['agent:session-update']![0]!({ sessionId, chat });

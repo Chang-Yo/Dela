@@ -26,7 +26,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { cn } from '../../../ui/cn';
-import { codeHighlightStyle, markdownHighlightStyle } from '../../lib/syntax-highlight';
+import { codeHighlightStyle, markdownHighlightStyle } from '../../../renderer/lib/syntax-highlight';
 import { openLightbox } from '../../../ui/lightbox';
 import { matchChatImageTokens } from '../../../core/protocol/chat-input';
 import { getChatMediaPreview } from './media';

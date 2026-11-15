@@ -2,10 +2,10 @@
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { ReplyTrace } from './ToolTimeline';
-import type { AgentToolResult, WorkspaceChat } from '../../../shared/api';
+import { ReplyTrace } from '../ToolTimeline';
+import type { AgentToolResult, WorkspaceChat } from '../../../../core/protocol/agent';
 
-vi.mock('./markdown', () => ({
+vi.mock('../markdown', () => ({
   ChatMarkdown: ({ children }: { children: ReactNode }) => children,
 }));
 

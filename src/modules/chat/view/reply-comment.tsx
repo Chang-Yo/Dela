@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { HoverCard, Popover } from 'radix-ui';
 import { Check, MessageCircleQuestion, MessageSquarePlus, TextQuote, X } from 'lucide-react';
-import type { ChatComment } from '../../../shared/api';
+import type { ChatComment } from '../../../core/protocol/agent';
 import { menuPanel } from '../../../ui/menu-styles';
 import { cn } from '../../../ui/cn';
 import { useChatDrafts } from './drafts';

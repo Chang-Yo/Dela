@@ -1,7 +1,7 @@
 // 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性定位脉冲；
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
-import { agentClient, type HomeChatRequest } from '../../modules/chat/view';
+import { agentClient, type HomeChatRequest, useSessions } from '../../modules/chat/view';
 import { leaveComposer } from '../../modules/mail/view';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../modules/settings/contract';
@@ -9,7 +9,6 @@ import type { TabId } from '../../shared/layout';
 import { useWorkspaceStore } from '../../modules/workspace/view';
 import { formatByName, opensInEditor } from '../../core/protocol/files';
 import { parseRemoteNodeId } from '../../modules/remotes/contract';
-import { useSessions } from '../sessions/store';
 import { showToast } from '../app/toasts';
 import type { NavTarget, NavTargets } from '../../app/module';
 import { pageOf } from '../../app/views';

@@ -2,7 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { FileChangeDetail, UncommittedChanges } from '../../../shared/api';
+import type { FileChangeDetail } from '../../../../core/protocol/agent';
+import type { UncommittedChanges } from '../../../../core/protocol/changes';
 
 // 契约客户端在模块加载时取 bridge，须先于导入面板装好；各用例只重编程 handler。
 const { api, dela } = vi.hoisted(() => {
@@ -21,7 +22,7 @@ const { api, dela } = vi.hoisted(() => {
   window.dela = dela;
   return { api, dela };
 });
-import { UncommittedReview } from './UncommittedReview';
+import { UncommittedReview } from '../review/UncommittedReview';
 
 const sessionId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4d';
 

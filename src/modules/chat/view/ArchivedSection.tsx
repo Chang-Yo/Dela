@@ -1,23 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, Folder, Search, Trash2 } from 'lucide-react';
-import type { ChatSessionSummary } from '../../../../shared/api';
-import { chatClient } from '../../../../modules/chat/view';
-import { Button } from '../../../../ui/button';
-import { Input } from '../../../../ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../../ui/select';
-import { useWorkspaceStore } from '../../../../modules/workspace/view';
-import { showToast } from '../../../app/toasts';
-import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';
-import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
-import { Callout, ErrorText } from '../../../../ui/alert';
-import { errorMessage } from '../../../../core/protocol/contract';
-import type { Navigate } from '../../../../app/module';
+import type { ChatSessionSummary } from '../../../core/protocol/agent';
+import { chatClient } from './client';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
+import { useWorkspaceStore } from '../../workspace/view';
+import { showToast } from '../../../renderer/app/toasts';
+import { refreshSessionLists, useSessions, updateSession } from './sessions';
+import { SectionHeader, SettingsGroup } from '../../settings/view';
+import { Callout, ErrorText } from '../../../ui/alert';
+import { errorMessage } from '../../../core/protocol/contract';
+import type { Navigate } from '../../../app/module';
 
 /** 项目筛选哨兵：Radix Select 不接受空串，「全部」与「随聊」（无项目）各用一个哨兵值。 */
 const allProjects = '__all__';

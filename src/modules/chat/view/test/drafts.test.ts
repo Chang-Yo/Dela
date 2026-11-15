@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 // dela.session.drafts 持久化形状校验：损坏条目在 loadStored 丢弃，不进渲染期。
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { emptyDraft } from './drafts';
+import { emptyDraft } from '../drafts';
 
 const STORAGE_KEY = 'dela.session.drafts';
 
-function loadFresh(): Promise<typeof import('./drafts')> {
+function loadFresh(): Promise<typeof import('../drafts')> {
   vi.resetModules();
-  return import('./drafts');
+  return import('../drafts');
 }
 
 describe('useChatDrafts 启动加载', () => {

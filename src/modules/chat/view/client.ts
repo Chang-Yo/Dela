@@ -1,5 +1,4 @@
-// 会话的渲染端出口：聊天界面仍在外壳（renderer/content/chat、renderer/sessions），经这里调用主进程。
-// 模型服务与能力配置也由 app/agent-ipc 注册，客户端一并放在这里。
+// 会话、模型服务与能力配置的契约客户端（后两者的主进程实现由 app/agent-ipc 注册）。
 import { agentContract } from '../../../core/protocol/agent';
 import { capabilitiesContract } from '../../../core/protocol/capabilities';
 import { createClient, subscribe, type EventPayload } from '../../../core/protocol/contract';
@@ -23,11 +22,4 @@ export function onAgentEvent<K extends keyof (typeof agentContract)['events'] & 
 
 export function onWebSearchChanged(listener: () => void): () => void {
   return subscribe(capabilitiesContract, bridge, 'webSearchChanged', listener);
-}
-
-/** 首页聊天请求：sessionId 打开指定历史，否则 create 决定新建还是接着上次；seq 区分同内容的再次请求。 */
-export interface HomeChatRequest {
-  create: boolean;
-  sessionId?: string;
-  seq: number;
 }

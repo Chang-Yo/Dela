@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
-import type { AgentToolResult, SubagentDetails, WorkspaceChat } from '../../../shared/api';
+import type { AgentToolResult, SubagentDetails, WorkspaceChat } from '../../../core/protocol/agent';
 import { Shimmer } from '../../../ui/shimmer';
 import { cn } from '../../../ui/cn';
 import { ChatMarkdown } from './markdown';

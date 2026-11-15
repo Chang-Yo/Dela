@@ -2,7 +2,7 @@
 import { act, useState, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { ContextUsageView } from '../../../shared/api';
+import type { ContextUsageView } from '../../../../core/protocol/agent';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好；用例按通道登记 handler，
 // 并可直接触发记录下的搜索配置变化订阅。
@@ -20,15 +20,15 @@ const { api, bridge, searchListeners } = vi.hoisted(() => {
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   return { api, bridge, searchListeners };
 });
-import { ChatTabSourceProvider } from './chat-source';
-import { ChatComposer, cacheHitRateText } from './ChatComposer';
-import type { ComposerContext } from './composer-context';
-import type { ComposerEditor } from './ComposerEditor';
-import type { ChatReference } from './use-chat';
+import { ChatTabSourceProvider } from '../chat-source';
+import { ChatComposer, cacheHitRateText } from '../ChatComposer';
+import type { ComposerContext } from '../composer-context';
+import type { ComposerEditor } from '../ComposerEditor';
+import type { ChatReference } from '../use-chat';
 
 // 编辑器（CodeMirror）不参与本次验证：换成 textarea，但文档变化、光标与 handleRef
 // 的编辑操作仍按真实编辑器的回调方式模拟。
-vi.mock('./ComposerEditor', () => ({
+vi.mock('../ComposerEditor', () => ({
   ComposerEditor: ({
     value,
     onChange,

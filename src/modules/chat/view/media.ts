@@ -1,6 +1,6 @@
 // 内联图片预览缓存：composer 暂存与历史消息共用同一 id → data URL 映射，
 // 应用会话内避免重复经 IPC 拉取缩略图。
-import { agentClient } from '../../../modules/chat/view';
+import { agentClient } from './client';
 
 const previews = new Map<string, string>();
 const pending = new Map<string, Promise<string | null>>();

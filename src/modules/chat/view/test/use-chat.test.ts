@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import type { WorkspaceChat } from '../../../shared/api';
-import { chatImageToken } from '../../../core/protocol/chat-input';
-import { canSendInput, shouldRestoreDraft } from './use-chat';
+import type { WorkspaceChat } from '../../../../core/protocol/agent';
+import { chatImageToken } from '../../../../core/protocol/chat-input';
+import { canSendInput, shouldRestoreDraft } from '../use-chat';
 
 function chatWith(userTexts: string[]): WorkspaceChat {
   return {

@@ -2,12 +2,13 @@
 // 数据按请求时点重算、会随工作区过期，因此提供手动刷新而不轮询；已查看文件仅在当前面板缓存，刷新后失效。
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { GitCompare, RefreshCw, TriangleAlert } from 'lucide-react';
-import type { FileChangeDetail, UncommittedChanges } from '../../../shared/api';
-import { chatClient } from '../../../modules/chat/view';
+import type { FileChangeDetail } from '../../../../core/protocol/agent';
+import type { UncommittedChanges } from '../../../../core/protocol/changes';
+import { chatClient } from '../client';
 import { DiffView } from './DiffView';
 import { Centered, STATUS_TEXT, FileIcon, basenameOf, dirnameOf } from './view-utils';
-import { IconButton } from '../../../ui/icon-button';
-import { errorMessage } from '../../../core/protocol/contract';
+import { IconButton } from '../../../../ui/icon-button';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 const REASON_TEXT = {
   'not-git': '此目录不是 Git 仓库',

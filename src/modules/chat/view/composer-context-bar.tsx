@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } from 'lucide-react';
-import type { WorkspaceEntry } from '../../../shared/api';
+import type { WorkspaceEntry } from '../../workspace/contract';
 import { useChatTabSource } from './chat-source';
-import { showToast } from '../../app/toasts';
+import { showToast } from '../../../renderer/app/toasts';
 import type { ComposerContext } from './composer-context';
-import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
+import { workspaceClient, useWorkspaceStore } from '../../workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
 const pill =

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Archive, MessageSquare, Search, X } from 'lucide-react';
-import type { ChatSessionSummary } from '../../../shared/api';
+import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { Button } from '../../../ui/button';
 import { IconButton } from '../../../ui/icon-button';
 import { cn } from '../../../ui/cn';
-import { poolKey, querySessions } from '../../sessions/store';
+import { poolKey, querySessions } from './sessions';
 import { drawerFromRight } from '../../../ui/motion';
 import { errorMessage } from '../../../core/protocol/contract';
 

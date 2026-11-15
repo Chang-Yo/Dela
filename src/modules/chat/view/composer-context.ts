@@ -1,4 +1,5 @@
-import type { WorkspaceChat, WorkspaceEntry } from '../../../shared/api';
+import type { WorkspaceChat } from '../../../core/protocol/agent';
+import type { WorkspaceEntry } from '../../workspace/contract';
 
 /** 输入框上方浮岛要显示的信息：所在项目（通用池为随聊）与远端标记。 */
 export interface ComposerContext {

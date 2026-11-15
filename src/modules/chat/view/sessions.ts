@@ -1,8 +1,15 @@
 import { create } from 'zustand';
-import type { AgentToolOutput, ChatSessionSummary, WorkspaceChat } from '../../shared/api';
-import { agentClient, chatClient, onAgentEvent } from '../../modules/chat/view';
-import { useWorkbenchLayout } from '../workbench/layout-store';
-import { walkGroups } from '../workbench/layout-schema';
+import type {
+  AgentToolOutput,
+  ChatSessionSummary,
+  WorkspaceChat,
+} from '../../../core/protocol/agent';
+import { agentClient, chatClient, onAgentEvent } from './client';
+// 0020 暂缓：归档会话时关闭它的标签仍直接操作布局。
+// oxlint-disable-next-line no-restricted-imports
+import { useWorkbenchLayout } from '../../../renderer/workbench/layout-store';
+// oxlint-disable-next-line no-restricted-imports
+import { walkGroups } from '../../../renderer/workbench/layout-schema';
 
 // 会话列表镜像：会话事实（chat_sessions 表）在 main，本模块数据全来自 list-sessions 与
 // session-update 推送，只读不发起执行（「打开视图不启动执行」）。

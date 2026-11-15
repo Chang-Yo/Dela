@@ -6,7 +6,7 @@ import { SettingsView } from '../../../modules/settings/view';
 import { useNavigationStore } from '../../navigation/view';
 import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
 import { NewRemoteProjectDialog } from '../../workspace/remote/NewRemoteProjectDialog';
-import { ArchivedSection } from './sections/ArchivedSection';
+import { ArchivedSection } from '../../../modules/chat/view';
 import { NavEntriesGroup } from './sections/NavEntriesGroup';
 import { ShortcutsSection } from './sections/ShortcutsSection';
 import { WorkspaceSection } from './sections/WorkspaceSection';

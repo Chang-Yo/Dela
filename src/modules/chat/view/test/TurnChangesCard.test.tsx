@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { FileChangeDetail, TurnChanges } from '../../../shared/api';
+import type { FileChangeDetail, TurnChanges } from '../../../../core/protocol/agent';
 
 // 契约客户端在模块加载时取 bridge，须先于导入卡片装好；各用例只重编程 handler。
 const { api, dela } = vi.hoisted(() => {
@@ -36,8 +36,8 @@ const { api, dela } = vi.hoisted(() => {
   window.dela = dela;
   return { api, dela };
 });
-import { TurnChangesCard } from './TurnChangesCard';
-import { ChatTabSourceProvider } from './chat-source';
+import { TurnChangesCard } from '../TurnChangesCard';
+import { ChatTabSourceProvider } from '../chat-source';
 
 // 落位行为由 workbench 的测试覆盖，这里只验证卡片交给工作台端口的动作。
 const workbench = { open: vi.fn(), openDocument: vi.fn() };

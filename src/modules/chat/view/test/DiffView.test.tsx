@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { DiffView } from './DiffView';
+import { DiffView } from '../review/DiffView';
 
 let host: HTMLDivElement;
 let root: Root;

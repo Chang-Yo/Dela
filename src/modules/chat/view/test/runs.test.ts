@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RunEvent } from '../../shared/api';
+import type { RunEvent } from '../../../../core/protocol/agent';
 
 // 与 store.test.ts 相同的模式：镜像订阅在模块加载时取 bridge，须先于导入装好。
 const runEventListeners = vi.hoisted(() => {
@@ -19,7 +19,7 @@ const runEventListeners = vi.hoisted(() => {
   });
   return listeners;
 });
-import { runBadge, useRuns } from './runs';
+import { runBadge, useRuns } from '../runs';
 
 function event(sessionId: string, status: RunEvent['status'], activeTool?: string): RunEvent {
   return { sessionId, runId: 'r1', status, activeTool };

@@ -1,10 +1,10 @@
 // 旁问镜像：旁问本身在主进程（不入库、关闭即丢弃），这里按主会话 id 缓存它的快照与面板折叠态，
 // 切走标签再回来面板照旧。推送与流式增量的合并方式与会话镜像相同。
 import { create } from 'zustand';
-import type { SidechatView } from '../../../shared/api';
-import { agentClient, onAgentEvent } from '../../../modules/chat/view';
-import { keepToolImages } from '../../sessions/store';
-import { showToast } from '../../app/toasts';
+import type { SidechatView } from '../../../core/protocol/agent';
+import { agentClient, onAgentEvent } from './client';
+import { keepToolImages } from './sessions';
+import { showToast } from '../../../renderer/app/toasts';
 import { emptyDraft, useChatDrafts } from './drafts';
 import { errorMessage } from '../../../core/protocol/contract';
 
