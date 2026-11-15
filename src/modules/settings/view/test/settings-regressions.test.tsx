@@ -57,6 +57,7 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
       </QueryClientProvider>,
     ),
   );
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
   const toggle = container.querySelector<HTMLButtonElement>('[aria-label="开机自启动"]')!;
   expect(toggle.getAttribute('aria-checked')).toBe('false');
   await act(async () => toggle.click());

@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Switch } from '../../../ui/switch';
 import { SectionHeader } from './SectionHeader';
 import { SettingRow } from './SettingRow';
@@ -9,24 +10,24 @@ import { showToast } from '../../../renderer/app/toasts';
 import { UpdateControl } from '../../update/view';
 
 export function GeneralSection({ navEntries }: { navEntries: ReactNode }) {
-  // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
-  const [openAtLogin, setOpenAtLogin] = useState<boolean | null>(null);
+  const queryClient = useQueryClient();
+  // 未读到当前状态（data 为 undefined）时开关保持禁用，避免闪烁出错误的默认值。
+  const openAtLogin = useQuery({
+    queryKey: ['settings', 'openAtLogin'],
+    queryFn: () => settingsClient.openAtLogin().catch(() => false),
+    enabled: Boolean(window.dela),
+  }).data;
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!window.dela) return;
-    void settingsClient
-      .openAtLogin()
-      .then(setOpenAtLogin)
-      .catch(() => setOpenAtLogin(false));
-  }, []);
 
   // 浏览器预览没有 preload，只维护选择态；桌面端经主进程持久化并同步系统启动项。
   const toggleOpenAtLogin = async (next: boolean) => {
     if (busy) return;
     setBusy(true);
     try {
-      setOpenAtLogin(window.dela ? await settingsClient.setOpenAtLogin(next) : next);
+      queryClient.setQueryData(
+        ['settings', 'openAtLogin'],
+        window.dela ? await settingsClient.setOpenAtLogin(next) : next,
+      );
     } catch (cause) {
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
@@ -42,7 +43,7 @@ export function GeneralSection({ navEntries }: { navEntries: ReactNode }) {
           <SettingRow settingId="open-at-login" title="开机自启动">
             <Switch
               checked={openAtLogin ?? false}
-              disabled={openAtLogin === null || busy}
+              disabled={openAtLogin === undefined || busy}
               label="开机自启动"
               onChange={(next) => void toggleOpenAtLogin(next)}
             />

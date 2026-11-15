@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check } from 'lucide-react';
 import {
   fontSizeMax,
@@ -97,19 +98,17 @@ export function AppearanceSection({
   theme: ThemePreference;
   zoom: ZoomPreference;
 }) {
-  const [icon, setIcon] = useState<IconPreference>('white');
+  const queryClient = useQueryClient();
+  const icon =
+    useQuery({
+      queryKey: ['settings', 'icon'],
+      queryFn: () => settingsClient.icon(),
+      enabled: Boolean(window.dela),
+    }).data ?? 'white';
   const themeSave = useOptionSave();
   const iconSave = useOptionSave();
   const zoomSave = useOptionSave();
   const fontSave = useOptionSave();
-
-  useEffect(() => {
-    if (!window.dela) return;
-    void settingsClient
-      .icon()
-      .then(setIcon)
-      .catch(() => {});
-  }, []);
 
   const selectTheme = (next: ThemePreference) => {
     if (next === theme || themeSave.busy) return;
@@ -120,7 +119,10 @@ export function AppearanceSection({
   const selectIcon = (next: IconPreference) => {
     if (next === icon || iconSave.busy) return;
     void iconSave.save(async () => {
-      setIcon(window.dela ? await settingsClient.setIcon(next) : next);
+      queryClient.setQueryData(
+        ['settings', 'icon'],
+        window.dela ? await settingsClient.setIcon(next) : next,
+      );
     });
   };
 

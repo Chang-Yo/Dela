@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import {
@@ -63,35 +63,38 @@ export function ShortcutsSection() {
     }
   };
 
+  const recordKey = useEffectEvent((event: KeyboardEvent) => {
+    if (!recording) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      setRecording(null);
+      setError(null);
+      return;
+    }
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      void apply(recording, null);
+      return;
+    }
+    // 只按修饰键时继续等待完整组合。
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return;
+    const accelerator = acceleratorFromEvent(event, platform);
+    if (!accelerator) return;
+    const action = shortcutActions.find((item) => item.id === recording);
+    if (action?.family === 'digit' && !isDigitFamily(accelerator)) {
+      setError('该快捷键作用于第 N 个工作组，需要以数字 1…9 结尾。');
+      return;
+    }
+    void apply(recording, accelerator);
+  });
+
   // 录制：捕获阶段抢在 AppShell 的窗口级派发之前消费按键，避免边录制边触发动作。
   useEffect(() => {
     if (!recording) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.key === 'Escape') {
-        setRecording(null);
-        setError(null);
-        return;
-      }
-      if (event.key === 'Backspace' || event.key === 'Delete') {
-        void apply(recording, null);
-        return;
-      }
-      // 只按修饰键时继续等待完整组合。
-      if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return;
-      const accelerator = acceleratorFromEvent(event, platform);
-      if (!accelerator) return;
-      const action = shortcutActions.find((item) => item.id === recording);
-      if (action?.family === 'digit' && !isDigitFamily(accelerator)) {
-        setError('该快捷键作用于第 N 个工作组，需要以数字 1…9 结尾。');
-        return;
-      }
-      void apply(recording, accelerator);
-    };
+    const onKeyDown = (event: KeyboardEvent) => recordKey(event);
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [recording, bindings, busy]);
+  }, [recording]);
 
   const conflicts = findShortcutConflicts(bindings);
 

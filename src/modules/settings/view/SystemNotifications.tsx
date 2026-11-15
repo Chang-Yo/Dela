@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BellOff } from 'lucide-react';
 import type { TaskNotificationPrefs } from '../contract';
 import { notificationsClient, useNotificationState } from '../../notifications/view';
@@ -25,40 +26,37 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
 
 /** 通用 › 系统通知；暂停状态与通知中心同源。 */
 export function SystemNotifications() {
-  // null 表示尚未读到当前状态，开关保持禁用避免闪烁出错误的默认值。
-  const [campus, setCampus] = useState<boolean | null>(null);
-  const [task, setTask] = useState<TaskNotificationPrefs | null>(null);
+  const queryClient = useQueryClient();
+  // 未读到当前状态（data 为 undefined）时开关保持禁用，避免闪烁出错误的默认值。
+  const campusQuery = useQuery({
+    queryKey: ['settings', 'campusNotifications'],
+    queryFn: () => settingsClient.campusNotifications(),
+    enabled: Boolean(window.dela),
+  });
+  const taskQuery = useQuery({
+    queryKey: ['settings', 'taskNotifications'],
+    queryFn: () => settingsClient.taskNotifications(),
+    enabled: Boolean(window.dela),
+  });
+  const campus = campusQuery.data;
+  const task = taskQuery.data;
+  const loadError = campusQuery.error ?? taskQuery.error;
   const snoozedUntil = useNotificationState().data?.snoozedUntil ?? null;
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!window.dela) return;
-    let active = true;
-    void Promise.all([settingsClient.campusNotifications(), settingsClient.taskNotifications()])
-      .then(([campusValue, taskValue]) => {
-        if (!active) return;
-        setCampus(campusValue);
-        setTask(taskValue);
-      })
-      .catch((cause) => {
-        if (active) setError(errorText(cause));
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // 浏览器预览没有 preload，只维护选择态；桌面端经主进程持久化。
   const toggleCampus = async (next: boolean) => {
     if (busy) return;
     setBusy(true);
     const previous = campus;
-    setCampus(next);
+    queryClient.setQueryData(['settings', 'campusNotifications'], next);
     try {
-      setCampus(window.dela ? await settingsClient.setCampusNotifications(next) : next);
+      queryClient.setQueryData(
+        ['settings', 'campusNotifications'],
+        window.dela ? await settingsClient.setCampusNotifications(next) : next,
+      );
     } catch (cause) {
-      setCampus(previous);
+      queryClient.setQueryData(['settings', 'campusNotifications'], previous);
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
@@ -66,17 +64,17 @@ export function SystemNotifications() {
   };
 
   const toggleTask = async (key: 'completed' | 'failed', next: boolean) => {
-    if (busy || task === null) return;
+    if (busy || task === undefined) return;
     setBusy(true);
     const previous = task;
-    setTask({ ...task, [key]: next });
+    queryClient.setQueryData(['settings', 'taskNotifications'], { ...task, [key]: next });
     try {
       const saved = window.dela
         ? await settingsClient.setTaskNotifications({ ...task, [key]: next })
         : ({ ...task, [key]: next } satisfies TaskNotificationPrefs);
-      setTask(saved);
+      queryClient.setQueryData(['settings', 'taskNotifications'], saved);
     } catch (cause) {
-      setTask(previous);
+      queryClient.setQueryData(['settings', 'taskNotifications'], previous);
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
       setBusy(false);
@@ -111,7 +109,7 @@ export function SystemNotifications() {
         <SettingRow settingId="campus-notifications" title="校园消息提醒">
           <Switch
             checked={campus ?? true}
-            disabled={campus === null || busy}
+            disabled={campus === undefined || busy}
             label="校园消息提醒"
             onChange={(next) => void toggleCampus(next)}
           />
@@ -119,7 +117,7 @@ export function SystemNotifications() {
         <SettingRow settingId="notify-run-failed" title="任务失败时提醒">
           <Switch
             checked={task?.failed ?? true}
-            disabled={task === null || busy}
+            disabled={task === undefined || busy}
             label="任务失败时提醒"
             onChange={(next) => void toggleTask('failed', next)}
           />
@@ -127,7 +125,7 @@ export function SystemNotifications() {
         <SettingRow settingId="notify-run-completed" title="任务完成时提醒">
           <Switch
             checked={task?.completed ?? false}
-            disabled={task === null || busy}
+            disabled={task === undefined || busy}
             label="任务完成时提醒"
             onChange={(next) => void toggleTask('completed', next)}
           />
@@ -186,7 +184,7 @@ export function SystemNotifications() {
           </div>
         </SettingRow>
       </SettingsGroup>
-      {error && <ErrorText>{error}</ErrorText>}
+      {loadError && <ErrorText>{errorText(loadError)}</ErrorText>}
     </div>
   );
 }
