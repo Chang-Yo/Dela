@@ -40,6 +40,11 @@ function notifyCapacityLimit() {
   showToast({ variant: 'error', title: CAPACITY_LIMIT_REACHED });
 }
 
+/** 文件与资料是「看一眼」的内容，会话、终端、审阅一旦打开就是要留着的工作现场。 */
+export function previewable(tabId: TabId): boolean {
+  return tabId.startsWith('note:') || tabId.startsWith('preview:');
+}
+
 type Store = {
   projectId: string | null;
   root: LayoutNode;
@@ -47,8 +52,12 @@ type Store = {
   maximized: string | null;
   /** init 完成前不渲染布局，避免默认空组闪一帧再被真实布局替换。 */
   ready: boolean;
+  /** 目标项目的布局尚未就绪时暂存的打开请求，init 完成后兑现。keep：打开后直接保留，不作预览。 */
+  pendingReveal: { tabId: TabId; projectId: string | null; keep: boolean } | null;
   /** 载入项目布局；无保存时用默认单组。rapid 切换由 token 竞态保护。 */
   init(projectId: string | null): Promise<void>;
+  /** 在指定项目的布局里打开标签；该项目布局未就绪时暂存到 init 完成。 */
+  reveal(tabId: TabId, projectId: string | null, keep?: boolean): void;
   /** 聚焦已有标签（无显式目标时）；显式目标组允许跨组重复打开（并排第二视图）。
    *  preview：作为该组的预览标签打开，就地替换组里现有的预览标签；已存在的常驻标签不降级。 */
   openTab(tabId: TabId, targetGroupId?: string, options?: { preview?: boolean }): void;
@@ -134,6 +143,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
   focus: 'primary',
   maximized: null,
   ready: false,
+  pendingReveal: null,
   persistTimer: null,
   pendingSaves: [],
   initToken: 0,
@@ -154,6 +164,15 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       }));
     set({ root });
     schedulePersist();
+  },
+
+  reveal: (tabId, projectId, keep = false) => {
+    if (get().ready && get().projectId === projectId) {
+      get().openTab(tabId, undefined, { preview: previewable(tabId) && projectId !== null });
+      if (keep) get().keepTab(tabId);
+      return;
+    }
+    set({ pendingReveal: { tabId, projectId, keep } });
   },
 
   init: async (projectId) => {
@@ -178,6 +197,12 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     if (token !== get().initToken) return;
     const next = collapseEmptyGroups(parseWorkbenchLayout(saved) ?? createDefaultLayout());
     set({ projectId, root: next.root, focus: next.focus, maximized: next.maximized, ready: true });
+    const { pendingReveal } = get();
+    if (pendingReveal) {
+      set({ pendingReveal: null });
+      if (pendingReveal.projectId === projectId)
+        get().reveal(pendingReveal.tabId, projectId, pendingReveal.keep);
+    }
     // 读取失败时不覆盖已存布局。
     if (!loadFailed) schedulePersist();
   },

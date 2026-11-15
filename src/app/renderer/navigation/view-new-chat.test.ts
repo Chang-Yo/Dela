@@ -47,19 +47,24 @@ function emptyChat(sessionId: string): WorkspaceChat {
 }
 
 const groups = () => walkGroups(useWorkbenchLayout.getState().root);
+const isActiveTab = (tabId: string) => groups().some((group) => group.active === tabId);
 
 beforeEach(() => {
   creates.length = 0;
   useNavigationStore.setState({
     view: 'home',
     projectId: null,
-    reveal: null,
     generalChat: null,
     backStack: [],
     forwardStack: [],
   });
   useSessions.setState({ chats: {}, lists: {} });
-  useWorkbenchLayout.setState({ ...createDefaultLayout(), projectId: null, ready: true });
+  useWorkbenchLayout.setState({
+    ...createDefaultLayout(),
+    projectId: null,
+    ready: true,
+    pendingReveal: null,
+  });
 });
 
 it('资料工作台里新建对话就地开标签，不跳首页、不分屏', async () => {
@@ -69,7 +74,7 @@ it('资料工作台里新建对话就地开标签，不跳首页、不分屏', a
   await useNavigationStore.getState().newChat(null);
 
   expect(useNavigationStore.getState().view).toBe('workbench');
-  expect(useNavigationStore.getState().reveal?.tabId).toBe('chat:new');
+  expect(isActiveTab('chat:new')).toBe(true);
   expect(useNavigationStore.getState().generalChat).toBeNull();
   expect(groups()).toHaveLength(1);
 });
@@ -82,7 +87,7 @@ it('项目工作台里新建对话同样就地开标签', async () => {
 
   expect(useNavigationStore.getState().view).toBe('workbench');
   expect(useNavigationStore.getState().projectId).toBe('p1');
-  expect(useNavigationStore.getState().reveal?.tabId).toBe('chat:new');
+  expect(isActiveTab('chat:new')).toBe(true);
 });
 
 it('新建对话不再顺手关掉别的空会话标签', async () => {
@@ -103,7 +108,8 @@ it('首页新建对话仍落在首页聊天', async () => {
     create: false,
     sessionId: 'new',
   });
-  expect(useNavigationStore.getState().reveal).toBeNull();
+  expect(useWorkbenchLayout.getState().pendingReveal).toBeNull();
+  expect(groups().some((group) => group.tabs.some((tab) => tab.startsWith('chat:')))).toBe(false);
 });
 
 it('资料工作台里打开随聊历史：留在工作台开标签，不跳回首页', () => {
@@ -112,7 +118,7 @@ it('资料工作台里打开随聊历史：留在工作台开标签，不跳回�
   useNavigationStore.getState().openChat('old', null);
 
   expect(useNavigationStore.getState().view).toBe('workbench');
-  expect(useNavigationStore.getState().reveal?.tabId).toBe('chat:old');
+  expect(isActiveTab('chat:old')).toBe(true);
   expect(useNavigationStore.getState().generalChat).toBeNull();
 });
 

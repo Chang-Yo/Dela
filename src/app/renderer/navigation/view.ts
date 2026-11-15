@@ -1,8 +1,9 @@
-// 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性定位脉冲；
+// 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性请求脉冲；
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
 import { agentClient, type HomeChatRequest, useSessions } from '../../../modules/chat/view';
 import { ancestorChainOf } from './store';
+import { useWorkbenchLayout } from '../workbench/layout-store';
 import type { SettingsSectionId } from '../../../modules/settings/contract';
 import type { TabId } from '../../../modules/workspace/contract';
 import { useWorkspaceStore } from '../../../modules/workspace/view';
@@ -23,14 +24,6 @@ export type AppView = ShellView | Exclude<keyof NavTargets, ShellTarget>;
 
 const projectStorageKey = 'dela.workspace.project';
 
-/** 一次性定位脉冲：每次赋新对象（seq 保证同目标也能再次触发），由工作台装配层消费。 */
-export interface RevealPulse {
-  tabId: TabId;
-  /** 打开后直接保留（不作预览）：双击文件等「我要留着它」的打开。 */
-  keep?: boolean;
-  seq: number;
-}
-
 interface NavigationState {
   view: AppView;
   /** 模块页面的跳转参数；外壳视图为 null。 */
@@ -43,8 +36,6 @@ interface NavigationState {
   settingsSection: SettingsSectionId;
   /** 新建项目弹窗脉冲（导航栏/托盘/快捷键），由工作台装配层转成 EntryDialogs 请求。 */
   createProject: boolean;
-  /** 工作台标签定位脉冲（chat/note/preview 深链）。 */
-  reveal: RevealPulse | null;
   /** 首页聊天请求，由工作台装配层交给首页。 */
   generalChat: HomeChatRequest | null;
   /** 唯一的跳转入口：外壳视图传名字，其余传 NavTarget（docs/adr/0019）。 */
@@ -67,7 +58,6 @@ interface NavigationState {
   /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
   setCreateProject(value: boolean): void;
-  consumeReveal(): void;
 }
 
 /** 历史条目：视图、跳转参数与项目（后退要能回到同一个项目面板）。 */
@@ -117,12 +107,12 @@ export function documentTabId(key: string): TabId {
 }
 
 export const useNavigationStore = create<NavigationState>((set, get) => {
-  /** 在指定项目的工作台里定位标签；换项目时清掉旧脉冲（旧 App.openProject 语义）。 */
+  /** 切到指定项目的工作台，并由布局 store 在其布局就绪后打开标签。 */
   const revealInProject = (tabId: TabId, projectId: string | null, keep = false): boolean => {
     if (projectId !== get().projectId) {
       if (!get().openProject(projectId ?? '')) return false;
     } else if (!get().navigate('workbench')) return false;
-    set({ reveal: { tabId, keep, seq: ++pulseSeq } });
+    useWorkbenchLayout.getState().reveal(tabId, projectId, keep);
     return true;
   };
   return {
@@ -133,7 +123,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     forwardStack: [],
     settingsSection: 'general',
     createProject: false,
-    reveal: null,
     generalChat: null,
 
     navigate: (next) => {
@@ -169,7 +158,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
           backStack: [...state.backStack, routeOf(state)],
           forwardStack: [],
           settingsSection: 'general',
-          reveal: null,
           generalChat: null,
         });
       }
@@ -189,7 +177,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         backStack: state.backStack.slice(0, -1),
         forwardStack: [routeOf(state), ...state.forwardStack],
         settingsSection: 'general',
-        reveal: null,
         generalChat: null,
       });
       return true;
@@ -207,7 +194,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         backStack: [...state.backStack, routeOf(state)],
         forwardStack: state.forwardStack.slice(1),
         settingsSection: 'general',
-        reveal: null,
         generalChat: null,
       });
       return true;
@@ -227,7 +213,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       }
       rememberProject(id);
       // navigate 在同视图切换时早退不清请求；换项目后旧会话指针不该再把用户拉回去。
-      set({ reveal: null, generalChat: null });
+      set({ generalChat: null });
       return true;
     },
 
@@ -269,11 +255,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         return revealInProject(`chat:${sessionId}`, null);
       if (projectId !== null) return revealInProject(`chat:${sessionId}`, projectId);
       if (!get().navigate('home')) return false;
-      set({
-        projectId: null,
-        reveal: null,
-        generalChat: { create: false, sessionId, seq: ++pulseSeq },
-      });
+      set({ projectId: null, generalChat: { create: false, sessionId, seq: ++pulseSeq } });
       return true;
     },
 
@@ -304,6 +286,5 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     setCreateProject: (value) => set({ createProject: value }),
-    consumeReveal: () => set({ reveal: null }),
   };
 });

@@ -18,6 +18,8 @@ const { api, dela } = vi.hoisted(() => {
   return { api, dela };
 });
 import { useNavigationStore } from '../navigation/view';
+import { useWorkbenchLayout } from './layout-store';
+import { walkGroups } from './layout-schema';
 import { toasts } from '../../../ui/toast';
 import {
   ChatHome,
@@ -63,6 +65,11 @@ let host: HTMLDivElement;
 let root: Root;
 let queryClient: QueryClient;
 
+const noChatTab = () =>
+  !walkGroups(useWorkbenchLayout.getState().root).some((group) =>
+    group.tabs.some((tab) => tab.startsWith('chat:')),
+  );
+
 /** 代替工作台装配层：把导航的首页请求交给首页，跳转接到真实导航 store。 */
 function Home() {
   const request = useNavigationStore((state) => state.generalChat);
@@ -102,10 +109,10 @@ beforeEach(() => {
     view: 'home',
     projectId: null,
     generalChat: null,
-    reveal: null,
     backStack: [],
     forwardStack: [],
   });
+  useWorkbenchLayout.setState({ pendingReveal: null });
   useSessions.setState({ chats: {}, lists: {}, homeSessionId: null });
   useChatDrafts.setState({ drafts: {} });
   for (const channel of Object.keys(api)) delete api[channel];
@@ -147,7 +154,8 @@ it('随聊发送首条消息后保持首页聊天，继续显示同一会话的�
   );
   expect(host.querySelector('[aria-label="对话消息"]')?.textContent).toBe('测试随聊\n回答');
   expect(useNavigationStore.getState().view).toBe('home');
-  expect(useNavigationStore.getState().reveal).toBeNull();
+  expect(useWorkbenchLayout.getState().pendingReveal).toBeNull();
+  expect(noChatTab()).toBe(true);
 });
 
 it('新对话创建期间不显示旧会话，返回后绑定新身份', async () => {
@@ -224,7 +232,8 @@ it('打开随聊历史留在首页，展示指定会话而不是创建空会话�
   await act(async () => useNavigationStore.getState().openChat('history', null));
   await act(async () => root.render(<Home />));
   expect(useNavigationStore.getState().view).toBe('home');
-  expect(useNavigationStore.getState().reveal).toBeNull();
+  expect(useWorkbenchLayout.getState().pendingReveal).toBeNull();
+  expect(noChatTab()).toBe(true);
   expect(host.querySelector('[aria-label="对话消息"]')?.textContent).toBe('历史回复');
   expect(create).not.toHaveBeenCalled();
 });
@@ -258,7 +267,7 @@ it('历史快速切换时延迟返回不能覆盖最新会话，项目历史仍�
   await act(async () => useNavigationStore.getState().openChat('project-history', 'project'));
   expect(useNavigationStore.getState().view).toBe('workbench');
   expect(useNavigationStore.getState().projectId).toBe('project');
-  expect(useNavigationStore.getState().reveal?.tabId).toBe('chat:project-history');
+  expect(useWorkbenchLayout.getState().pendingReveal?.tabId).toBe('chat:project-history');
 });
 
 describe('会话命令', () => {

@@ -1,6 +1,6 @@
 // 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏、
-// EntryDialogs 与导航脉冲消费都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+// EntryDialogs 都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   type DocumentContent,
@@ -70,11 +70,8 @@ function newChatInCurrentPool() {
 
 export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const projectId = useNavigationStore((s) => (home ? null : s.projectId));
-  const reveal = useNavigationStore((s) => s.reveal);
   const createProject = useNavigationStore((s) => s.createProject);
   const generalChat = useNavigationStore((s) => s.generalChat);
-  const ready = useWorkbenchLayout((s) => s.ready);
-  const layoutProjectId = useWorkbenchLayout((s) => s.projectId);
   const loaded = useWorkspaceStore((s) => s.loaded);
   // 订阅键位表：用户改键后工作台快捷键立即跟随（Workbench 不自行订阅 app 的 store）。
   const bindings = useShortcuts((s) => s.bindings);
@@ -97,17 +94,6 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const rootId = useWorkspaceStore((s) =>
     s.workspace.entries.some((entry) => entry.id === projectId) ? projectId : null,
   );
-
-  // 导航脉冲消费：等工作台布局载入当前项目后再开标签，避免 init 覆盖掉新开的标签。
-  // useLayoutEffect：布局已预热时开标签须赶在首帧绘制前，否则先画一帧空组再跳到会话标签。
-  useLayoutEffect(() => {
-    const layout = useWorkbenchLayout.getState();
-    // 子组件的 init effect 已开始加载时，本次 render 的 ready 仍可能是旧值。
-    if (!reveal || !layout.ready || layout.projectId !== projectId) return;
-    openTarget(reveal.tabId);
-    if (reveal.keep) layout.keepTab(reveal.tabId);
-    useNavigationStore.getState().consumeReveal();
-  }, [reveal, ready, layoutProjectId, projectId]);
 
   useEffect(() => {
     if (!createProject || !loaded) return;

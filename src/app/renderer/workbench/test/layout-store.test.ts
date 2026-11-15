@@ -28,6 +28,7 @@ function resetStore() {
     root: createDefaultLayout().root,
     focus: 'primary',
     maximized: null,
+    pendingReveal: null,
     // init 对已就绪的同项目布局早退；测试统一从未就绪起步，保证每个用例都走真实加载路径。
     ready: false,
   });
@@ -139,6 +140,23 @@ describe('init', () => {
     expect(groups()[0]!.tabs).toEqual([]);
     expect(state().focus).toBe('primary');
     expect(state().maximized).toBeNull();
+  });
+
+  it('布局就绪前暂存的打开请求，在同一项目 init 完成后兑现并清除', async () => {
+    installLayoutApi(() => null);
+    state().reveal('chat:new', uuid);
+    expect(state().pendingReveal).toEqual({ tabId: 'chat:new', projectId: uuid, keep: false });
+    await state().init(uuid);
+    expect(groups()[0]!.active).toBe('chat:new');
+    expect(state().pendingReveal).toBeNull();
+  });
+
+  it('init 另一个项目时丢弃暂存的打开请求', async () => {
+    installLayoutApi(() => null);
+    state().reveal('chat:new', uuid);
+    await state().init(null);
+    expect(groups().flatMap((group) => group.tabs)).toEqual([]);
+    expect(state().pendingReveal).toBeNull();
   });
 });
 

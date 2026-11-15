@@ -11,12 +11,7 @@
 // 资料工作台的课件是并排比对着看的，每个都留标签；项目工作台是干活的地方，只看看的文件不该占栏位。
 import type { TabId } from '../../../modules/workspace/contract';
 import { findGroup, walkGroups } from './layout-schema';
-import { useWorkbenchLayout } from './layout-store';
-
-/** 文件与资料是「看一眼」的内容，会话、终端、审阅一旦打开就是要留着的工作现场。 */
-function previewable(tabId: TabId): boolean {
-  return tabId.startsWith('note:') || tabId.startsWith('preview:');
-}
+import { previewable, useWorkbenchLayout } from './layout-store';
 
 /** 焦点组右侧相邻的组；最右时返回 null。 */
 function groupRightOfFocus(): string | null {
