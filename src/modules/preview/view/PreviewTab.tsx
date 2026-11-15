@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useEffectEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '../../../ui/button';
-import { useRootFontSize } from '../../../renderer/lib/root-font-size';
+import { useRootFontSize } from '../../../ui/root-font-size';
 import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
 import { showToast } from '../../../ui/toast';
 import type { TabId } from '../../workspace/contract';

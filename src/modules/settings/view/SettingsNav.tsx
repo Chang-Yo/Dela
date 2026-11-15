@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { settingsSectionLabels, type SettingsSectionId } from '../contract';
 import { cn } from '../../../ui/cn';
-import { useHorizontalWheel } from '../../../renderer/lib/use-horizontal-wheel';
+import { useHorizontalWheel } from '../../../ui/use-horizontal-wheel';
 
 export type { SettingsSectionId };
 

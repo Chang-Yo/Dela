@@ -8,7 +8,7 @@ import {
 } from '../../../renderer/lib/frame-height';
 import { openLightbox } from '../../../ui/lightbox';
 import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from '../contract';
-import { useRootFontSize } from '../../../renderer/lib/root-font-size';
+import { useRootFontSize } from '../../../ui/root-font-size';
 
 const INITIAL_BODY_HEIGHT = 48;
 

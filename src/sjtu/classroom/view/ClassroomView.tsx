@@ -5,7 +5,7 @@ import { ConnectCard } from '../../../ui/connect-card';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
 import { Resizer, useResizerWidth } from '../../../ui/resizer';
-import { useViewportWidth } from '../../../renderer/lib/use-viewport-width';
+import { useViewportWidth } from '../../../ui/use-viewport-width';
 import { cn } from '../../../ui/cn';
 import { CourseList, CoursePicker } from './CourseList';
 import { TranscriptPanel } from './TranscriptPanel';

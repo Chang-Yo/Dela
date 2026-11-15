@@ -47,7 +47,7 @@ import {
 import { usePreferenceWidth, usePreferences } from '../app/preferences';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState } from './explorer-state';
-import { useViewportWidth } from '../lib/use-viewport-width';
+import { useViewportWidth } from '../../ui/use-viewport-width';
 import { cn } from '../../ui/cn';
 import { overlayFade } from '../../ui/motion';
 import { IconButton } from '../../ui/icon-button';

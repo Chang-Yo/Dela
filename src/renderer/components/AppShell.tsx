@@ -35,7 +35,7 @@ import { useNavigationStore, type AppView, type ShellView } from '../navigation/
 import type { MobileDrawer } from '../lib/mobile-drawer';
 import { useShortcuts } from '../app/shortcuts';
 import { useExplorerState } from '../workbench/explorer-state';
-import { useViewportWidth } from '../lib/use-viewport-width';
+import { useViewportWidth } from '../../ui/use-viewport-width';
 import {
   ProjectSessionNav,
   type BusinessNavId,
