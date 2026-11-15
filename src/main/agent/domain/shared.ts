@@ -36,7 +36,7 @@ export function match(value: string, keyword: string) {
   return value.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
 }
 
-export { ToolError, toolError } from '../../../shared/tool-errors';
+export { ToolError, toolError } from './tool-errors';
 
 /** cached=本地缓存查询；realtime=当次联网（水源、fetch_page、按需拉取的邮件正文）。 */
 export function freshness(kind: 'cached' | 'realtime', syncedAt?: string | null) {
