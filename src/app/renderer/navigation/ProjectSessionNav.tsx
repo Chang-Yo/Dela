@@ -4,9 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '../../../ui/button';
 import { CollapseChevron } from '../../../ui/collapse';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
-import { DropdownMenu as Menu } from 'radix-ui';
 import {
-  ChevronRight,
   Cloud,
   Folder,
   FolderOpen,
@@ -27,6 +25,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
@@ -42,7 +43,6 @@ import { refreshSessionLists, chatClient } from '../../../modules/chat/view';
 import { closeTabEverywhere } from '../workbench/layout-store';
 import { Input } from '../../../ui/input';
 import { purgeRemovedEntries } from '../workbench/removed-cleanup';
-import { menuItem, menuPanel } from '../../../ui/menu-styles';
 import { navIcon, navRow, navSectionTitle, rowActions } from './nav-styles';
 import { useRemoteActivity } from './remote-activity';
 import { RemoteConnectionTip } from './remote-connection-tip';
@@ -257,40 +257,35 @@ export function ProjectSessionNav({
                     <Pencil />
                     编辑项目
                   </DropdownMenuItem>
-                  <Menu.Sub>
-                    <Menu.SubTrigger className={cn(menuItem, 'data-[state=open]:bg-hover')}>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
                       <List />
                       分组
-                      <ChevronRight className="ml-auto" />
-                    </Menu.SubTrigger>
-                    <Menu.Portal>
-                      <Menu.SubContent className={cn(menuPanel, 'min-w-40')} sideOffset={4}>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="min-w-40">
+                      <DropdownMenuItem onSelect={() => setProjectPreference(key, { section: '' })}>
+                        默认分组
+                      </DropdownMenuItem>
+                      {sectionNames.map((name) => (
                         <DropdownMenuItem
-                          onSelect={() => setProjectPreference(key, { section: '' })}
+                          key={name}
+                          onSelect={() => setProjectPreference(key, { section: name })}
                         >
-                          默认分组
+                          {name}
                         </DropdownMenuItem>
-                        {sectionNames.map((name) => (
-                          <DropdownMenuItem
-                            key={name}
-                            onSelect={() => setProjectPreference(key, { section: name })}
-                          >
-                            {name}
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={() => {
-                            setSectionProjectId(key);
-                            setSectionName('');
-                          }}
-                        >
-                          <Plus />
-                          新建分组
-                        </DropdownMenuItem>
-                      </Menu.SubContent>
-                    </Menu.Portal>
-                  </Menu.Sub>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          setSectionProjectId(key);
+                          setSectionName('');
+                        }}
+                      >
+                        <Plus />
+                        新建分组
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                   <DropdownMenuItem
                     onSelect={() =>
                       void runAction('打开目录失败', async () => workspaceClient.openLocal(key))

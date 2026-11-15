@@ -1,5 +1,5 @@
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
-import { CheckIcon, CircleIcon } from 'lucide-react';
+import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
 import { useRef } from 'react';
 import type * as React from 'react';
 import { cn } from './cn';
@@ -144,6 +144,48 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<'spa
   );
 }
 
+function DropdownMenuSub({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
+  return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />;
+}
+
+function DropdownMenuSubTrigger({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger>) {
+  return (
+    <DropdownMenuPrimitive.SubTrigger
+      className={cn(menuItem, 'data-[state=open]:bg-hover', className)}
+      data-slot="dropdown-menu-sub-trigger"
+      {...props}
+    >
+      {children}
+      <ChevronRightIcon className="ml-auto" />
+    </DropdownMenuPrimitive.SubTrigger>
+  );
+}
+
+function DropdownMenuSubContent({
+  className,
+  sideOffset = 4,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
+  return (
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.SubContent
+        className={cn(
+          menuPanel,
+          'max-h-(--radix-dropdown-menu-content-available-height) origin-(--radix-dropdown-menu-content-transform-origin)',
+          className,
+        )}
+        data-slot="dropdown-menu-sub-content"
+        sideOffset={sideOffset}
+        {...props}
+      />
+    </DropdownMenuPrimitive.Portal>
+  );
+}
+
 /** 菜单项要把焦点交给菜单外新出现的元素（如行内新建的名称输入框）时用：菜单关闭会把焦点还给
  * 触发按钮，抢走新元素的焦点。defer 记下动作，等菜单关完（onCloseAutoFocus）再执行，并取消这次焦点回收。 */
 function useAfterMenuClose() {
@@ -173,5 +215,8 @@ export {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 };
