@@ -23,7 +23,7 @@
 
   端口和 `navigate` 一起经模块自己的上下文传入：`ChatTabSource` 增加 `navigate`、`workbench`，取代 `onOpenSource`。打开标签的规则仍只写在 open-target 一处。note、preview 的上下文以后改到时换用同一接口，本次不动。
 
-- **首页会话归 chat 模块**：首页「打开哪个会话」的请求与「上次停留的会话」移进 chat 的 store。外壳处理落在首页的 `chat` 目标时，经 chat 视图出口交给首页一个新的 target 对象，`ChatHome` 按 0019 在渲染期比较。
+- **首页会话归 chat 模块**：「上次停留的会话」移进 chat 的 store。首页「打开哪个会话」的请求仍随导航历史由外壳持有（后退、换项目时清掉），外壳处理落在首页的 `chat` 目标时以 prop 交给 `ChatHome` 一个新的请求对象，类型由 chat 定义，`ChatHome` 按 0019 在渲染期比较。
 
 ## 后果
 
