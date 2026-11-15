@@ -920,17 +920,17 @@ function ProviderDetail({
                       {id}
                     </span>
                     {vendor && !catalogModel && (
-                      <StatusPill className="h-5 px-2 text-xs" dot={false}>
+                      <StatusPill dot={false} size="sm">
                         已下架
                       </StatusPill>
                     )}
                     {settings?.vision && (
-                      <StatusPill className="h-5 px-2 text-xs" dot={false}>
+                      <StatusPill dot={false} size="sm">
                         视觉
                       </StatusPill>
                     )}
                     {settings?.contextWindow && (
-                      <StatusPill className="h-5 px-2 text-xs" dot={false}>
+                      <StatusPill dot={false} size="sm">
                         {compactTokens(settings.contextWindow)}
                       </StatusPill>
                     )}
