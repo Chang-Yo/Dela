@@ -49,3 +49,10 @@ export const chatContract = defineContract('chat', {
     output: z.custom<Pick<UncommittedChanges, 'available' | 'reason'>>(),
   },
 });
+
+declare module '../../app/module' {
+  interface NavTargets {
+    /** 省略 sessionId 表示新建；落在首页还是工作台由外壳按当前视图决定。 */
+    chat: { projectId: string | null; sessionId?: string };
+  }
+}

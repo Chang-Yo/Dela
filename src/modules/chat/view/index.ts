@@ -24,3 +24,10 @@ export function onAgentEvent<K extends keyof (typeof agentContract)['events'] & 
 export function onWebSearchChanged(listener: () => void): () => void {
   return subscribe(capabilitiesContract, bridge, 'webSearchChanged', listener);
 }
+
+/** 首页聊天请求：sessionId 打开指定历史，否则 create 决定新建还是接着上次；seq 区分同内容的再次请求。 */
+export interface HomeChatRequest {
+  create: boolean;
+  sessionId?: string;
+  seq: number;
+}

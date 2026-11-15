@@ -20,7 +20,7 @@ import { agentClient } from '../../../modules/chat/view';
 import { IconButton } from '../../../ui/icon-button';
 import { showToast } from '../../app/toasts';
 import { cn } from '../../../ui/cn';
-import { useNavigationStore } from '../../navigation/view';
+import { useChatTabSource } from './chat-source';
 import { useSessions } from '../../sessions/store';
 import { ChatComposer } from './ChatComposer';
 import { ChatThread } from './ChatThread';
@@ -46,6 +46,7 @@ export function SidechatPanel({
   referenceSource?: ReferenceSource;
   onOpenSource?: (key: string) => void;
 }) {
+  const { navigate } = useChatTabSource();
   const view = useSidechats((state) => state.views[parentId]);
   const collapsed = useSidechats((state) => state.collapsed[parentId] ?? false);
   const parent = useSessions((state) => state.chats[parentId] ?? null);
@@ -143,7 +144,7 @@ export function SidechatPanel({
         useChatDrafts.getState().clear(key);
         useSidechats.getState().forget(parentId);
         useSessions.getState().putChat(chat.sessionId!, chat);
-        useNavigationStore.getState().openChat(chat.sessionId!, chat.projectId);
+        navigate({ page: 'chat', projectId: chat.projectId, sessionId: chat.sessionId! });
       })
       .catch((e) =>
         showToast({ variant: 'error', title: '保留旁问失败', description: errorMessage(e) }),

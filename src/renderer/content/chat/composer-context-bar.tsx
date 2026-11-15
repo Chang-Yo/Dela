@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } from 'lucide-react';
 import type { WorkspaceEntry } from '../../../shared/api';
-import { useNavigationStore } from '../../navigation/view';
+import { useChatTabSource } from './chat-source';
 import { showToast } from '../../app/toasts';
 import type { ComposerContext } from './composer-context';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
@@ -27,6 +27,7 @@ const matches = (value: string, query: string) =>
 
 /** 新对话上方的项目浮岛：项目与分支各一个可点的胶囊，互不牵连。 */
 export function ComposerContextBar({ context }: { context: ComposerContext }) {
+  const { navigate } = useChatTabSource();
   const entries = useWorkspaceStore((state) => state.workspace.entries);
   const projects = useMemo(() => entries.filter((entry) => entry.kind === 'project'), [entries]);
   const { projectId, remote } = context;
@@ -82,7 +83,7 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
     setProjectOpen(false);
     if (id === projectId) return;
     // 选哪个项目就落到哪个项目：main 复用该项目已有的空会话，不会堆垃圾会话。
-    useNavigationStore.getState().newChat(id);
+    navigate({ page: 'chat', projectId: id });
   };
 
   const switchBranch = (branch: string) => {

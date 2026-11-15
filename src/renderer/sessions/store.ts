@@ -17,6 +17,8 @@ interface SessionsState {
   lists: Record<string, ChatSessionSummary[]>;
   /** sessionId → 最新快照缓存：session-update 推送与 open/ask 结果都写这里。 */
   chats: Record<string, WorkspaceChat>;
+  /** 首页上次停留的会话：切走再回首页接着上次，只活在本次运行内（重启后首页回到新对话）。 */
+  homeSessionId: string | null;
   /** 重读某池的基础列表（list-sessions）。 */
   refresh: (projectId: string | null) => Promise<void>;
   putChat: (sessionId: string, chat: WorkspaceChat) => void;
@@ -27,6 +29,7 @@ interface SessionsState {
 export const useSessions = create<SessionsState>((set, get) => ({
   lists: {},
   chats: {},
+  homeSessionId: null,
   refresh: async (projectId) => {
     if (typeof window === 'undefined' || !window.dela) return;
     const sessions = await agentClient['list-sessions']({ projectId });

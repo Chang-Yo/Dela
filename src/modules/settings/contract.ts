@@ -136,3 +136,9 @@ export const settingsContract = defineContract('settings', {
   cacheSize: { input: z.undefined(), output: z.number() },
   clearCache: { input: z.undefined(), output: z.custom<CacheClearResult>() },
 });
+
+declare module '../../app/module' {
+  interface NavTargets {
+    settings: { section: SettingsSectionId };
+  }
+}

@@ -3,6 +3,7 @@ import type { Implementation } from '../core/protocol/contract';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
 import type { DocumentContent } from '../shared/documents';
+import type { TabId } from '../shared/layout';
 
 /**
  * 可跳转的页面及其参数。页面所属的模块用接口合并登记自己的一项，例如
@@ -32,6 +33,14 @@ export function defineModule(definition: ModuleDefinition): ModuleDefinition {
 
 /** 唯一的跳转动作；被拦下（例如写信未保存）或页面未启用时返回 false。 */
 export type Navigate = (target: NavTarget) => boolean;
+
+/** 工作台端口（0020）：标签落在哪个组、是否预览由外壳的 open-target 决定。 */
+export interface Workbench {
+  /** aside 放到焦点组右侧，必要时分屏。 */
+  open(tab: TabId, options?: { aside?: boolean }): void;
+  /** 文档 key（条目、来源、远端节点、绝对路径）由外壳换成笔记或预览标签。 */
+  openDocument(key: string, options?: { aside?: boolean }): void;
+}
 
 /** 模块的一个页面：组件收到跳转参数 target，每次跳转都是新对象，可据此重置本地状态。 */
 export interface PageDefinition<Page extends keyof NavTargets> {

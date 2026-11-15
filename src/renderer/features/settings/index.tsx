@@ -32,7 +32,7 @@ export function SettingsPage(props: {
       shellSections={{
         shortcuts: <ShortcutsSection />,
         workspace: <WorkspaceSection />,
-        archived: <ArchivedSection />,
+        archived: <ArchivedSection navigate={navigate} />,
         remotes: (
           <RemoteSection
             NewProjectDialog={NewRemoteProjectDialog}

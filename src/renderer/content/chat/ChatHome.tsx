@@ -1,9 +1,7 @@
 // 随聊的新建、发送与历史查看留在首页聊天；会话与运行状态由 sessions 管理。
 import { useEffect, useRef, useState } from 'react';
-import { agentClient } from '../../../modules/chat/view';
+import { agentClient, type HomeChatRequest } from '../../../modules/chat/view';
 import type { WorkspaceChat } from '../../../shared/api';
-import type { GeneralChatPulse } from '../../navigation/view';
-import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { ChatTab } from './ChatTab';
 import { errorMessage } from '../../../core/protocol/contract';
@@ -13,10 +11,10 @@ import { errorMessage } from '../../../core/protocol/contract';
  * 「上次停留」只在本次运行的内存里，所以切到别的页面再回首页能接着上次，重启应用仍是新对话。
  * 上次那个会话已被删除时 open 会失败，落到新对话，不把用户卡在错误提示上。
  */
-async function resolveHomeChat(request: GeneralChatPulse | null): Promise<WorkspaceChat> {
+async function resolveHomeChat(request: HomeChatRequest | null): Promise<WorkspaceChat> {
   if (request?.sessionId) return agentClient['open-session']({ sessionId: request.sessionId });
   if (request?.create) return agentClient['create-session']({ projectId: null, scope: 'chat' });
-  const remembered = useNavigationStore.getState().lastHomeSessionId;
+  const remembered = useSessions.getState().homeSessionId;
   if (remembered) {
     const reopened = await agentClient['open-session']({ sessionId: remembered }).catch(() => null);
     if (reopened) return reopened;
@@ -32,8 +30,7 @@ async function resolveHomeChat(request: GeneralChatPulse | null): Promise<Worksp
   return empty ?? agentClient['create-session']({ projectId: null, scope: 'chat' });
 }
 
-export function ChatHome() {
-  const request = useNavigationStore((state) => state.generalChat);
+export function ChatHome({ request }: { request: HomeChatRequest | null }) {
   const [session, setSession] = useState<{ id: string; seq: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef<{ seq: number; promise: Promise<WorkspaceChat> } | null>(null);
@@ -50,7 +47,7 @@ export function ChatHome() {
         if (!active) return;
         if (!chat.sessionId) throw new Error('会话创建失败');
         useSessions.getState().putChat(chat.sessionId, chat);
-        useNavigationStore.getState().rememberHomeSession(chat.sessionId);
+        useSessions.setState({ homeSessionId: chat.sessionId });
         setSession({ id: chat.sessionId, seq });
         void useSessions
           .getState()

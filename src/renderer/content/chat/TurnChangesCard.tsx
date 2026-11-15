@@ -11,8 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
-import { documentTabId } from '../../navigation/view';
-import { openTarget } from '../../workbench/open-target';
+import { useChatTabSource } from './chat-source';
 import { reviewTabId } from '../review/tab-id';
 import { FileIcon, basenameOf, dirnameOf } from '../review/view-utils';
 import { fileManagerName } from '../../lib/platform';
@@ -61,6 +60,7 @@ const TurnFileRow = memo(function TurnFileRow({
   stat: DiffStat | null | undefined;
   reviewEnabled: boolean;
 }) {
+  const { workbench } = useChatTabSource();
   const deleted = file.status === 'deleted';
   const fail = (cause: unknown) =>
     showToast({ variant: 'error', title: '打开失败', description: errorMessage(cause) });
@@ -68,11 +68,13 @@ const TurnFileRow = memo(function TurnFileRow({
   const openInDela = () => {
     void chatClient
       .locateFile({ sessionId, path: file.path })
-      .then((absolute) => openTarget(documentTabId(absolute), { aside: true }))
+      .then((absolute) => workbench.openDocument(absolute, { aside: true }))
       .catch(fail);
   };
   const review = () =>
-    openTarget(reviewTabId({ kind: 'turn', sessionId, turnId, path: file.path }), { aside: true });
+    workbench.open(reviewTabId({ kind: 'turn', sessionId, turnId, path: file.path }), {
+      aside: true,
+    });
   return (
     <li className="flex min-w-0 items-center gap-2 px-3 py-1.5" data-turn-file={file.path}>
       <FileIcon path={file.path} />

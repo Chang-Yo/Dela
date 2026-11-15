@@ -5,7 +5,8 @@ import CodeBlock from '../../../ui/code-block';
 import { openLightbox } from '../../../ui/lightbox';
 import { Button } from '../../../ui/button';
 import { agentClient } from '../../../modules/chat/view';
-import { useNavigationStore } from '../../navigation/view';
+import type { Navigate } from '../../../app/module';
+import { useChatTabSource } from './chat-source';
 import { useSessions } from '../../sessions/store';
 import { ChatMarkdown } from './markdown';
 
@@ -185,14 +186,15 @@ function EditView({ result, failed }: ViewProps) {
 }
 
 /** 子会话不在任何会话列表里：先取快照得到项目归属，再按会话打开标签。 */
-export async function openSubagent(taskId: string) {
+export async function openSubagent(taskId: string, navigate: Navigate) {
   const chat = await agentClient['open-session']({ sessionId: taskId });
   useSessions.getState().putChat(taskId, chat);
-  useNavigationStore.getState().openChat(taskId, chat.projectId);
+  navigate({ page: 'chat', projectId: chat.projectId, sessionId: taskId });
 }
 
 /** 子 Agent：任务说明、步数与最终回复；完整过程在子会话里看。 */
 function SubagentView({ result }: ViewProps) {
+  const { navigate } = useChatTabSource();
   const details = result.output?.details as SubagentDetails | undefined;
   const prompt = (result.input as { prompt?: string } | null)?.prompt ?? '';
   return (
@@ -210,7 +212,11 @@ function SubagentView({ result }: ViewProps) {
       {details && (
         <div className="flex items-center gap-2 text-xs text-ink-3">
           <span>{details.background ? '后台运行，结束时通知' : `共 ${details.steps} 步`}</span>
-          <Button size="sm" variant="ghost" onClick={() => void openSubagent(details.taskId)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void openSubagent(details.taskId, navigate)}
+          >
             打开子会话
           </Button>
         </div>

@@ -1,4 +1,5 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
+import type { Navigate, Workbench } from '../../../app/module';
 
 // ChatTab 的容器注入面（与 note 的 draft-source、preview 的 loader 同一注入模式）：workbench 只传
 // tabId/groupId，引用数据源与邮件草稿弹窗经 Provider 注入；会话项目归属取自快照而非当前工作台。
@@ -24,19 +25,27 @@ export type MailDraftDialogProps = {
 };
 export type MailDraftDialog = ComponentType<MailDraftDialogProps>;
 
-/** ChatTab 的容器注入面；未挂 Provider 时 ChatTab 无引用与邮件注入运行。 */
+/** ChatTab 的容器注入面；未挂 Provider 时无引用与邮件注入，跳转与开标签不生效。 */
 export interface ChatTabSource {
+  navigate: Navigate;
+  workbench: Workbench;
+  /** 应用内会打开的链接，点击时免去外链确认。 */
+  opensLink(url: string): boolean;
   /** @ 引用数据源；未提供时 composer 无 @ 候选、发送前不冲盘引用草稿。 */
   referenceSource?: ReferenceSource;
   /** 邮件草稿检查弹窗；未提供时隐藏「检查并发送邮件」入口。 */
   mailDialog?: MailDraftDialog;
-  /** 点击消息来源 chip 打开对应文档；未提供时 chip 以纯文本呈现。 */
-  onOpenSource?(key: string): void;
   /** 把回答保存为笔记；未提供时隐藏入口。 */
   onSaveNote?(text: string): void;
 }
 
-export const ChatTabSourceContext = createContext<ChatTabSource | null>(null);
+const detached: ChatTabSource = {
+  navigate: () => false,
+  workbench: { open: () => {}, openDocument: () => {} },
+  opensLink: () => false,
+};
+
+export const ChatTabSourceContext = createContext<ChatTabSource>(detached);
 
 export function ChatTabSourceProvider({
   source,
@@ -48,6 +57,6 @@ export function ChatTabSourceProvider({
   return <ChatTabSourceContext.Provider value={source}>{children}</ChatTabSourceContext.Provider>;
 }
 
-export function useChatTabSource(): ChatTabSource | null {
+export function useChatTabSource(): ChatTabSource {
   return useContext(ChatTabSourceContext);
 }

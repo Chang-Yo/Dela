@@ -11,9 +11,9 @@ import {
   type DiagramPlugin,
   type LinkSafetyConfig,
 } from 'streamdown';
-import { opensInApp } from '../../../app/views';
 import { cn } from '../../../ui/cn';
 import { mermaidConfig, renderMermaid } from '../../lib/mermaid';
+import { useChatTabSource } from './chat-source';
 
 // mermaid 本体体积大，这里只注册插件对象，首次渲染图表时才动态加载真正的库。
 const lazyMermaidPlugin: DiagramPlugin = {
@@ -83,12 +83,6 @@ function ChatTable({
 
 const chatComponents = { table: ChatTable };
 
-// 水源主题链接免外链确认：主进程会把它交回应用内阅读。
-const chatLinkSafety: LinkSafetyConfig = {
-  enabled: true,
-  onLinkCheck: opensInApp,
-};
-
 /**
  * 聊天区消息体的 Markdown 版式（聊天气泡、回答、工作过程说明共用）。
  * 代码块参照 DeepSeek 网页版的无界一体化卡片：无边框、头部与代码之间无分隔线，头部 sticky
@@ -113,13 +107,16 @@ export function ChatMarkdown({
   mode = 'static',
   ...props
 }: ComponentProps<typeof Streamdown>) {
+  const { opensLink } = useChatTabSource();
+  // 应用内会打开的链接（如水源主题）免外链确认：主进程会把它交回应用内阅读。
+  const linkSafety: LinkSafetyConfig = { enabled: true, onLinkCheck: opensLink };
   return (
     <Streamdown
       className={cn(markdownStyles, className)}
       codeBlockMaxHeight={0}
       components={chatComponents}
       controls={chatControls}
-      linkSafety={chatLinkSafety}
+      linkSafety={linkSafety}
       mermaid={mermaidOptions()}
       mode={mode}
       plugins={chatStreamdownPlugins}

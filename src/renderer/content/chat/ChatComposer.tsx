@@ -28,7 +28,7 @@ import { openSubagent } from './tool-views';
 import { Button } from '../../../ui/button';
 import { IconButton } from '../../../ui/icon-button';
 import { ProgressRing } from '../../../ui/progress-ring';
-import { useNavigationStore } from '../../navigation/view';
+import { useChatTabSource } from './chat-source';
 import type {
   BackgroundTaskView,
   ChatCommandView,
@@ -185,6 +185,7 @@ export function ChatComposer({
   contextUsage?: ContextUsageView | null;
   hero?: boolean;
 }) {
+  const { navigate } = useChatTabSource();
   const editorRef = useRef<ComposerEditorHandle | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [index, setIndex] = useState(0);
@@ -590,7 +591,7 @@ export function ChatComposer({
                         className="w-full justify-start [&_svg]:size-3.5"
                         onClick={() => {
                           setSearchPickerOpen(false);
-                          useNavigationStore.getState().openSettings('capabilities');
+                          navigate({ page: 'settings', section: 'capabilities' });
                         }}
                         size="sm"
                         variant="outline"
@@ -702,7 +703,7 @@ export function ChatComposer({
                         className="w-full justify-start [&_svg]:size-3.5"
                         onClick={() => {
                           setModelPickerOpen(false);
-                          useNavigationStore.getState().openSettings('providers');
+                          navigate({ page: 'settings', section: 'providers' });
                         }}
                         size="sm"
                         variant="outline"
@@ -809,7 +810,7 @@ export function ChatComposer({
                         className="w-full justify-start [&_svg]:size-3.5"
                         onClick={() => {
                           setEffortPickerOpen(false);
-                          useNavigationStore.getState().openSettings('providers');
+                          navigate({ page: 'settings', section: 'providers' });
                         }}
                         size="sm"
                         variant="outline"
@@ -1107,6 +1108,7 @@ function BackgroundTaskList({
   tasks: BackgroundTaskView[];
   onStop: (taskId: string) => void;
 }) {
+  const { navigate } = useChatTabSource();
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -1135,7 +1137,7 @@ function BackgroundTaskList({
             {task.kind === 'subagent' ? (
               <button
                 className="flex min-w-0 flex-1 items-center gap-2 text-left hover:underline"
-                onClick={() => void openSubagent(task.id)}
+                onClick={() => void openSubagent(task.id, navigate)}
                 title="打开子会话"
                 type="button"
               >

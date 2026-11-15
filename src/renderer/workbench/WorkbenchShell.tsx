@@ -43,7 +43,7 @@ import { referenceEntryCandidates } from '../content/chat/reference-tokens';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../ui/alert';
-import { referenceQueries, sourceOf, sourceOfLink } from '../../app/views';
+import { opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../app/views';
 import { workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
 import { errorMessage } from '../../core/protocol/contract';
 
@@ -68,6 +68,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
   const projectId = useNavigationStore((s) => (home ? null : s.projectId));
   const reveal = useNavigationStore((s) => s.reveal);
   const createProject = useNavigationStore((s) => s.createProject);
+  const generalChat = useNavigationStore((s) => s.generalChat);
   const ready = useWorkbenchLayout((s) => s.ready);
   const layoutProjectId = useWorkbenchLayout((s) => s.projectId);
   const loaded = useWorkspaceStore((s) => s.loaded);
@@ -205,7 +206,15 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     () => ({
       referenceSource,
       mailDialog: MailDraftDialog,
-      onOpenSource: (key) => void useNavigationStore.getState().openDocument(key),
+      navigate: (target) => useNavigationStore.getState().navigate(target),
+      workbench: {
+        open: (tab, options) => openTarget(tab, options),
+        openDocument: (key, options) =>
+          options?.aside
+            ? openTarget(documentTabId(key), { aside: true })
+            : void useNavigationStore.getState().openDocument(key),
+      },
+      opensLink: opensInApp,
       onSaveNote: (text) =>
         openDialog(
           'note',
@@ -336,7 +345,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
             )}
             <div className="relative flex min-h-0 flex-1">
               {home ? (
-                <ChatHome />
+                <ChatHome request={generalChat} />
               ) : (
                 <>
                   <WorkbenchExplorer

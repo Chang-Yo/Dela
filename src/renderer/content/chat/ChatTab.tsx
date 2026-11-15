@@ -12,10 +12,8 @@ import { ChatThread } from './ChatThread';
 import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
 import { useChat, useChatDraft, type ChatReference } from './use-chat';
 import { referenceContext, sessionReferences } from './reference-tokens';
-import { useNavigationStore } from '../../navigation/view';
 import { poolKey, updateSession, useSessions } from '../../sessions/store';
 import { useWorkspaceStore } from '../../../modules/workspace/view';
-import { openTarget } from '../../workbench/open-target';
 import { showToast } from '../../app/toasts';
 import { reviewTabId } from '../review/tab-id';
 import { SidechatPanel } from './SidechatPanel';
@@ -31,13 +29,13 @@ export function parseChatTabId(tabId: string): string | null {
 
 /** 会话作为标签内容。会话身份来自 tabId（chat:{sessionId}），项目归属来自会话快照；
  *  引用候选与邮件草稿弹窗经 ChatTabSourceProvider 注入。 */
-export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
+export function ChatTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const sessionId = parseChatTabId(tabId);
   const source = useChatTabSource();
   const projectId = useSessions((state) =>
     sessionId ? (state.chats[sessionId]?.projectId ?? null) : null,
   );
-  const referenceSource = source?.referenceSource;
+  const referenceSource = source.referenceSource;
 
   if (sessionId === null) {
     return (
@@ -50,9 +48,9 @@ export function ChatTab({ tabId }: { tabId: TabId; groupId: string }) {
     <ChatSessionView
       key={sessionId}
       active={sessionId}
-      mailDialog={source?.mailDialog}
-      onOpenSource={source?.onOpenSource}
-      onSaveNote={source?.onSaveNote}
+      home={groupId === 'home'}
+      mailDialog={source.mailDialog}
+      onSaveNote={source.onSaveNote}
       projectId={projectId}
       referenceSource={referenceSource}
     />
@@ -153,26 +151,27 @@ const ChatSessionView = memo(function ChatSessionView({
   active,
   projectId,
   referenceSource,
+  home,
   mailDialog,
-  onOpenSource,
   onSaveNote,
 }: {
   active: string;
   projectId: string | null;
   referenceSource?: ReferenceSource;
+  home: boolean;
   mailDialog?: MailDraftDialog;
-  onOpenSource?: (key: string) => void;
   onSaveNote?: (text: string) => void;
 }) {
-  // 「新对话」按钮与 /new 命令同一个动作：首页里开一个新随聊，工作台里（项目或资料）就地在焦点组开。
-  const startNewChat = useCallback(() => {
-    if (useNavigationStore.getState().view === 'home')
-      useNavigationStore.getState().openGeneralChat(true);
-    else void useNavigationStore.getState().newChat(projectId);
-  }, [projectId]);
+  const { navigate, workbench } = useChatTabSource();
+  const onOpenSource = (key: string) => workbench.openDocument(key);
+  // 「新对话」按钮与 /new 命令同一个动作：落在首页还是工作台焦点组由外壳决定。
+  const startNewChat = useCallback(
+    () => navigate({ page: 'chat', projectId }),
+    [navigate, projectId],
+  );
   const openSession = useCallback(
-    (id: string) => useNavigationStore.getState().openChat(id, projectId),
-    [projectId],
+    (id: string) => navigate({ page: 'chat', projectId, sessionId: id }),
+    [navigate, projectId],
   );
   const chatState = useChat(active, referenceSource, startNewChat);
   const { chat, busy, editLast, fork } = chatState;
@@ -259,7 +258,9 @@ const ChatSessionView = memo(function ChatSessionView({
           <IconButton
             aria-label="工作区改动"
             onClick={() =>
-              openTarget(reviewTabId({ kind: 'uncommitted', sessionId: active }), { aside: true })
+              workbench.open(reviewTabId({ kind: 'uncommitted', sessionId: active }), {
+                aside: true,
+              })
             }
             title="查看工作区未提交的改动"
           >
@@ -294,7 +295,7 @@ const ChatSessionView = memo(function ChatSessionView({
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => useNavigationStore.getState().openSettings('providers')}
+            onClick={() => navigate({ page: 'settings', section: 'providers' })}
           >
             配置模型
           </Button>
@@ -344,16 +345,15 @@ const ChatSessionView = memo(function ChatSessionView({
         onDeleteSession={(id) => {
           void updateSession(id, { archived: true })
             .then(() => {
-              const navigation = useNavigationStore.getState();
-              if (navigation.view === 'home' && navigation.lastHomeSessionId === id)
-                navigation.openGeneralChat(true);
+              if (home && useSessions.getState().homeSessionId === id)
+                navigate({ page: 'chat', projectId: null });
             })
             .catch((error) => {
               showToast({ variant: 'error', title: '归档失败', description: errorMessage(error) });
             });
         }}
         onOpenChange={setSessionsOpen}
-        onOpenSession={(id) => useNavigationStore.getState().openChat(id, projectId)}
+        onOpenSession={openSession}
         open={sessionsOpen}
         projectId={projectId}
       />

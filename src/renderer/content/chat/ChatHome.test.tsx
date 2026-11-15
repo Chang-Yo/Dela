@@ -21,6 +21,7 @@ import { useSessions } from '../../sessions/store';
 import { useChatDrafts } from './drafts';
 import { useToastStore } from '../../app/toasts';
 import { ChatHome } from './ChatHome';
+import { ChatTabSourceProvider } from './chat-source';
 import type { ChatComposer } from './ChatComposer';
 
 // 保留 ChatHome、ChatTab、发送逻辑与导航 store；输入编辑器和消息排版不参与路由验证。
@@ -46,6 +47,21 @@ vi.mock('./ChatThread', () => ({
 let host: HTMLDivElement;
 let root: Root;
 
+/** 代替工作台装配层：把导航的首页请求交给首页，跳转接到真实导航 store。 */
+function Home() {
+  const request = useNavigationStore((state) => state.generalChat);
+  const source = {
+    navigate: useNavigationStore.getState().navigate,
+    workbench: { open: () => {}, openDocument: () => {} },
+    opensLink: () => false,
+  };
+  return (
+    <ChatTabSourceProvider source={source}>
+      <ChatHome request={request} />
+    </ChatTabSourceProvider>
+  );
+}
+
 function emptyChat(sessionId: string): WorkspaceChat {
   return {
     sessionId,
@@ -68,12 +84,11 @@ beforeEach(() => {
     view: 'home',
     projectId: null,
     generalChat: null,
-    lastHomeSessionId: null,
     reveal: null,
     backStack: [],
     forwardStack: [],
   });
-  useSessions.setState({ chats: {}, lists: {} });
+  useSessions.setState({ chats: {}, lists: {}, homeSessionId: null });
   useChatDrafts.setState({ drafts: {} });
   for (const channel of Object.keys(api)) delete api[channel];
   Object.assign(api, {
@@ -104,7 +119,7 @@ afterEach(async () => {
 });
 
 it('随聊发送首条消息后保持首页聊天，继续显示同一会话的回复', async () => {
-  await act(async () => root.render(<ChatHome />));
+  await act(async () => root.render(<Home />));
   await act(async () => useChatDrafts.getState().update('first', { prompt: '测试随聊' }));
   await act(async () =>
     host.querySelectorAll('button').forEach((button) => {
@@ -117,7 +132,7 @@ it('随聊发送首条消息后保持首页聊天，继续显示同一会话的�
 });
 
 it('新对话创建期间不显示旧会话，返回后绑定新身份', async () => {
-  await act(async () => root.render(<ChatHome />));
+  await act(async () => root.render(<Home />));
   await act(async () =>
     useSessions.getState().putChat('first', {
       ...emptyChat('first'),
@@ -141,7 +156,7 @@ it('新对话创建期间不显示旧会话，返回后绑定新身份', async (
 it('从会话顶部导出当前对话，并提示缺失附件', async () => {
   const save = vi.fn(async () => ({ saved: true, missing: ['讲义.pdf'] }));
   api['chat:export'] = save;
-  await act(async () => root.render(<ChatHome />));
+  await act(async () => root.render(<Home />));
   const button = () => host.querySelector<HTMLButtonElement>('[aria-label="导出会话"]');
   expect(button()).toBeNull();
   await act(async () =>
@@ -160,7 +175,7 @@ it('从会话顶部导出当前对话，并提示缺失附件', async () => {
 });
 
 it('回到首页接着上次会话，清空运行内存（重启）后才是新对话', async () => {
-  await act(async () => root.render(<ChatHome />));
+  await act(async () => root.render(<Home />));
   await act(async () =>
     useSessions.getState().putChat('first', {
       ...emptyChat('first'),
@@ -173,7 +188,7 @@ it('回到首页接着上次会话，清空运行内存（重启）后才是新�
   expect(host.querySelector('[aria-label="对话消息"]')?.textContent).toBe('上次的回复');
   expect(create).not.toHaveBeenCalled();
   // 重启等于这块内存没了：首页回到新对话。
-  await act(async () => useNavigationStore.setState({ lastHomeSessionId: null }));
+  await act(async () => useSessions.setState({ homeSessionId: null }));
   await act(async () => useNavigationStore.getState().openGeneralChat(false));
   expect(create).toHaveBeenCalledTimes(1);
   // 首页发起的通用会话落在随聊私有目录，不认资料页那一档。
@@ -188,7 +203,7 @@ it('打开随聊历史留在首页，展示指定会话而不是创建空会话�
   useSessions.getState().putChat('history', history);
   const create = vi.spyOn(api, 'agent:create-session');
   await act(async () => useNavigationStore.getState().openChat('history', null));
-  await act(async () => root.render(<ChatHome />));
+  await act(async () => root.render(<Home />));
   expect(useNavigationStore.getState().view).toBe('home');
   expect(useNavigationStore.getState().reveal).toBeNull();
   expect(host.querySelector('[aria-label="对话消息"]')?.textContent).toBe('历史回复');
@@ -196,7 +211,7 @@ it('打开随聊历史留在首页，展示指定会话而不是创建空会话�
 });
 
 it('历史快速切换时延迟返回不能覆盖最新会话，项目历史仍进入项目工作台', async () => {
-  await act(async () => root.render(<ChatHome />));
+  await act(async () => root.render(<Home />));
   let resolveOld!: (chat: WorkspaceChat) => void;
   const latest = {
     ...emptyChat('latest'),
@@ -241,7 +256,7 @@ describe('会话命令', () => {
     const runCommand = vi.fn(async ({ sessionId }: { sessionId: string }) => emptyChat(sessionId));
     api['agent:run-command'] = runCommand;
     const ask = vi.spyOn(api, 'agent:ask');
-    await act(async () => root.render(<ChatHome />));
+    await act(async () => root.render(<Home />));
     const list = vi.spyOn(api, 'agent:list-sessions');
     await sendText('  /name  课程周报  ');
     expect(runCommand).toHaveBeenCalledWith({
@@ -259,7 +274,7 @@ describe('会话命令', () => {
     api['agent:run-command'] = vi.fn(async () => {
       throw new Error('对话还太短，没有可压缩的内容');
     });
-    await act(async () => root.render(<ChatHome />));
+    await act(async () => root.render(<Home />));
     await sendText('/compact 保留结论');
     expect(host.querySelector('[role="alert"]')?.textContent).toBe('对话还太短，没有可压缩的内容');
     expect(useChatDrafts.getState().drafts.first?.prompt).toBe('/compact 保留结论');
@@ -269,7 +284,7 @@ describe('会话命令', () => {
     const runCommand = vi.fn();
     api['agent:run-command'] = runCommand;
     const ask = vi.spyOn(api, 'agent:ask');
-    await act(async () => root.render(<ChatHome />));
+    await act(async () => root.render(<Home />));
     const create = vi.spyOn(api, 'agent:create-session').mockResolvedValue(emptyChat('second'));
     await sendText('/new');
     expect(create).toHaveBeenCalledWith({ projectId: null, scope: 'chat' });
@@ -281,7 +296,7 @@ describe('会话命令', () => {
     const runCommand = vi.fn();
     api['agent:run-command'] = runCommand;
     const ask = vi.spyOn(api, 'agent:ask');
-    await act(async () => root.render(<ChatHome />));
+    await act(async () => root.render(<Home />));
     await sendText('/compactor 是什么');
     expect(ask).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: 'first', text: '/compactor 是什么' }),
@@ -292,7 +307,7 @@ describe('会话命令', () => {
 
 it('归档首页当前对话后通过导航创建新会话，不沿用归档会话身份', async () => {
   vi.useFakeTimers();
-  await act(async () => root.render(<ChatHome />));
+  await act(async () => root.render(<Home />));
   api['agent:list-sessions'] = vi.fn(async () => [
     {
       id: 'first',
@@ -322,7 +337,7 @@ it('归档首页当前对话后通过导航创建新会话，不沿用归档会�
   });
   expect(update).toHaveBeenCalledWith({ id: 'first', patch: { archived: true } });
   expect(create).toHaveBeenCalledWith({ projectId: null, scope: 'chat' });
-  expect(useNavigationStore.getState().lastHomeSessionId).toBe('second');
+  expect(useSessions.getState().homeSessionId).toBe('second');
   await act(async () => useChatDrafts.getState().update('second', { prompt: '归档之后的新草稿' }));
   expect(host.querySelector<HTMLInputElement>('[aria-label="消息输入"]')?.value).toBe(
     '归档之后的新草稿',

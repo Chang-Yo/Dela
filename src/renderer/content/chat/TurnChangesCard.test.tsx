@@ -37,10 +37,10 @@ const { api, dela } = vi.hoisted(() => {
   return { api, dela };
 });
 import { TurnChangesCard } from './TurnChangesCard';
-import { openTarget } from '../../workbench/open-target';
+import { ChatTabSourceProvider } from './chat-source';
 
-// 落位行为由 workbench 的测试覆盖，这里只验证卡片的动作映射。
-vi.mock('../../workbench/open-target', () => ({ openTarget: vi.fn() }));
+// 落位行为由 workbench 的测试覆盖，这里只验证卡片交给工作台端口的动作。
+const workbench = { open: vi.fn(), openDocument: vi.fn() };
 
 const sessionId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4d';
 let turnSeq = 0;
@@ -69,7 +69,9 @@ let root: Root;
 async function renderCard(sessionId2: string, turnId: string, reviewEnabled = true) {
   await act(async () =>
     root.render(
-      <TurnChangesCard sessionId={sessionId2} turnId={turnId} reviewEnabled={reviewEnabled} />,
+      <ChatTabSourceProvider source={{ navigate: () => false, workbench, opensLink: () => false }}>
+        <TurnChangesCard sessionId={sessionId2} turnId={turnId} reviewEnabled={reviewEnabled} />
+      </ChatTabSourceProvider>,
     ),
   );
   // 冻结记录与行数统计的读取链路需要多轮微任务落定。
@@ -135,7 +137,7 @@ it('审阅与打开按解析出的标签键落位，已删除文件的打开被�
 
   const review = host.querySelectorAll<HTMLButtonElement>('li button[type="button"]')[0]!;
   await act(async () => review.click());
-  expect(openTarget).toHaveBeenCalledWith(`review:${sessionId}:${turn.turnId}:src/app.ts`, {
+  expect(workbench.open).toHaveBeenCalledWith(`review:${sessionId}:${turn.turnId}:src/app.ts`, {
     aside: true,
   });
 
@@ -144,7 +146,7 @@ it('审阅与打开按解析出的标签键落位，已删除文件的打开被�
   await act(async () => open.click());
   expect(api['chat:locateFile']).toHaveBeenCalledWith({ sessionId, path: 'src/app.ts' });
   await act(async () => {});
-  expect(openTarget).toHaveBeenCalledWith('note:E:\\workspace\\Test\\src\\app.ts', {
+  expect(workbench.openDocument).toHaveBeenCalledWith('E:\\workspace\\Test\\src\\app.ts', {
     aside: true,
   });
 
@@ -181,7 +183,7 @@ it('随聊只列文件并提供打开，不读取 diff 详情或显示审阅与�
 
   await act(async () => host.querySelector<HTMLButtonElement>('[title="在 Dela 中打开"]')!.click());
   expect(api['chat:locateFile']).toHaveBeenCalledWith({ sessionId, path: 'src/app.ts' });
-  expect(openTarget).toHaveBeenCalledWith('note:E:\\workspace\\Test\\src\\app.ts', {
+  expect(workbench.openDocument).toHaveBeenCalledWith('E:\\workspace\\Test\\src\\app.ts', {
     aside: true,
   });
 });

@@ -20,7 +20,7 @@ const { api, bridge, searchListeners } = vi.hoisted(() => {
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   return { api, bridge, searchListeners };
 });
-import { useNavigationStore } from '../../navigation/view';
+import { ChatTabSourceProvider } from './chat-source';
 import { ChatComposer, cacheHitRateText } from './ChatComposer';
 import type { ComposerContext } from './composer-context';
 import type { ComposerEditor } from './ComposerEditor';
@@ -169,17 +169,27 @@ afterEach(async () => {
 
 it('未配置思考强度时提供模型设置入口', async () => {
   const select = vi.fn();
-  const openSettings = vi
-    .spyOn(useNavigationStore.getState(), 'openSettings')
-    .mockReturnValue(true);
-  await act(async () => root.render(<Harness contextUsage={usage()} onEffortSelect={select} />));
+  const navigate = vi.fn(() => true);
+  await act(async () =>
+    root.render(
+      <ChatTabSourceProvider
+        source={{
+          navigate,
+          workbench: { open: () => {}, openDocument: () => {} },
+          opensLink: () => false,
+        }}
+      >
+        <Harness contextUsage={usage()} onEffortSelect={select} />
+      </ChatTabSourceProvider>,
+    ),
+  );
   const trigger = host.querySelector<HTMLButtonElement>('[aria-label="思考强度"]')!;
   await act(async () => trigger.click());
   const settingsButton = Array.from(document.body.querySelectorAll('button')).find(
     (button) => button.textContent === '打开设置 › 模型服务',
   )!;
   await act(async () => settingsButton.click());
-  expect(openSettings).toHaveBeenCalledExactlyOnceWith('providers');
+  expect(navigate).toHaveBeenCalledExactlyOnceWith({ page: 'settings', section: 'providers' });
   expect(select).not.toHaveBeenCalled();
   expect(document.body.querySelector('[role="dialog"]')).toBeNull();
 });

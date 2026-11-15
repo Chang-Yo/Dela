@@ -26,7 +26,7 @@ import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';
 import { IconButton } from '../../../ui/icon-button';
-import type { MailDraftDialog } from './chat-source';
+import { useChatTabSource, type MailDraftDialog } from './chat-source';
 import { formatDuration, ReplyTrace } from './ToolTimeline';
 import { openSubagent } from './tool-views';
 import { ChatMarkdown } from './markdown';
@@ -469,6 +469,7 @@ const TASK_STATUS: Record<TaskNoticeDetails['status'], string> = {
 
 /** 后台任务结束的通知：一行摘要，展开看交给模型的全文；子 Agent 可打开子会话。 */
 function TaskNoticeMessage({ content, task }: { content: string; task: TaskNoticeDetails }) {
+  const { navigate } = useChatTabSource();
   const [open, setOpen] = useState(false);
   const Icon = task.kind === 'bash' ? SquareTerminal : Bot;
   return (
@@ -484,7 +485,11 @@ function TaskNoticeMessage({ content, task }: { content: string; task: TaskNotic
         </span>
         <span className="shrink-0 tabular-nums">{formatDuration(task.durationMs)}</span>
         {task.kind === 'subagent' && (
-          <Button size="sm" variant="ghost" onClick={() => void openSubagent(task.taskId)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void openSubagent(task.taskId, navigate)}
+          >
             打开子会话
           </Button>
         )}

@@ -1,7 +1,7 @@
 // 视图路由 store：视图、back/forward 栈、当前工作台项目与一次性定位脉冲；
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
-import { agentClient } from '../../modules/chat/view';
+import { agentClient, type HomeChatRequest } from '../../modules/chat/view';
 import { leaveComposer } from '../../modules/mail/view';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../modules/settings/contract';
@@ -33,13 +33,6 @@ export interface RevealPulse {
   seq: number;
 }
 
-/** 首页聊天请求：sessionId 打开指定历史；否则创建或复用空会话。 */
-export interface GeneralChatPulse {
-  create: boolean;
-  sessionId?: string;
-  seq: number;
-}
-
 interface NavigationState {
   view: AppView;
   /** 模块页面的跳转参数；外壳视图为 null。 */
@@ -54,9 +47,8 @@ interface NavigationState {
   createProject: boolean;
   /** 工作台标签定位脉冲（chat/note/preview 深链）。 */
   reveal: RevealPulse | null;
-  generalChat: GeneralChatPulse | null;
-  /** 首页上次停留的会话：切走再回首页接着上次，只活在本次运行内（重启后首页回到新对话）。 */
-  lastHomeSessionId: string | null;
+  /** 首页聊天请求，由工作台装配层交给首页。 */
+  generalChat: HomeChatRequest | null;
   /** 唯一的跳转入口：外壳视图传名字，其余传 NavTarget（docs/adr/0019）。 */
   navigate(next: ShellView | NavTarget): boolean;
   goBack(): boolean;
@@ -68,7 +60,6 @@ interface NavigationState {
   newChat(projectId: string | null): Promise<string | null>;
   /** 项目会话定位到项目工作台；随聊会话在资料工作台里就地开标签，否则回首页聊天。 */
   openChat(sessionId: string, projectId: string | null): boolean;
-  rememberHomeSession(sessionId: string): void;
   /** 打开笔记标签，自动归属其所在项目。 */
   openNote(entryId: string): boolean;
   /** 打开文档（entryId 或 source: 资料键）为工作台标签，留在当前工作台；keep 时不作预览。 */
@@ -144,12 +135,17 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     createProject: false,
     reveal: null,
     generalChat: null,
-    lastHomeSessionId: null,
 
     navigate: (next) => {
       if (typeof next !== 'string') {
         if (next.page === 'projects') return get().openProject(next.entryId);
-        if (next.page === 'chat') return get().openChat(next.sessionId, next.projectId);
+        if (next.page === 'chat') {
+          if (next.sessionId) return get().openChat(next.sessionId, next.projectId);
+          // 首页发起的随聊留在首页，其余就地开在工作台焦点组。
+          if (next.projectId === null && get().view === 'home') return get().openGeneralChat(true);
+          void get().newChat(next.projectId);
+          return true;
+        }
         if (next.page === 'sources') return get().openDocument(`source:${next.sourceId}`);
         if (next.page === 'settings') return get().openSettings(next.section);
       }
@@ -310,6 +306,5 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     setCreateProject: (value) => set({ createProject: value }),
     consumeReveal: () => set({ reveal: null }),
     consumeGeneralChat: () => set({ generalChat: null }),
-    rememberHomeSession: (sessionId) => set({ lastHomeSessionId: sessionId }),
   };
 });

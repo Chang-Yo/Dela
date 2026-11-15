@@ -14,10 +14,10 @@ import {
 import { useWorkspaceStore } from '../../../../modules/workspace/view';
 import { showToast } from '../../../app/toasts';
 import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';
-import { useNavigationStore } from '../../../navigation/view';
 import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { Callout, ErrorText } from '../../../../ui/alert';
 import { errorMessage } from '../../../../core/protocol/contract';
+import type { Navigate } from '../../../../app/module';
 
 /** 项目筛选哨兵：Radix Select 不接受空串，「全部」与「随聊」（无项目）各用一个哨兵值。 */
 const allProjects = '__all__';
@@ -25,7 +25,7 @@ const generalProject = '__general__';
 
 type Group = { id: string | null; name: string; sessions: ChatSessionSummary[] };
 
-export function ArchivedSection() {
+export function ArchivedSection({ navigate }: { navigate: Navigate }) {
   const [sessions, setSessions] = useState<ChatSessionSummary[] | null>(null);
   const [query, setQuery] = useState('');
   const [projectFilter, setProjectFilter] = useState(allProjects);
@@ -261,9 +261,11 @@ export function ArchivedSection() {
                             <Button
                               aria-label={`查看 ${session.title}`}
                               onClick={() =>
-                                useNavigationStore
-                                  .getState()
-                                  .openChat(session.id, session.projectId ?? null)
+                                navigate({
+                                  page: 'chat',
+                                  projectId: session.projectId ?? null,
+                                  sessionId: session.id,
+                                })
                               }
                               size="icon-sm"
                               title="查看对话"

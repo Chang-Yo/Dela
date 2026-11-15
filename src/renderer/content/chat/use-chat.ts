@@ -18,7 +18,7 @@ import {
 } from '../../../core/protocol/chat-input';
 import { agentClient } from '../../../modules/chat/view';
 import { showToast } from '../../app/toasts';
-import { useNavigationStore } from '../../navigation/view';
+import { useChatTabSource } from './chat-source';
 import { useSessions } from '../../sessions/store';
 import { runBadge, useRuns } from '../../sessions/runs';
 import {
@@ -74,6 +74,7 @@ export function useChat(
   referenceSource?: ReferenceSource,
   onNewChat?: () => void,
 ) {
+  const { navigate } = useChatTabSource();
   const chat = useSessions((state) => state.chats[sessionId] ?? null);
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -388,13 +389,13 @@ export function useChat(
         .fork({ sessionId, entryId })
         .then((forked) => {
           useSessions.getState().putChat(forked.sessionId!, forked);
-          useNavigationStore.getState().openChat(forked.sessionId!, forked.projectId);
+          navigate({ page: 'chat', projectId: forked.projectId, sessionId: forked.sessionId! });
         })
         .catch((e) =>
           showToast({ variant: 'error', title: '分支失败', description: errorMessage(e) }),
         );
     },
-    [sessionId],
+    [navigate, sessionId],
   );
 
   const refresh = () => {
