@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '../../ui/button';
 import { HoverCard } from 'radix-ui';
 import { Archive, Cloud, Folder, Pin, PinOff } from 'lucide-react';
-import type { RunStatus } from '../../shared/api';
+import type { RunStatus } from '../../core/protocol/agent';
 import { cn } from '../../ui/cn';
 import { menuPanel } from '../../ui/menu-styles';
 import { useSessionRunStatus, updateSession } from '../../modules/chat/view';

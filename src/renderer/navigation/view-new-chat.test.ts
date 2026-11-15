@@ -2,7 +2,7 @@
 // 「新建对话」与「打开会话」的落位：工作台里（项目或资料）就地在焦点组开标签，不跳页、不分屏；
 // 只有首页发起的随聊留在首页。通用会话的工作目录归属跟着发起页走（资料页 library、首页 chat）。
 import { beforeEach, expect, it, vi } from 'vitest';
-import type { ChatScope, WorkspaceChat } from '../../shared/api';
+import type { ChatScope, WorkspaceChat } from '../../core/protocol/agent';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好。
 const creates = vi.hoisted(() => {

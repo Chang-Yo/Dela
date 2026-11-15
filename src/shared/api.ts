@@ -1,18 +1,6 @@
 // 聚合出口：领域契约在同目录领域文件，本文件只 re-export，保证全仓既有 import 路径不变。
 // 领域类型变化请直接改对应文件，不在此处添加逻辑。
 import type { Bridge } from '../core/protocol/contract';
-export type {
-  AgentCapabilityView,
-  McpConnectionStatus,
-  McpServerConfig,
-  McpServerView,
-  SkillOrigin,
-  SkillView,
-  WebSearchEntry,
-  WebSearchEntryInput,
-  WebSearchEntrySummary,
-  WebSearchKeySource,
-} from './capabilities';
 import type { WindowApi } from './window';
 
 export interface DelaApi {
@@ -30,28 +18,6 @@ export interface DelaApi {
 export type { WindowState, TrayAction, WindowApi } from './window';
 
 export type {
-  LlmCatalogModel,
-  LlmCatalogProvider,
-  LlmModelSettings,
-  LlmProviderView,
-  LlmSaveInput,
-  LlmVerifyInput,
-  LlmVerifyResult,
-} from './llm';
-
-export type {
-  ChatAskInput,
-  ChatComment,
-  ChatMediaView,
-  ChatQueuedDraft,
-  ChatCommandView,
-  FileChangeSummary,
-  FileChangeDetail,
-  TurnChanges,
-  UncommittedChanges,
-} from './chat';
-
-export type {
   DocumentContent,
   OfficeExportInfo,
   OfficeExportProgress,
@@ -64,28 +30,6 @@ export type {
   WorkspaceCreateInput,
 } from '../modules/workspace/contract';
 export { workspaceArchiveId } from '../modules/workspace/contract';
-
-export type {
-  AgentToolOutput,
-  AgentToolResult,
-  BackgroundTaskView,
-  ChatScope,
-  ChatSessionSummary,
-  ContextUsageView,
-  WorkspaceChat,
-  SidechatView,
-  SubagentDetails,
-  TaskNoticeDetails,
-  TaskStatus,
-  RunEvent,
-  RunStatus,
-  ChatStreamEvent,
-  ChatQueueEvent,
-  MainSessionCommand,
-  SessionCommandName,
-} from './session';
-
-export { SESSION_COMMANDS, parseSessionCommand } from './session';
 
 export type {
   TabKind,

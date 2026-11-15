@@ -1,6 +1,6 @@
 // 会话命令的识别：命令名后要么结束、要么空白再跟参数；参数可以跨行（/compact 的压缩说明）。
 import { expect, it } from 'vitest';
-import { parseSessionCommand } from './session';
+import { parseSessionCommand } from '../protocol/agent';
 
 it('recognizes session commands and keeps multiline arguments', () => {
   expect(parseSessionCommand('/compact')).toEqual({ name: 'compact', args: '' });

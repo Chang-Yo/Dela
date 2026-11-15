@@ -14,7 +14,7 @@ import {
 import { SettingsPage } from '../features/settings';
 import { ReleaseNotesDialog, UpdatePrompt } from '../../modules/update/view';
 import { GlobalSearchDialog } from '../../modules/search/view';
-import type { ChatSessionSummary } from '../../shared/api';
+import type { ChatSessionSummary } from '../../core/protocol/agent';
 import type { SearchHit } from '../../modules/search/contract';
 import type { NavTarget } from '../../app/module';
 import { pageOf, views } from '../../app/views';
