@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardPaste, Copy, Plus, SquareTerminal, X } from 'lucide-react';
-import type { TerminalEvent, TerminalSession } from '../contract';
 import { onTerminalEvent, terminalClient } from './client';
+import { useTerminalStore } from './store';
 import { showToast } from '../../../renderer/app/toasts';
 import { Button } from '../../../ui/button';
 import { errorText } from '../../../renderer/workspace/store';
@@ -11,9 +12,6 @@ import { cn } from '../../../ui/cn';
 import { platform } from '../../../renderer/lib/platform';
 import '@xterm/xterm/css/xterm.css';
 import { ErrorText } from '../../../ui/alert';
-
-const activeByProject = new Map<string, string>();
-const BUFFER_LIMIT = 1024 * 1024;
 
 // xterm 的配色解析器不支持 oklch；借浏览器画布转换现有主题 token。
 function terminalColor(value: string): string {
@@ -30,35 +28,56 @@ function withAlpha(color: string, alpha: number): string {
   return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
 }
 
-function applyEvent(session: TerminalSession, event: TerminalEvent): TerminalSession {
-  if (event.sequence <= session.sequence) return session;
-  return event.type === 'data'
-    ? {
-        ...session,
-        sequence: event.sequence,
-        buffer: (session.buffer + event.data).slice(-BUFFER_LIMIT),
-      }
-    : { ...session, sequence: event.sequence, exitCode: event.exitCode };
-}
+const noTabs: never[] = [];
 
 export function TerminalTab({ tabId }: { tabId: string }) {
   const desktop = Boolean(window.dela);
   const projectId = tabId.slice('terminal:'.length);
-  const [sessions, setSessions] = useState<TerminalSession[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(activeByProject.get(projectId) ?? null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(true);
+  const tabs = useTerminalStore((state) => state.tabs[projectId]) ?? noTabs;
+  const remembered = useTerminalStore((state) => state.active[projectId]);
+  const select = useTerminalStore((state) => state.select);
+  const [creating, setCreating] = useState(false);
+  const [reported, setReported] = useState<string | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
   const host = useRef<HTMLDivElement>(null);
-  const screen = useRef<{ id: string; terminal: Terminal } | null>(null);
-  const snapshots = useRef<TerminalSession[]>([]);
-  const pending = useRef<TerminalEvent[]>([]);
-  const waitingIds = useRef(new Set<string>());
-  const loading = useRef(true);
-  const mounted = useRef(false);
+  const screen = useRef<Terminal | null>(null);
+
+  // 上次选中的会话已不在了就落到第一个。
+  const active = tabs.find((item) => item.id === remembered) ?? tabs[0];
+  const activeId = active?.id ?? null;
+
+  const create = async () => {
+    if (!desktop) return;
+    setCreating(true);
+    setReported(null);
+    try {
+      await useTerminalStore.getState().create(projectId);
+    } catch (cause) {
+      showToast({ variant: 'error', title: '新建终端失败', description: errorText(cause) });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // 打开标签时读一次清单；没有会话就新建一个。离开标签即丢弃，下次打开重读。
+  const opened = useQuery({
+    queryKey: ['terminal', 'open', projectId],
+    queryFn: async () => {
+      const items = await useTerminalStore.getState().load(projectId);
+      if (!items.length) await create();
+      return null;
+    },
+    enabled: desktop,
+    gcTime: 0,
+    staleTime: Infinity,
+  });
+  const busy = desktop && (opened.isPending || creating);
+  const error = desktop
+    ? (reported ?? (opened.error ? errorText(opened.error) : null))
+    : '内置终端仅在桌面应用中可用';
 
   const copy = async () => {
-    const text = screen.current?.terminal.getSelection();
+    const text = screen.current?.getSelection();
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -68,111 +87,21 @@ export function TerminalTab({ tabId }: { tabId: string }) {
   };
   const paste = async () => {
     const current = screen.current;
-    if (!current || current.terminal.options.disableStdin) return;
+    if (!current || current.options.disableStdin) return;
     try {
       const text = await navigator.clipboard.readText();
       if (screen.current !== current) return;
-      current.terminal.paste(text);
-      current.terminal.focus();
+      current.paste(text);
+      current.focus();
     } catch (cause) {
       showToast({ variant: 'error', title: '粘贴失败', description: errorText(cause) });
     }
   };
 
-  const select = (id: string | null) => {
-    if (id) activeByProject.set(projectId, id);
-    else activeByProject.delete(projectId);
-    setActiveId(id);
-  };
-  const install = (items: TerminalSession[]) => {
-    const merged = items.map((item) =>
-      pending.current.filter((event) => event.id === item.id).reduce(applyEvent, item),
-    );
-    const installed = new Set(items.map((item) => item.id));
-    pending.current = pending.current.filter((event) => !installed.has(event.id));
-    snapshots.current = merged;
-    setSessions(merged);
-    return merged;
-  };
-  const create = async () => {
-    if (!desktop) return;
-    setBusy(true);
-    setError(null);
-    const id = crypto.randomUUID();
-    waitingIds.current.add(id);
-    try {
-      const item = await terminalClient.create({ projectId, id });
-      if (!mounted.current) return;
-      install([...snapshots.current, item]);
-      select(item.id);
-    } catch (cause) {
-      showToast({ variant: 'error', title: '新建终端失败', description: errorText(cause) });
-    } finally {
-      waitingIds.current.delete(id);
-      if (mounted.current) setBusy(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!desktop) {
-      setError('内置终端仅在桌面应用中可用');
-      setBusy(false);
-      return;
-    }
-    let alive = true;
-    mounted.current = true;
-    const unsubscribe = onTerminalEvent('event', (event) => {
-      if (event.projectId !== projectId) return;
-      const item = snapshots.current.find((item) => item.id === event.id);
-      if (!item) {
-        if (loading.current || waitingIds.current.has(event.id)) pending.current.push(event);
-        return;
-      }
-      if (event.sequence <= item.sequence) return;
-      const next = applyEvent(item, event);
-      snapshots.current = snapshots.current.map((item) => (item.id === event.id ? next : item));
-      // 纯输出不进 React 状态：UI 只消费 title/exitCode，回放缓冲由 ref 持有；
-      // 逐块 setState 会把每次输出放大成整个终端区（含百万字符 buffer）的重渲。
-      if (event.type === 'data') {
-        if (screen.current?.id === event.id) screen.current.terminal.write(event.data);
-        return;
-      }
-      setSessions(snapshots.current);
-    });
-    void terminalClient
-      .list(projectId)
-      .then(async (items) => {
-        if (!alive) return;
-        loading.current = false;
-        if (!items.length) {
-          await create();
-          return;
-        }
-        const merged = install(items);
-        const remembered = activeByProject.get(projectId);
-        select(merged.find((item) => item.id === remembered)?.id ?? merged[0]!.id);
-        setBusy(false);
-      })
-      .catch((cause: unknown) => {
-        if (alive) {
-          setError(errorText(cause));
-          setBusy(false);
-        }
-      });
-    return () => {
-      alive = false;
-      mounted.current = false;
-      unsubscribe();
-    };
-    // 订阅的生命周期以项目为界；输出、活动会话通过 ref 接入，不反复建立 IPC 订阅。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [desktop, projectId]);
-
-  const activeExists = sessions.some((item) => item.id === activeId);
   useEffect(() => {
     const element = host.current;
-    const session = snapshots.current.find((item) => item.id === activeId);
-    if (!element || !session) return;
+    const session = useTerminalStore.getState().output[activeId ?? ''];
+    if (!element || !activeId || !session) return;
     const style = getComputedStyle(element);
     const foreground = terminalColor(style.color);
     const terminal = new Terminal({
@@ -189,7 +118,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
       },
       // ANSI 默认色板按暗色背景设计；与 VS Code 一致按 WCAG AA 自动调整对比度。
       minimumContrastRatio: 4.5,
-      disableStdin: session.exitCode !== null,
+      disableStdin: active?.exitCode !== null,
       altClickMovesCursor: true,
       cursorStyle: 'block',
       cursorBlink: true,
@@ -203,8 +132,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
     terminal.write(session.buffer, () => {
       replaying = false;
     });
-    screen.current = { id: session.id, terminal };
-    setHasSelection(false);
+    screen.current = terminal;
     const selection = terminal.onSelectionChange(() => setHasSelection(terminal.hasSelection()));
     terminal.attachCustomKeyEventHandler((event) => {
       const clipboardModifier =
@@ -221,19 +149,25 @@ export function TerminalTab({ tabId }: { tabId: string }) {
       }
       return true;
     });
-    const reportError = (cause: unknown) => {
-      if (mounted.current) setError(errorText(cause));
-    };
+    const reportError = (cause: unknown) => setReported(errorText(cause));
     const resize = () => {
       if (!element.clientWidth || !element.clientHeight) return;
       fit.fit();
       void terminalClient
-        .resize({ id: session.id, cols: terminal.cols, rows: terminal.rows })
+        .resize({ id: activeId, cols: terminal.cols, rows: terminal.rows })
         .catch(reportError);
     };
     const input = terminal.onData((data) => {
       if (replaying) return;
-      void terminalClient.write({ id: session.id, data }).catch(reportError);
+      void terminalClient.write({ id: activeId, data }).catch(reportError);
+    });
+    // 缓冲与订阅在同一刻取得：之后到的输出直接写进终端，store 里同时累积供下次回放。
+    let lastSequence = session.sequence;
+    const stopEvents = onTerminalEvent('event', (event) => {
+      if (event.id !== activeId || event.sequence <= lastSequence) return;
+      lastSequence = event.sequence;
+      if (event.type === 'data') terminal.write(event.data);
+      else terminal.options.disableStdin = true;
     });
     const observer = new ResizeObserver(resize);
     observer.observe(element);
@@ -258,28 +192,20 @@ export function TerminalTab({ tabId }: { tabId: string }) {
     resize();
     terminal.focus();
     return () => {
+      stopEvents();
       observer.disconnect();
       themeObserver.disconnect();
       input.dispose();
       selection.dispose();
       screen.current = null;
+      setHasSelection(false);
       terminal.dispose();
     };
-  }, [activeId, activeExists]);
-
-  const active = sessions.find((item) => item.id === activeId);
-  useEffect(() => {
-    if (screen.current) screen.current.terminal.options.disableStdin = active?.exitCode !== null;
-  }, [active?.exitCode]);
+  }, [activeId]);
 
   const close = async (id: string) => {
     try {
-      await terminalClient.close(id);
-      if (!mounted.current) return;
-      const index = snapshots.current.findIndex((item) => item.id === id);
-      const remaining = snapshots.current.filter((item) => item.id !== id);
-      install(remaining);
-      if (activeId === id) select(remaining[index]?.id ?? remaining[index - 1]?.id ?? null);
+      await useTerminalStore.getState().close(projectId, id);
     } catch (cause) {
       showToast({ variant: 'error', title: '关闭终端失败', description: errorText(cause) });
     }
@@ -293,7 +219,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
           className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
           role="tablist"
         >
-          {sessions.map((session, index) => (
+          {tabs.map((session, index) => (
             <div
               key={session.id}
               className={cn(
@@ -306,7 +232,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
                 className="flex items-center gap-2 rounded-control px-3 py-1.5 focus-visible:outline focus-visible:outline-accent"
                 role="tab"
                 type="button"
-                onClick={() => select(session.id)}
+                onClick={() => select(projectId, session.id)}
               >
                 <SquareTerminal className="size-4" />
                 {session.title} {index + 1}
@@ -376,7 +302,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
         onContextMenu={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          if (screen.current?.terminal.hasSelection()) void copy();
+          if (screen.current?.hasSelection()) void copy();
           else void paste();
         }}
         className={cn(
