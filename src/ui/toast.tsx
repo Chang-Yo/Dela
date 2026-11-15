@@ -1,14 +1,15 @@
 'use client';
 
 import { CircleAlert, CircleCheck, Sparkles, X, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Toast } from 'radix-ui';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import { cn } from './cn';
 import { IconButton } from './icon-button';
 
 export type ToastVariant = 'error' | 'success';
 
-/* Dela 适配新增（上游无此文件）：应用内通知浮窗卡片。
- * 纯展示：文案、变体与关闭回调由调用方传入（宿主见 app/toasts.tsx），库不持有状态。
+/* Dela 适配新增（上游无此文件）：应用内通知浮窗卡片与宿主。
+ * ToastCard 纯展示；瞬时动作结果由任意模块直接调 showToast()，持久状态仍内联展示。
  * 外观遵循库浮岛惯例：rounded-card + hairline 阴影（shadow-overlay），语义 tint 圆底图标。 */
 
 const tone = {
@@ -66,5 +67,80 @@ export function ToastCard({
         </IconButton>
       )}
     </div>
+  );
+}
+
+export interface ToastItem {
+  id: string;
+  open: boolean;
+  /** neutral：没有成败之分的消息（如 Pi 扩展的通知）。 */
+  variant: ToastVariant | 'neutral';
+  title: string;
+  description?: string;
+}
+
+const MAX_OPEN_TOASTS = 4;
+// 错误需要读的时间长一些；成功一瞥即走。
+const DURATION_MS: Record<ToastItem['variant'], number> = {
+  error: 8000,
+  success: 4000,
+  neutral: 6000,
+};
+
+let items: ToastItem[] = [];
+const listeners = new Set<() => void>();
+
+function setItems(next: ToastItem[]) {
+  items = next;
+  for (const listener of listeners) listener();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function showToast(toast: Omit<ToastItem, 'id' | 'open'>) {
+  const opened = items.filter((item) => item.open);
+  // 超出上限丢最旧，避免持续失败刷屏。
+  setItems([...opened, { id: crypto.randomUUID(), open: true, ...toast }].slice(-MAX_OPEN_TOASTS));
+}
+
+export function dismissToast(id: string) {
+  setItems(items.map((item) => (item.id === id ? { ...item, open: false } : item)));
+}
+
+export function toasts() {
+  return items.filter((item) => item.open);
+}
+
+/** 钉在 AppShell 的 main#app-main 末尾。 */
+export function Toaster() {
+  const current = useSyncExternalStore(subscribe, () => items);
+  return (
+    <Toast.Provider>
+      {current.map((toast) => (
+        <Toast.Root
+          key={toast.id}
+          open={toast.open}
+          duration={DURATION_MS[toast.variant]}
+          onOpenChange={(open) => {
+            if (!open) dismissToast(toast.id);
+          }}
+          className="data-[state=closed]:animate-toast-out data-[state=open]:animate-toast-in motion-reduce:animate-none"
+        >
+          <ToastCard
+            variant={toast.variant}
+            title={toast.title}
+            description={toast.description}
+            onClose={() => dismissToast(toast.id)}
+          />
+        </Toast.Root>
+      ))}
+      <Toast.Viewport
+        data-toast-host=""
+        className="pointer-events-none absolute inset-x-0 top-0 z-toast flex flex-col items-center gap-2 px-4 pt-3"
+      />
+    </Toast.Provider>
   );
 }

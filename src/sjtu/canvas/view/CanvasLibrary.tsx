@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Download, Ellipsis, Folder, GraduationCap, KeyRound, RefreshCw } from 'lucide-react';
 import type { LibraryProps } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { CollapseChevron } from '../../../ui/collapse';

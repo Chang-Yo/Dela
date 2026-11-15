@@ -16,7 +16,7 @@ const bridge = vi.hoisted(() => {
   window.dela = dela;
   return { procedures, dela };
 });
-import { useToastStore } from '../../../../renderer/app/toasts';
+import { dismissToast, toasts } from '../../../../ui/toast';
 import { useNoteDrafts, type NoteDraft } from '../../../note/view';
 import { UpdateControl } from '../UpdateControl';
 import { useUpdateState } from '../update';
@@ -91,7 +91,7 @@ afterEach(async () => {
   container.remove();
   useUpdateState.setState({ snapshot: null, preparingInstall: false, dismissedVersion: null });
   useNoteDrafts.setState({ drafts: {} });
-  useToastStore.setState({ toasts: [] });
+  for (const toast of toasts()) dismissToast(toast.id);
   bridge.procedures.clear();
   window.dela = bridge.dela;
   vi.unstubAllGlobals();

@@ -15,7 +15,7 @@ import { useChat, useChatDraft, type ChatReference } from './use-chat';
 import { referenceContext, sessionReferences } from './reference-tokens';
 import { poolKey, updateSession, useSessions } from './sessions';
 import { useWorkspaceStore } from '../../workspace/view';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { reviewTabId } from './review/tab-id';
 import { SidechatPanel } from './SidechatPanel';
 import { openSidechat, useSidechats } from './sidechat-store';

@@ -6,7 +6,7 @@ import { formatMailAddress, formatFullDate, formatSize } from './mail-format';
 import { MailHtmlBody } from './MailHtmlBody';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { cn } from '../../../ui/cn';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { errorMessage } from '../../../core/protocol/contract';
 import { ErrorText } from '../../../ui/alert';
 

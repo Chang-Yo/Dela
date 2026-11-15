@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Navigate } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
 import { CredentialRow } from '../../../modules/settings/view';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { ShuiyuanIcon } from './shuiyuan-icon';
 import { shuiyuanClient, useShuiyuanState } from './use-shuiyuan';

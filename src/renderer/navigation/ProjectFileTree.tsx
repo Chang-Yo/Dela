@@ -41,7 +41,7 @@ import {
 import type { EntryAction } from '../workspace/entry-actions';
 import { remoteAccent } from '../../modules/remotes/view';
 import { remoteTitle, useRemoteTree } from './remote-tree';
-import { showToast } from '../app/toasts';
+import { showToast } from '../../ui/toast';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 import { ErrorText } from '../../ui/alert';
 import { Spinner } from '../../ui/spinner';

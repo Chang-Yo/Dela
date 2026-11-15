@@ -5,7 +5,7 @@ import { SectionHeader } from './SectionHeader';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { UpdateControl } from '../../update/view';
 import { errorMessage } from '../../../core/protocol/contract';
 

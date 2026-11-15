@@ -6,7 +6,7 @@ import type { RunStatus } from '../../core/protocol/agent';
 import { cn } from '../../ui/cn';
 import { menuPanel } from '../../ui/menu-styles';
 import { useSessionRunStatus, updateSession } from '../../modules/chat/view';
-import { showToast } from '../app/toasts';
+import { showToast } from '../../ui/toast';
 import { navSubRow, rowActions } from './nav-styles';
 import { IconButton } from '../../ui/icon-button';
 import { errorMessage } from '../../core/protocol/contract';

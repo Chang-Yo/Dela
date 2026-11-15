@@ -16,7 +16,7 @@ import { mailContract, type MailComposeFile, type PreparedEmail } from '../contr
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { formatSize } from './mail-format';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
 import { draftsKey, mailClient } from './use-mail';
 import { acceleratorFromEvent } from '../../settings/contract';

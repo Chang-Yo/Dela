@@ -29,7 +29,7 @@ import { menuPanel } from '../../../ui/menu-styles';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
 import { cn } from '../../../ui/cn';
 import { errorMessage } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import type { ClassroomVideo, VideoCourse } from '../contract';
 import { formatTime, lectureFileName, lectureMeta, lectureTitle } from './player-format';
 import {

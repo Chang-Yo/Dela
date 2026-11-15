@@ -30,7 +30,7 @@ import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Switch } from '../../../ui/switch';
 import { cn } from '../../../ui/cn';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { EventColorRow } from './EventColorRow';
 import { formatTime, roundToMinute, startOfDay } from './calendar';
 import { DateTimeStepper } from './DateTimeStepper';

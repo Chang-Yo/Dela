@@ -31,7 +31,7 @@ import {
   useTodoState,
 } from '../../../modules/todo/view';
 import { cn } from '../../../ui/cn';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { Callout } from '../../../ui/alert';
 
 type CalendarMode = 'week' | 'month';

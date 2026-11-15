@@ -11,7 +11,7 @@ import { useNoteDrafts } from '../../modules/note/view';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
-import { showToast } from '../app/toasts';
+import { showToast } from '../../ui/toast';
 import { errorMessage } from '../../core/protocol/contract';
 
 /** 重命名前先冲盘，成功后一次迁移本窗口已知路径与草稿。 */

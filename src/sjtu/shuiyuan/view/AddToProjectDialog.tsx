@@ -4,7 +4,7 @@ import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { errorMessage } from '../../../core/protocol/contract';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { shuiyuanClient, SOURCE_PREFIX } from './use-shuiyuan';
 import {
   Dialog,

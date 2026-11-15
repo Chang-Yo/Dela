@@ -10,7 +10,7 @@ import { ChevronRight, Clock, Folder, FolderPlus, House, Search } from 'lucide-r
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/cn';
 import type { RemoteDraft } from '../contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { remotesClient } from './client';
 import { IconButton } from '../../../ui/icon-button';
 import { errorMessage } from '../../../core/protocol/contract';

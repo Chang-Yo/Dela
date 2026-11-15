@@ -1,7 +1,7 @@
 import { MonitorPlay } from 'lucide-react';
 import { defineView } from '../../../app/module';
 import { subscribe } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { classroomContract } from '../contract';
 import { ClassroomStorage } from './ClassroomStorage';
 import { ClassroomView } from './ClassroomView';

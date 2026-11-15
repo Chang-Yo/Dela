@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, LogIn } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { connectAndSyncTimetable } from './use-timetable';
 
 /** 无同步记录时的登录卡：登录在独立窗口完成，成功后同步该学期的课程。 */

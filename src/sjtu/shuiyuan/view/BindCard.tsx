@@ -5,7 +5,7 @@ import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
 import { ShuiyuanIcon } from './shuiyuan-icon';
 import { Textarea } from '../../../ui/textarea';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { shuiyuanClient } from './use-shuiyuan';
 
 /** 未绑定时的授权卡：发起授权窗口 → 粘贴密文 → 绑定。 */

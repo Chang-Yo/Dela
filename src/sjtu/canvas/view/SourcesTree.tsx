@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Archive, Columns2, Download, Ellipsis, FileText, FolderOpen, Link2 } from 'lucide-react';
 import type { LibraryProps } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { Explorer, type ExplorerItem } from '../../../modules/workspace/view';
 import { fileManagerName } from '../../../renderer/lib/platform';
 import { ConfirmDialog } from '../../../ui/dialog';

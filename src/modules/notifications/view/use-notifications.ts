@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Navigate } from '../../../app/module';
 import { createClient, errorMessage } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { notificationsContract, type NotificationItem, type NotificationTarget } from '../contract';
 
 export const notificationsClient = createClient(notificationsContract, window.dela?.bridge);

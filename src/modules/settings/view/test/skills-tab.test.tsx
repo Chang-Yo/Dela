@@ -17,7 +17,7 @@ const { api, bridge } = vi.hoisted(() => {
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   return { api, bridge };
 });
-import { useToastStore } from '../../../../renderer/app/toasts';
+import { dismissToast, toasts } from '../../../../ui/toast';
 import { useWorkspaceStore } from '../../../workspace/view';
 import { SkillsTab } from '../agent/SkillsTab';
 
@@ -75,7 +75,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  useToastStore.setState({ toasts: [] });
+  for (const toast of toasts()) dismissToast(toast.id);
   delete window.dela;
   vi.unstubAllGlobals();
 });
@@ -162,7 +162,7 @@ it('reports other errors as a toast', async () => {
   await openDialog(call);
   await act(async () => buttonByText('远端课题').click());
   await act(async () => buttonByText('上传').click());
-  expect(useToastStore.getState().toasts[0]).toMatchObject({
+  expect(toasts()[0]).toMatchObject({
     variant: 'error',
     description: 'ssh 连接失败',
   });
@@ -227,7 +227,7 @@ it('cancels installation without presenting the user action as a failure', async
   await act(async () => buttonByText('取消安装').click());
   await settle();
   expect(cancelSkillInstallation).toHaveBeenCalledWith('document-reading');
-  expect(useToastStore.getState().toasts).toHaveLength(0);
+  expect(toasts()).toHaveLength(0);
   expect(buttonByText('安装并启用')).toBeTruthy();
 });
 

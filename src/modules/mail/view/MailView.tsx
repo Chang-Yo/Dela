@@ -26,7 +26,7 @@ import { useMediaQuery } from '../../../ui/use-media-query';
 import { useMobileDrawer } from '../../../renderer/lib/mobile-drawer';
 import { useMailPreferences } from './store';
 import { draftsKey, mailBoxKey, mailClient, mailStateKey, useMailState } from './use-mail';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
 import { Callout, ErrorText } from '../../../ui/alert';
 

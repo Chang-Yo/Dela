@@ -7,7 +7,7 @@ import { Input } from '../../../../ui/input';
 import { Switch } from '../../../../ui/switch';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
-import { showToast } from '../../../../renderer/app/toasts';
+import { showToast } from '../../../../ui/toast';
 import { SearchConfigDialog } from './SearchConfigDialog';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';

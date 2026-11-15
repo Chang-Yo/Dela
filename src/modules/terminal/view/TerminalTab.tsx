@@ -5,7 +5,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardPaste, Copy, Plus, SquareTerminal, X } from 'lucide-react';
 import { onTerminalEvent, terminalClient } from './client';
 import { useTerminalStore } from './store';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { platform } from '../../../renderer/lib/platform';

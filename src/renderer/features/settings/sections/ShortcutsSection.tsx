@@ -12,7 +12,7 @@ import {
 } from '../../../../modules/settings/contract';
 import { useShortcuts } from '../../../app/shortcuts';
 import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
-import { showToast } from '../../../app/toasts';
+import { showToast } from '../../../../ui/toast';
 import { platform } from '../../../lib/platform';
 import { ErrorText } from '../../../../ui/alert';
 import { errorMessage } from '../../../../core/protocol/contract';

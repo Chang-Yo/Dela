@@ -18,7 +18,7 @@ import {
   stripChatImageTokens,
 } from '../../../core/protocol/chat-input';
 import { agentClient } from './client';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { useChatTabSource } from './chat-source';
 import { useSessions } from './sessions';
 import { isSessionViewed, useRuns } from './runs';

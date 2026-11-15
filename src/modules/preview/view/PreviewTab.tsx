@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '../../../ui/button';
 import { useRootFontSize } from '../../../renderer/lib/root-font-size';
 import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';

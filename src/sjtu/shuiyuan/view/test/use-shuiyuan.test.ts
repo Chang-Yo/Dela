@@ -17,7 +17,7 @@ const api = vi.hoisted(() => {
   return handlers;
 });
 const toast = vi.hoisted(() => vi.fn());
-vi.mock('../../../../renderer/app/toasts', () => ({ showToast: toast }));
+vi.mock('../../../../ui/toast', () => ({ showToast: toast }));
 import { loadMorePosts, loadPostWindow, setPostLiked, submitReply, topicOf } from '../use-shuiyuan';
 
 function makePost(id: number, liked = false): ShuiyuanPost {

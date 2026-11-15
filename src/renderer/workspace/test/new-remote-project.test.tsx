@@ -38,9 +38,9 @@ import { NewRemoteProjectDialog } from '../remote/NewRemoteProjectDialog';
 import { usePreferences } from '../../app/preferences';
 import { useRemoteState } from '../../../modules/remotes/view';
 import { useWorkspaceStore } from '../../../modules/workspace/view';
-import { showToast } from '../../app/toasts';
+import { showToast } from '../../../ui/toast';
 
-vi.mock('../../app/toasts', () => ({ showToast: vi.fn() }));
+vi.mock('../../../ui/toast', () => ({ showToast: vi.fn() }));
 
 let container: HTMLDivElement;
 let root: Root;

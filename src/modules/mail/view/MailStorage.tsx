@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '../../../core/protocol/contract';
 import { SettingRow } from '../../settings/view';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import type { MailTrashRetention } from '../contract';
 import { mailClient, useMailState } from './use-mail';

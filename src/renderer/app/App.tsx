@@ -25,7 +25,7 @@ import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
 import { useNoteDrafts } from '../../modules/note/view';
 import { useWorkspaceStore } from '../../modules/workspace/view';
-import { showToast } from './toasts';
+import { showToast } from '../../ui/toast';
 import { useNavigationStore } from '../navigation/view';
 import { useMobileDrawer } from '../lib/mobile-drawer';
 import { useNotificationCounts } from '../../modules/notifications/view';

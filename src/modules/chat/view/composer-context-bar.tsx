@@ -4,7 +4,7 @@ import { Popover } from 'radix-ui';
 import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } from 'lucide-react';
 import type { WorkspaceEntry } from '../../workspace/contract';
 import { useChatTabSource } from './chat-source';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import type { ComposerContext } from './composer-context';
 import { workspaceClient, useWorkspaceStore } from '../../workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';

@@ -8,7 +8,7 @@ import type { ChatCommandView } from '../../../../core/protocol/agent';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
 import { settingsClient } from '../client';
-import { showToast } from '../../../../renderer/app/toasts';
+import { showToast } from '../../../../ui/toast';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';

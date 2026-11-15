@@ -16,7 +16,7 @@ const { api, bridge, invoke } = vi.hoisted(() => {
 });
 import { LlmSection } from '../agent/LlmSection';
 import { GeneralSection } from '../GeneralSection';
-import { useToastStore } from '../../../../renderer/app/toasts';
+import { dismissToast, toasts } from '../../../../ui/toast';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -34,7 +34,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  for (const toast of useToastStore.getState().toasts) useToastStore.getState().dismiss(toast.id);
+  for (const toast of toasts()) dismissToast(toast.id);
   delete window.dela;
   vi.unstubAllGlobals();
 });
@@ -63,9 +63,7 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
   await act(async () => toggle.click());
   expect(toggle.getAttribute('aria-checked')).toBe('false');
   expect(toggle.disabled).toBe(false);
-  expect(useToastStore.getState().toasts).toEqual([
-    expect.objectContaining({ variant: 'error', description: message }),
-  ]);
+  expect(toasts()).toEqual([expect.objectContaining({ variant: 'error', description: message })]);
   await act(async () => toggle.click());
   expect(toggle.getAttribute('aria-checked')).toBe('true');
   expect(setOpenAtLogin).toHaveBeenNthCalledWith(1, true);

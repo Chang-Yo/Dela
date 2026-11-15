@@ -16,7 +16,7 @@ const api = vi.hoisted(() => {
   } as unknown as NonNullable<typeof window.dela>;
   return handlers;
 });
-vi.mock('../../../renderer/app/toasts', () => ({ showToast: vi.fn() }));
+vi.mock('../../../ui/toast', () => ({ showToast: vi.fn() }));
 import { MailComposer } from './MailComposer';
 
 let container: HTMLDivElement;

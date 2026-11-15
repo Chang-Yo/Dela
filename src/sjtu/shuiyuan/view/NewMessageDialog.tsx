@@ -5,7 +5,7 @@ import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { errorMessage } from '../../../core/protocol/contract';
 import { MarkdownEditor } from '../../../modules/note/view';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { openTopic } from './store';
 import { shuiyuanClient } from './use-shuiyuan';
 import {

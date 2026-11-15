@@ -18,7 +18,7 @@ const { api, dela } = vi.hoisted(() => {
   return { api, dela };
 });
 import { useNavigationStore } from '../navigation/view';
-import { useToastStore } from '../app/toasts';
+import { toasts } from '../../ui/toast';
 import {
   ChatHome,
   ChatTabSourceProvider,
@@ -186,7 +186,7 @@ it('从会话顶部导出当前对话，并提示缺失附件', async () => {
   );
   await act(async () => button()!.click());
   expect(save).toHaveBeenCalledWith('first');
-  expect(useToastStore.getState().toasts.at(-1)).toMatchObject({
+  expect(toasts().at(-1)).toMatchObject({
     title: '会话已导出，部分文件未打包',
     description: '讲义.pdf',
   });
@@ -286,7 +286,7 @@ describe('会话命令', () => {
     expect(ask).not.toHaveBeenCalled();
     expect(list).toHaveBeenCalledWith({ projectId: null });
     expect(useChatDrafts.getState().drafts.first?.prompt ?? '').toBe('');
-    expect(useToastStore.getState().toasts.at(-1)?.title).toBe('已重命名');
+    expect(toasts().at(-1)?.title).toBe('已重命名');
   });
 
   it('命令失败时提示原因并把输入放回去', async () => {

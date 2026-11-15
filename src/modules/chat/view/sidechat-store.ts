@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import type { SidechatView } from '../../../core/protocol/agent';
 import { agentClient, onAgentEvent } from './client';
 import { keepToolImages } from './sessions';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { emptyDraft, useChatDrafts } from './drafts';
 import { errorMessage } from '../../../core/protocol/contract';
 

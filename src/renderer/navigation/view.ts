@@ -8,7 +8,7 @@ import type { TabId } from '../../modules/workspace/contract';
 import { useWorkspaceStore } from '../../modules/workspace/view';
 import { formatByName, opensInEditor } from '../../core/protocol/files';
 import { parseRemoteNodeId } from '../../modules/remotes/contract';
-import { showToast } from '../app/toasts';
+import { showToast } from '../../ui/toast';
 import type { NavTarget, NavTargets } from '../../app/module';
 import { pageOf, views } from '../../app/views';
 import { errorMessage } from '../../core/protocol/contract';

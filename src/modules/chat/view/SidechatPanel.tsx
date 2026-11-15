@@ -18,7 +18,7 @@ import {
 } from '../../../core/protocol/chat-input';
 import { agentClient } from './client';
 import { IconButton } from '../../../ui/icon-button';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { cn } from '../../../ui/cn';
 import { useChatTabSource } from './chat-source';
 import { useSessions } from './sessions';

@@ -30,7 +30,7 @@ import {
 } from '../../../../core/protocol/llm-models';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
-import { showToast } from '../../../../renderer/app/toasts';
+import { showToast } from '../../../../ui/toast';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import {

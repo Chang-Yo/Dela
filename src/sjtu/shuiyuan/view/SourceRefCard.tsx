@@ -4,7 +4,7 @@ import type { SourceDocumentProps } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import type { ShuiyuanSnapshotState } from '../contract';
 import { ShuiyuanIcon } from './shuiyuan-icon';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';

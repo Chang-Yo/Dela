@@ -16,7 +16,7 @@ const bridge = vi.hoisted(() => {
   window.dela = dela;
   return { procedures, dela };
 });
-import { useToastStore } from '../../../../renderer/app/toasts';
+import { dismissToast, toasts } from '../../../../ui/toast';
 import { useNoteDrafts, type NoteDraft } from '../../../note/view';
 import { UpdatePrompt } from '../UpdatePrompt';
 import { UpdateControl } from '../UpdateControl';
@@ -107,7 +107,7 @@ afterEach(async () => {
   container.remove();
   useUpdateState.setState({ snapshot: null, preparingInstall: false, dismissedVersion: null });
   useNoteDrafts.setState({ drafts: {} });
-  useToastStore.setState({ toasts: [] });
+  for (const toast of toasts()) dismissToast(toast.id);
   bridge.procedures.clear();
   window.dela = bridge.dela;
   vi.unstubAllGlobals();
@@ -142,7 +142,7 @@ it('笔记没冲成功就不安装，也不静默丢掉这次更新', async () =
   await show(readyState);
   await act(async () => button('退出并安装').click());
   expect(install).not.toHaveBeenCalled();
-  expect(useToastStore.getState().toasts[0]?.variant).toBe('error');
+  expect(toasts()[0]?.variant).toBe('error');
   expect(document.body.textContent).toContain('退出并安装');
 });
 
@@ -208,7 +208,7 @@ it('推迟提醒保存失败时保留确认弹窗', async () => {
   await show(readyState);
   await act(async () => button('下次启动时提醒').click());
   expect(document.body.textContent).toContain('退出并安装');
-  expect(useToastStore.getState().toasts[0]?.variant).toBe('error');
+  expect(toasts()[0]?.variant).toBe('error');
   vi.restoreAllMocks();
 });
 

@@ -42,7 +42,7 @@ import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from '../navigation/view';
-import { showToast } from '../app/toasts';
+import { showToast } from '../../ui/toast';
 import { MailDraftDialog } from '../../modules/mail/view';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';

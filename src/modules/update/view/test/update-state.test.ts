@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UpdateSnapshot } from '../../contract';
 
 const toast = vi.hoisted(() => vi.fn());
-vi.mock('../../../../renderer/app/toasts', () => ({ showToast: toast }));
+vi.mock('../../../../ui/toast', () => ({ showToast: toast }));
 
 const base: UpdateSnapshot = {
   phase: 'idle',

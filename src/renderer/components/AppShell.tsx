@@ -25,7 +25,7 @@ import {
 import { Resizer } from '../../ui/resizer';
 import { useEditorSettings } from '../lib/editor-settings';
 import { usePreferences } from '../app/preferences';
-import { showToast, ToastHost } from '../app/toasts';
+import { showToast, Toaster } from '../../ui/toast';
 import { DelaBrand } from '../../modules/settings/view';
 import { cn } from '../../ui/cn';
 import { useMediaQuery } from '../../ui/use-media-query';
@@ -796,7 +796,7 @@ export function AppShell({
         id="app-main"
       >
         {children}
-        <ToastHost />
+        <Toaster />
       </main>
     </div>
   );

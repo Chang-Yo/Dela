@@ -18,7 +18,7 @@ const api = vi.hoisted(() => {
   } as unknown as NonNullable<typeof window.dela>;
   return handlers;
 });
-vi.mock('../../../../renderer/app/toasts', () => ({ showToast: vi.fn() }));
+vi.mock('../../../../ui/toast', () => ({ showToast: vi.fn() }));
 import { TranscriptPanel } from '../TranscriptPanel';
 import { Player } from '../Player';
 import { useClassroom } from '../store';

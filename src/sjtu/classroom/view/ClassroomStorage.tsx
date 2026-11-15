@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Folder } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import { SettingRow } from '../../../modules/settings/view';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { classroomClient } from './use-classroom';
 

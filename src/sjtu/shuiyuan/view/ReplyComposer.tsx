@@ -7,7 +7,7 @@ import { sheetUp } from '../../../ui/motion';
 import { cn } from '../../../ui/cn';
 import { errorMessage } from '../../../core/protocol/contract';
 import { MarkdownEditor } from '../../../modules/note/view';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { SHUIYUAN_ORIGIN, uploadMarkdown } from './shuiyuan-format';
 import { shuiyuanReplyDecorations } from './reply-editor';
 import { SHUIYUAN_HOST } from '../contract';

@@ -18,7 +18,7 @@ const api = vi.hoisted(() => {
   return handlers;
 });
 const toast = vi.hoisted(() => vi.fn());
-vi.mock('../../../../renderer/app/toasts', () => ({ showToast: toast }));
+vi.mock('../../../../ui/toast', () => ({ showToast: toast }));
 import { ClassroomView } from '../ClassroomView';
 
 let host: HTMLDivElement;

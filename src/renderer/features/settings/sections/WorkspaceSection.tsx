@@ -3,7 +3,7 @@ import { Folder } from 'lucide-react';
 import type { WorkbenchLayout } from '../../../../modules/workspace/contract';
 import { Button } from '../../../../ui/button';
 import { SectionHeader, SettingRow, SettingsGroup } from '../../../../modules/settings/view';
-import { showToast } from '../../../app/toasts';
+import { showToast } from '../../../../ui/toast';
 import { workspaceClient, useWorkspaceStore } from '../../../../modules/workspace/view';
 import { errorMessage } from '../../../../core/protocol/contract';
 

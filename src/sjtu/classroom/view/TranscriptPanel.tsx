@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileOutput, Play, RotateCcw } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import type { ClassroomVideo, VideoCourse } from '../contract';
 import { Button } from '../../../ui/button';
 import { SearchInput } from '../../../ui/search-input';

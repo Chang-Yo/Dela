@@ -12,7 +12,7 @@ import { DownloadProgressRow } from '../../../../ui/download-progress';
 import { Switch } from '../../../../ui/switch';
 import { SegmentedControl } from '../../../../ui/segmented-control';
 import { useWorkspaceStore } from '../../../workspace/view';
-import { showToast } from '../../../../renderer/app/toasts';
+import { showToast } from '../../../../ui/toast';
 import { cn } from '../../../../ui/cn';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';

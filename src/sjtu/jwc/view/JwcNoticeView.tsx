@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Download, ExternalLink, Paperclip } from 'lucide-react';
 import type { Navigate } from '../../../app/module';
 import { createClient, errorMessage } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { useRootFontSize } from '../../../renderer/lib/root-font-size';
 import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
 import { useFrameBodyHeight } from '../../../renderer/lib/use-frame-body-height';

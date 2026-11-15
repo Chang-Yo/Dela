@@ -34,7 +34,7 @@ import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../modules/workspace/contract';
 import { remoteAccent } from '../../modules/remotes/view';
 import { useVisibleNavEntries, type NavEntryId } from './entries';
-import { showToast } from '../app/toasts';
+import { showToast } from '../../ui/toast';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { usePreferences } from '../app/preferences';
 import { useNavigationStore } from './store';

@@ -14,7 +14,7 @@ import { Button } from '../../../ui/button';
 import { formatEventRange, formatMinuteOfDay, periodBoundary } from './timetable-format';
 import { calendarToneKey, colorFor, formatMonthDay, weekdayName } from '../../../modules/todo/view';
 import type { CalendarItemDetail } from './WeekCalendar';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { timetableClient } from './use-timetable';
 import {
   Dialog,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { Button } from '../../../ui/button';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { parseRemoteNodeId, type TabId } from '../../workspace/contract';
 import { workspaceClient } from '../../workspace/view';
 import { DocumentToolbar } from './document-toolbar';

@@ -27,7 +27,7 @@ import {
 import type { EdgeZone } from './tab-dnd';
 import { workspaceClient } from '../../modules/workspace/view';
 import { terminalClient } from '../../modules/terminal/view';
-import { showToast } from '../app/toasts';
+import { showToast } from '../../ui/toast';
 import { errorMessage } from '../../core/protocol/contract';
 
 const PERSIST_DEBOUNCE_MS = 800;

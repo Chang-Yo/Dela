@@ -7,7 +7,7 @@ import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { useWorkspaceStore } from '../../workspace/view';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { refreshSessionLists, useSessions, updateSession } from './sessions';
 import { SectionHeader, SettingsGroup } from '../../settings/view';
 import { Callout, ErrorText } from '../../../ui/alert';

@@ -11,7 +11,7 @@ const bridge = vi.hoisted(() => {
   return bridge;
 });
 import { OfficeExportBanner, OfficePromptCard } from '../OfficePrompt';
-import { useToastStore } from '../../../../renderer/app/toasts';
+import { dismissToast, toasts } from '../../../../ui/toast';
 
 const officeRef = { type: 'canvas' as const, id: 'file:1' };
 const exported: OfficeExportInfo = {
@@ -38,7 +38,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
-  useToastStore.setState({ toasts: [] });
+  for (const toast of toasts()) dismissToast(toast.id);
   delete window.dela;
   vi.unstubAllGlobals();
 });
@@ -131,7 +131,7 @@ it('外部打开失败经 toast 提示', async () => {
   );
   await act(async () => container.querySelector('button')!.click());
   expect(openResourceFile).toHaveBeenCalledWith(officeRef);
-  expect(useToastStore.getState().toasts.at(-1)).toMatchObject({
+  expect(toasts().at(-1)).toMatchObject({
     variant: 'error',
     description: '没有关联的应用',
   });

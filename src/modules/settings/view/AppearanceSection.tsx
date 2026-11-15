@@ -17,7 +17,7 @@ import { SectionHeader } from './SectionHeader';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { errorMessage } from '../../../core/protocol/contract';
 
 const themes: Array<{ id: ThemePreference; label: string }> = [

@@ -5,7 +5,7 @@ import type { McpServerView } from '../../../../core/protocol/capabilities';
 import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
 import { cn } from '../../../../ui/cn';
-import { showToast } from '../../../../renderer/app/toasts';
+import { showToast } from '../../../../ui/toast';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { mcpStatusBadge } from './mcp-logic';

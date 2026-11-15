@@ -17,7 +17,7 @@ import { chatImageToken } from '../../core/protocol/chat-input';
 import { registerChatAttachmentCheck, useChatDrafts, useRuns } from '../../modules/chat/view';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { saveWorkspace } from './save-workspace';
-import { useToastStore } from './toasts';
+import { dismissToast, toasts } from '../../ui/toast';
 
 const originalSave = useNoteDrafts.getState().save;
 let install: Mock<() => Promise<unknown>>;
@@ -48,7 +48,7 @@ afterEach(() => {
   useNoteDrafts.setState({ drafts: {}, save: originalSave });
   useChatDrafts.setState({ drafts: {} });
   useRuns.setState({ bySession: {} });
-  useToastStore.setState({ toasts: [] });
+  for (const toast of toasts()) dismissToast(toast.id);
   useUpdateState.setState({ preparingInstall: false });
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -125,7 +125,7 @@ it.each(['mail', 'layout', 'storage', 'attachment', 'image', 'run'])(
     expect(await runUpdateAction('install')).toBe(false);
     expect(install).not.toHaveBeenCalled();
     expect(useUpdateState.getState().preparingInstall).toBe(false);
-    expect(useToastStore.getState().toasts[0]?.variant).toBe('error');
+    expect(toasts()[0]?.variant).toBe('error');
     if (failure === 'image') {
       expect(await runUpdateAction('install')).toBe(false);
       expect(install).not.toHaveBeenCalled();
@@ -159,7 +159,7 @@ it('更新动作 IPC 失败时提示且保留日志，不静默', async () => {
   });
   expect(await runUpdateAction('install')).toBe(false);
   expect(errorSpy).toHaveBeenCalled();
-  expect(useToastStore.getState().toasts[0]).toMatchObject({
+  expect(toasts()[0]).toMatchObject({
     variant: 'error',
     title: '更新操作失败',
     description: 'ipc down',
@@ -173,7 +173,7 @@ it('推迟提醒失败时提示，不静默', async () => {
   });
   await deferInstall();
   expect(errorSpy).toHaveBeenCalled();
-  expect(useToastStore.getState().toasts[0]).toMatchObject({
+  expect(toasts()[0]).toMatchObject({
     variant: 'error',
     title: '设置提醒失败',
     description: 'ipc down',

@@ -1,7 +1,7 @@
 // 按学期分组勾选课程，导出每门课「文件」目录下的全部课件到用户选择的文件夹；最低粒度为课程。
 import { useState } from 'react';
 import { errorMessage } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { Checkbox } from '../../../ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../ui/dialog';

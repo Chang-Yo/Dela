@@ -1,6 +1,6 @@
 import { defineView } from '../../../app/module';
 import { subscribe } from '../../../core/protocol/contract';
-import { showToast } from '../../../renderer/app/toasts';
+import { showToast } from '../../../ui/toast';
 import { shuiyuanContract, shuiyuanTopicFromUrl } from '../contract';
 import { ShuiyuanCredential } from './ShuiyuanCredential';
 import { ShuiyuanIcon } from './shuiyuan-icon';
