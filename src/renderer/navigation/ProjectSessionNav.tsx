@@ -31,7 +31,7 @@ import {
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
 import { cn } from '../../ui/cn';
 import { fileManagerName } from '../lib/platform';
-import type { WorkspaceEntry } from '../../shared/api';
+import type { WorkspaceEntry } from '../../modules/workspace/contract';
 import { remoteAccent } from '../../modules/remotes/view';
 import { useVisibleNavEntries, type NavEntryId } from './entries';
 import { showToast } from '../app/toasts';

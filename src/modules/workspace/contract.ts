@@ -1,19 +1,11 @@
-import type { DocumentContent, OfficeExportEvent } from '../../shared/documents';
+import type { FileFormat } from '../../core/protocol/files';
 import type { RemoteDirectoryEntry, RemotePortsState } from '../remotes/contract';
-import { workbenchLayoutSchema, type WorkbenchLayout } from '../../shared/layout';
-import type { ResourceRef } from '../../shared/resources';
+import { workbenchLayoutSchema, type WorkbenchLayout } from './layout';
 import { z } from 'zod';
 import { defineContract } from '../../core/protocol/contract';
 
-// 内容标签（note、preview）的视图经这里取共享类型，shared/ 收进模块后改为就地定义。
-export type {
-  DocumentContent,
-  OfficeExportEvent,
-  OfficeExportInfo,
-  OfficeExportProgress,
-} from '../../shared/documents';
-export type { TabId } from '../../shared/layout';
-export type { ResourceRef } from '../../shared/resources';
+export * from './layout';
+export * from './note-files';
 export { parseRemoteNodeId } from '../remotes/contract';
 
 /** 普通文件使用绝对磁盘路径；UUID 用于已登记的项目与资料条目。 */
@@ -26,6 +18,61 @@ export const workspaceEntryIdSchema = z
       z.uuid().safeParse(value).success || /^(?:[a-z]:[\\/]|\\\\[^\\]+\\[^\\]+|\/)/i.test(value),
     { message: '请选择工作区文件路径或有效的条目' },
   );
+
+// Workspace references accept real file paths and registered entry UUIDs; other resources retain domain IDs.
+export const resourceRefSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('workspace'), id: workspaceEntryIdSchema }).strict(),
+  z.object({ type: z.literal('canvas'), id: z.string().min(1).max(512) }).strict(),
+  z.object({ type: z.literal('mail'), id: z.number().int().positive().safe() }).strict(),
+  z
+    .object({
+      type: z.literal('attachment'),
+      messageId: z.number().int().positive().safe(),
+      part: z.string().regex(/^\d+(?:\.\d+)*$/),
+    })
+    .strict(),
+  z.object({ type: z.literal('shuiyuan-online'), id: z.number().int().positive() }).strict(),
+]);
+
+export type ResourceRef = z.infer<typeof resourceRefSchema>;
+
+export interface DocumentContent {
+  title: string;
+  /** html 只来自 Canvas 页面与水源；工作区与远端文件按 FileFormat 分类。 */
+  format: FileFormat | 'html';
+  text?: string;
+  /** 文本只读：超过编辑上限、或来自远端项目。truncated 表示 text 只是文件开头。 */
+  readOnly?: boolean;
+  truncated?: boolean;
+  bytes?: Uint8Array;
+  previewUrl?: string;
+  mime?: string;
+  url?: string;
+  dueAt?: string | null;
+  updatedAt?: string | null;
+  revision?: string;
+  shuiyuanSnapshot?: { postCount: number; pageSize: number };
+  /** pptx 的导出关联；存在 export 时直接内嵌渲染导出的 PDF。 */
+  office?: { export?: OfficeExportInfo };
+}
+
+/** 已导出 PDF 与源 pptx 的关联信息；stale 表示源文件在导出后更新过。 */
+export interface OfficeExportInfo {
+  previewUrl: string;
+  title: string;
+  stale: boolean;
+}
+
+/** pptx 导出过程阶段；bytes 为输出 PDF 已写入的字节数（仅 writing 阶段）。 */
+export interface OfficeExportProgress {
+  phase: 'preparing' | 'converting' | 'writing';
+  bytes?: number;
+}
+
+/** 进度事件载荷：附带上报时定位用的资源引用，并发导出时可区分归属。 */
+export interface OfficeExportEvent extends OfficeExportProgress {
+  ref: ResourceRef;
+}
 
 export interface WorkspaceEntryUpdate {
   id: string;
@@ -81,7 +128,6 @@ const localPaths = z.array(z.string().min(1).max(32_767)).max(100);
 const port = z.number().int().min(1).max(65535);
 const entries = z.custom<WorkspaceEntry[]>();
 const document = z.custom<DocumentContent>();
-/** 由主进程按 resourceRefSchema 校验：它依赖本文件的条目 id，放在这里会循环引用。 */
 const resourceRef = z.custom<ResourceRef>();
 
 export const workspaceContract = defineContract(

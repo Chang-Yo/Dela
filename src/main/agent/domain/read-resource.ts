@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { mailAttachment, readMailMessage } from '../../../modules/mail';
-import { resourceRefSchema, type ResourceRef } from '../../../shared/resources';
+import { resourceRefSchema, type ResourceRef } from '../../../modules/workspace/contract';
 import { readWorkspaceResource, withAttachmentFile, type ResourceContent } from '../../resources';
 import { workspaceFilePath } from '../../../modules/workspace';
 import type { CommandDomain } from '../../../core/capabilities/commands';

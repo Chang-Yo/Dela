@@ -2,10 +2,9 @@
 // 子条目 id 带项目身份（remoteNodeId）：只用路径会让两台连接上的同路径目录串成同一个节点。
 import { useEffect, useState } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import type { WorkspaceEntry } from '../../shared/api';
+import { type WorkspaceEntry, hiddenWorkspaceNames } from '../../modules/workspace/contract';
 import type { RemoteDirectoryEntry } from '../../modules/remotes/contract';
 import { remoteNodeId } from '../../modules/remotes/contract';
-import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 import { remoteAccent, useRemoteChannels } from '../../modules/remotes/view';
 import type { ExplorerItem } from '../../modules/workspace/view';

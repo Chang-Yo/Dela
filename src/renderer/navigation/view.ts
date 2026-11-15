@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { agentClient, type HomeChatRequest, useSessions } from '../../modules/chat/view';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../modules/settings/contract';
-import type { TabId } from '../../shared/layout';
+import type { TabId } from '../../modules/workspace/contract';
 import { useWorkspaceStore } from '../../modules/workspace/view';
 import { formatByName, opensInEditor } from '../../core/protocol/files';
 import { parseRemoteNodeId } from '../../modules/remotes/contract';

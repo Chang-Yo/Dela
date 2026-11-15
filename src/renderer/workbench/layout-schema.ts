@@ -1,5 +1,5 @@
 // 布局类型 re-export与树操作纯函数。
-// 类型与校验 schema 的唯一事实来源是 shared/layout.ts；本文件是 renderer 侧的工作台适配层。
+// 类型与校验 schema 的唯一事实来源是 modules/workspace/layout.ts；本文件是 renderer 侧的工作台适配层。
 import {
   ratioMax,
   ratioMin,
@@ -7,7 +7,7 @@ import {
   type GroupNode,
   type LayoutNode,
   type WorkbenchLayout,
-} from '../../shared/layout';
+} from '../../modules/workspace/contract';
 
 export type {
   GroupNode,
@@ -17,8 +17,13 @@ export type {
   TabId,
   TabKind,
   WorkbenchLayout,
-} from '../../shared/layout';
-export { maxLayoutNodes, maxTabsPerGroup, ratioMax, ratioMin } from '../../shared/layout';
+} from '../../modules/workspace/contract';
+export {
+  maxLayoutNodes,
+  maxTabsPerGroup,
+  ratioMax,
+  ratioMin,
+} from '../../modules/workspace/contract';
 
 /** 固定区恒在未固定区之前（VS Code 语义）：载入时归一，过滤失效引用，容忍手工改动。 */
 function normalizeGroup(group: GroupNode): GroupNode {

@@ -19,7 +19,7 @@ import { pickCourseFiles, collectCourseFileEntries } from './course-files';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../../../main/documents/links';
 import { classifyOfficeFile, officeZipMime } from '../../../main/documents/parse';
 import { loadCanvasToken, saveCanvasToken } from './credentials';
-import type { DocumentContent } from '../../../shared/api';
+import type { DocumentContent } from '../../../modules/workspace/contract';
 
 const origin = 'https://oc.sjtu.edu.cn';
 const apiRoot = `${origin}/api/v1/`;

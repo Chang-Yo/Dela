@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import type {
-  GroupNode,
-  LayoutNode,
-  SplitOrientation,
-  TabId,
-  WorkbenchLayout,
-} from '../../shared/layout';
+import {
+  type GroupNode,
+  type LayoutNode,
+  type SplitOrientation,
+  type TabId,
+  type WorkbenchLayout,
+  relocateWorkspacePath,
+} from '../../modules/workspace/contract';
 import {
   clampRatio,
   collapseEmptyGroups,
@@ -24,7 +25,6 @@ import {
   walkGroups,
 } from './layout-schema';
 import type { EdgeZone } from './tab-dnd';
-import { relocateWorkspacePath } from '../../modules/workspace/contract';
 import { workspaceClient } from '../../modules/workspace/view';
 import { terminalClient } from '../../modules/terminal/view';
 import { showToast } from '../app/toasts';

@@ -16,27 +16,3 @@ export interface DelaApi {
 }
 
 export type { WindowState, TrayAction, WindowApi } from './window';
-
-export type {
-  DocumentContent,
-  OfficeExportInfo,
-  OfficeExportProgress,
-  OfficeExportEvent,
-} from './documents';
-
-export type {
-  WorkspaceEntry,
-  WorkspaceState,
-  WorkspaceCreateInput,
-} from '../modules/workspace/contract';
-export { workspaceArchiveId } from '../modules/workspace/contract';
-
-export type {
-  TabKind,
-  TabId,
-  SplitOrientation,
-  GroupNode,
-  SplitNode,
-  LayoutNode,
-  WorkbenchLayout,
-} from './layout';

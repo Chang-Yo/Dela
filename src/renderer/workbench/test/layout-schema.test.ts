@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GroupNode, LayoutNode } from '../../../shared/layout';
+import type { GroupNode, LayoutNode } from '../../../modules/workspace/contract';
 import {
   clampRatio,
   countNodes,

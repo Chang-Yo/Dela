@@ -2,7 +2,7 @@
 // 站点请求复用 api.ts。
 import { z } from 'zod';
 import { getDatabase } from '../../../main/database';
-import type { DocumentContent } from '../../../shared/documents';
+import type { DocumentContent } from '../../../modules/workspace/contract';
 import type { ShuiyuanSourceRef } from '../contract';
 import { getShuiyuanSiteStructure, getShuiyuanTopic, SHUIYUAN_ORIGIN } from './api';
 import {

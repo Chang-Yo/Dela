@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { copyResourceToProject } from '../../../../main/resources';
-import { resourceRefSchema } from '../../../../shared/resources';
-import { workspaceEntryIdSchema } from '../../contract';
+import { resourceRefSchema, workspaceEntryIdSchema } from '../../contract';
 import { tool } from '../../../../main/agent/domain/shared';
 
 export const copyFileToProjectTool = tool(

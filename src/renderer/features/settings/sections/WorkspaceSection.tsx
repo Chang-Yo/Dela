@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Folder } from 'lucide-react';
-import type { WorkbenchLayout } from '../../../../shared/layout';
+import type { WorkbenchLayout } from '../../../../modules/workspace/contract';
 import { Button } from '../../../../ui/button';
 import { SectionHeader, SettingRow, SettingsGroup } from '../../../../modules/settings/view';
 import { showToast } from '../../../app/toasts';

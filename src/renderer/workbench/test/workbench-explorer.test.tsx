@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
-import type { WorkspaceEntry, WorkspaceState } from '../../../shared/api';
+import type { WorkspaceEntry, WorkspaceState } from '../../../modules/workspace/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
 const { api, desktop } = vi.hoisted(() => {

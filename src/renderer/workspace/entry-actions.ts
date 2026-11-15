@@ -1,12 +1,15 @@
 // 条目动作：归档、升级为项目、导入、拖放移动。
 // 只经工作区契约写事实并刷新镜像，不碰视图状态；UI 后续由接线方经回调决定。
 import type { QueryClient } from '@tanstack/react-query';
-import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
+import {
+  workspaceArchiveId,
+  type WorkspaceEntry,
+  relocateWorkspacePath,
+} from '../../modules/workspace/contract';
 import { sourceTitle } from '../../app/views';
 import { useNoteDrafts } from '../../modules/note/view';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore as useTreeState } from '../navigation/store';
-import { relocateWorkspacePath } from '../../modules/workspace/contract';
 import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
 import { showToast } from '../app/toasts';
 import { errorMessage } from '../../core/protocol/contract';

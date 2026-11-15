@@ -4,7 +4,7 @@ import { readDocument } from '../../../main/agent/domain/read-resource';
 import { previewFileResponse, type WorkspaceSource } from '../../../modules/workspace';
 import type { ResourceContent } from '../../../main/resources';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
-import type { ResourceRef } from '../../../shared/resources';
+import type { ResourceRef } from '../../../modules/workspace/contract';
 import {
   cachedFile,
   canvasFilePath,

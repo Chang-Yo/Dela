@@ -13,7 +13,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import type { MailComposeFile, PreparedEmail, MailDraftSummary } from '../contract';
-import { resourceRefSchema } from '../../../shared/resources';
+import { resourceRefSchema } from '../../workspace/contract';
 import { hostPorts } from '../../../core/ports';
 import { withResourceFile } from '../../../main/resources';
 import {

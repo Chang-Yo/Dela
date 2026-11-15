@@ -4,7 +4,8 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, WorkspaceEntry } from '../../shared/api';
+import type { DelaApi } from '../../shared/api';
+import type { WorkspaceEntry } from '../../modules/workspace/contract';
 import type { RemoteChannelState, RemoteDirectoryEntry } from '../../modules/remotes/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入视图装好。

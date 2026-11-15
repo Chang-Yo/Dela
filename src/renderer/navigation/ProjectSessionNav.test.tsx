@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { WorkspaceEntry, WorkspaceState } from '../../shared/api';
+import type { WorkspaceEntry, WorkspaceState } from '../../modules/workspace/contract';
 import { ProjectSessionNav, type NavSessionSummary } from './ProjectSessionNav';
 import { useNavigationStore } from './store';
 import { useWorkspaceStore } from '../../modules/workspace/view';

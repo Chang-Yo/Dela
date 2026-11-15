@@ -14,7 +14,7 @@ import {
   Search,
   Upload,
 } from 'lucide-react';
-import { workspaceArchiveId } from '../../shared/api';
+import { workspaceArchiveId, type WorkspaceEntry } from '../../modules/workspace/contract';
 import { parseRemoteNodeId } from '../../modules/remotes/contract';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -29,7 +29,6 @@ import {
 } from '../../ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
 import type { ExplorerPending } from '../../modules/workspace/view';
-import type { WorkspaceEntry } from '../../shared/api';
 import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';

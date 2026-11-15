@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isRelativeAssetPath, matchMarkdownImageRefs } from './note-files';
+import { isRelativeAssetPath, matchMarkdownImageRefs } from '../note-files';
 
 describe('matchMarkdownImageRefs', () => {
   it('提取 alt、路径与偏移，含 title 的引用不吞 title', () => {

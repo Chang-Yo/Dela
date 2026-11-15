@@ -1,7 +1,11 @@
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import { resourceRefSchema, type ResourceRef } from '../shared/resources';
+import {
+  resourceRefSchema,
+  type ResourceRef,
+  workspaceEntryIdSchema,
+} from '../modules/workspace/contract';
 import { readMailMessage, saveMailAttachment } from '../modules/mail';
 import { resourceResolver } from '../core/capabilities/resources';
 import {
@@ -20,7 +24,6 @@ import {
 } from '../core/protocol/files';
 import { diskName } from './storage';
 import { hostPorts } from '../core/ports';
-import { workspaceEntryIdSchema } from '../modules/workspace/contract';
 import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
 
 export interface ResourceContent {

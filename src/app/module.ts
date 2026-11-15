@@ -2,8 +2,7 @@
 import type { Implementation } from '../core/protocol/contract';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
-import type { DocumentContent } from '../shared/documents';
-import type { TabId } from '../shared/layout';
+import type { DocumentContent, TabId } from '../modules/workspace/contract';
 
 export type { TabId };
 

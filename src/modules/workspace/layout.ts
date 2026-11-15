@@ -1,5 +1,4 @@
-// 统一标签工作台的布局契约。
-// 类型按 §3.2 定义；zod schema 供 layout:* IPC 双侧校验（节点数上限、ratio 边界、组内标签去重）。
+// 统一标签工作台的布局契约；zod schema 供 layout:* IPC 双侧校验（节点数上限、ratio 边界、组内标签去重）。
 import { z } from 'zod';
 
 const tabKinds = ['chat', 'note', 'preview', 'review', 'terminal'] as const;

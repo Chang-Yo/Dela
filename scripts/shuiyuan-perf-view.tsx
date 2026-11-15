@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ContentLoaderProvider, PreviewTab } from '../src/modules/preview/view';
 import '../src/renderer/styles/globals.css';
-import type { DocumentContent } from '../src/shared/api';
+import type { DocumentContent } from '../src/modules/workspace/contract';
 import { ShuiyuanSourceDoc } from '../src/sjtu/shuiyuan/view/SourceRefCard';
 
 const bridge = (

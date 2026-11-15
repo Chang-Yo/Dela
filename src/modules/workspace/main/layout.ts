@@ -1,6 +1,6 @@
 // 键 `layout:{projectId}`（首页 = `layout:_general`）存 workspace_settings；损坏数据回退 null，由界面重新种子。
 import { getDatabase } from '../../../main/database';
-import { workbenchLayoutSchema, type WorkbenchLayout } from '../../../shared/layout';
+import { workbenchLayoutSchema, type WorkbenchLayout } from '../contract';
 
 const layoutKey = (projectId: string | null) => `layout:${projectId ?? '_general'}`;
 

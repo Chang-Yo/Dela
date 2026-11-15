@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef, type DragEvent, type KeyboardEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
-import type { GroupNode, TabId } from '../../shared/layout';
+import type { GroupNode, TabId } from '../../modules/workspace/contract';
 import {
   ContextMenu,
   ContextMenuContent,

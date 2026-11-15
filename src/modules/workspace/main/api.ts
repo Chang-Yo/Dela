@@ -21,22 +21,21 @@ import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from '
 import { availablePath, diskName, storageDirectory as directory } from '../../../main/storage';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../../../main/documents/links';
 import { officeZipMime } from '../../../main/documents/parse';
-import { workspaceArchiveId } from '../../../shared/api';
-import { parseRemoteNodeId } from '../../remotes/contract';
-import { workspaceEntryIdSchema, type WorkspaceEntryUpdate } from '../contract';
-import { imageMimeOf } from '../../../core/protocol/files';
 import {
+  workspaceArchiveId,
+  workspaceEntryIdSchema,
+  type WorkspaceEntryUpdate,
   decodeAssetPath,
   isRelativeAssetPath,
   matchMarkdownImageRefs,
-} from '../../../shared/note-files';
+  type DocumentContent,
+  type WorkspaceCreateInput,
+  type WorkspaceEntry,
+  type WorkspaceState,
+} from '../contract';
+import { parseRemoteNodeId } from '../../remotes/contract';
+import { imageMimeOf } from '../../../core/protocol/files';
 import { localFileFormat, readLocalText, textRevision, writeLocalText } from './files';
-import type {
-  DocumentContent,
-  WorkspaceCreateInput,
-  WorkspaceEntry,
-  WorkspaceState,
-} from '../../../shared/api';
 
 export const idSchema = z.string().uuid();
 const nameSchema = z.string().trim().min(1).max(200);

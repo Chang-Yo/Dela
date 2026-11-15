@@ -13,9 +13,8 @@ import {
   remotePortsState,
 } from '../remotes';
 import { openResourceFile } from '../../main/resources';
-import { resourceRefSchema } from '../../shared/resources';
+import { resourceRefSchema, workspaceContract } from './contract';
 import { registerSearchProvider } from '../search';
-import { workspaceContract } from './contract';
 import {
   chooseDirectory,
   downloadRemote,

@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs';
 import { basename } from 'node:path';
 import { getDatabase } from '../database';
-import type { OfficeExportInfo } from '../../shared/api';
+import type { OfficeExportInfo } from '../../modules/workspace/contract';
 
 /** pptx 导出 PDF 的关联记录，按资源引用（type + id）存取；version 为导出时源文件的 mtime-size。 */
 export interface OfficeExportLink {

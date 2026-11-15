@@ -2,7 +2,7 @@
  * 远端文件只读预览：格式判定与本地共用 shared/files。字节来自远端且不能整篇进内存，
  * 文本/图片只读限长片段，PDF/docx/xlsx 交给 dela-resource 按 Range 拉取；PPTX 导出依赖本地路径，按不支持处理。
  */
-import type { DocumentContent } from '../../../shared/documents';
+import type { DocumentContent } from '../../workspace/contract';
 import {
   TEXT_EDIT_MAX_BYTES,
   TEXT_PREVIEW_MAX_BYTES,

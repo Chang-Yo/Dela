@@ -1,5 +1,5 @@
 // 项目移除后的工作台清场：资料树移除与删除连接级联两条路径共用。
-import type { TabId } from '../../shared/layout';
+import type { TabId } from '../../modules/workspace/contract';
 import { useNavigationStore } from '../navigation/view';
 import { useWorkbenchLayout } from './layout-store';
 import { walkGroups } from './layout-schema';

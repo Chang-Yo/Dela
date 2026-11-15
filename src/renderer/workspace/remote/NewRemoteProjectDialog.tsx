@@ -8,7 +8,7 @@ import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { cn } from '../../../ui/cn';
-import type { WorkspaceEntry } from '../../../shared/api';
+import type { WorkspaceEntry } from '../../../modules/workspace/contract';
 import type {
   RemoteConnection,
   RemoteDraft,

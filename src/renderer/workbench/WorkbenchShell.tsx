@@ -2,11 +2,16 @@
 // EntryDialogs 与导航脉冲消费都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import type { DocumentContent, WorkspaceEntry } from '../../shared/api';
-import type { TabId } from '../../shared/layout';
-import { decodeAssetPath, isRelativeAssetPath, noteAssetUrl } from '../../shared/note-files';
+import {
+  type DocumentContent,
+  type WorkspaceEntry,
+  type TabId,
+  decodeAssetPath,
+  isRelativeAssetPath,
+  noteAssetUrl,
+  type ResourceRef,
+} from '../../modules/workspace/contract';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../modules/remotes/contract';
-import type { ResourceRef } from '../../shared/resources';
 // 模块出口里的标签组件懒加载，这里静态引入 Provider 不影响 registry 的分包。
 import {
   ChatTabSourceProvider,

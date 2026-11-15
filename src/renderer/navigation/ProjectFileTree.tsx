@@ -19,8 +19,11 @@ import {
   Upload,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
-import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
+import {
+  workspaceArchiveId,
+  type WorkspaceEntry,
+  hiddenWorkspaceNames,
+} from '../../modules/workspace/contract';
 import {
   Explorer,
   type ExplorerItem,

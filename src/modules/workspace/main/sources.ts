@@ -1,5 +1,5 @@
 // 资料来源注册口：source 条目只存 sourceId，读取与校验交给认领它的模块；工作区不认识具体平台。
-import type { DocumentContent } from '../../../shared/api';
+import type { DocumentContent } from '../contract';
 import type { ResourceContent } from '../../../main/resources';
 
 export interface WorkspaceSource {

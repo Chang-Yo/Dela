@@ -12,12 +12,11 @@ import { listRemoteDirectory, remoteFileIndex } from '../../../core/remote/opera
 import { notifyRemoteChange } from '../../../core/remote/events';
 import { watchRemoteProject } from '../../../core/remote/watch';
 import { getLocalWorkspaceState, searchLocalWorkspace } from './local-tree';
-import { resourceRefSchema } from '../../../shared/resources';
+import { resourceRefSchema, workspaceContract, type WorkspaceState } from '../contract';
 import { dialog, shell } from 'electron';
 import { emit } from '../../../core/ports';
 import { getDatabase } from '../../../main/database';
 import { storageDirectory as directory } from '../../../main/storage';
-import { workspaceContract, type WorkspaceState } from '../contract';
 import { watch, type FSWatcher } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 
