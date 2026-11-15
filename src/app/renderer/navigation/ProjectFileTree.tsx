@@ -42,6 +42,7 @@ import {
   useAfterMenuClose,
 } from '../../../ui/dropdown-menu';
 import type { EntryAction } from '../workspace/entry-actions';
+import { libraryEntriesOf } from '../workspace/library-entries';
 import { remoteAccent } from '../../../modules/remotes/view';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../../../ui/toast';
@@ -88,6 +89,7 @@ export function ProjectFileTree({
   onOpenToSide,
   onOpenProject,
   onRemoteAction,
+  libraryRoot,
   query,
   excludeIds = emptyExcludedIds,
   archived = false,
@@ -108,6 +110,8 @@ export function ProjectFileTree({
   onOpenProject?: (id: string) => void;
   /** 远端条目动作。端口预览是项目级动作，在文件树 header，不进条目菜单。 */
   onRemoteAction?: (action: 'download' | 'open' | 'upload', id: string) => void;
+  /** 资料树传入资料根目录：根目录之外的项目与远程项目连同后代不显示（搜索结果同样）。 */
+  libraryRoot?: string;
   query: string;
   excludeIds?: string[];
   archived?: boolean;
@@ -141,9 +145,10 @@ export function ProjectFileTree({
     );
   }, [searching, rootId, queryClient]);
   const searchEntries = search.data && term === trimmedQuery ? search.data : [];
-  const entries = searchEntries.length
+  const merged = searchEntries.length
     ? [...new Map([...baseEntries, ...searchEntries].map((item) => [item.id, item])).values()]
     : baseEntries;
+  const entries = libraryRoot ? libraryEntriesOf(merged, libraryRoot) : merged;
   const ids = new Set(expanded);
   if (rootId) ids.add(rootId);
   const parents = new Map(entries.map((item) => [item.id, item.parentId]));

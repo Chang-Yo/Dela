@@ -101,6 +101,7 @@ export function WorkbenchExplorer({
   onCreated: (entry: WorkspaceEntry) => void;
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
+  const libraryRoot = useWorkspaceStore((s) => `${s.workspace.directory}/workspace`);
   const rootId = entries.some((entry) => entry.id === projectId) ? projectId : null;
   const root = entries.find((e) => e.id === rootId);
   // 打开的若是远程项目，这棵树本轮只读：拖入的落点是远端 POSIX 路径，
@@ -139,7 +140,6 @@ export function WorkbenchExplorer({
   const selectEntry = (id: string) => {
     const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === id);
     if (!item) {
-      // 远端条目不在 entries 里：文件直接开只读预览（读取按「项目 id + 远端路径」走远端通道）。
       if (parseRemoteNodeId(id)) onOpenDocument(id);
       return;
     }
@@ -172,9 +172,6 @@ export function WorkbenchExplorer({
     importDroppedFiles(files, targetId, rootId, (target) => {
       if (target) expand(target, true);
     });
-  // 拖放落到远端树 = 上传到远端（走 helper 写字节），落到本地就是原来的导入。
-  // 落点是远端条目就用它自己的项目与目录；落点是空白或远端项目行（远端树里 null 的那两种）
-  // 就落到打开的远端项目根：项目条目的 path 存的就是远端目录。
   const importDroppedAnywhere = (files: File[], targetId: string | null) => {
     const remote = targetId ? parseRemoteNodeId(targetId) : null;
     const projectId = remote?.projectId ?? (remoteRoot ? rootId : null);
@@ -185,7 +182,6 @@ export function WorkbenchExplorer({
       await workspaceClient.uploadRemoteFiles({ projectId, directory, paths: localPathsOf(files) });
     });
   };
-  // 远端动作的失败与本地条目动作同一个出口（entry-actions 的错误浮窗）。
   const [portsForProject, setPortsForProject] = useState<string | null>(null);
   const remoteAction = (action: 'download' | 'open' | 'upload', id: string) => {
     const remote = parseRemoteNodeId(id);
@@ -244,8 +240,6 @@ export function WorkbenchExplorer({
 
   // 窄屏抽屉只看 mobileOpen：忽略宽屏折叠残留，否则折叠目录后缩窗会永远打不开目录。
   const visible = narrow ? mobileOpen : !collapsed;
-  // 视口钳制：目录渲染宽度不超过视口约 28%（下限 200），窄窗口下给内容区保留可用宽度；
-  // 用户拖拽偏好仍按原值持久化，仅在渲染时钳制。
   const effectiveWidth = Math.min(width, Math.max(200, Math.round(viewportWidth * 0.28)));
   const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-ink-3';
   // 区块小标题：比组头浅一档的分层提示（同步 / 文件两区），纯展示不可交互；归档区靠底部
@@ -330,7 +324,6 @@ export function WorkbenchExplorer({
                   {projectId ? (root?.name ?? '项目与文件夹') : '资料'}
                 </button>
               </TooltipTrigger>
-              {/* 远端项目的标题挂着连接提示：空白期里「连的是哪台、在不在连」在这里能查到。 */}
               {remoteRoot && root && (
                 <TooltipContent className="px-2.5 py-2" side="bottom">
                   <RemoteConnectionTip
@@ -342,8 +335,6 @@ export function WorkbenchExplorer({
               )}
             </Tooltip>
             <div className="flex shrink-0 items-center gap-0.5">
-              {/* 远端项目的项目级动作放在 header：端口预览是跟着服务器走的，上传到项目根是
-                  最高频的上传场景；往子目录里传仍用目录行右键或拖放（那里才有目录语义）。 */}
               {remoteRoot && rootId && (
                 <>
                   <Button
@@ -501,6 +492,7 @@ export function WorkbenchExplorer({
                   onOpenProject={openProject}
                   onOpenToSide={openToSide}
                   onActivate={keepDocument}
+                  libraryRoot={projectId === null ? libraryRoot : undefined}
                   onRemoteAction={remoteAction}
                   onSelect={selectEntry}
                   query={query}
@@ -509,9 +501,6 @@ export function WorkbenchExplorer({
                 />
               )}
             </div>
-            {/* 归档固定在侧栏最底部：不随上方滚动区滚动（flex 收尾自然贴底）；与滚动区之间
-                用一条极淡 hairline 分界（三区背景层次保持不变，此处作为固定底区的分界）；
-                展开后的两棵 archived 树整体限高滚动，避免撑爆侧栏。 */}
             <div className="shrink-0 border-t border-line">
               <button
                 aria-expanded={archiveOpen || Boolean(query.trim())}

@@ -71,7 +71,7 @@ const localProject: WorkspaceEntry = {
   name: '本地项目',
   kind: 'project',
   sourceId: null,
-  path: 'D:/code/本地项目',
+  path: 'D:/dela/workspace/本地项目',
   remoteId: null,
   updatedAt: '2026-10-09T00:00:00.000Z',
 };
@@ -82,7 +82,7 @@ const localFolder: WorkspaceEntry = {
   name: '资料',
   kind: 'folder',
   sourceId: null,
-  path: 'D:/code/本地项目/资料',
+  path: 'D:/dela/workspace/本地项目/资料',
   remoteId: null,
   updatedAt: '2026-10-09T00:00:00.000Z',
 };
@@ -93,13 +93,13 @@ const deepFolder: WorkspaceEntry = {
   name: '子目录',
   kind: 'folder',
   sourceId: null,
-  path: 'D:/code/本地项目/资料/子目录',
+  path: 'D:/dela/workspace/本地项目/资料/子目录',
   remoteId: null,
   updatedAt: '2026-10-09T00:00:00.000Z',
 };
 
 const deepNote: WorkspaceEntry = {
-  id: 'D:/code/本地项目/资料/子目录/n.md',
+  id: 'D:/dela/workspace/本地项目/资料/子目录/n.md',
   parentId: deepFolder.id,
   name: 'n.md',
   kind: 'file',
@@ -109,7 +109,7 @@ const deepNote: WorkspaceEntry = {
 };
 
 const localImage: WorkspaceEntry = {
-  id: 'D:/code/本地项目/资料/b.png',
+  id: 'D:/dela/workspace/本地项目/资料/b.png',
   parentId: localFolder.id,
   name: 'b.png',
   kind: 'file',
@@ -119,7 +119,7 @@ const localImage: WorkspaceEntry = {
 };
 
 const localUnknown: WorkspaceEntry = {
-  id: 'D:/code/本地项目/资料/c.xyz',
+  id: 'D:/dela/workspace/本地项目/资料/c.xyz',
   parentId: localFolder.id,
   name: 'c.xyz',
   kind: 'file',
@@ -129,7 +129,7 @@ const localUnknown: WorkspaceEntry = {
 };
 
 const localDockerfile: WorkspaceEntry = {
-  id: 'D:/code/本地项目/资料/Dockerfile',
+  id: 'D:/dela/workspace/本地项目/资料/Dockerfile',
   parentId: localFolder.id,
   name: 'Dockerfile',
   kind: 'file',
@@ -244,7 +244,7 @@ const key = (input: HTMLInputElement, name: string) =>
 it('creates files inline: double-click shows a name row, Enter submits, no dialog', async () => {
   const created: WorkspaceEntry = {
     ...localProject,
-    id: 'D:/code/本地项目/a/b.md',
+    id: 'D:/dela/workspace/本地项目/a/b.md',
     name: 'b.md',
     kind: 'file',
   };
@@ -470,4 +470,32 @@ it('opens the project from its row menu', async () => {
     '打开项目',
   );
   expect(openProject).toHaveBeenCalledWith(localProject.id);
+});
+
+// 资料树只呈现资料根目录里的东西；外部登记的项目与远程项目从侧栏项目列表进入。
+it('hides remote and external projects from the library tree', async () => {
+  const externalProject: WorkspaceEntry = {
+    ...localProject,
+    id: 'p-external',
+    name: '外部项目',
+    path: 'D:/code/外部项目',
+  };
+  const externalFolder: WorkspaceEntry = {
+    ...localFolder,
+    id: 'f-external',
+    name: '外部资料',
+    parentId: externalProject.id,
+    path: 'D:/code/外部项目/外部资料',
+  };
+  useWorkspaceStore.setState({
+    workspace: { ...workspace, entries: [...workspace.entries, externalProject, externalFolder] },
+    loaded: true,
+    error: null,
+  });
+  useTreeState.setState({ expanded: [externalProject.id] });
+  await render(null);
+  expect(treeRow('本地项目')).toBeTruthy();
+  expect(treeRow('远端项目')).toBeUndefined();
+  expect(treeRow('外部项目')).toBeUndefined();
+  expect(treeRow('外部资料')).toBeUndefined();
 });
