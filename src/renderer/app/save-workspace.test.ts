@@ -10,20 +10,15 @@ const invoke = vi.hoisted(() => {
   } as unknown as NonNullable<typeof window.dela>;
   return invoke;
 });
-import { useNoteDrafts } from '../../../note/view';
-// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的聊天草稿
-import {
-  useChatDrafts,
-  registerChatAttachmentCheck,
-} from '../../../../renderer/content/chat/drafts';
-import { registerComposeSave } from '../../../mail/view';
-// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的工作台布局
-import { useWorkbenchLayout } from '../../../../renderer/workbench/layout-store';
-// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的运行镜像
-import { useRuns } from '../../../../renderer/sessions/runs';
-import { useToastStore } from '../../../../renderer/app/toasts';
-import { useUpdateState, runUpdateAction, deferInstall } from '../update';
-import { chatImageToken } from '../../../../core/protocol/chat-input';
+import { registerComposeSave } from '../../modules/mail/view';
+import { useNoteDrafts } from '../../modules/note/view';
+import { deferInstall, runUpdateAction, useUpdateState } from '../../modules/update/view';
+import { chatImageToken } from '../../core/protocol/chat-input';
+import { registerChatAttachmentCheck, useChatDrafts } from '../content/chat/drafts';
+import { useRuns } from '../sessions/runs';
+import { useWorkbenchLayout } from '../workbench/layout-store';
+import { saveWorkspace } from './save-workspace';
+import { useToastStore } from './toasts';
 
 const originalSave = useNoteDrafts.getState().save;
 let install: Mock<() => Promise<unknown>>;
@@ -45,7 +40,7 @@ beforeEach(() => {
   useNoteDrafts.setState({ drafts: {} });
   useChatDrafts.setState({ drafts: { session: { prompt: '未发送文字' } } });
   useWorkbenchLayout.setState({ ready: false });
-  useUpdateState.setState({ preparingInstall: false });
+  useUpdateState.setState({ preparingInstall: false, beforeInstall: saveWorkspace });
   useRuns.setState({ bySession: {} });
 });
 

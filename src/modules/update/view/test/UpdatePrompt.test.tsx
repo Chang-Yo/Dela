@@ -90,6 +90,12 @@ beforeEach(() => {
     return true;
   });
   mountUpdateApi();
+  // 外壳登记的完整保存由 renderer/app/save-workspace.test.ts 覆盖，这里只登记笔记那一步。
+  useUpdateState.setState({
+    beforeInstall: async () => {
+      if (!(await useNoteDrafts.getState().save('notes/a.md'))) throw new Error('有笔记未能保存');
+    },
+  });
   useNoteDrafts.setState({
     drafts: { 'notes/a.md': draft },
     save: saveDraft as unknown as (key: string) => Promise<boolean>,

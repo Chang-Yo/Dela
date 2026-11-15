@@ -2,14 +2,6 @@
 import { create } from 'zustand';
 import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../renderer/app/toasts';
-import { useNoteDrafts } from '../../note/view';
-import { saveComposers } from '../../mail/view';
-// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的聊天草稿
-import { saveChatDrafts } from '../../../renderer/content/chat/drafts';
-// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的工作台布局
-import { saveWorkbenchLayout } from '../../../renderer/workbench/layout-store';
-// oxlint-disable-next-line no-restricted-imports -- 过渡：安装前保存工作区仍依赖外壳的运行镜像
-import { useRuns, runBadge } from '../../../renderer/sessions/runs';
 import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../contract';
 import { onUpdateEvent, updateClient } from './client';
 
@@ -119,12 +111,15 @@ interface UpdateState {
   snapshot: UpdateSnapshot | null;
   preparingInstall: boolean;
   dismissedVersion: string | null;
+  /** 外壳登记的安装前保存；抛错即中止安装，错误文字展示给用户。 */
+  beforeInstall: (() => Promise<void>) | null;
 }
 
 export const useUpdateState = create<UpdateState>(() => ({
   snapshot: null,
   preparingInstall: false,
   dismissedVersion: null,
+  beforeInstall: null,
 }));
 
 /** 接上主进程广播并读一次当前快照；监听者只写 store，整个应用生命周期不退订。 */
@@ -164,33 +159,7 @@ export function startUpdateMirror() {
 }
 
 // 更新动作的派发：设置页那一行与「下载完成」确认弹窗共用同一套。
-// 安装前统一保存工作区；保存期间由应用级弹窗阻止继续编辑。
-
-/**
- * 保存所有已打开文件、聊天文字草稿、邮件草稿和工作台布局；任何一步失败都不安装。
- */
-async function saveWorkspace(): Promise<void> {
-  if (
-    Object.values(useRuns.getState().bySession).some((run) => runBadge(run.status) === 'running')
-  ) {
-    throw new Error('还有 Agent 任务正在运行，请等待完成或停止任务，再安装更新。');
-  }
-  saveChatDrafts();
-  for (const key of Object.keys(useNoteDrafts.getState().drafts)) {
-    if (!(await useNoteDrafts.getState().save(key)))
-      throw new Error('有笔记未能保存，请处理后再安装更新。');
-  }
-  if (!(await saveComposers())) throw new Error('邮件草稿未能保存或正在发送，请处理后再安装更新。');
-  if (!(await saveWorkbenchLayout())) throw new Error('工作台布局未能保存，请重试。');
-  if (
-    Object.values(useNoteDrafts.getState().drafts).some(
-      (draft) => draft.saving || draft.text !== draft.saved,
-    )
-  ) {
-    throw new Error('保存期间笔记内容发生变化，请重试。');
-  }
-  saveChatDrafts();
-}
+// 安装前先跑外壳登记的保存，失败就不安装；保存期间由应用级弹窗阻止继续编辑。
 
 /** 派发更新动作；缺少 API、保存失败或 IPC 失败时返回 false。 */
 export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
@@ -199,7 +168,7 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
     if (useUpdateState.getState().preparingInstall) return false;
     useUpdateState.setState({ preparingInstall: true });
     try {
-      await saveWorkspace();
+      await useUpdateState.getState().beforeInstall?.();
     } catch (error) {
       useUpdateState.setState({ preparingInstall: false });
       showToast({

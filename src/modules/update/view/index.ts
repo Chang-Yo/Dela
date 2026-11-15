@@ -6,6 +6,6 @@ export { ReleaseNotesDialog } from './ReleaseNotesDialog';
 export { UpdateBadge } from './UpdateBadge';
 export { UpdateControl } from './UpdateControl';
 export { UpdatePrompt } from './UpdatePrompt';
-export { useUpdateState } from './update';
+export { deferInstall, runUpdateAction, useUpdateState } from './update';
 
 export const updateView = defineView({ pages: {}, start: startUpdateMirror });

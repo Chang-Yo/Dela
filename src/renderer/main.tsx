@@ -3,9 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 import { contracts } from '../app/contracts';
 import { views } from '../app/views';
+import { useUpdateState } from '../modules/update/view';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import App from './app/App';
 import { connectQueryEvents } from './app/query-events';
+import { saveWorkspace } from './app/save-workspace';
 import { useNavigationStore } from './navigation/view';
 import './styles/globals.css';
 
@@ -15,6 +17,7 @@ const queryClient = new QueryClient({
 });
 connectQueryEvents(queryClient, contracts, window.dela?.bridge);
 for (const view of views) view.start?.(useNavigationStore.getState().navigate);
+useUpdateState.setState({ beforeInstall: saveWorkspace });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
