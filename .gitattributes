@@ -3,6 +3,3 @@
 *.ico binary
 *.icns binary
 *.tgz binary
-
-# Frozen notice evidence and source hashes require byte-identical checkouts.
-experiments/notice-subscriptions/** -text

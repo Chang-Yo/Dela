@@ -11,11 +11,4 @@ scripts/*.ps1
 # vendored 组件库，保留上游代码风格（见目录内 README）
 src/renderer/components/ui/beautifului/
 
-# Immutable notice inputs, recorded results, and source archives are hash-verified.
-experiments/notice-subscriptions/benchmark/
-experiments/notice-subscriptions/validation/framework/confirmation/snapshots/
-experiments/notice-subscriptions/validation/framework/host-results/build/
-experiments/notice-subscriptions/validation/framework/evidence/*.cjs
-experiments/notice-subscriptions/validation/framework/evidence/*.html
-experiments/notice-subscriptions/validation/**/*.json
-!experiments/notice-subscriptions/validation/**/tsconfig*.json
+experiments/notice-subscriptions/

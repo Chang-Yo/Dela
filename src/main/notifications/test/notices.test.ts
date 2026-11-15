@@ -38,15 +38,15 @@ vi.mock('../system', () => ({
   systemNotifyItem: vi.fn(),
   NOTIFICATIONS_SNOOZE_KEY: 'notifications-snoozed-until',
 }));
-vi.mock('../../../../experiments/notice-subscriptions/fetch', () => ({
+vi.mock('../notice-subscriptions/fetch', () => ({
   fetchNoticePage: vi.fn(),
 }));
-vi.mock('../../../../experiments/notice-subscriptions/render', () => ({
+vi.mock('../notice-subscriptions/render', () => ({
   renderNoticePage: vi.fn(),
 }));
 
-import { fetchNoticePage } from '../../../../experiments/notice-subscriptions/fetch';
-import { renderNoticePage } from '../../../../experiments/notice-subscriptions/render';
+import { fetchNoticePage } from '../notice-subscriptions/fetch';
+import { renderNoticePage } from '../notice-subscriptions/render';
 import { getDatabase } from '../../database';
 import { setExperiment } from '../../settings/prefs';
 import {

@@ -10,21 +10,6 @@ export default defineConfig({
   },
   test: {
     maxWorkers: 4,
-    projects: [
-      {
-        extends: true,
-        test: { name: 'application', exclude: ['experiments/notice-subscriptions/**'] },
-      },
-      {
-        extends: true,
-        test: {
-          name: 'notice-subscriptions',
-          include: ['experiments/notice-subscriptions/**/*.test.ts'],
-          fileParallelism: false,
-          globalSetup: ['experiments/notice-subscriptions/test-setup.ts'],
-        },
-      },
-    ],
     // 单元测试不启动 Electron，也需能找到应用随包分发的搜索工具。
     env: {
       PATH: [
@@ -39,6 +24,7 @@ export default defineConfig({
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*',
       '.tools/**',
+      'experiments/**',
       '**/*.remote.test.ts',
     ],
   },

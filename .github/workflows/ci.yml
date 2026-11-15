@@ -43,7 +43,6 @@ jobs:
             app:
               - 'src/**'
               - 'scripts/**'
-              - 'experiments/notice-subscriptions/**'
               - 'vendor/bin/**'
               - '.github/workflows/quality.yml'
               - '.github/workflows/test.yml'

@@ -3,19 +3,19 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
-import { fetchNoticePage } from '../../../experiments/notice-subscriptions/fetch';
+import { fetchNoticePage } from './notice-subscriptions/fetch';
 import {
   analyzeNoticePage,
   extractNoticeEntries,
   validateNoticeUrl,
   type NoticeAnalysis,
-} from '../../../experiments/notice-subscriptions/parser';
-import { renderNoticePage } from '../../../experiments/notice-subscriptions/render';
+} from './notice-subscriptions/parser';
+import { renderNoticePage } from './notice-subscriptions/render';
 import {
   subscriptionStateSchema,
   updateSubscription,
   type SubscriptionState,
-} from '../../../experiments/notice-subscriptions/state';
+} from './notice-subscriptions/state';
 import type {
   NotificationItem,
   NoticePreview,

@@ -44,7 +44,7 @@ export default defineConfig({
       entry: {
         index: 'src/main/bootstrap.ts',
         app: 'src/main/index.ts',
-        'render-worker': 'experiments/notice-subscriptions/render-worker.ts',
+        'render-worker': 'src/main/notifications/notice-subscriptions/render-worker.ts',
       },
       formats: ['cjs'],
       fileName: (_, name) => `${name}.cjs`,

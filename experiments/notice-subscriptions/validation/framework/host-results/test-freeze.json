@@ -1,9 +1,0 @@
-{
-  "frozenAt": "2026-11-12T09:30:58.265Z",
-  "node": "v24.22.1",
-  "tests": {
-    "host.test.ts": "b140698d5b781e3a902112f88eaffc1bb8ac366317412c19b8f0f127a592748a",
-    "host-driver.ts": "afc0b9d1ee7aec3836adfa2ea3a9880e521d8d4aec052374438d105700993233"
-  },
-  "beforeRender": "9137527daaec9766d82a79747e30a8b405fefd233307d87be799b27c18505c55"
-}

@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "lib": ["ES2023", "DOM"],
-    "types": ["node"],
-    "allowImportingTsExtensions": true
-  },
-  "include": ["./**/*.ts"]
-}
