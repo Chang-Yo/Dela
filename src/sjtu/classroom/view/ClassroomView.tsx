@@ -210,8 +210,9 @@ function ClassroomConnect({
   const busy = connecting || coursesLoading;
 
   return (
-    <div className="grid flex-1 place-items-center p-6">
+    <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
       <ConnectCard
+        className="m-auto"
         description="登录后读取本学期课程与课堂录像。已连接 Canvas 时自动登录，否则在官方窗口完成，校园会话与课表共用。"
         icon={MonitorPlay}
         title="登录交大视频"
