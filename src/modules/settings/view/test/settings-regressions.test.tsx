@@ -57,7 +57,7 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
       </QueryClientProvider>,
     ),
   );
-  await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+  await settle();
   const toggle = container.querySelector<HTMLButtonElement>('[aria-label="开机自启动"]')!;
   expect(toggle.getAttribute('aria-checked')).toBe('false');
   await act(async () => toggle.click());
@@ -83,6 +83,19 @@ function button(text: string): HTMLButtonElement {
 function stubLlm(handlers: Record<string, (input: never) => unknown>) {
   for (const [name, handler] of Object.entries(handlers)) api[`llm:${name}`] = handler;
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
+}
+
+const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+async function renderLlm() {
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <LlmSection />
+      </QueryClientProvider>,
+    ),
+  );
+  await settle();
 }
 
 async function fill(input: HTMLInputElement, value: string) {
@@ -115,7 +128,7 @@ it('searches detected models before adding one and saves per-model settings', as
       return { ...provider, ...input };
     },
   });
-  await act(async () => root.render(<LlmSection />));
+  await renderLlm();
   await act(async () => button('添加模型').click());
   await fill(document.querySelector<HTMLInputElement>('[aria-label="搜索或输入模型 ID"]')!, 'gpt');
   expect(document.querySelector('[aria-label="添加模型 claude-a"]')).toBeNull();
@@ -166,7 +179,7 @@ it('discards model detection results after the API address changes', async () =>
         finish = resolve;
       }),
   });
-  await act(async () => root.render(<LlmSection />));
+  await renderLlm();
   await act(async () => button('检测模型').click());
   await fill(
     container.querySelector<HTMLInputElement>('input[type="url"]')!,
@@ -195,8 +208,9 @@ it('caps model import at 64 and reports the omitted count', async () => {
       models: Array.from({ length: 70 }, (_, i) => `model-${i}`),
     }),
   });
-  await act(async () => root.render(<LlmSection />));
+  await renderLlm();
   await act(async () => button('检测模型').click());
+  await settle();
   await act(async () => button('一键导入').click());
   expect(container.querySelectorAll('[aria-label^="编辑模型 "]')).toHaveLength(64);
   expect(container.textContent).toContain('7 个未导入');
@@ -222,7 +236,7 @@ it('keeps the current provider and its draft when an earlier save finishes', asy
         finishSave = resolve;
       }),
   });
-  await act(async () => root.render(<LlmSection />));
+  await renderLlm();
   // 编辑态即时保存：名称失焦触发保存并挂起，此时切换提供商并输入草稿。
   const nameA = container.querySelector<HTMLInputElement>('input')!;
   await act(async () => nameA.focus());
@@ -260,7 +274,7 @@ it('adopts the versioned API base discovered while creating a provider', async (
       return { ...input, id: 'new', piProvider: null, enabled: true };
     },
   });
-  await act(async () => root.render(<LlmSection />));
+  await renderLlm();
   await act(async () => button('添加提供商').click());
   await fill(container.querySelector<HTMLInputElement>('input')!, '自建网关');
   await fill(
@@ -297,7 +311,7 @@ it('rewrites an existing provider to the API base the service actually serves', 
       baseUrl: 'https://api.deepseek.com/v1',
     }),
   });
-  await act(async () => root.render(<LlmSection />));
+  await renderLlm();
   await act(async () => button('检测模型').click());
   // 沿用已存密钥即可，改地址不再要求重填，所以编辑态也直接校正到位。
   expect(container.querySelector<HTMLInputElement>('input[type="url"]')!.value).toBe(

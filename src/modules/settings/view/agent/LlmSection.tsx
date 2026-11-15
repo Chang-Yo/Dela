@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Lock, Pencil, PlugZap, Plus, Search, Trash2 } from 'lucide-react';
 import { StatusPill } from '../../../../ui/status-pill';
 import { Switch } from '../../../../ui/switch';
@@ -17,6 +18,7 @@ import type {
   LlmCatalogProvider,
   LlmModelSettings,
   LlmProviderView,
+  LlmVerifyInput,
   LlmVerifyResult,
 } from '../../../../core/protocol/llm';
 import {
@@ -339,49 +341,36 @@ function CatalogModelDialog({
 
 /** 设置 › 模型服务：左侧按内置厂商/自定义分组列出提供商，右侧编辑选中的那一个。 */
 export function LlmSection() {
-  const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
-  const [catalog, setCatalog] = useState<LlmCatalogProvider[]>([]);
-  const [detail, setDetail] = useState<Detail | null>(null);
+  const queryClient = useQueryClient();
+  const providerList = useQuery({
+    queryKey: ['llm', 'providers'],
+    queryFn: () => llmClient.list(),
+    enabled: Boolean(window.dela),
+  });
+  const catalogList = useQuery({
+    queryKey: ['llm', 'catalog'],
+    queryFn: () => llmClient.catalog(),
+    enabled: Boolean(window.dela),
+  });
+  const providers = providerList.data;
+  const catalog = catalogList.data ?? [];
+  const loadError = providerList.error ?? catalogList.error;
+  const [selection, setSelection] = useState<Detail | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  /** 读取最新列表；selectId 指定刷新后选中的提供商（保存时用，新建的此时才出现在列表里）。 */
-  const refresh = (selectId?: string) => {
-    void llmClient
-      .list()
-      .then((views) => {
-        setProviders(views);
-        setDetail((current) => {
-          if (selectId && views.some(({ id }) => id === selectId)) {
-            return { mode: 'edit', id: selectId };
-          }
-          if (
-            current?.mode === 'create' ||
-            (current && views.some(({ id }) => id === current.id))
-          ) {
-            return current;
-          }
-          // 首次加载与删除后回落到当前使用中的提供商。
-          return defaultDetail(views);
-        });
-      })
-      .catch((cause) => setError(errorText(cause)));
-  };
-
-  useEffect(() => {
-    refresh();
-    void llmClient
-      .catalog()
-      .then(setCatalog)
-      .catch((cause) => setError(errorText(cause)));
-  }, []);
+  // 没有选择，或所选提供商已不在列表（首次加载、删除后），回落到当前使用中的提供商。
+  const detail =
+    selection && (selection.mode === 'create' || providers?.some(({ id }) => id === selection.id))
+      ? selection
+      : defaultDetail(providers ?? []);
 
   const run = async (operation: () => Promise<void>) => {
     if (!window.dela) return;
     setBusy(true);
+    setSelection(detail);
     try {
       await operation();
-      refresh();
+      void queryClient.invalidateQueries({ queryKey: ['llm', 'providers'] });
     } catch (cause) {
       showToast({ variant: 'error', title: '供应商操作失败', description: errorText(cause) });
     } finally {
@@ -400,7 +389,7 @@ export function LlmSection() {
 
   const selected =
     detail?.mode === 'edit' ? ((providers ?? []).find(({ id }) => id === detail.id) ?? null) : null;
-  // 新建草稿没有 provider；编辑态的目标由列表解出（提供商被删除后由 refresh 收敛）。
+  // 新建草稿没有 provider；编辑态的目标由列表解出。
   const detailProvider = detail?.mode === 'create' ? null : selected;
   const detailOpen = detail?.mode === 'create' || selected !== null;
   const groups = [
@@ -409,21 +398,21 @@ export function LlmSection() {
   ];
 
   /** 保存结果并入列表；只有仍停留在本次保存的详情时才切到保存后的提供商。 */
-  const handleSaved = (saved: LlmProviderView, source: Detail) => {
-    setProviders((current) =>
+  const handleSaved = (saved: LlmProviderView, source: Detail | null) => {
+    queryClient.setQueryData<LlmProviderView[]>(['llm', 'providers'], (current) =>
       current?.some(({ id }) => id === saved.id)
         ? current.map((item) => (item.id === saved.id ? saved : item))
         : [...(current ?? []), saved],
     );
-    setDetail((current) => (current === source ? { mode: 'edit', id: saved.id } : current));
-    refresh();
+    setSelection((current) => (current === source ? { mode: 'edit', id: saved.id } : current));
+    void queryClient.invalidateQueries({ queryKey: ['llm', 'providers'] });
   };
 
   return (
     <div className="grid gap-10" data-setting-id="providers">
       <SectionHeader
         action={
-          <Button onClick={() => setDetail({ mode: 'create' })} size="sm">
+          <Button onClick={() => setSelection({ mode: 'create' })} size="sm">
             <Plus />
             添加提供商
           </Button>
@@ -450,7 +439,7 @@ export function LlmSection() {
                               ? 'bg-hover font-medium text-ink'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
                           )}
-                          onClick={() => setDetail({ mode: 'edit', id: provider.id })}
+                          onClick={() => setSelection({ mode: 'edit', id: provider.id })}
                           type="button"
                         >
                           <ProviderMonogram name={provider.name} size="sm" />
@@ -480,9 +469,9 @@ export function LlmSection() {
                 busy={busy}
                 catalog={catalog}
                 key={detailProvider?.id ?? 'create'}
-                onCancelCreate={() => setDetail(defaultDetail(providers ?? []))}
+                onCancelCreate={() => setSelection(null)}
                 onRemove={(id) => void run(() => llmClient.remove(id))}
-                onSaved={(saved) => handleSaved(saved, detail!)}
+                onSaved={(saved) => handleSaved(saved, selection)}
                 onSetEnabled={(id, enabled) =>
                   void run(() => llmClient.setEnabled({ id, enabled }))
                 }
@@ -496,7 +485,7 @@ export function LlmSection() {
           </SettingsGroup>
         ) : null}
       </div>
-      {error && <ErrorText>{error}</ErrorText>}
+      {loadError && <ErrorText>{errorText(loadError)}</ErrorText>}
     </div>
   );
 }
@@ -536,23 +525,35 @@ function ProviderDetail({
   );
   const [addingModel, setAddingModel] = useState(false);
   const [editingModel, setEditingModel] = useState<string | null>(null);
-  const [modelResults, setModelResults] = useState<Record<string, LlmVerifyResult | 'pending'>>({});
+  // result 为 null 表示检测中；带上检测时的输入，这些输入变了就不再接收结果。
+  const [modelChecks, setModelChecks] = useState<
+    Record<
+      string,
+      {
+        baseUrl: string;
+        apiKey: string;
+        settings: LlmModelSettings | undefined;
+        result: LlmVerifyResult | null;
+      }
+    >
+  >({});
   const [importNotice, setImportNotice] = useState<string | null>(null);
-  const connectionVersion = useRef(0);
-  const modelCheckVersion = useRef<Record<string, number>>({});
-  const [verifying, setVerifying] = useState(false);
-  const [verifyResult, setVerifyResult] = useState<LlmVerifyResult | null>(null);
+  const verifyConnection = useMutation({
+    mutationFn: (input: LlmVerifyInput) =>
+      llmClient
+        .verify(input)
+        .catch((cause): LlmVerifyResult => ({ ok: false, message: errorText(cause) })),
+  });
+  const verifying = verifyConnection.isPending;
+  const verifyResult = verifyConnection.data ?? null;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 编辑态即时保存的提交快照：所有字段改动同步写这里，persist 读取它组装完整保存载荷。
-  const formRef = useRef({ name, baseUrl, apiKey, models, modelConfigs });
+  const form = { name, baseUrl, apiKey, models, modelConfigs };
 
   const invalidateDetection = () => {
-    connectionVersion.current += 1;
-    setVerifying(false);
-    setVerifyResult(null);
-    setModelResults({});
+    verifyConnection.reset();
+    setModelChecks({});
     setImportNotice(null);
   };
 
@@ -567,14 +568,14 @@ function ProviderDetail({
   };
 
   /** 内置厂商不带地址，档位由主进程按目录补全。 */
-  const payload = (form: typeof formRef.current) => ({
+  const payload = (next: typeof form) => ({
     id: provider?.id,
-    name: form.name,
-    ...(piProvider ? {} : { baseUrl: form.baseUrl }),
-    apiKey: form.apiKey || undefined,
-    models: form.models,
+    name: next.name,
+    ...(piProvider ? {} : { baseUrl: next.baseUrl }),
+    apiKey: next.apiKey || undefined,
+    models: next.models,
     modelConfigs: Object.fromEntries(
-      form.models.map((id) => [id, form.modelConfigs[id] ?? { effortLevels: [] }]),
+      next.models.map((id) => [id, next.modelConfigs[id] ?? { effortLevels: [] }]),
     ),
     piProvider,
   });
@@ -591,11 +592,10 @@ function ProviderDetail({
       return;
     }
     const nextModels = [...models, value];
-    formRef.current.models = nextModels;
     setModels(nextModels);
     setModelInput('');
     setImportNotice(null);
-    void persist();
+    void persist({ models: nextModels });
   };
 
   const removeModel = (value: string) => {
@@ -603,99 +603,74 @@ function ProviderDetail({
       setImportNotice('至少保留一个模型');
       return;
     }
-    modelCheckVersion.current[value] = (modelCheckVersion.current[value] ?? 0) + 1;
     const nextConfigs = { ...modelConfigs };
     delete nextConfigs[value];
-    formRef.current.modelConfigs = nextConfigs;
     setModelConfigs(nextConfigs);
-    setModelResults((current) => {
-      const next = { ...current };
-      delete next[value];
-      return next;
-    });
+    setModelChecks(({ [value]: _removed, ...rest }) => rest);
     const nextModels = models.filter((item) => item !== value);
-    formRef.current.models = nextModels;
     setModels(nextModels);
-    void persist();
+    void persist({ models: nextModels, modelConfigs: nextConfigs });
   };
 
   const importModels = (list: string[]) => {
     const merged = [...new Set([...models, ...list])];
     const imported = merged.slice(0, LLM_MODEL_LIMIT);
-    formRef.current.models = imported;
     setModels(imported);
     setImportNotice(
       merged.length > LLM_MODEL_LIMIT
         ? `模型数量过多，最多保留 64 个，${merged.length - LLM_MODEL_LIMIT} 个未导入`
         : `已导入 ${imported.length - models.length} 个模型`,
     );
-    void persist();
+    void persist({ models: imported });
   };
 
-  const verify = async () => {
+  /** 检测顺带探出的真实 API 根（裸源地址补 /v1）直接采用：对话端点与它同前缀。 */
+  const adoptApiBase = (discovered: string) => {
+    setBaseUrl(discovered);
+    void persist({ baseUrl: discovered });
+  };
+
+  const verify = () => {
     if (!window.dela || verifying) return;
-    setVerifying(true);
-    setVerifyResult(null);
-    const version = connectionVersion.current;
-    try {
-      const result = await llmClient.verify({
-        id: provider?.id,
-        baseUrl,
-        apiKey: apiKey || undefined,
-      });
-      if (version === connectionVersion.current) {
-        setVerifyResult(result);
-        // 检测顺带探出的真实 API 根（裸源地址补 /v1）直接采用：对话端点与它同前缀。
-        if (result.baseUrl) {
-          formRef.current.baseUrl = result.baseUrl;
-          setBaseUrl(result.baseUrl);
-          void persist();
-        }
-      }
-    } catch (cause) {
-      if (version === connectionVersion.current)
-        setVerifyResult({ ok: false, message: errorText(cause) });
-    } finally {
-      if (version === connectionVersion.current) setVerifying(false);
-    }
+    verifyConnection.mutate(
+      { id: provider?.id, baseUrl, apiKey: apiKey || undefined },
+      { onSuccess: (result) => result.baseUrl && adoptApiBase(result.baseUrl) },
+    );
   };
 
   const verifyModel = async (id: string) => {
-    if (!window.dela || modelResults[id] === 'pending') return;
-    const version = connectionVersion.current;
-    const modelVersion = (modelCheckVersion.current[id] ?? 0) + 1;
-    modelCheckVersion.current[id] = modelVersion;
-    setModelResults((current) => ({ ...current, [id]: 'pending' }));
+    if (!window.dela || modelChecks[id]?.result === null) return;
+    const inputs = { baseUrl, apiKey, settings: modelConfigs[id] };
+    setModelChecks((current) => ({ ...current, [id]: { ...inputs, result: null } }));
+    let result: LlmVerifyResult;
     try {
-      const result = await llmClient.verifyModel({
+      result = await llmClient.verifyModel({
         id: provider?.id,
         piProvider,
         baseUrl: piProvider ? undefined : baseUrl,
         apiKey: apiKey || undefined,
         model: id,
-        settings: modelConfigs[id],
+        settings: inputs.settings,
       });
-      if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id]) {
-        setModelResults((current) => ({ ...current, [id]: result }));
-        if (result.baseUrl) {
-          formRef.current.baseUrl = result.baseUrl;
-          setBaseUrl(result.baseUrl);
-          void persist();
-        }
-      }
     } catch (cause) {
-      if (version === connectionVersion.current && modelVersion === modelCheckVersion.current[id])
-        setModelResults((current) => ({
-          ...current,
-          [id]: { ok: false, message: errorText(cause) },
-        }));
+      result = { ok: false, message: errorText(cause) };
     }
+    setModelChecks((current) => {
+      const check = current[id];
+      const stillPending =
+        check?.result === null &&
+        check.baseUrl === inputs.baseUrl &&
+        check.apiKey === inputs.apiKey &&
+        check.settings === inputs.settings;
+      return stillPending ? { ...current, [id]: { ...check, result } } : current;
+    });
+    if (result.baseUrl) adoptApiBase(result.baseUrl);
   };
 
-  /** 编辑态即时保存：整体写入当前表单；创建态不在此路径（由「保存」显式提交）。 */
-  const persist = async () => {
+  /** 编辑态即时保存：整体写入当前表单，next 覆盖尚未渲染出来的最新改动；创建态由「保存」显式提交。 */
+  const persist = async (next: Partial<typeof form> = {}) => {
     if (creating || !window.dela) return;
-    const d = formRef.current;
+    const d = { ...form, ...next };
     if (!d.name.trim()) {
       setError('名称不能为空');
       return;
@@ -707,10 +682,7 @@ function ProviderDetail({
     setError(null);
     try {
       const saved = await llmClient.save(payload(d));
-      if (d.apiKey) {
-        d.apiKey = '';
-        setApiKey('');
-      }
+      if (d.apiKey) setApiKey((current) => (current === d.apiKey ? '' : current));
       onSaved(saved);
     } catch (cause) {
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
@@ -720,12 +692,7 @@ function ProviderDetail({
   /** 文本字段失焦时的免打扰保存：与已保存值相同就跳过，不因单纯切焦而写盘。 */
   const persistIfChanged = () => {
     if (creating) return;
-    const d = formRef.current;
-    if (
-      d.name !== provider.name ||
-      d.baseUrl.replace(/\/+$/, '') !== provider.baseUrl ||
-      d.apiKey !== ''
-    )
+    if (name !== provider.name || baseUrl.replace(/\/+$/, '') !== provider.baseUrl || apiKey !== '')
       void persist();
   };
 
@@ -734,7 +701,7 @@ function ProviderDetail({
     setSaving(true);
     setError(null);
     try {
-      const saved = await llmClient.save(payload({ name, baseUrl, apiKey, models, modelConfigs }));
+      const saved = await llmClient.save(payload(form));
       // 新建即启用；创建成功切换到该提供商的编辑态（组件按 id 重挂载，无需手动同步字段）。
       onSaved(saved);
     } catch (cause) {
@@ -833,7 +800,6 @@ function ProviderDetail({
             autoComplete="off"
             onBlur={() => persistIfChanged()}
             onChange={(event) => {
-              formRef.current.name = event.target.value;
               setName(event.target.value);
             }}
             required
@@ -846,7 +812,6 @@ function ProviderDetail({
               autoComplete="off"
               onBlur={() => persistIfChanged()}
               onChange={(event) => {
-                formRef.current.baseUrl = event.target.value;
                 setBaseUrl(event.target.value);
                 invalidateDetection();
               }}
@@ -863,7 +828,6 @@ function ProviderDetail({
             autoComplete="off"
             onBlur={() => persistIfChanged()}
             onChange={(event) => {
-              formRef.current.apiKey = event.target.value;
               setApiKey(event.target.value);
               invalidateDetection();
             }}
@@ -889,7 +853,7 @@ function ProviderDetail({
               {!piProvider && (
                 <Button
                   disabled={verifying || !baseUrl}
-                  onClick={() => void verify()}
+                  onClick={verify}
                   size="sm"
                   type="button"
                   variant="secondary"
@@ -902,7 +866,7 @@ function ProviderDetail({
                 disabled={piProvider !== null && !vendor}
                 onClick={() => {
                   setAddingModel(true);
-                  if (!piProvider && !verifyResult && !verifying) void verify();
+                  if (!piProvider && !verifyResult && !verifying) verify();
                 }}
                 size="sm"
                 variant="secondary"
@@ -943,7 +907,8 @@ function ProviderDetail({
                     contextWindow: catalogModel.contextWindow,
                   }
                 : modelConfigs[id];
-              const result = modelResults[id];
+              const check = modelChecks[id];
+              const result = check ? (check.result ?? 'pending') : undefined;
               return (
                 <li className="grid gap-1 px-3 py-2" key={id}>
                   <div className="flex min-w-0 items-center gap-2">
@@ -1108,7 +1073,7 @@ function ProviderDetail({
               <div className="mt-4 grid gap-3">
                 <Button
                   disabled={verifying || !baseUrl}
-                  onClick={() => void verify()}
+                  onClick={verify}
                   size="sm"
                   variant="secondary"
                 >
@@ -1184,18 +1149,11 @@ function ProviderDetail({
           settings={modelConfigs[editingModel] ?? {}}
           onClose={() => setEditingModel(null)}
           onSave={(settings) => {
-            modelCheckVersion.current[editingModel] =
-              (modelCheckVersion.current[editingModel] ?? 0) + 1;
             const nextConfigs = { ...modelConfigs, [editingModel]: settings };
-            formRef.current.modelConfigs = nextConfigs;
             setModelConfigs(nextConfigs);
-            setModelResults((current) => {
-              const next = { ...current };
-              delete next[editingModel];
-              return next;
-            });
+            setModelChecks(({ [editingModel]: _stale, ...rest }) => rest);
             setEditingModel(null);
-            void persist();
+            void persist({ modelConfigs: nextConfigs });
           }}
         />
       )}
