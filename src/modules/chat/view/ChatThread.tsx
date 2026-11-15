@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Archive,
   ArrowDown,
@@ -31,7 +32,7 @@ import { formatDuration, ReplyTrace } from './ToolTimeline';
 import { openSubagent } from './tool-views';
 import { ChatMarkdown } from './markdown';
 import { ReplyCommentLayer } from './reply-comment';
-import { ensureChatMediaPreview, getChatMediaPreview } from './media';
+import { fetchChatMediaPreview, getChatMediaPreview } from './media';
 import { TurnChangesCard } from './TurnChangesCard';
 
 // 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
@@ -41,7 +42,7 @@ const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
 const COPY_FEEDBACK_MS = 1500;
 
 /** 消息悬停操作栏：复制、保存为笔记与分支，参照 assistant-ui ActionBar 的自动显隐。 */
-const MessageActions = memo(function MessageActions({
+function MessageActions({
   content,
   onSaveNote,
   onFork,
@@ -80,21 +81,16 @@ const MessageActions = memo(function MessageActions({
       )}
     </div>
   );
-});
+}
 
 /** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图；点击放大查看。 */
-const MessageImage = memo(function MessageImage({ id, name }: { id: string; name: string }) {
-  const [url, setUrl] = useState(() => getChatMediaPreview(id) ?? null);
-  useEffect(() => {
-    if (url) return;
-    let active = true;
-    void ensureChatMediaPreview(id).then((next) => {
-      if (active && next) setUrl(next);
-    });
-    return () => {
-      active = false;
-    };
-  }, [id, url]);
+function MessageImage({ id, name }: { id: string; name: string }) {
+  const { data: url } = useQuery({
+    queryKey: ['chat', 'media', id],
+    queryFn: () => fetchChatMediaPreview(id),
+    initialData: getChatMediaPreview(id),
+    staleTime: Infinity,
+  });
   return url ? (
     <button
       aria-label={`放大查看 ${name || '图片'}`}
@@ -117,10 +113,10 @@ const MessageImage = memo(function MessageImage({ id, name }: { id: string; name
       图片
     </span>
   );
-});
+}
 
 /** 用户消息：编辑态在组件内部（key 随会话/索引变化时重置）。 */
-const UserMessage = memo(function UserMessage({
+function UserMessage({
   message,
   onOpenSource,
   onOpenSession,
@@ -301,7 +297,7 @@ const UserMessage = memo(function UserMessage({
       </div>
     </div>
   );
-});
+}
 
 /** 已发送的回复评论：被引用的原文在上、评论在下，与正文气泡分开。 */
 function SentComment({ comment }: { comment: ChatComment }) {
@@ -347,7 +343,7 @@ function splitInterrupt(parts: NonNullable<WorkspaceChat['messages'][number]['pa
   return { parts, reason: null };
 }
 
-const AssistantMessage = memo(function AssistantMessage({
+function AssistantMessage({
   message,
   live,
   turnEnd,
@@ -459,7 +455,7 @@ const AssistantMessage = memo(function AssistantMessage({
       )}
     </div>
   );
-});
+}
 
 const TASK_STATUS: Record<TaskNoticeDetails['status'], string> = {
   completed: '已完成',
@@ -537,10 +533,8 @@ function CompactionDivider({ pending }: { pending?: boolean }) {
   );
 }
 
-/** 对话消息流：发送后贴底展示，用户上滚时暂停跟随；工具步骤折叠展示。
- *  memo：props 全为稳定引用/原始值（草稿订阅已下沉到 ChatComposerArea），
- *  会话视图内输入区、错误提示等局部变化不带动消息列表重渲。 */
-export const ChatThread = memo(function ChatThread({
+/** 对话消息流：发送后贴底展示，用户上滚时暂停跟随；工具步骤折叠展示。 */
+export function ChatThread({
   chat,
   onOpenSource,
   onOpenSession,
@@ -548,7 +542,7 @@ export const ChatThread = memo(function ChatThread({
   onEditLast,
   onFork,
   onSidechat,
-  draftKey = chat.sessionId,
+  draftKey,
   mailDialog,
 }: {
   chat: WorkspaceChat;
@@ -568,6 +562,7 @@ export const ChatThread = memo(function ChatThread({
   /** 邮件草稿检查弹窗（容器注入，3B 接 features/mail）；未注入时隐藏草稿入口。 */
   mailDialog?: MailDraftDialog;
 }) {
+  const replyDraftKey = draftKey === undefined ? chat.sessionId : draftKey;
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const followBottom = useRef(false);
@@ -585,27 +580,19 @@ export const ChatThread = memo(function ChatThread({
       : undefined;
   });
 
-  const lastUserIndex = useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      if (messages[index]?.role === 'user') return index;
-    }
-    return -1;
-  }, [messages]);
+  const lastUserIndex = messages.findLastIndex((message) => message.role === 'user');
 
   // 插队把一轮切成多段回复，它们共用 turnId；本轮改动卡片只挂在最后一段。
-  const turnEnds = useMemo(() => {
-    const ends = new Map<string, number>();
-    messages.forEach((message, index) => {
-      if (message.role === 'assistant' && message.turnId) ends.set(message.turnId, index);
-    });
-    return ends;
-  }, [messages]);
+  const turnEnds = new Map<string, number>();
+  messages.forEach((message, index) => {
+    if (message.role === 'assistant' && message.turnId) turnEnds.set(message.turnId, index);
+  });
 
   // 以一行正文高度作为到底部容差，避免固定像素阈值随字号失效；行高只读一次后缓存，
   // 内容尺寸变化（含字号设置改变引发的重排）时在 resize 中失效重算。
   const lineHeightRef = useRef(0);
   const lastScrollTop = useRef(0);
-  const onScroll = useCallback(() => {
+  const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
     if (!lineHeightRef.current) {
@@ -619,7 +606,8 @@ export const ChatThread = memo(function ChatThread({
     if (atBottomNow) followBottom.current = true;
     else if (el.scrollTop < lastScrollTop.current) followBottom.current = false;
     lastScrollTop.current = el.scrollTop;
-  }, []);
+  };
+  const syncScroll = useEffectEvent(onScroll);
 
   const anchoredKey = useRef<string | null>(null);
   const replyStartedAt = messages[lastUserIndex + 1]?.startedAt;
@@ -642,7 +630,7 @@ export const ChatThread = memo(function ChatThread({
       lineHeightRef.current = 0;
       // 只跟随实际消息底部，不根据滚动位置改变被观察内容的高度。
       if (followBottom.current) viewport.scrollTop = viewport.scrollHeight;
-      onScroll();
+      syncScroll();
     };
     resize();
     let frame = 0;
@@ -656,22 +644,23 @@ export const ChatThread = memo(function ChatThread({
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [chat.sessionId, lastUserIndex, replyStartedAt, streaming, onScroll]);
+  }, [chat.sessionId, lastUserIndex, replyStartedAt, streaming]);
 
   // 邮件草稿弹窗由容器注入：读取草稿、账号校验、关闭守卫与发送都在注入组件内完成，
   // 本组件只负责入口与发送后的提示文案。
   const MailDialog = mailDialog;
-  // 消息组件 memo 后回调必须稳定，弹窗/编辑入口的局部状态才不带动消息列表重渲。
-  const openDraft = useCallback((id: string) => setDraftId(id), []);
-  const handleEditLast = useCallback((text: string) => onEditLast?.(text), [onEditLast]);
+  const handleEditLast = (text: string) => onEditLast?.(text);
   // 重试＝以最后一条用户消息原文重发（编辑重发同一路径，Pi 会话树保留失败分支）。
   const lastUser = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
-  const retry = useMemo(() => {
-    if (!onEditLast || !lastUser) return undefined;
-    const tokens = (lastUser.images ?? []).map((image) => chatImageToken(image.id, image.name));
-    const text = [lastUser.content, ...tokens].filter(Boolean).join('\n');
-    return () => onEditLast(text, lastUser.comments);
-  }, [lastUser, onEditLast]);
+  const retry =
+    onEditLast && lastUser
+      ? () => {
+          const tokens = (lastUser.images ?? []).map((image) =>
+            chatImageToken(image.id, image.name),
+          );
+          onEditLast([lastUser.content, ...tokens].filter(Boolean).join('\n'), lastUser.comments);
+        }
+      : undefined;
 
   return (
     <div className="relative min-h-0 flex-1">
@@ -723,7 +712,7 @@ export const ChatThread = memo(function ChatThread({
                 animate={message.startedAt !== resumedReplyAt}
                 message={message}
                 activeTool={chat.activeTool}
-                onOpenDraft={MailDialog ? openDraft : undefined}
+                onOpenDraft={MailDialog ? setDraftId : undefined}
                 onSaveNote={onSaveNote}
                 onFork={streaming ? undefined : onFork}
               />
@@ -747,8 +736,8 @@ export const ChatThread = memo(function ChatThread({
           <ArrowDown className="size-4" strokeWidth={1.8} />
         </button>
       )}
-      {draftKey && (
-        <ReplyCommentLayer draftKey={draftKey} onSidechat={onSidechat} scrollRef={scrollRef} />
+      {replyDraftKey && (
+        <ReplyCommentLayer draftKey={replyDraftKey} onSidechat={onSidechat} scrollRef={scrollRef} />
       )}
       {hint && (
         <p role="status" className="absolute inset-x-0 bottom-0 px-4 pb-2 text-xs text-ink-3">
@@ -767,4 +756,4 @@ export const ChatThread = memo(function ChatThread({
       )}
     </div>
   );
-});
+}

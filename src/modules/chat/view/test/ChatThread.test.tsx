@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { WorkspaceChat } from '../../../../core/protocol/agent';
@@ -454,14 +455,16 @@ it('用户消息的图片缩略图点击放大，点击遮罩或 Esc 关闭', as
   setChatMediaPreview('img-1', 'data:image/png;base64,QUJD');
   await act(async () =>
     root.render(
-      <ChatThread
-        chat={{
-          ...chat,
-          messages: [
-            { role: 'user', content: '看这张图', images: [{ id: 'img-1', name: '01.png' }] },
-          ],
-        }}
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatThread
+          chat={{
+            ...chat,
+            messages: [
+              { role: 'user', content: '看这张图', images: [{ id: 'img-1', name: '01.png' }] },
+            ],
+          }}
+        />
+      </QueryClientProvider>,
     ),
   );
   const thumb = host.querySelector('img[alt="01.png"]');

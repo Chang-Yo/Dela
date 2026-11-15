@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { FileChangeDetail, TurnChanges } from '../../../../core/protocol/agent';
@@ -69,14 +70,19 @@ let root: Root;
 async function renderCard(sessionId2: string, turnId: string, reviewEnabled = true) {
   await act(async () =>
     root.render(
-      <ChatTabSourceProvider source={{ navigate: () => false, workbench, opensLink: () => false }}>
-        <TurnChangesCard sessionId={sessionId2} turnId={turnId} reviewEnabled={reviewEnabled} />
-      </ChatTabSourceProvider>,
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <ChatTabSourceProvider
+          source={{ navigate: () => false, workbench, opensLink: () => false }}
+        >
+          <TurnChangesCard sessionId={sessionId2} turnId={turnId} reviewEnabled={reviewEnabled} />
+        </ChatTabSourceProvider>
+      </QueryClientProvider>,
     ),
   );
-  // 冻结记录与行数统计的读取链路需要多轮微任务落定。
-  await act(async () => {});
-  await act(async () => {});
+  // 查询结果经 notifyManager 在下一个宏任务才通知组件。
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 }
 
 beforeEach(() => {

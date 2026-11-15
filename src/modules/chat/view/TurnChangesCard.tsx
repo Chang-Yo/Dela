@@ -1,8 +1,9 @@
 // 回答末尾的「本轮改动」卡片：数据取自主进程冻结的轮次 diff（目录前后快照比较，
 // 覆盖 bash 等一切写文件的途径）；默认折叠防大轮次刷屏。
-import { memo, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, CodeXml, FolderOpen } from 'lucide-react';
-import type { FileChangeSummary, TurnChanges } from '../../../core/protocol/agent';
+import type { FileChangeSummary } from '../../../core/protocol/agent';
 import type { DiffStat } from '../../../core/protocol/diff';
 import { Button } from '../../../ui/button';
 import {
@@ -19,35 +20,16 @@ import { showToast } from '../../../renderer/app/toasts';
 import { agentClient, chatClient } from './client';
 import { errorMessage } from '../../../core/protocol/contract';
 
-// 冻结记录写后不变：按「会话:轮次」缓存读取，卡片随展开/收起与切标签重挂载时不重复走 IPC。
-const turnCache = new Map<string, Promise<TurnChanges | null>>();
-
-function loadTurn(
-  sessionId: string,
-  turnId: string,
-  includeStats: boolean,
-): Promise<TurnChanges | null> {
-  const key = `${sessionId}:${turnId}:${includeStats}`;
-  let pending = turnCache.get(key);
-  if (!pending) {
-    pending = window.dela
-      ? agentClient['read-turn-changes']({ sessionId, turnId, includeStats }).catch(() => null)
-      : Promise.resolve(null);
-    turnCache.set(key, pending);
-  }
-  return pending;
-}
-
-const StatSpan = memo(function StatSpan({ stat }: { stat: DiffStat }) {
+function StatSpan({ stat }: { stat: DiffStat }) {
   return (
     <span className="flex shrink-0 gap-1.5 font-mono text-xs">
       {stat.added > 0 && <span className="text-success">+{stat.added}</span>}
       {stat.deleted > 0 && <span className="text-danger">-{stat.deleted}</span>}
     </span>
   );
-});
+}
 
-const TurnFileRow = memo(function TurnFileRow({
+function TurnFileRow({
   sessionId,
   turnId,
   file,
@@ -134,9 +116,9 @@ const TurnFileRow = memo(function TurnFileRow({
       </div>
     </li>
   );
-});
+}
 
-export const TurnChangesCard = memo(function TurnChangesCard({
+export function TurnChangesCard({
   sessionId,
   turnId,
   reviewEnabled,
@@ -147,20 +129,14 @@ export const TurnChangesCard = memo(function TurnChangesCard({
   /** 仅项目会话提供差异审阅与行数统计。 */
   reviewEnabled: boolean;
 }) {
-  const [record, setRecord] = useState<TurnChanges | null>(null);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    setRecord(null);
-    void loadTurn(sessionId, turnId, reviewEnabled).then((value) => {
-      if (!active) return;
-      setRecord(value);
-    });
-    return () => {
-      active = false;
-    };
-  }, [sessionId, turnId, reviewEnabled]);
+  // 冻结记录写后不变：永不过期，卡片随展开/收起与切标签重挂载时不重复走 IPC。
+  const { data: record } = useQuery({
+    queryKey: ['chat', 'turn-changes', sessionId, turnId, reviewEnabled],
+    queryFn: () =>
+      agentClient['read-turn-changes']({ sessionId, turnId, includeStats: reviewEnabled }),
+    staleTime: Infinity,
+  });
 
   // 无文件的记录不渲染：远程轮次、轮前快照缺失都落在这里——不把「没有记录」伪装成空改动。
   if (!record || record.files.length === 0) return null;
@@ -218,4 +194,4 @@ export const TurnChangesCard = memo(function TurnChangesCard({
       )}
     </section>
   );
-});
+}
