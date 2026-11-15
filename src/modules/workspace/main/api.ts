@@ -245,11 +245,14 @@ function setting(key: string): string | null {
   );
 }
 
-function containerPath(parentId: string | null): string {
-  if (parentId) return managedPath(entry(parentId))!;
+export function workspaceRootDirectory(): string {
   const root = join(directory(), 'workspace');
   mkdirSync(root, { recursive: true });
   return root;
+}
+
+function containerPath(parentId: string | null): string {
+  return parentId ? managedPath(entry(parentId))! : workspaceRootDirectory();
 }
 
 function managedPath(item: WorkspaceEntry): string | null {

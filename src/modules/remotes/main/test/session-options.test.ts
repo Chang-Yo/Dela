@@ -48,6 +48,7 @@ vi.mock('../../../../core/capabilities/mcp', () => ({
 }));
 vi.mock('../../../../core/capabilities/tools', () => ({ readDisabledTools: () => state.disabled }));
 
+import { registerContextDirectory } from '../../../../core/agent/context-directories';
 import { agentEnvironment } from '../../../../core/agent/environment';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
@@ -137,5 +138,18 @@ describe('本地会话环境', () => {
       'web_search',
     ]);
     expect(options.commandPrefix).toContain('DELA_COMMAND_URL');
+  });
+
+  it('通用会话的系统提示列出辅助目录，项目会话不列', async () => {
+    state.remote = false;
+    registerContextDirectory({
+      id: 'workspace',
+      label: '资料',
+      directory: () => '/data/workspace',
+    });
+    const general = await agentEnvironment().sessionOptions(null, '/data/chat-sessions/s1');
+    const project = await agentEnvironment().sessionOptions('p-local', '/proj');
+    expect(general.appendSystemPrompt.join('\n')).toContain('- 资料：/data/workspace');
+    expect(project.appendSystemPrompt.join('\n')).not.toContain('/data/workspace');
   });
 });

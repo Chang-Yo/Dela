@@ -1,8 +1,8 @@
-// Canvas：课程资料、作业（注册为待办来源）与课程公告；资料库会话共用课程目录。
+// Canvas：课程资料、作业（注册为待办来源）与课程公告；课程目录登记为通用会话的辅助目录。
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
 import { registerResourceResolver } from '../../core/capabilities/resources';
-import { registerSessionScope } from '../../core/agent/scopes';
+import { registerContextDirectory } from '../../core/agent/context-directories';
 import { registerSecretLabel } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { registerNoticeSource } from '../../modules/notifications';
@@ -63,7 +63,7 @@ export const canvasModule = defineModule({
   register() {
     registerSecretLabel('canvas-token', 'Canvas 凭据');
     registerCommandDomain(canvasDomain);
-    registerSessionScope({ id: 'library', directory: coursesDirectory });
+    registerContextDirectory({ id: 'canvas', label: 'Canvas 课件', directory: coursesDirectory });
     registerSearchProvider(courseFileSearch);
     registerTaskSource(canvasTaskSource);
     registerNoticeSource(canvasNoticeSource);

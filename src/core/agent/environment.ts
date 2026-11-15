@@ -6,6 +6,7 @@ import { remoteBackend } from '../remote/operations';
 import { syncRemoteContext } from '../remote/context';
 import { COMMAND_BRIDGE, startDomainBridge } from '../capabilities/command-server';
 import { commandPrompt } from '../capabilities/commands';
+import { contextDirectories } from './context-directories';
 import { getAgentInstruction } from './instruction';
 import {
   builtinSkillsDirectory,
@@ -116,8 +117,17 @@ export function agentEnvironment() {
         };
       }
       const handle = await domainBridge();
+      const directories = projectId === null ? contextDirectories() : [];
+      const directoryPrompt = directories.length
+        ? [
+            '辅助目录（可以直接读写，用绝对路径访问）：',
+            ...directories.map((item) => `- ${item.label}：${item.directory()}`),
+          ].join('\n')
+        : null;
       return {
-        appendSystemPrompt: [delaPrompt(), ...shared],
+        appendSystemPrompt: [delaPrompt(), directoryPrompt, ...shared].filter(
+          (part): part is string => Boolean(part),
+        ),
         shellPath: hostPorts().paths.bash(),
         commandPrefix: `export DELA_COMMAND_URL='${handle.url}' DELA_COMMAND_TOKEN='${handle.token}'\n${COMMAND_BRIDGE}`,
         skillPaths: [builtinSkillsDirectory()],

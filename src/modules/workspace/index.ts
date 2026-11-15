@@ -4,6 +4,7 @@ import { invalidateSessions } from '../../core/agent/session/run';
 import { registerCommandDomain } from '../../core/capabilities/commands';
 import { onRemoteChange } from '../../core/remote/events';
 import { emit } from '../../core/ports';
+import { registerContextDirectory } from '../../core/agent/context-directories';
 import { implement } from '../../core/protocol/contract';
 import {
   closeRemotePort,
@@ -43,6 +44,7 @@ import {
   saveNoteImage,
   saveWorkspaceNote,
   updateWorkspaceEntry,
+  workspaceRootDirectory,
 } from './main/api';
 import { loadWorkspaceLayout, saveWorkspaceLayout } from './main/layout';
 import { listLocalDirectory, localEntryAncestors, searchLocalWorkspace } from './main/local-tree';
@@ -155,6 +157,7 @@ export const workspaceModule = defineModule({
   }),
   register() {
     registerCommandDomain(workspaceDomain);
+    registerContextDirectory({ id: 'workspace', label: '资料', directory: workspaceRootDirectory });
     registerSearchProvider(projectSearch);
     registerSearchProvider(chatSearch);
     onRemoteChange((path) => emit(workspaceContract, 'remoteChange', path));
