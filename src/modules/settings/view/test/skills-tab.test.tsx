@@ -225,6 +225,7 @@ it('cancels installation without presenting the user action as a failure', async
   await act(async () => buttonByText('安装并启用').click());
   await settle();
   await act(async () => buttonByText('取消安装').click());
+  await settle();
   expect(cancelSkillInstallation).toHaveBeenCalledWith('document-reading');
   expect(useToastStore.getState().toasts).toHaveLength(0);
   expect(buttonByText('安装并启用')).toBeTruthy();
