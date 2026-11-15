@@ -17,14 +17,6 @@
       }
     },
     {
-      // T22 逐个删掉
-      "files": ["src/app/renderer/workbench/WorkbenchShell.tsx"],
-      "rules": {
-        "react/set-state-in-effect": "off",
-        "react/refs": "off"
-      }
-    },
-    {
       "files": ["src/{core,modules,app}/**"],
       "rules": {
         "no-restricted-imports": [

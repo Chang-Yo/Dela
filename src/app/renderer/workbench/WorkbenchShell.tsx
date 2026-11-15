@@ -1,6 +1,6 @@
 // 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏、
 // EntryDialogs 都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useEffect } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   type DocumentContent,
@@ -69,7 +69,7 @@ function newChatInCurrentPool() {
   void useNavigationStore.getState().newChat(useWorkbenchLayout.getState().projectId);
 }
 
-export function WorkbenchShell({ home = false }: { home?: boolean }) {
+export function WorkbenchShell({ home }: { home?: boolean }) {
   const projectId = useNavigationStore((s) => (home ? null : s.projectId));
   const generalChat = useNavigationStore((s) => s.generalChat);
   const loaded = useWorkspaceStore((s) => s.loaded);
@@ -87,30 +87,20 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
     return group?.active ?? null;
   });
   const activeDocKey = tabDocumentKey(activeTab);
-  // 当前文档键经 ref 读取：chatSource/draftSource 不随切标签重建（Provider 值一变，
-  // 全部 ChatTab/NoteTab 都会重渲）。
-  const activeDocKeyRef = useRef(activeDocKey);
-  activeDocKeyRef.current = activeDocKey;
   const rootId = useWorkspaceStore((s) =>
     s.workspace.entries.some((entry) => entry.id === projectId) ? projectId : null,
   );
 
-  const openDialog = useCallback(
-    (action: EntryAction | 'link', id: string | null, text?: string) =>
-      useEntryDialog.getState().open({
-        action,
-        id,
-        text,
-        initialTarget:
-          action === 'move' || action === 'link'
-            ? (currentContainerOf(
-                useTreeState.getState().selected ?? activeDocKeyRef.current,
-                rootId,
-              ) ?? '')
-            : undefined,
-      }),
-    [rootId],
-  );
+  const openDialog = (action: EntryAction | 'link', id: string | null, text?: string) =>
+    useEntryDialog.getState().open({
+      action,
+      id,
+      text,
+      initialTarget:
+        action === 'move' || action === 'link'
+          ? (currentContainerOf(useTreeState.getState().selected ?? activeDocKey, rootId) ?? '')
+          : undefined,
+    });
 
   const onCreated = async (entry: WorkspaceEntry) => {
     if (entry.kind === 'project') return; // EntryDialogs 已回调 onOpenProject。
@@ -128,127 +118,106 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       useTreeState
         .getState()
         .reveal(ancestorChainOf(useWorkspaceStore.getState().workspace.entries, entry.id));
-    // 刚建的文件是要写的：直接常驻打开，不当预览。
     if (entry.kind === 'file') useWorkbenchLayout.getState().openTab(documentTabId(entry.id));
     else if (entry.parentId) useTreeState.getState().expand(entry.parentId, true);
   };
 
   const onRemoved = (liveIds: Set<string>) => purgeRemovedEntries(liveIds);
 
-  // -------------------------------------------------------------------------
-  // 布局预热（含 home 视图）：home 不挂载 Workbench，若等主动进入工作台才载布局，
-  // 切换瞬间工作台空白一次（ready=false → IPC → 标签经 reveal 重开），观感如同整页重载。
-  // init 对已就绪的同项目布局早退，视图往复切换不重复走 IPC。
-  // -------------------------------------------------------------------------
+  // home 也预热布局，切进工作台时不会先闪一帧空白；同项目重复 init 会早退。
   useEffect(() => {
     if (!loaded) return;
     void useWorkbenchLayout.getState().init(projectId);
   }, [loaded, projectId]);
 
-  const referenceSource: ReferenceSource = useMemo(
-    () => ({
-      // @ 引用即文件路径：项目会话列 cwd 下全部文件，通用池排除其他项目目录，
-      // key 为绝对路径，title 为相对 cwd 的路径，与 agent 的工作目录一致。订阅 workspace 镜像。
-      // 通用池（随聊/资料页）另并入模块登记的候选（如已下载的课件），它们不在镜像里。
-      useEntries: (projectId, cwd) => {
-        const entries = useWorkspaceStore((state) => state.workspace.entries);
-        // 远程项目的 cwd 是远端路径，本地镜像里没有它的文件，候选改由远端索引提供。
-        const remote = entries.find((item) => item.id === projectId)?.remoteId;
-        const remoteEntries = useRemoteReferences(remote ? projectId : null);
-        const localFiles = useLocalReferences(remote ? null : cwd);
-        const courseFiles = useQueries({
-          queries: referenceQueries.map((query) => ({
-            ...query,
-            enabled: projectId === null && !remote,
-            staleTime: 30_000,
-          })),
-          combine: flattenReferences,
-        });
-        return useMemo(
-          () =>
-            referenceEntryCandidates(
-              [...new Map([...entries, ...localFiles].map((item) => [item.id, item])).values()],
-              cwd,
-              projectId,
-              remote,
-              remoteEntries,
-              courseFiles,
-            ),
-          [entries, localFiles, cwd, projectId, remote, remoteEntries, courseFiles],
-        );
-      },
-      // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
-      flushReference: async (key) => {
-        if (!(await useNoteDrafts.getState().save(key)))
-          throw new Error('引用的笔记尚未保存成功，请先保存或移除该引用');
-      },
-    }),
-    [],
-  );
+  const referenceSource: ReferenceSource = {
+    // @ 引用候选即 cwd 下的文件路径；通用池另并入模块登记的候选，如已下载的课件。
+    useEntries: (projectId, cwd) => {
+      const entries = useWorkspaceStore((state) => state.workspace.entries);
+      const remote = entries.find((item) => item.id === projectId)?.remoteId;
+      const remoteEntries = useRemoteReferences(remote ? projectId : null);
+      const localFiles = useLocalReferences(remote ? null : cwd);
+      const courseFiles = useQueries({
+        queries: referenceQueries.map((query) => ({
+          ...query,
+          enabled: projectId === null && !remote,
+          staleTime: 30_000,
+        })),
+        combine: flattenReferences,
+      });
+      return referenceEntryCandidates(
+        [...new Map([...entries, ...localFiles].map((item) => [item.id, item])).values()],
+        cwd,
+        projectId,
+        remote,
+        remoteEntries,
+        courseFiles,
+      );
+    },
+    // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
+    flushReference: async (key) => {
+      if (!(await useNoteDrafts.getState().save(key)))
+        throw new Error('引用的笔记尚未保存成功，请先保存或移除该引用');
+    },
+  };
 
-  const chatSource = useMemo<ChatTabSource>(
-    () => ({
-      referenceSource,
-      mailDialog: MailDraftDialog,
-      navigate: (target) => useNavigationStore.getState().navigate(target),
-      workbench: {
-        open: (tab, options) => openTarget(tab, options),
-        openDocument: (key, options) =>
-          options?.aside
-            ? openTarget(documentTabId(key), { aside: true })
-            : void useNavigationStore.getState().openDocument(key),
-        close: closeTabEverywhere,
-      },
-      opensLink: opensInApp,
-      onSaveNote: (text) =>
-        openDialog(
-          'note',
-          currentContainerOf(useTreeState.getState().selected ?? activeDocKeyRef.current, rootId),
-          prefillNoteText(activeDocKeyRef.current, text, queryClient),
-        ),
-    }),
-    [openDialog, referenceSource, rootId, queryClient],
-  );
+  const chatSource: ChatTabSource = {
+    referenceSource,
+    mailDialog: MailDraftDialog,
+    navigate: (target) => useNavigationStore.getState().navigate(target),
+    workbench: {
+      open: (tab, options) => openTarget(tab, options),
+      openDocument: (key, options) =>
+        options?.aside
+          ? openTarget(documentTabId(key), { aside: true })
+          : void useNavigationStore.getState().openDocument(key),
+      close: closeTabEverywhere,
+    },
+    opensLink: opensInApp,
+    onSaveNote: (text) =>
+      openDialog(
+        'note',
+        currentContainerOf(useTreeState.getState().selected ?? activeDocKey, rootId),
+        prefillNoteText(activeDocKey, text, queryClient),
+      ),
+  };
 
-  const draftSource = useMemo<NoteDraftSource>(
-    () => ({
-      usePath: (entryId) => {
-        const entries = useWorkspaceStore((state) => state.workspace.entries);
-        return ancestorChainOf(entries, entryId).flatMap((id) => {
-          const entry = entries.find((entry) => entry.id === id);
-          return entry ? [entry.name] : [];
-        });
-      },
-      useDraft: (entryId) => useNoteDrafts((state) => state.drafts[entryId]),
-      resolveImage: (entryId, src) => {
-        if (!isRelativeAssetPath(src)) return src;
-        const remote = parseRemoteNodeId(entryId);
-        if (!remote) return noteAssetUrl(entryId, decodeAssetPath(src));
-        const root =
-          useWorkspaceStore.getState().workspace.entries.find((e) => e.id === remote.projectId)
-            ?.path ?? '/';
-        return remoteAssetUrl(remote.projectId, root, remote.path, src);
-      },
-      acquire: (key, force) => useNoteDrafts.getState().acquire(key, force),
-      release: (key) => useNoteDrafts.getState().release(key),
-      edit: (key, text) => {
-        // 改过的文件不再是「只是看看」：预览标签转常驻，不会被下一次单击替换掉。
-        useWorkbenchLayout.getState().keepTab(`note:${key}`);
-        useNoteDrafts.getState().edit(key, text);
-      },
-      save: (key) => useNoteDrafts.getState().save(key),
-      saveAsNewNote: (entryId, text) =>
-        openDialog(
-          'note',
-          currentContainerOf(useTreeState.getState().selected ?? activeDocKeyRef.current, rootId),
-          prefillNoteText(entryId, text, queryClient),
-        ),
-    }),
-    [openDialog, rootId, queryClient],
-  );
+  const draftSource: NoteDraftSource = {
+    usePath: (entryId) => {
+      const entries = useWorkspaceStore((state) => state.workspace.entries);
+      return ancestorChainOf(entries, entryId).flatMap((id) => {
+        const entry = entries.find((entry) => entry.id === id);
+        return entry ? [entry.name] : [];
+      });
+    },
+    useDraft: (entryId) => useNoteDrafts((state) => state.drafts[entryId]),
+    resolveImage: (entryId, src) => {
+      if (!isRelativeAssetPath(src)) return src;
+      const remote = parseRemoteNodeId(entryId);
+      if (!remote) return noteAssetUrl(entryId, decodeAssetPath(src));
+      const root =
+        useWorkspaceStore.getState().workspace.entries.find((e) => e.id === remote.projectId)
+          ?.path ?? '/';
+      return remoteAssetUrl(remote.projectId, root, remote.path, src);
+    },
+    acquire: (key, force) => useNoteDrafts.getState().acquire(key, force),
+    release: (key) => useNoteDrafts.getState().release(key),
+    edit: (key, text) => {
+      // 改过的文件不再是「只是看看」：预览标签转常驻，不会被下一次单击替换掉。
+      useWorkbenchLayout.getState().keepTab(`note:${key}`);
+      useNoteDrafts.getState().edit(key, text);
+    },
+    save: (key) => useNoteDrafts.getState().save(key),
+    saveAsNewNote: (entryId, text) =>
+      openDialog(
+        'note',
+        currentContainerOf(useTreeState.getState().selected ?? activeDocKey, rootId),
+        prefillNoteText(entryId, text, queryClient),
+      ),
+  };
 
-  const loader = useMemo<ContentLoader>(() => {
-    const loadDocument = async (tabKey: TabId): Promise<LoadedDocument> => {
+  const loader: ContentLoader = {
+    loadDocument: async (tabKey: TabId): Promise<LoadedDocument> => {
       const target = parsePreviewTabId(tabKey);
       if (!target) throw new Error('无效的预览标签');
       if (!window.dela) throw new Error('文件预览仅在桌面端可用');
@@ -273,7 +242,6 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         ? await workspaceClient.readSource(sourceId)
         : await workspaceClient.read(entryId!);
       const document = sourceId ? sourceOf(sourceId)?.document : undefined;
-      // pptx 的导出/快速预览定位：Canvas 资料用 sourceId，本地条目用条目 id。
       const officeRef: ResourceRef | undefined =
         content.format === 'pptx'
           ? sourceId && !document
@@ -288,31 +256,28 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
         officeRef,
         watchesDisk: entry?.kind === 'file',
       };
-    };
-    return {
-      loadDocument,
-      // 已同步的资料在标签页打开；其余交给主进程按模块分流，最后才是系统浏览器。
-      openLink: (url) => {
-        const sourceId = sourceOfLink(url, queryClient);
-        if (sourceId) void useNavigationStore.getState().openDocument(`source:${sourceId}`);
-        else window.open(url);
-      },
-      navigate: (target) => useNavigationStore.getState().navigate(target),
-      onExported: () => {
-        // 导出会在我的资料里新增「预览导出」条目，目录树需一并刷新。
-        void useWorkspaceStore
-          .getState()
-          .refresh()
-          .catch((cause) =>
-            showToast({
-              variant: 'error',
-              title: '刷新目录失败',
-              description: errorMessage(cause),
-            }),
-          );
-      },
-    };
-  }, []);
+    },
+    // 已同步的资料在标签页打开；其余交给主进程按模块分流，最后才是系统浏览器。
+    openLink: (url) => {
+      const sourceId = sourceOfLink(url, queryClient);
+      if (sourceId) void useNavigationStore.getState().openDocument(`source:${sourceId}`);
+      else window.open(url);
+    },
+    navigate: (target) => useNavigationStore.getState().navigate(target),
+    onExported: () => {
+      // 导出会在我的资料里新增「预览导出」条目，目录树需一并刷新。
+      void useWorkspaceStore
+        .getState()
+        .refresh()
+        .catch((cause) =>
+          showToast({
+            variant: 'error',
+            title: '刷新目录失败',
+            description: errorMessage(cause),
+          }),
+        );
+    },
+  };
 
   if (!loaded && workspaceError === null && window.dela)
     // 工作区镜像载入前不渲染：布局种子与标题解析都依赖条目树。
