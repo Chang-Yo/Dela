@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BookOpen,
   CalendarCheck,
@@ -26,10 +26,7 @@ const INITIAL_BODY_HEIGHT = 240;
  */
 function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => void }) {
   const rootSize = useRootFontSize();
-  const doc = useMemo(
-    () => sanitizeHtml(html, 'https://oc.sjtu.edu.cn', rootSize),
-    [html, rootSize],
-  );
+  const doc = sanitizeHtml(html, 'https://oc.sjtu.edu.cn', rootSize);
   const [body, setBody] = useState<HTMLElement | null>(null);
   const [height, setHeight] = useState(INITIAL_BODY_HEIGHT);
   useEffect(() => {
