@@ -59,7 +59,7 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
-    "@babel/core": "8.1.0",
+    "@babel/core": "7.29.13",
     "@codemirror/commands": "6.11.0",
     "@codemirror/lang-markdown": "6.5.2",
     "@codemirror/language": "6.12.4",
