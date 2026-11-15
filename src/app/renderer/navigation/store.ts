@@ -38,7 +38,7 @@ type Store = {
   toggleFullSessionList: (id: string) => void;
 };
 
-export const useNavigationStore = create<Store>((set) => ({
+export const useTreeState = create<Store>((set) => ({
   pendingCreate: null,
   // 目标文件夹要展开，输入行才看得见。
   startCreate: (pending) =>

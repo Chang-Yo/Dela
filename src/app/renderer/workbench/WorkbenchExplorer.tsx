@@ -33,7 +33,7 @@ import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
 import { libraries } from '../../views';
-import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
+import { ancestorChainOf, useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from '../navigation/view';
 import {
   archiveEntry,

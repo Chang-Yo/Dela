@@ -9,7 +9,7 @@ import {
 import { sourceTitle } from '../../views';
 import { useNoteDrafts } from '../../../modules/note/view';
 import { useWorkbenchLayout } from '../workbench/layout-store';
-import { useNavigationStore as useTreeState } from '../navigation/store';
+import { useTreeState } from '../navigation/store';
 import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { showToast } from '../../../ui/toast';
 import { errorMessage } from '../../../core/protocol/contract';

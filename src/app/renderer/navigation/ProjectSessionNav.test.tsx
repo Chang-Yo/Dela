@@ -7,7 +7,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { WorkspaceEntry, WorkspaceState } from '../../../modules/workspace/contract';
 import { ProjectSessionNav, type NavSessionSummary } from './ProjectSessionNav';
-import { useNavigationStore } from './store';
+import { useTreeState } from './store';
 import { useWorkspaceStore } from '../../../modules/workspace/view';
 
 const project: WorkspaceEntry = {
@@ -40,7 +40,7 @@ beforeEach(() => {
     loaded: true,
     error: null,
   });
-  useNavigationStore.setState({ openProjects: ['general', project.id] });
+  useTreeState.setState({ openProjects: ['general', project.id] });
 });
 
 afterEach(async () => {
@@ -99,7 +99,7 @@ it('hides the project background while a listed session is highlighted', async (
 });
 
 it('keeps the project background while the project is collapsed', async () => {
-  useNavigationStore.setState({ openProjects: ['general'] });
+  useTreeState.setState({ openProjects: ['general'] });
   await render('s-1');
   expect(highlighted(projectRow())).toBe(true);
 });
@@ -135,7 +135,7 @@ it('shows a remote project with the cloud icon and its connection colour', async
     loaded: true,
     error: null,
   });
-  useNavigationStore.setState({ openProjects: ['general', project.id, remote.id] });
+  useTreeState.setState({ openProjects: ['general', project.id, remote.id] });
   await render(null, recent);
 
   const localRow = projectRow();

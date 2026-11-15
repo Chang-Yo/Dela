@@ -39,7 +39,7 @@ import { purgeRemovedEntries } from './removed-cleanup';
 import { Workbench } from './Workbench';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
 import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
-import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
+import { ancestorChainOf, useTreeState } from '../navigation/store';
 import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from '../navigation/view';
 import { showToast } from '../../../ui/toast';

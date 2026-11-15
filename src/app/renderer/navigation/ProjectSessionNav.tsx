@@ -36,7 +36,7 @@ import { useVisibleNavEntries, type NavEntryId } from './entries';
 import { showToast } from '../../../ui/toast';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { usePreferences } from '../shell/preferences';
-import { useNavigationStore } from './store';
+import { useTreeState } from './store';
 import { refreshSessionLists, chatClient } from '../../../modules/chat/view';
 import { closeTabEverywhere } from '../workbench/layout-store';
 import { Input } from '../../../ui/input';
@@ -113,10 +113,10 @@ export function ProjectSessionNav({
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
   const visibleEntries = useVisibleNavEntries();
-  const openProjects = useNavigationStore((s) => s.openProjects);
-  const toggleProject = useNavigationStore((s) => s.toggleProject);
-  const fullSessionLists = useNavigationStore((s) => s.fullSessionLists);
-  const toggleFullSessionList = useNavigationStore((s) => s.toggleFullSessionList);
+  const openProjects = useTreeState((s) => s.openProjects);
+  const toggleProject = useTreeState((s) => s.toggleProject);
+  const fullSessionLists = useTreeState((s) => s.fullSessionLists);
+  const toggleFullSessionList = useTreeState((s) => s.toggleFullSessionList);
   const preferences = usePreferences((state) => state.projectNav);
   const setProjectPreference = usePreferences((state) => state.patchProjectNav);
   const projects = entries

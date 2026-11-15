@@ -22,7 +22,7 @@ const { api, desktop } = vi.hoisted(() => {
   window.dela = desktop;
   return { api: handlers, desktop };
 });
-import { useNavigationStore as useTreeState } from '../../navigation/store';
+import { useTreeState } from '../../navigation/store';
 import { useWorkspaceStore } from '../../../../modules/workspace/view';
 
 const mediaStub = () => ({
