@@ -19,9 +19,7 @@
     {
       "files": [
         "src/modules/chat/view/ArchivedSection.tsx",
-        "src/modules/chat/view/ChatComposer.tsx",
         "src/modules/chat/view/TurnChangesCard.tsx",
-        "src/modules/chat/view/composer-context-bar.tsx",
         "src/modules/chat/view/review/ReviewTab.tsx",
         "src/modules/chat/view/review/UncommittedReview.tsx"
       ],

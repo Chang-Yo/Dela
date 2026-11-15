@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, useState, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ContextUsageView } from '../../../../core/protocol/agent';
 
@@ -67,6 +68,7 @@ const reference: ChatReference = { key: 'E:/repo/Test/authAPI.js', title: 'Test/
 
 let host: HTMLDivElement;
 let root: Root;
+let queryClient: QueryClient;
 
 function Harness({
   context = null,
@@ -93,29 +95,31 @@ function Harness({
 }) {
   const [value, setValue] = useState('');
   return (
-    <ChatComposer
-      attachments={attachments}
-      comments={[]}
-      onCommentsChange={() => {}}
-      busy={busy}
-      sidechat={sidechat}
-      configured
-      context={context}
-      contextUsage={contextUsage}
-      effort={effort}
-      effortLevels={effortLevels}
-      model="test-model"
-      onAddAttachmentFile={onAddAttachmentFile}
-      onAddAttachmentView={() => {}}
-      onChange={setValue}
-      onEffortSelect={onEffortSelect}
-      onModelSelect={() => {}}
-      onRemoveAttachment={() => {}}
-      onSend={() => {}}
-      onStop={() => {}}
-      referenceOptions={referenceOptions}
-      value={value}
-    />
+    <QueryClientProvider client={queryClient}>
+      <ChatComposer
+        attachments={attachments}
+        comments={[]}
+        onCommentsChange={() => {}}
+        busy={busy}
+        sidechat={sidechat}
+        configured
+        context={context}
+        contextUsage={contextUsage}
+        effort={effort}
+        effortLevels={effortLevels}
+        model="test-model"
+        onAddAttachmentFile={onAddAttachmentFile}
+        onAddAttachmentView={() => {}}
+        onChange={setValue}
+        onEffortSelect={onEffortSelect}
+        onModelSelect={() => {}}
+        onRemoveAttachment={() => {}}
+        onSend={() => {}}
+        onStop={() => {}}
+        referenceOptions={referenceOptions}
+        value={value}
+      />
+    </QueryClientProvider>
   );
 }
 
@@ -153,6 +157,9 @@ beforeEach(() => {
   );
   // jsdom 不做滚动布局：候选高亮的测量走真实代码，只把滚动本身置空。
   Element.prototype.scrollIntoView = () => {};
+  // 查询通知默认走 setTimeout，act 等不到；改为微任务让一次 await 就能收敛。
+  notifyManager.setScheduler(queueMicrotask);
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);

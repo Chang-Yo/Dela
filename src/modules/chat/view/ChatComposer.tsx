@@ -1,4 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Popover } from 'radix-ui';
 import {
   ArrowUp,
@@ -31,13 +32,11 @@ import { ProgressRing } from '../../../ui/progress-ring';
 import { useChatTabSource } from './chat-source';
 import type {
   BackgroundTaskView,
-  ChatCommandView,
   ChatComment,
   ChatMediaView,
   ContextUsageView,
 } from '../../../core/protocol/agent';
 import type { LlmProviderView } from '../../../core/protocol/llm';
-import type { WebSearchEntrySummary } from '../../../core/protocol/capabilities';
 import { SESSION_COMMANDS } from '../../../core/protocol/agent';
 import {
   CHAT_ATTACHMENT_MAX,
@@ -112,6 +111,11 @@ export function cacheHitRateText(usage: ContextUsageView): string {
 const triggerButton =
   'flex h-7 min-w-0 shrink items-center gap-1 rounded-control px-1.5 text-xs font-medium text-ink-2 transition-colors duration-base hover:bg-hover hover:text-ink';
 const menuPanel = 'rounded-card bg-surface p-1 shadow-raised';
+const webSearchOptionsKey = ['capabilities', 'webSearchOptions'];
+// 候选行固定 h-9（9 个 spacing 单位），滑动高亮据此定位。
+const MENU_ROW_UNITS = 9;
+const scrollRowIntoView = (node: HTMLLIElement | null) =>
+  node?.scrollIntoView({ block: 'nearest' });
 
 export function ChatComposer({
   value,
@@ -189,72 +193,55 @@ export function ChatComposer({
   const editorRef = useRef<ComposerEditorHandle | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [index, setIndex] = useState(0);
-  const itemRef = useRef<HTMLLIElement>(null);
   // 候选菜单 id 逐实例唯一（同页可同时挂多个会话的 composer），选项 id 按序号派生，
   // 供编辑器的 aria-controls / aria-activedescendant 引用。
   const menuListId = `${useId()}-list`;
   const menuOptionId = (position: number) => `${menuListId}-option-${position}`;
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [customCommands, setCustomCommands] = useState<ChatCommandView[]>([]);
-  // 两列模型面板：打开时读取设置配置保证新鲜；focusedId 是左列当前查看的提供商。
+  const queryClient = useQueryClient();
+  const customCommands = useQuery({
+    queryKey: ['settings', 'commands'],
+    queryFn: () => agentClient['list-commands']({}),
+  }).data;
+  // 两列模型面板：打开时重读设置配置保证新鲜；focusedId 是左列手动查看的提供商，空则跟随当前使用项。
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
-  const [providersFailed, setProvidersFailed] = useState(false);
+  const providerQuery = useQuery({
+    queryKey: ['llm', 'providers'],
+    queryFn: () => llmClient.list(),
+    enabled: Boolean(window.dela) && modelPickerOpen,
+  });
+  const providers = providerQuery.data?.filter((view) => view.enabled) ?? null;
+  const providersFailed = providerQuery.isError;
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const focused = providers?.find((provider) => provider.id === focusedId) ?? null;
+  const focused =
+    providers?.find((provider) => provider.id === focusedId) ??
+    providers?.find((provider) => provider.id === providerId) ??
+    providers?.[0] ??
+    null;
   const [effortPickerOpen, setEffortPickerOpen] = useState(false);
-  // 搜索服务选择器：打开时读取配置保证新鲜；配置的增删改在设置弹窗。
+  // 搜索服务选择器：选中态是持久数据，挂载即读（发送首轮会重挂 composer）；配置的增删改在设置弹窗。
   const [searchPickerOpen, setSearchPickerOpen] = useState(false);
-  const [searchEntries, setSearchEntries] = useState<WebSearchEntrySummary[] | null>(null);
-  const [searchSelectedId, setSearchSelectedId] = useState<string | null>(null);
-  const [searchFailed, setSearchFailed] = useState(false);
-  const searchRequest = useRef(0);
-  const refreshSearch = () => {
-    if (!window.dela) return;
-    const request = ++searchRequest.current;
-    setSearchFailed(false);
-    void capabilitiesClient
-      .listWebSearchOptions()
-      .then(({ entries, selectedId }) => {
-        if (request !== searchRequest.current) return;
-        setSearchEntries(entries);
-        setSearchSelectedId(selectedId);
-      })
-      .catch(() => {
-        if (request === searchRequest.current) setSearchFailed(true);
-      });
+  const searchQuery = useQuery({
+    queryKey: webSearchOptionsKey,
+    queryFn: () => capabilitiesClient.listWebSearchOptions(),
+    enabled: Boolean(window.dela),
+  });
+  const searchEntries = searchQuery.data?.entries ?? null;
+  const searchSelectedId = searchQuery.data?.selectedId ?? null;
+  const searchFailed = searchQuery.isError;
+  // 先取消在途读取：首次读取还没回来时，失效不会重读，旧响应会盖掉新配置。
+  const refreshSearch = async () => {
+    await queryClient.cancelQueries({ queryKey: webSearchOptionsKey });
+    await queryClient.invalidateQueries({ queryKey: webSearchOptionsKey });
   };
-  // 选中态是持久数据，挂载即读：发送首轮会从空态英雄布局切到会话布局重挂 composer，
-  // 本地状态归零，不同步的话已开启的搜索会错显成灰色。
-  useEffect(() => {
-    const unsubscribe = onWebSearchChanged(refreshSearch);
-    refreshSearch();
-    return () => {
-      unsubscribe();
-      searchRequest.current++;
-    };
-  }, []);
-  // PromptBar 式单一滑动高亮：跟随键盘/鼠标共用的 index，测量当前行位置。
-  const [rowBox, setRowBox] = useState<{ top: number; height: number } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void agentClient['list-commands']({})
-      .then((commands) => {
-        if (active) setCustomCommands(commands);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+  useEffect(() => onWebSearchChanged(() => void refreshSearch()), []);
 
   const slashItems =
     menu?.kind === 'slash'
       ? [
           ...builtinCommands,
-          ...customCommands.map((command) => ({ ...command, hint: '自定义' })),
+          ...(customCommands ?? []).map((command) => ({ ...command, hint: '自定义' })),
           // Dela 的会话命令：插入 `/name ` 留给参数，发送时由 use-chat 拦下执行。
           // 旁问里没有会话命令：发出去就是普通提问。
           ...(sidechat ? [] : SESSION_COMMANDS).map((command) => ({
@@ -279,18 +266,6 @@ export function ChatComposer({
   const items: (typeof slashItems)[number][] | ChatReference[] =
     menu?.kind === 'slash' ? slashItems : mentionItems;
   const menuOpen = menu !== null && items.length > 0;
-
-  useEffect(() => {
-    itemRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [index, menuOpen]);
-
-  useLayoutEffect(() => {
-    setRowBox(
-      itemRef.current
-        ? { top: itemRef.current.offsetTop, height: itemRef.current.offsetHeight }
-        : null,
-    );
-  }, [index, menuOpen, items.length]);
 
   const handleCaret = (text: string, caret: number) => {
     if (fileError) setFileError(null);
@@ -430,28 +405,19 @@ export function ChatComposer({
 
   const openModelPicker = (open: boolean) => {
     setModelPickerOpen(open);
-    if (!open || !window.dela) return;
-    setProvidersFailed(false);
-    llmClient
-      .list()
-      .then((views) => {
-        const enabled = views.filter((view) => view.enabled);
-        setProviders(enabled);
-        setFocusedId(enabled.find((view) => view.id === providerId)?.id ?? enabled[0]?.id ?? null);
-      })
-      .catch(() => setProvidersFailed(true));
+    if (open) setFocusedId(null);
   };
 
   const openSearchPicker = (open: boolean) => {
     setSearchPickerOpen(open);
-    if (open) refreshSearch();
+    if (open) void refreshSearch();
   };
 
   const selectSearchEntry = async (id: string | null) => {
     if (!window.dela) return;
     try {
       await capabilitiesClient.selectWebSearchEntry(id);
-      refreshSearch();
+      void refreshSearch();
       setSearchPickerOpen(false);
     } catch (cause) {
       setFileError(errorMessage(cause));
@@ -720,7 +686,7 @@ export function ChatComposer({
                             <button
                               className={cn(
                                 'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
-                                provider.id === focusedId
+                                provider.id === focused?.id
                                   ? 'bg-hover font-medium text-ink'
                                   : 'text-ink-2 hover:bg-hover hover:text-ink',
                               )}
@@ -897,9 +863,9 @@ export function ChatComposer({
               aria-hidden
               className="pointer-events-none absolute inset-x-1 rounded-chip bg-hover"
               style={{
-                top: rowBox?.top ?? 0,
-                height: rowBox?.height ?? 0,
-                opacity: rowBox ? 1 : 0,
+                top: `calc(var(--spacing) * ${index * MENU_ROW_UNITS + 1})`,
+                height: `calc(var(--spacing) * ${MENU_ROW_UNITS})`,
+                opacity: index < items.length ? 1 : 0,
                 transition:
                   'top 220ms cubic-bezier(0.23,1,0.32,1), height 220ms cubic-bezier(0.23,1,0.32,1), opacity 150ms ease',
               }}
@@ -914,7 +880,7 @@ export function ChatComposer({
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setIndex(position)}
                 onClick={() => handleSelect(position)}
-                ref={position === index ? itemRef : undefined}
+                ref={position === index ? scrollRowIntoView : undefined}
                 role="option"
               >
                 {menu?.kind === 'mention' ? (

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Popover } from 'radix-ui';
 import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } from 'lucide-react';
 import type { WorkspaceEntry } from '../../workspace/contract';
@@ -29,48 +30,30 @@ const matches = (value: string, query: string) =>
 export function ComposerContextBar({ context }: { context: ComposerContext }) {
   const { navigate } = useChatTabSource();
   const entries = useWorkspaceStore((state) => state.workspace.entries);
-  const projects = useMemo(() => entries.filter((entry) => entry.kind === 'project'), [entries]);
+  const projects = entries.filter((entry) => entry.kind === 'project');
+  const queryClient = useQueryClient();
   const { projectId, remote } = context;
-  const [current, setCurrent] = useState<string | null>(null);
-  const [branches, setBranches] = useState<string[]>([]);
-  const [branchesFailed, setBranchesFailed] = useState(false);
   const [projectQuery, setProjectQuery] = useState('');
   const [branchQuery, setBranchQuery] = useState('');
   const [projectOpen, setProjectOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
 
   // 当前分支要一直显示在胶囊上，进新对话就读一次；远端仓库在另一台机器上，通用池没有项目。
-  useEffect(() => {
-    setCurrent(null);
-    if (!projectId || remote || !window.dela) return;
-    let active = true;
-    void workspaceClient
-      .projectBranch(projectId)
-      .then((branch) => {
-        if (active) setCurrent(branch);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [projectId, remote]);
-
+  const hasLocalRepo = Boolean(projectId) && !remote && Boolean(window.dela);
+  const current =
+    useQuery({
+      queryKey: ['workspace', 'projectBranch', projectId],
+      queryFn: () => workspaceClient.projectBranch(projectId!),
+      enabled: hasLocalRepo,
+    }).data ?? null;
   // 分支列表展开时才拉：仓库可能有很多分支，不必每次进新对话都读一遍。
-  useEffect(() => {
-    if (!branchOpen || !projectId || remote || !window.dela) return;
-    let active = true;
-    void workspaceClient
-      .projectBranches(projectId)
-      .then((list) => {
-        if (active) setBranches(list);
-      })
-      .catch(() => {
-        if (active) setBranchesFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [branchOpen, projectId, remote]);
+  const branchList = useQuery({
+    queryKey: ['workspace', 'projectBranches', projectId],
+    queryFn: () => workspaceClient.projectBranches(projectId!),
+    enabled: hasLocalRepo && branchOpen,
+  });
+  const branches = branchList.data ?? [];
+  const branchesFailed = branchList.isError;
 
   const local = (entry: WorkspaceEntry) =>
     entry.remoteId ? (
@@ -91,7 +74,9 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
     if (!projectId || branch === current || !window.dela) return;
     void workspaceClient
       .switchProjectBranch({ id: projectId, branch })
-      .then(() => setCurrent(branch))
+      .then(() =>
+        queryClient.invalidateQueries({ queryKey: ['workspace', 'projectBranch', projectId] }),
+      )
       .catch((error: unknown) =>
         showToast({
           variant: 'error',
