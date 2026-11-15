@@ -17,15 +17,6 @@
       }
     },
     {
-      "files": [
-        "src/modules/chat/view/ArchivedSection.tsx"
-      ],
-      "rules": {
-        "react/set-state-in-effect": "off",
-        "react/refs": "off"
-      }
-    },
-    {
       "files": ["src/{core,modules,app}/**"],
       "rules": {
         "no-restricted-imports": [

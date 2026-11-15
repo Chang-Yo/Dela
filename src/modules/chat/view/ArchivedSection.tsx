@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, Folder, Search, Trash2 } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { chatClient } from './client';
@@ -20,60 +21,45 @@ const generalProject = '__general__';
 type Group = { id: string | null; name: string; sessions: ChatSessionSummary[] };
 
 export function ArchivedSection({ navigate }: { navigate: Navigate }) {
-  const [sessions, setSessions] = useState<ChatSessionSummary[] | null>(null);
+  const queryClient = useQueryClient();
+  const archived = useQuery({
+    queryKey: ['chat', 'archived'],
+    queryFn: () => chatClient.archived(),
+  });
+  const sessions = archived.data;
   const [query, setQuery] = useState('');
   const [projectFilter, setProjectFilter] = useState(allProjects);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'all' } | null>(
     null,
   );
-  const [error, setError] = useState<string | null>(null);
   const entries = useWorkspaceStore((state) => state.workspace.entries);
 
-  const reload = async () => setSessions(await chatClient.archived());
-
-  useEffect(() => {
-    let active = true;
-    if (!window.dela) {
-      setSessions([]);
-      return;
-    }
-    void chatClient
-      .archived()
-      .then((list) => {
-        if (active) setSessions(list);
-      })
-      .catch((cause) => {
-        if (active) setError(errorMessage(cause));
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const reload = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['chat', 'archived'] }),
+      queryClient.invalidateQueries({ queryKey: ['chat', 'session-search'] }),
+    ]);
 
   const projectName = (id: string | null) =>
     (id ? entries.find((entry) => entry.id === id)?.name : null) ?? '随聊';
 
   // 按项目归类；项目顺序沿用列表顺序（归档时间倒序）。
-  const groups = useMemo<Group[]>(() => {
-    const keyword = query.trim().toLowerCase();
-    const filtered = (sessions ?? []).filter(
-      (session) =>
-        (projectFilter === allProjects ||
-          (session.projectId ?? generalProject) === projectFilter) &&
-        (!keyword || session.title.toLowerCase().includes(keyword)),
-    );
-    const byProject = new Map<string, Group>();
-    for (const session of filtered) {
-      const id = session.projectId ?? null;
-      const key = id ?? '';
-      const group = byProject.get(key);
-      if (group) group.sessions.push(session);
-      else byProject.set(key, { id, name: projectName(id), sessions: [session] });
-    }
-    return [...byProject.values()];
-    // projectName 依赖 entries，随目录变化重算。
-  }, [sessions, query, projectFilter, entries]);
+  const keyword = query.trim().toLowerCase();
+  const filtered = (sessions ?? []).filter(
+    (session) =>
+      (projectFilter === allProjects || (session.projectId ?? generalProject) === projectFilter) &&
+      (!keyword || session.title.toLowerCase().includes(keyword)),
+  );
+  const byProject = new Map<string, Group>();
+  for (const session of filtered) {
+    const id = session.projectId ?? null;
+    const key = id ?? '';
+    const group = byProject.get(key);
+    if (group) group.sessions.push(session);
+    else byProject.set(key, { id, name: projectName(id), sessions: [session] });
+  }
+  const groups = [...byProject.values()];
 
   const change = async (id: string, remove: boolean) => {
     if (busy || !window.dela) return;
@@ -195,13 +181,13 @@ export function ArchivedSection({ navigate }: { navigate: Navigate }) {
                 永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
               </Callout>
             )}
-            {error && <ErrorText>{error}</ErrorText>}
-            {sessions !== null && sessions.length === 0 && (
+            {archived.error && <ErrorText>{errorMessage(archived.error)}</ErrorText>}
+            {sessions && sessions.length === 0 && (
               <SettingsGroup>
                 <p className="py-3.5 text-sm text-ink-3">没有已归档对话</p>
               </SettingsGroup>
             )}
-            {sessions !== null && sessions.length > 0 && groups.length === 0 && (
+            {sessions && sessions.length > 0 && groups.length === 0 && (
               <SettingsGroup>
                 <p className="py-3.5 text-sm text-ink-3">没有匹配的已归档对话</p>
               </SettingsGroup>

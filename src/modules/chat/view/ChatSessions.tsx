@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from 'use-debounce';
 import { Archive, MessageSquare, Search, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { Button } from '../../../ui/button';
@@ -107,43 +109,24 @@ export function ChatSessions({
   onOpenSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
 }) {
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
-  // null = 尚无结果：面板打开与查询期间不闪空态文案，保留旧列表直到新结果到达。
-  const [results, setResults] = useState<Record<string, ChatSessionSummary[] | null>>({});
-  const [listVersion, setListVersion] = useState(0);
+  const [searchTerm] = useDebounce(query.trim(), 200);
+  const pools = projectId === null ? [null] : [projectId, null];
+  const sessionLists = useQuery({
+    queryKey: ['chat', 'session-search', projectId, searchTerm],
+    queryFn: () =>
+      Promise.all(pools.map((pool) => querySessions(pool, searchTerm))).catch((cause) => {
+        console.error(errorMessage(cause));
+        throw cause;
+      }),
+    enabled: open,
+    // 新结果到达前保留旧列表，面板打开与查询期间不闪空态文案。
+    placeholderData: keepPreviousData,
+  });
   // 查询失败不静默呈现为空态：给一行错误与重试；新查询成功即复位。
-  const [loadError, setLoadError] = useState(false);
-
-  const pools = useMemo(() => (projectId === null ? [null] : [projectId, null]), [projectId]);
-
-  useEffect(() => {
-    if (!open) return;
-    // cleanup 只能清 timer，无法取消在途 IPC：active 标志丢弃过期响应（含删除后到达的旧列表）。
-    let active = true;
-    const timer = setTimeout(() => {
-      void Promise.all(pools.map((pool) => querySessions(pool, query.trim())))
-        .then((lists) => {
-          if (!active) return;
-          const next: Record<string, ChatSessionSummary[] | null> = {};
-          pools.forEach((pool, index) => {
-            next[poolKey(pool)] = lists[index] ?? null;
-          });
-          setResults(next);
-          setLoadError(false);
-        })
-        .catch((e) => {
-          if (active) {
-            setResults({});
-            setLoadError(true);
-            console.error(errorMessage(e));
-          }
-        });
-    }, 200);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [listVersion, open, pools, query]);
+  const loadError = sessionLists.isError;
+  const lists = loadError ? undefined : sessionLists.data;
 
   // 悬浮面板自行响应 Esc 关闭。
   useEffect(() => {
@@ -159,13 +142,12 @@ export function ChatSessions({
     onDeleteSession(sessionId);
     // 面板保持打开时列表仍可见：先乐观移除，再重取列表覆盖在途旧请求，
     // 也让删除失败（IPC 报错）时该行按服务端事实恢复。
-    setResults((current) => {
-      const next: Record<string, ChatSessionSummary[] | null> = {};
-      for (const [key, list] of Object.entries(current))
-        next[key] = list ? list.filter((item) => item.id !== sessionId) : list;
-      return next;
-    });
-    setListVersion((version) => version + 1);
+    queryClient.setQueriesData<ChatSessionSummary[][]>(
+      { queryKey: ['chat', 'session-search'] },
+      (current) => current?.map((list) => list.filter((item) => item.id !== sessionId)),
+    );
+    void queryClient.invalidateQueries({ queryKey: ['chat', 'session-search'] });
+    void queryClient.invalidateQueries({ queryKey: ['chat', 'archived'] });
   };
 
   if (!open) return null;
@@ -173,11 +155,11 @@ export function ChatSessions({
   // 找不到锚点时退回 body（整窗覆盖）。
   const container = document.getElementById('app-main') ?? document.body;
 
-  const sections = pools.map((pool) => ({
+  const sections = pools.map((pool, index) => ({
     pool,
     key: poolKey(pool),
     label: pool === null && projectId !== null ? '通用对话' : null,
-    list: results[poolKey(pool)] ?? null,
+    list: lists?.[index] ?? null,
   }));
   const allLoaded = sections.every((section) => section.list !== null);
   const totalCount = sections.reduce((count, section) => count + (section.list?.length ?? 0), 0);
@@ -219,11 +201,7 @@ export function ChatSessions({
           {loadError && (
             <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-ink-3">
               <span role="alert">历史对话加载失败</span>
-              <Button
-                onClick={() => setListVersion((version) => version + 1)}
-                size="sm"
-                variant="outline"
-              >
+              <Button onClick={() => void sessionLists.refetch()} size="sm" variant="outline">
                 重试
               </Button>
             </div>
