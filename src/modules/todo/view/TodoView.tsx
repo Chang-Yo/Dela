@@ -30,6 +30,7 @@ import { Button } from '../../../ui/button';
 import { EmptyState } from '../../../ui/empty-state';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
+import { SegmentedControl } from '../../../ui/segmented-control';
 import { Switch } from '../../../ui/switch';
 import { cn } from '../../../ui/cn';
 import { showToast } from '../../../ui/toast';
@@ -44,6 +45,8 @@ import { useTodoPreferences } from './preferences';
 import { dateLabel } from './todo-format';
 import { ErrorText } from '../../../ui/alert';
 import type { NavTargets } from '../../../app/module';
+
+const views = ['calendar', 'list'] as const;
 
 const todo = createClient(todoContract, window.dela?.bridge);
 
@@ -239,7 +242,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
   const error = query.error ? errorMessage(query.error) : null;
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<'all' | 'personal' | 'canvas'>('all');
-  const [view, setView] = useState<'calendar' | 'list'>('calendar');
+  const [view, setView] = useState<(typeof views)[number]>('calendar');
   const [month, setMonth] = useState(() => startOfDay(new Date()));
   const showCompleted = useTodoPreferences((state) => state.showCompleted);
   const [detailId, setDetailId] = useState<string | null>(target.todoId ?? null);
@@ -390,30 +393,13 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
             />
             显示已完成
           </label>
-          <div
-            aria-label="TODO 视图"
-            className="flex items-center gap-0.5 rounded-control bg-inset p-0.5"
-            role="group"
-          >
-            <Button
-              size="sm"
-              variant={view === 'calendar' ? 'secondary' : 'ghost'}
-              aria-pressed={view === 'calendar'}
-              onClick={() => setView('calendar')}
-            >
-              <CalendarDays className="size-4" />
-              日历
-            </Button>
-            <Button
-              size="sm"
-              variant={view === 'list' ? 'secondary' : 'ghost'}
-              aria-pressed={view === 'list'}
-              onClick={() => setView('list')}
-            >
-              <List className="size-4" />
-              列表
-            </Button>
-          </div>
+          <SegmentedControl
+            icons={{ calendar: CalendarDays, list: List }}
+            labels={{ calendar: '日历', list: '列表' }}
+            onChange={setView}
+            options={views}
+            value={view}
+          />
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
