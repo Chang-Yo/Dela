@@ -55,6 +55,7 @@ import { UpdateBadge } from '../../../modules/update/view';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';
 import { pageHasDrawer } from '../../views';
 import { IconButton } from '../../../ui/icon-button';
+import { Kbd } from '../../../ui/kbd';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import {
   Dialog,
@@ -88,12 +89,7 @@ function ShortcutRow({ hint, keys, label }: { hint?: string; keys?: string[]; la
       {keys ? (
         <span className="flex shrink-0 items-center gap-1">
           {keys.map((key) => (
-            <kbd
-              className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-xs font-medium text-ink-2 shadow-hairline"
-              key={key}
-            >
-              {key}
-            </kbd>
+            <Kbd key={key}>{key}</Kbd>
           ))}
         </span>
       ) : (
