@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TodoItem, TodoState } from '../../../../../modules/todo/contract';
+import type { TodoItem, TodoState } from '../../../contract';
 import { todoDomain } from '../index';
 
-vi.mock('../../../../../modules/todo', () => ({
+vi.mock('../../store', () => ({
   getTodoState: vi.fn(),
   refreshTodos: vi.fn(),
   saveTodo: vi.fn(),
   removeTodo: vi.fn(),
 }));
 
-import { getTodoState, refreshTodos, removeTodo, saveTodo } from '../../../../../modules/todo';
+import { getTodoState, refreshTodos, removeTodo, saveTodo } from '../../store';
 
 const state = vi.mocked(getTodoState);
 const refresh = vi.mocked(refreshTodos);

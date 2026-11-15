@@ -1,5 +1,5 @@
 import type { CommandDomain } from '../../../../core/capabilities/commands';
-import skill from '../../skills/todo/SKILL.md?raw';
+import skill from './skill/SKILL.md?raw';
 import { queryAssignmentsTool, queryTodosTool } from './query';
 import { refreshTodosTool } from './refresh';
 import { removeTodoTool } from './remove';

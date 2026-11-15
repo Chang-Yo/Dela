@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getTodoState, refreshTodos } from '../../../../modules/todo';
+import { getTodoState, refreshTodos } from '../store';
 import { coverage, freshness, tool, toolError } from '../../../../core/capabilities/domain-tools';
 import { slimTodo } from './slim';
 

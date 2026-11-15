@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getTodoState, removeTodo } from '../../../../modules/todo';
+import { getTodoState, removeTodo } from '../store';
 import { tool, toolError } from '../../../../core/capabilities/domain-tools';
 import { slimTodo } from './slim';
 

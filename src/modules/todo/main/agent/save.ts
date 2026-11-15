@@ -1,5 +1,5 @@
-import { saveTodo } from '../../../../modules/todo';
-import { todoSaveSchema } from '../../../../modules/todo/contract';
+import { saveTodo } from '../store';
+import { todoSaveSchema } from '../../contract';
 import { tool, toolError } from '../../../../core/capabilities/domain-tools';
 import { slimTodo } from './slim';
 

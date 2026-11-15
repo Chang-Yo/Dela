@@ -1,8 +1,10 @@
 // 待办：个人待办与外部作业来源（经 registerTaskSource 注册）的同步，状态以 todo:state 推送。
 import { defineModule } from '../../app/module';
+import { registerCommandDomain } from '../../core/capabilities/commands';
 import { implement } from '../../core/protocol/contract';
 import { registerSearchProvider } from '../search';
 import { todoContract } from './contract';
+import { todoDomain } from './main/agent';
 import { todoSearch } from './main/search';
 import { getTodoState, markTodoRead, refreshTodos, removeTodo, saveTodo } from './main/store';
 
@@ -38,6 +40,7 @@ export const todoModule = defineModule({
     markRead: markTodoRead,
   }),
   register() {
+    registerCommandDomain(todoDomain);
     registerSearchProvider(todoSearch);
   },
   start() {
