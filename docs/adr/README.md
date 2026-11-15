@@ -21,6 +21,7 @@
 | [0018](0018-design-token-freeze.md) | Design token 的名字定稿并冻结                    | 已接受   |
 | [0019](0019-view-manifest.md)       | 渲染端按清单装配模块的页面                       | 已接受   |
 | [0020](0020-workbench-port.md)      | 模块经工作台端口打开标签                         | 已接受   |
+| [0021](0021-context-directories.md) | 通用会话经辅助目录看到资料                       | 已接受   |
 
 新记录沿用下面的格式，控制在一屏以内：
 
