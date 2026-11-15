@@ -178,9 +178,9 @@ Dela/
 │  │  ├─ content/             聊天、审阅内容区
 │  │  ├─ navigation/          侧栏与导航
 │  │  ├─ sessions/            会话管理
-│  │  ├─ workspace/           工作区目录树与条目动作（主进程部分已在 modules/workspace）
+│  │  ├─ workspace/           工作区条目 store 与条目动作（目录树组件与主进程部分已在 modules/workspace）
 │  │  ├─ features/            设置页的外壳分区装配
-│  │  ├─ components/          应用外壳与跨功能组件
+│  │  ├─ components/          应用外壳与错误边界
 │  │  ├─ lib/                 渲染层工具
 │  │  └─ styles/              全局样式与设计 token
 │  └─ shared/                 进程间 IPC 契约与纯函数
