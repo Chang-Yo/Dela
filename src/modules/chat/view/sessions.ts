@@ -26,6 +26,8 @@ interface SessionsState {
   chats: Record<string, WorkspaceChat>;
   /** 首页上次停留的会话：切走再回首页接着上次，只活在本次运行内（重启后首页回到新对话）。 */
   homeSessionId: string | null;
+  /** 各池待执行的列表重读定时器：命令式句柄，不驱动渲染。 */
+  refreshTimers: Record<string, ReturnType<typeof setTimeout>>;
   /** 重读某池的基础列表（list-sessions）。 */
   refresh: (projectId: string | null) => Promise<void>;
   putChat: (sessionId: string, chat: WorkspaceChat) => void;
@@ -33,31 +35,56 @@ interface SessionsState {
   forgetSession: (sessionId: string) => void;
 }
 
-export const useSessions = create<SessionsState>((set, get) => ({
-  lists: {},
-  chats: {},
-  homeSessionId: null,
-  refresh: async (projectId) => {
-    if (typeof window === 'undefined' || !window.dela) return;
-    const sessions = await agentClient['list-sessions']({ projectId });
-    set((state) => ({ lists: { ...state.lists, [poolKey(projectId)]: sessions } }));
-  },
-  putChat: (sessionId, chat) => {
-    const previous = get().chats[sessionId];
-    set((state) => ({ chats: { ...state.chats, [sessionId]: chat } }));
-    if ((previous?.messages.length ?? 0) !== chat.messages.length)
-      scheduleListRefresh(chat.projectId);
-  },
-  forgetSession: (sessionId) =>
-    set((state) => {
-      const chats = { ...state.chats };
-      delete chats[sessionId];
-      const lists: Record<string, ChatSessionSummary[]> = {};
-      for (const [key, list] of Object.entries(state.lists))
-        lists[key] = list.filter((item) => item.id !== sessionId);
-      return { chats, lists };
-    }),
-}));
+/** 列表重读抖动（毫秒）：一轮问答里 on-update 会按工具边界多次到达，合并成一次查询。 */
+const listRefreshDelayMs = 300;
+
+export const useSessions = create<SessionsState>((set, get) => {
+  /** 标题（首条消息才写）与「最近优先」排序都只体现在列表里，快照本身不带列表，
+   *  所以任何来源（推送、ask/fork 结果）写入的快照条数变化后重读该池；按池各自防抖，
+   *  两个池前后脚变化时不会只刷到后一个。 */
+  const scheduleListRefresh = (projectId: string | null) => {
+    const key = poolKey(projectId);
+    clearTimeout(get().refreshTimers[key]);
+    const timer = setTimeout(() => {
+      set((state) => ({
+        refreshTimers: Object.fromEntries(
+          Object.entries(state.refreshTimers).filter(([pool]) => pool !== key),
+        ),
+      }));
+      void get()
+        .refresh(projectId)
+        .catch(() => {});
+    }, listRefreshDelayMs);
+    set((state) => ({ refreshTimers: { ...state.refreshTimers, [key]: timer } }));
+  };
+
+  return {
+    lists: {},
+    chats: {},
+    homeSessionId: null,
+    refreshTimers: {},
+    refresh: async (projectId) => {
+      if (typeof window === 'undefined' || !window.dela) return;
+      const sessions = await agentClient['list-sessions']({ projectId });
+      set((state) => ({ lists: { ...state.lists, [poolKey(projectId)]: sessions } }));
+    },
+    putChat: (sessionId, chat) => {
+      const previous = get().chats[sessionId];
+      set((state) => ({ chats: { ...state.chats, [sessionId]: chat } }));
+      if ((previous?.messages.length ?? 0) !== chat.messages.length)
+        scheduleListRefresh(chat.projectId);
+    },
+    forgetSession: (sessionId) =>
+      set((state) => {
+        const chats = { ...state.chats };
+        delete chats[sessionId];
+        const lists: Record<string, ChatSessionSummary[]> = {};
+        for (const [key, list] of Object.entries(state.lists))
+          lists[key] = list.filter((item) => item.id !== sessionId);
+        return { chats, lists };
+      }),
+  };
+});
 
 /** 面板搜索直查（list-sessions 带查询词）：查询态属于调用方，结果不进镜像。 */
 export function querySessions(
@@ -67,28 +94,6 @@ export function querySessions(
   return typeof window !== 'undefined' && window.dela
     ? agentClient['list-sessions']({ projectId, query })
     : Promise.resolve([]);
-}
-
-/** 列表重读抖动（毫秒）：一轮问答里 on-update 会按工具边界多次到达，合并成一次查询。 */
-const listRefreshDelayMs = 300;
-const listRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-/** 标题（首条消息才写）与「最近优先」排序都只体现在列表里，快照本身不带列表，
- *  所以任何来源（推送、ask/fork 结果）写入的快照条数变化后重读该池；按池各自防抖，
- *  两个池前后脚变化时不会只刷到后一个。 */
-function scheduleListRefresh(projectId: string | null): void {
-  const key = poolKey(projectId);
-  clearTimeout(listRefreshTimers.get(key));
-  listRefreshTimers.set(
-    key,
-    setTimeout(() => {
-      listRefreshTimers.delete(key);
-      void useSessions
-        .getState()
-        .refresh(projectId)
-        .catch(() => {});
-    }, listRefreshDelayMs),
-  );
 }
 
 /** 模块加载即订阅会话推送：快照写入镜像缓存，供同一会话的多个入口共享。 */

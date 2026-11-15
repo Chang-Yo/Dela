@@ -11,25 +11,32 @@ import { errorMessage } from '../../../core/protocol/contract';
 interface SidechatState {
   views: Record<string, SidechatView>;
   collapsed: Record<string, boolean>;
+  /** 已滑入过的旁问：只有新建的旁问滑入，切走标签再回来不再滑入。 */
+  entered: Record<string, boolean>;
   put: (view: SidechatView) => void;
   forget: (parentId: string) => void;
   setCollapsed: (parentId: string, collapsed: boolean) => void;
+  markEntered: (parentId: string) => void;
 }
 
 export const useSidechats = create<SidechatState>((set) => ({
   views: {},
   collapsed: {},
+  entered: {},
   put: (view) => set((state) => ({ views: { ...state.views, [view.parentId]: view } })),
   forget: (parentId) =>
     set((state) => {
       const views = { ...state.views };
       const collapsed = { ...state.collapsed };
+      const entered = { ...state.entered };
       delete views[parentId];
       delete collapsed[parentId];
-      return { views, collapsed };
+      delete entered[parentId];
+      return { views, collapsed, entered };
     }),
   setCollapsed: (parentId, value) =>
     set((state) => ({ collapsed: { ...state.collapsed, [parentId]: value } })),
+  markEntered: (parentId) => set((state) => ({ entered: { ...state.entered, [parentId]: true } })),
 }));
 
 export const sidechatDraftKey = (parentId: string) => `sidechat:${parentId}`;

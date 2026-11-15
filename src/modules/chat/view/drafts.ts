@@ -14,17 +14,19 @@ export const emptyDraft: ChatDraft = { prompt: '' };
 const STORAGE_KEY = 'dela.session.drafts';
 // 会话草稿数量上限：超出时丢弃最早写入的草稿，避免无限增长。
 const MAX_SESSIONS = 30;
-const attachmentChecks = new Set<() => boolean>();
 
 export function registerChatAttachmentCheck(check: () => boolean): () => void {
-  attachmentChecks.add(check);
-  return () => {
-    attachmentChecks.delete(check);
-  };
+  useChatDrafts.setState((state) => ({
+    attachmentChecks: new Set(state.attachmentChecks).add(check),
+  }));
+  return () =>
+    useChatDrafts.setState((state) => ({
+      attachmentChecks: new Set([...state.attachmentChecks].filter((item) => item !== check)),
+    }));
 }
 
 export function saveChatDrafts(): void {
-  const drafts = useChatDrafts.getState().drafts;
+  const { drafts, attachmentChecks } = useChatDrafts.getState();
   if (
     [...attachmentChecks].some((check) => check()) ||
     Object.values(drafts).some((draft) => hasChatImages(draft.prompt))
@@ -87,10 +89,13 @@ function prune(drafts: Record<string, ChatDraft>): Record<string, ChatDraft> {
 /** 按 sessionId 保存 composer 草稿：组件卸载（切换标签）与重启后输入不丢失。 */
 export const useChatDrafts = create<{
   drafts: Record<string, ChatDraft>;
+  /** 各会话视图登记的「还有未发送附件」检查：安装更新前据此拦截。 */
+  attachmentChecks: ReadonlySet<() => boolean>;
   update: (sessionId: string, patch: Partial<ChatDraft>) => void;
   clear: (sessionId: string) => void;
 }>((set) => ({
   drafts: loadStored(),
+  attachmentChecks: new Set(),
   update: (sessionId, patch) =>
     set((state) => {
       const drafts = prune({

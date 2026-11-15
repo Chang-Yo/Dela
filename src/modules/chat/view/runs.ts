@@ -34,14 +34,39 @@ export function runBadge(status: RunStatus): 'running' | 'failed' | 'completed' 
 
 interface RunsState {
   bySession: Record<string, RunMirror>;
+  /** 正开着的会话视图数：开着的视图看到终态即视为已读。 */
+  viewing: Record<string, number>;
   apply: (event: RunEvent) => void;
+  startViewing: (sessionId: string) => void;
+  stopViewing: (sessionId: string) => void;
   /** 会话结果已被某个视图看到：清掉终态记录（徽标消失）；运行中的状态不受影响。 */
   markSeen: (sessionId: string) => void;
 }
 
-export const useRuns = create<RunsState>((set) => ({
+function isSettled(status: RunStatus): boolean {
+  const badge = runBadge(status);
+  return badge !== null && badge !== 'running';
+}
+
+export const useRuns = create<RunsState>((set, get) => ({
   bySession: {},
-  apply: (event) => set((state) => ({ bySession: applyRunEvent(state.bySession, event) })),
+  viewing: {},
+  apply: (event) => {
+    set((state) => ({ bySession: applyRunEvent(state.bySession, event) }));
+    if (isSettled(event.status) && isSessionViewed(event.sessionId))
+      get().markSeen(event.sessionId);
+  },
+  startViewing: (sessionId) => {
+    set((state) => ({
+      viewing: { ...state.viewing, [sessionId]: (state.viewing[sessionId] ?? 0) + 1 },
+    }));
+    const run = get().bySession[sessionId];
+    if (run && isSettled(run.status)) get().markSeen(sessionId);
+  },
+  stopViewing: (sessionId) =>
+    set((state) => ({
+      viewing: { ...state.viewing, [sessionId]: (state.viewing[sessionId] ?? 1) - 1 },
+    })),
   markSeen: (sessionId) =>
     set((state) => {
       const run = state.bySession[sessionId];
@@ -51,6 +76,10 @@ export const useRuns = create<RunsState>((set) => ({
       return { bySession };
     }),
 }));
+
+export function isSessionViewed(sessionId: string): boolean {
+  return (useRuns.getState().viewing[sessionId] ?? 0) > 0;
+}
 
 /** 会话徽标的即时读取（导航行等一次性判定）；需要随推送刷新的界面用 useRuns 选择器订阅。 */
 export function sessionRunBadge(sessionId: string): 'running' | 'failed' | 'completed' | null {
