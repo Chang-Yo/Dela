@@ -160,15 +160,14 @@ Dela/
 │  │  ├─ jwc/                 教务处通知
 │  │  ├─ shuiyuan/            水源社区
 │  │  └─ timetable/           课表与日历事件
-│  ├─ app/                    宿主与外壳
-│  │  ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
-│  │  ├─ modules.ts           主进程模块清单
-│  │  ├─ contracts.ts         IPC 契约清单
-│  │  ├─ views.ts             渲染端视图清单
-│  │  ├─ main/                Electron 入口、IPC 注册与宿主端口实现
-│  │  ├─ preload/             contextBridge 与按契约白名单放行的 bridge
-│  │  └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
-│  └─ main/                   尚未迁出的 v2 主进程代码（数据库与迁移、凭据、文档读取、待办命令）
+│  └─ app/                    宿主与外壳
+│     ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
+│     ├─ modules.ts           主进程模块清单
+│     ├─ contracts.ts         IPC 契约清单
+│     ├─ views.ts             渲染端视图清单
+│     ├─ main/                Electron 入口、数据库与迁移、IPC 注册与宿主端口实现
+│     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
+│     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
 ├─ helper/                    远端项目 helper（Go，仅标准库）
 ├─ scripts/                   开发、冒烟、打包与校验脚本
 ├─ docs/                      开发文档、条款与接口资料

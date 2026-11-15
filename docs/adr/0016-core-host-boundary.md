@@ -9,7 +9,7 @@
 
 ## 决定
 
-- **数据库**：宿主打开数据库并完成迁移，通过 `HostPorts.database()` 交给 core 一个连接。表结构与迁移仍在 `main/database.ts` 和 `main/migrations/`。core 只读写 `sessions` 表和自己的设置键（例如 `agent-instruction`）。
+- **数据库**：宿主打开数据库并完成迁移，通过 `HostPorts.database()` 交给 core 一个连接。表结构与迁移在 `src/app/main/database.ts` 和 `src/app/main/migrations/`。core 只读写 `sessions` 表和自己的设置键（例如 `agent-instruction`）。
 - **项目**：`HostPorts.projects` 只提供 core 需要的三种查询：按 id 查项目、列出本地项目、取远程项目的连接目标。项目怎么建、怎么删、怎么存仍归 workspace。
 - **随包资源与路径**：helper、远端 rg、OpenSSH 的位置和 bash 的路径都由 `Paths` 端口提供，core 不判断自己是否已打包。
 - **归 core 所有**：模型提供商与 MCP 配置由 core 读写，仍存在原来的凭据命名空间里，所以不需要迁移。文档读取组件由文档模块注册进来（见 [0014](0014-core-registries.md)）。
@@ -20,3 +20,12 @@
 - 想给会话加字段，仍然要在宿主的迁移链里加一步。core 不能自己改表结构。
 - 换一个宿主（例如无界面的服务端）就要提供同样的表结构。等真的出现第二个宿主时，再考虑把会话表交给 core。
 - 端口里的 `SecretNamespace` 仍然列着 mail、canvas、shuiyuan 这些交大命名空间，所以 core 认得这几个名字。等 P5 迁出交大模块时，改成由模块注册命名空间。
+
+## 补充（2026-11-16）
+
+`src/main` 迁出后，模块也不再引用宿主文件，改走同一组端口：
+
+- 数据库：模块用 `hostPorts().database()`。`SqlDatabase` 补了模块用到的 `exec` 与 `transaction`，签名对齐 better-sqlite3。
+- 主窗口：新增 `workspaceClient()`，返回主窗口的渲染进程句柄。需要 BrowserWindow 的模块自己用 `BrowserWindow.fromWebContents` 取。
+- 存储目录：用已有的 `paths.storage()`。
+- 模块的测试仍直接引用 `src/app/main/database.ts`，借真实的表结构与迁移做夹具。这是测试夹具的例外，业务代码不这样做。
