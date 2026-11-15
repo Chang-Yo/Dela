@@ -1,9 +1,12 @@
 'use client';
 
+import type { LucideIcon } from 'lucide-react';
+
 /** Segmented control — equal-width segments, sliding thumb；外观对齐设置 › Skills 的来源页签。 */
 export function SegmentedControl<T extends string>({
   options,
   labels,
+  icons,
   value,
   onChange,
   className = '',
@@ -11,6 +14,8 @@ export function SegmentedControl<T extends string>({
   options: readonly T[];
   /** 选项的显示文案；缺省直接用选项值本身。 */
   labels?: Readonly<Record<T, string>>;
+  /** 选项文案前的图标，可只给部分选项。 */
+  icons?: Readonly<Partial<Record<T, LucideIcon>>>;
   value: T;
   onChange: (v: T) => void;
   className?: string;
@@ -33,20 +38,24 @@ export function SegmentedControl<T extends string>({
           transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
         }}
       />
-      {options.map((opt) => (
-        <button
-          key={opt}
-          aria-pressed={opt === value}
-          onClick={() => onChange(opt)}
-          // Dela 适配：分段控件现在也用在表单里（邮箱连接），无 type 会默认提交表单。
-          type="button"
-          className={`relative z-10 rounded-control px-2.5 py-1 text-xs
+      {options.map((opt) => {
+        const Icon: LucideIcon | undefined = icons?.[opt];
+        return (
+          <button
+            key={opt}
+            aria-pressed={opt === value}
+            onClick={() => onChange(opt)}
+            // Dela 适配：分段控件现在也用在表单里（邮箱连接），无 type 会默认提交表单。
+            type="button"
+            className={`relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control px-2.5 py-1 text-xs
             transition-colors duration-base
             ${opt === value ? 'text-ink' : 'text-ink-3 hover:text-ink'}`}
-        >
-          {labels?.[opt] ?? opt}
-        </button>
-      ))}
+          >
+            {Icon && <Icon aria-hidden="true" className="size-3.5 shrink-0" />}
+            {labels?.[opt] ?? opt}
+          </button>
+        );
+      })}
     </div>
   );
 }
