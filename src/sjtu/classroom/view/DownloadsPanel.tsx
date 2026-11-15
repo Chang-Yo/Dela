@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Check, Download, FolderOpen, X } from 'lucide-react';
 import { ProgressRing } from '../../../ui/progress-ring';
 import { Button } from '../../../ui/button';
+import { EmptyState } from '../../../ui/empty-state';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { formatBytes } from '../../../ui/format-bytes';
 import type { VideoDownload } from '../contract';
@@ -39,11 +40,7 @@ export function DownloadsPanel() {
           下载任务{activeCount > 0 ? ` · ${activeCount} 个进行中` : ''}
         </p>
         {list.length === 0 ? (
-          <div className="flex flex-col items-center gap-1.5 px-4 pb-4 pt-2 text-ink-3">
-            <Download aria-hidden className="size-5 opacity-40" />
-            <p className="text-xs">暂无下载任务</p>
-            <p className="text-xs text-ink-3/80">在录像行或播放器里点下载</p>
-          </div>
+          <EmptyState description="在录像行或播放器里点下载" icon={Download} title="暂无下载任务" />
         ) : (
           <div className="flex flex-col">
             {list.map((download) => (

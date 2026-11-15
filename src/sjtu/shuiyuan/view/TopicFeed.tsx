@@ -3,6 +3,7 @@ import { Bookmark, Lock, Mail, MessageSquare, Pin } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { ShuiyuanTopicSummary } from '../contract';
 import { Card } from '../../../ui/card';
+import { EmptyState } from '../../../ui/empty-state';
 import { cn } from '../../../ui/cn';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { isTopicUnread, openTopic, useShuiyuan } from './store';
@@ -194,13 +195,15 @@ export function TopicFeed({ list }: { list: FeedSelection }) {
         </div>
       ) : null}
       {!loading && !error && topics.length === 0 ? (
-        <p className="px-1 py-8 text-center text-sm text-ink-3">
-          {list.kind === 'search'
-            ? '没有匹配的帖子'
-            : list.kind === 'messages'
-              ? '暂无私信'
-              : '暂无帖子'}
-        </p>
+        <EmptyState
+          title={
+            list.kind === 'search'
+              ? '没有匹配的帖子'
+              : list.kind === 'messages'
+                ? '暂无私信'
+                : '暂无帖子'
+          }
+        />
       ) : null}
       {error ? (
         <Callout

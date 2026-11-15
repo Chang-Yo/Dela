@@ -1,5 +1,6 @@
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
+import { EmptyState } from '../../../ui/empty-state';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { Skeleton } from '../../../ui/skeleton';
 import { cn } from '../../../ui/cn';
@@ -37,15 +38,14 @@ export function CoursePicker() {
 
 export function CourseList() {
   const { course, videos } = useSelection();
-  if (!course)
-    return <p className="px-3 py-6 text-center text-xs text-ink-3">本学期暂无课堂录像课程</p>;
+  if (!course) return <EmptyState title="本学期暂无课堂录像课程" />;
   return (
     <nav aria-label="节次" className="flex flex-col gap-1 px-2 pb-2">
       {videos.data ? (
         videos.data.length ? (
           videos.data.map((video) => <VideoRow key={video.id} course={course} video={video} />)
         ) : (
-          <p className="px-2 py-3 text-xs text-ink-3">暂无录像</p>
+          <EmptyState title="暂无录像" />
         )
       ) : videos.isError && !videos.isFetching ? (
         <div className="px-2 py-3 text-xs text-ink-3">

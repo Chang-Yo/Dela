@@ -1,6 +1,7 @@
 import { ArrowLeft, CheckCheck, Heart } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
+import { EmptyState } from '../../../ui/empty-state';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { openTopic } from './store';
 import {
@@ -60,9 +61,7 @@ export function BookmarkList() {
         </button>
       ))}
       {loading ? <p className="p-4 text-xs text-ink-3">加载中…</p> : null}
-      {!loading && !error && bookmarks.length === 0 ? (
-        <p className="px-1 py-8 text-center text-sm text-ink-3">还没有收藏</p>
-      ) : null}
+      {!loading && !error && bookmarks.length === 0 ? <EmptyState title="还没有收藏" /> : null}
       {error ? (
         <Callout
           action={
@@ -138,9 +137,7 @@ export function NotificationList() {
         );
       })}
       {loading ? <p className="p-4 text-xs text-ink-3">加载中…</p> : null}
-      {!loading && !error && notifications.length === 0 ? (
-        <p className="px-1 py-8 text-center text-sm text-ink-3">暂无通知</p>
-      ) : null}
+      {!loading && !error && notifications.length === 0 ? <EmptyState title="暂无通知" /> : null}
       {error ? (
         <Callout
           action={

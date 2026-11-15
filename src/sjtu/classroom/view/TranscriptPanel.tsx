@@ -4,6 +4,7 @@ import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import type { ClassroomVideo, VideoCourse } from '../contract';
 import { Button } from '../../../ui/button';
+import { EmptyState } from '../../../ui/empty-state';
 import { SearchInput } from '../../../ui/search-input';
 import { IconButton } from '../../../ui/icon-button';
 import { cn } from '../../../ui/cn';
@@ -14,8 +15,7 @@ import { Spinner } from '../../../ui/spinner';
 
 export function TranscriptPanel() {
   const { course, video } = useSelection();
-  if (!course || !video)
-    return <p className="px-3 py-6 text-center text-xs text-ink-3">请先在节次中选择一场录像</p>;
+  if (!course || !video) return <EmptyState title="请先在节次中选择一场录像" />;
   return <TranscriptReader key={video.id} course={course} video={video} />;
 }
 
@@ -99,9 +99,7 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
             <p className="px-1 pb-2 text-xs text-ink-3">
               语音识别生成，仅供参考{keyword ? ` · ${segments.length} 段匹配` : ''}
             </p>
-            {segments.length === 0 && (
-              <p className="px-1 py-4 text-xs text-ink-3">没有匹配的内容</p>
-            )}
+            {segments.length === 0 && <EmptyState title="没有匹配的内容" />}
             {segments.map((segment, index) => {
               const active = time * 1000 >= segment.startMs && time * 1000 < segment.endMs;
               return (
