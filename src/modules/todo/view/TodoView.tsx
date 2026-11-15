@@ -27,6 +27,7 @@ import {
   type TodoState,
 } from '../contract';
 import { Button } from '../../../ui/button';
+import { CountBadge } from '../../../ui/count-badge';
 import { EmptyState } from '../../../ui/empty-state';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
@@ -375,11 +376,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
               onClick={() => setFilter(value)}
             >
               {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
-              {count > 0 && (
-                <span className="rounded-full bg-ink px-1.5 text-xs font-medium leading-4 tabular-nums text-surface">
-                  {count}
-                </span>
-              )}
+              {count > 0 && <CountBadge count={count} />}
             </Button>
           );
         })}
