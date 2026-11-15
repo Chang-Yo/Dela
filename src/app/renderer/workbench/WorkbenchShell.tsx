@@ -48,7 +48,7 @@ import { MailDraftDialog } from '../../../modules/mail/view';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../../ui/alert';
-import { opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../views';
+import { officeRefOf, opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../views';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
@@ -277,7 +277,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
       const officeRef: ResourceRef | undefined =
         content.format === 'pptx'
           ? sourceId && !document
-            ? { type: 'canvas', id: sourceId }
+            ? officeRefOf(sourceId)
             : entry?.kind === 'file'
               ? { type: 'workspace', id: entry.id }
               : undefined

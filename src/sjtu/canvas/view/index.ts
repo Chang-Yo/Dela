@@ -24,5 +24,7 @@ export const canvasView = defineView({
       ? sourceId
       : undefined;
   },
+  officeRef: (sourceId) =>
+    sourceId.startsWith('file:') ? { type: 'canvas', id: sourceId } : undefined,
   references: { queryKey: ['canvas', 'cachedFiles'], queryFn: () => canvasClient.cachedFiles() },
 });

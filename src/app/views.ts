@@ -9,6 +9,7 @@ import type {
   SourceDefinition,
   ViewDefinition,
 } from './module';
+import type { ResourceRef } from '../modules/workspace/contract';
 import { mailView } from '../modules/mail/view';
 import { notificationsView } from '../modules/notifications/view';
 import { todoView } from '../modules/todo/view';
@@ -71,6 +72,14 @@ export function sourceTitle(sourceId: string, client: QueryClient): string | und
   for (const view of views) {
     const title = view.sourceTitle?.(sourceId, client);
     if (title !== undefined) return title;
+  }
+  return undefined;
+}
+
+export function officeRefOf(sourceId: string): ResourceRef | undefined {
+  for (const view of views) {
+    const ref = view.officeRef?.(sourceId);
+    if (ref !== undefined) return ref;
   }
   return undefined;
 }

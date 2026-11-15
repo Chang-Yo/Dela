@@ -2,7 +2,7 @@
 import type { Implementation } from '../core/protocol/contract';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
-import type { DocumentContent, TabId } from '../modules/workspace/contract';
+import type { DocumentContent, ResourceRef, TabId } from '../modules/workspace/contract';
 
 export type { TabId };
 
@@ -80,6 +80,8 @@ export interface ViewDefinition {
   sourceTitle?(sourceId: string, client: QueryClient): string | undefined;
   /** 预览正文里的链接若指向已同步的资料，返回它的 sourceId，改在标签页打开。 */
   sourceOfLink?(url: string, client: QueryClient): string | undefined;
+  /** 本模块的资料要用系统 Office 打开或导出 PDF 时的资源引用。 */
+  officeRef?(sourceId: string): ResourceRef | undefined;
   /** 通用池会话的 @ 引用候选：path 为本地绝对路径，title 为展示路径。 */
   references?: {
     queryKey: readonly unknown[];
