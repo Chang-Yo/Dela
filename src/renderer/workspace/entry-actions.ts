@@ -4,11 +4,10 @@ import type { QueryClient } from '@tanstack/react-query';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { sourceTitle } from '../../app/views';
 import { useNoteDrafts } from '../../modules/note/view';
-import { useWorkspaceStore } from './store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { relocateWorkspacePath } from '../../modules/workspace/contract';
-import { localPathsOf, workspaceClient } from '../../modules/workspace/view';
+import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
 import { showToast } from '../app/toasts';
 import { errorMessage } from '../../core/protocol/contract';
 

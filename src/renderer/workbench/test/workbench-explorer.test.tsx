@@ -23,7 +23,7 @@ const { api, desktop } = vi.hoisted(() => {
   return { api: handlers, desktop };
 });
 import { useNavigationStore as useTreeState } from '../../navigation/store';
-import { useWorkspaceStore } from '../../workspace/store';
+import { useWorkspaceStore } from '../../../modules/workspace/view';
 
 const mediaStub = () => ({
   matches: false,

@@ -27,7 +27,7 @@ import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
 import { onAgentEvent } from '../../modules/chat/view';
 import { useNoteDrafts } from '../../modules/note/view';
-import { useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../../modules/workspace/view';
 import { showToast } from './toasts';
 import { useNavigationStore } from '../navigation/view';
 import { useMobileDrawer } from '../lib/mobile-drawer';

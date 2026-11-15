@@ -18,7 +18,7 @@ const { api, bridge } = vi.hoisted(() => {
   return { api, bridge };
 });
 import { useToastStore } from '../../../../renderer/app/toasts';
-import { useWorkspaceStore } from '../../../../renderer/workspace/store';
+import { useWorkspaceStore } from '../../../workspace/view';
 import { SkillsTab } from '../agent/SkillsTab';
 
 let container: HTMLDivElement;

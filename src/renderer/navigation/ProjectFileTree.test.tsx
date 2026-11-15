@@ -28,7 +28,7 @@ const workspace = vi.hoisted(() => {
 import { CONNECT_HINT_DELAY_MS, ProjectFileTree } from './ProjectFileTree';
 import { remoteAccent, useRemoteState } from '../../modules/remotes/view';
 import { useRemoteActivity } from './remote-activity';
-import { useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../../modules/workspace/view';
 
 let container: HTMLDivElement;
 let root: Root;

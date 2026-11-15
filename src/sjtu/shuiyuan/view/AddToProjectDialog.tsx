@@ -3,8 +3,7 @@ import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { errorMessage } from '../../../core/protocol/contract';
-import { useWorkspaceStore } from '../../../renderer/workspace/store';
-import { workspaceClient } from '../../../modules/workspace/view';
+import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { showToast } from '../../../renderer/app/toasts';
 import { shuiyuanClient, SOURCE_PREFIX } from './use-shuiyuan';
 import {

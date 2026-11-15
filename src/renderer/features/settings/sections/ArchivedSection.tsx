@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../../ui/select';
-import { useWorkspaceStore } from '../../../workspace/store';
+import { useWorkspaceStore } from '../../../../modules/workspace/view';
 import { showToast } from '../../../app/toasts';
 import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';
 import { useNavigationStore } from '../../../navigation/view';

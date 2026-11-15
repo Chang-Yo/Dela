@@ -36,7 +36,7 @@ const { workspaceApi, remotesApi, listeners, bridge } = vi.hoisted(() => {
 import { NewRemoteProjectDialog } from '../remote/NewRemoteProjectDialog';
 import { usePreferences } from '../../app/preferences';
 import { useRemoteState } from '../../../modules/remotes/view';
-import { useWorkspaceStore } from '../store';
+import { useWorkspaceStore } from '../../../modules/workspace/view';
 import { showToast } from '../../app/toasts';
 
 vi.mock('../../app/toasts', () => ({ showToast: vi.fn() }));

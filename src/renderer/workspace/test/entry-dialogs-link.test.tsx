@@ -20,7 +20,7 @@ const { api, desktop } = vi.hoisted(() => {
   return { api: handlers, desktop };
 });
 import { EntryDialogs, type EntryDialogRequest } from '../entry-dialogs';
-import { useWorkspaceStore } from '../store';
+import { useWorkspaceStore } from '../../../modules/workspace/view';
 
 function entry(
   id: string,

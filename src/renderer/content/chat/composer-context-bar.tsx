@@ -4,9 +4,8 @@ import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } f
 import type { WorkspaceEntry } from '../../../shared/api';
 import { useNavigationStore } from '../../navigation/view';
 import { showToast } from '../../app/toasts';
-import { useWorkspaceStore } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
-import { workspaceClient } from '../../../modules/workspace/view';
+import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
 const pill =

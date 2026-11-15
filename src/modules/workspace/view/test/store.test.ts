@@ -1,6 +1,6 @@
 // workspace/store 状态机单测：并发 load 共享一次请求、失败后可重试、refresh/setError 镜像语义。
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { WorkspaceEntry } from '../../../shared/api';
+import type { WorkspaceEntry } from '../../contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入 store 装好。
 const { api, bridge } = vi.hoisted(() => {

@@ -14,7 +14,7 @@ import { useChat, useChatDraft, type ChatReference } from './use-chat';
 import { referenceContext, sessionReferences } from './reference-tokens';
 import { useNavigationStore } from '../../navigation/view';
 import { poolKey, updateSession, useSessions } from '../../sessions/store';
-import { useWorkspaceStore } from '../../workspace/store';
+import { useWorkspaceStore } from '../../../modules/workspace/view';
 import { openTarget } from '../../workbench/open-target';
 import { showToast } from '../../app/toasts';
 import { reviewTabId } from '../review/tab-id';

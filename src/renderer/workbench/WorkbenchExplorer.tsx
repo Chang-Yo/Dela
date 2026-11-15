@@ -45,7 +45,6 @@ import {
   promoteEntry,
   runEntryWork,
 } from '../workspace/entry-actions';
-import { useWorkspaceStore } from '../workspace/store';
 import { usePreferenceWidth, usePreferences } from '../app/preferences';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState } from './explorer-state';
@@ -53,7 +52,7 @@ import { useViewportWidth } from '../lib/use-viewport-width';
 import { cn } from '../../ui/cn';
 import { overlayFade } from '../../ui/motion';
 import { IconButton } from '../../ui/icon-button';
-import { localPathsOf, workspaceClient } from '../../modules/workspace/view';
+import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
 import { errorMessage } from '../../core/protocol/contract';
 
 const SIDEBAR_MIN_WIDTH = 160;

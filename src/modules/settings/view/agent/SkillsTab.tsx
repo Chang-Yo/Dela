@@ -11,7 +11,7 @@ import { Button } from '../../../../ui/button';
 import { DownloadProgressRow } from '../../../../ui/download-progress';
 import { Switch } from '../../../../ui/switch';
 import { SegmentedControl } from '../../../../ui/segmented-control';
-import { useWorkspaceStore } from '../../../../renderer/workspace/store';
+import { useWorkspaceStore } from '../../../workspace/view';
 import { showToast } from '../../../../renderer/app/toasts';
 import { cn } from '../../../../ui/cn';
 import { SectionHeader } from '../SectionHeader';

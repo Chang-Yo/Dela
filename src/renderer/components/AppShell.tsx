@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { Resizer } from '../../ui/resizer';
 import { useEditorSettings } from '../lib/editor-settings';
-import { useWorkspaceStore } from '../workspace/store';
 import { usePreferences } from '../app/preferences';
 import { showToast, ToastHost } from '../app/toasts';
 import { DelaBrand } from '../../modules/settings/view';
@@ -56,7 +55,7 @@ import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../../modules/update/view';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';
 import { IconButton } from '../../ui/icon-button';
-import { workspaceClient } from '../../modules/workspace/view';
+import { workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
 import {
   Dialog,
   DialogClose,

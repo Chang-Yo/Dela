@@ -15,8 +15,7 @@ import type {
   SshConfigHost,
 } from '../../../modules/remotes/contract';
 import { usePreferences } from '../../app/preferences';
-import { useWorkspaceStore } from '../store';
-import { workspaceClient } from '../../../modules/workspace/view';
+import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import {
   ConnectionForm,
   DirectoryBrowser,

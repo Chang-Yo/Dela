@@ -24,7 +24,7 @@ const bridge = vi.hoisted(() => {
 });
 import { useRemoteState } from '../remote-state';
 import { RemoteSection } from '../RemoteSection';
-import { useWorkspaceStore } from '../../../../renderer/workspace/store';
+import { useWorkspaceStore } from '../../../workspace/view';
 
 let container: HTMLDivElement;
 let root: Root;

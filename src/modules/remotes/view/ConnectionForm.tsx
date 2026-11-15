@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import type { RemoteConnection, RemoteDraft } from '../contract';
-import { useWorkspaceStore } from '../../../renderer/workspace/store';
+import { useWorkspaceStore } from '../../workspace/view';
 import { remotesClient } from './client';
 import { refreshRemoteConnections } from './remote-state';
 import { Callout, ErrorText } from '../../../ui/alert';

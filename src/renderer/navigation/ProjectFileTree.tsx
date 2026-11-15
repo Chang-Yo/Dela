@@ -21,7 +21,12 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
-import { Explorer, type ExplorerItem, type ExplorerPending } from '../../modules/workspace/view';
+import {
+  Explorer,
+  type ExplorerItem,
+  type ExplorerPending,
+  useWorkspaceStore,
+} from '../../modules/workspace/view';
 import { sourceOf } from '../../app/views';
 import {
   DropdownMenu,
@@ -34,7 +39,6 @@ import type { EntryAction } from '../workspace/entry-actions';
 import { remoteAccent } from '../../modules/remotes/view';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../app/toasts';
-import { useWorkspaceStore } from '../workspace/store';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 import { ErrorText } from '../../ui/alert';
 import { Spinner } from '../../ui/spinner';

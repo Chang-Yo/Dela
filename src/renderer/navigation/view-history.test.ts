@@ -2,7 +2,7 @@
 // 历史栈记「视图 + 跳转参数 + 项目」：后退必须回到离开时的那个项目面板或那条待办。
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { WorkspaceEntry, WorkspaceState } from '../../shared/api';
-import { useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../../modules/workspace/view';
 import { useNavigationStore } from './view';
 
 const project: WorkspaceEntry = {

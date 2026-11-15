@@ -3,9 +3,8 @@ import { Folder } from 'lucide-react';
 import type { WorkbenchLayout } from '../../../../shared/layout';
 import { Button } from '../../../../ui/button';
 import { SectionHeader, SettingRow, SettingsGroup } from '../../../../modules/settings/view';
-import { useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
-import { workspaceClient } from '../../../../modules/workspace/view';
+import { workspaceClient, useWorkspaceStore } from '../../../../modules/workspace/view';
 import { errorMessage } from '../../../../core/protocol/contract';
 
 /** 重置后的默认布局：单组空标签（workbench 的 createDefaultLayout 同构）。 */

@@ -34,7 +34,6 @@ import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../shared/api';
 import { remoteAccent } from '../../modules/remotes/view';
 import { useVisibleNavEntries, type NavEntryId } from './entries';
-import { useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { usePreferences } from '../app/preferences';
@@ -49,7 +48,7 @@ import { useRemoteActivity } from './remote-activity';
 import { RemoteConnectionTip } from './remote-connection-tip';
 import { useRemoteConnections } from './remote-connections';
 import { IconButton } from '../../ui/icon-button';
-import { workspaceClient } from '../../modules/workspace/view';
+import { workspaceClient, useWorkspaceStore } from '../../modules/workspace/view';
 import {
   Dialog,
   DialogContent,

@@ -6,7 +6,7 @@ import { leaveComposer } from '../../modules/mail/view';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../modules/settings/contract';
 import type { TabId } from '../../shared/layout';
-import { useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../../modules/workspace/view';
 import { formatByName, opensInEditor } from '../../core/protocol/files';
 import { parseRemoteNodeId } from '../../modules/remotes/contract';
 import { useSessions } from '../sessions/store';

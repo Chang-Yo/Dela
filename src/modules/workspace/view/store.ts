@@ -1,8 +1,8 @@
-// 条目树镜像。视图持久化在 workbench 布局，笔记草稿生命周期在 ./drafts.ts。
+// 条目树镜像。视图持久化在 workbench 布局，笔记草稿生命周期在 note 模块。
 import { create } from 'zustand';
-import { workspaceArchiveId, type WorkspaceEntry, type WorkspaceState } from '../../shared/api';
-import { errorMessage } from '../../core/protocol/contract';
-import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
+import { errorMessage } from '../../../core/protocol/contract';
+import { workspaceArchiveId, type WorkspaceEntry, type WorkspaceState } from '../contract';
+import { onWorkspaceEvent, workspaceClient } from './client';
 
 type Store = {
   workspace: WorkspaceState;

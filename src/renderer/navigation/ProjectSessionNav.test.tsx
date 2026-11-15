@@ -8,7 +8,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { WorkspaceEntry, WorkspaceState } from '../../shared/api';
 import { ProjectSessionNav, type NavSessionSummary } from './ProjectSessionNav';
 import { useNavigationStore } from './store';
-import { useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../../modules/workspace/view';
 
 const project: WorkspaceEntry = {
   id: 'p-test',
