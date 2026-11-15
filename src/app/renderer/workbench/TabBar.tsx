@@ -1,6 +1,6 @@
 // 扁平标签栏：组内拖拽排序、跨组拖放、中键关闭、上下文菜单、激活滚动可见。
 // 视觉：标签栏与内容区同底色，活动标签融入背景，非活动标签为淡灰块；切换不做飞入飞出。
-import { memo, useEffect, useRef, type DragEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type DragEvent, type KeyboardEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import type { GroupNode, TabId } from '../../../modules/workspace/contract';
@@ -19,7 +19,7 @@ import { encodeTabDrag, hasTabDrag, parseTabDrag, setCurrentTabDrag, tabDragType
 import { GroupToolbar } from './GroupToolbar';
 import { IconButton } from '../../../ui/icon-button';
 
-export const TabBar = memo(function TabBar({
+export function TabBar({
   group,
   unfocused,
   showReveal,
@@ -235,4 +235,4 @@ export const TabBar = memo(function TabBar({
       <GroupToolbar group={group} />
     </div>
   );
-});
+}

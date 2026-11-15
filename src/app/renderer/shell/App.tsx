@@ -1,6 +1,6 @@
 // 应用根组件：launch 阶段（首启引导）、AppShell 壳与视图切换。
 // 视图路由在 ./navigation；主题/缩放在 ./theme；工作台在 workbench/WorkbenchShell。
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
@@ -169,8 +169,7 @@ export default function App() {
     setSearchOpen(true);
   };
 
-  // 稳定引用：CompletionOverlay 以它为依赖设一次性定时器，避免 App 重渲染重置计时。
-  const finishCompletion = useCallback(() => setLaunchStage('app'), []);
+  const finishCompletion = () => setLaunchStage('app');
 
   const importFiles = () => {
     importFromDialog(view === 'workbench' ? useNavigationStore.getState().projectId : null);

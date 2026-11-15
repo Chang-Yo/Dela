@@ -1,6 +1,6 @@
 // 标签组：标签栏 + 内容宿主 + 边缘拖放分屏。
 // 同组只挂载活动标签；组内非活动标签状态由内容组件本地保留与否自决。
-import { memo, Suspense, useEffect, useRef, useState, type DragEvent } from 'react';
+import { Suspense, useEffect, useRef, useState, type DragEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { GroupNode, TabId } from '../../../modules/workspace/contract';
 import { ErrorBoundary } from '../shell/ErrorBoundary';
@@ -26,21 +26,14 @@ function TabSuspenseFallback() {
   return <div className="min-h-0 min-w-0 flex-1 bg-inset" />;
 }
 
-/** 活动标签内容宿主：props 全为原始值，组的 chrome 重渲（聚焦切换、悬停反馈）不牵连内容组件。 */
-const GroupTabContent = memo(function GroupTabContent({
-  groupId,
-  tabId,
-}: {
-  groupId: string;
-  tabId: TabId;
-}) {
+function GroupTabContent({ groupId, tabId }: { groupId: string; tabId: TabId }) {
   const Component = registry[kindOf(tabId)].component;
   return (
     <Suspense fallback={<TabSuspenseFallback />}>
       <Component key={`${groupId}:${tabId}`} groupId={groupId} tabId={tabId} />
     </Suspense>
   );
-});
+}
 
 const dropPreviewClass: Record<EdgeZone | 'center', string> = {
   left: 'top-0 left-0 h-full w-1/2',
@@ -50,13 +43,7 @@ const dropPreviewClass: Record<EdgeZone | 'center', string> = {
   center: 'top-0 left-0 h-full w-full',
 };
 
-export const TabGroup = memo(function TabGroup({
-  group,
-  onNewChat,
-}: {
-  group: GroupNode;
-  onNewChat: () => void;
-}) {
+export function TabGroup({ group, onNewChat }: { group: GroupNode; onNewChat: () => void }) {
   // 订阅派生布尔而非 focus/maximized 原值：只有本组的未聚焦态翻转时才重渲。
   const unfocused = useWorkbenchLayout((s) => s.maximized === null && s.focus !== group.id);
   const revealAnchor = useWorkbenchLayout(
@@ -184,4 +171,4 @@ export const TabGroup = memo(function TabGroup({
       </div>
     </section>
   );
-});
+}

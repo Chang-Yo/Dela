@@ -1,5 +1,4 @@
 // 常驻只保留左右分屏；向下分屏与关闭等低频操作收进组菜单。
-import { memo } from 'react';
 import { Columns2, Ellipsis, Maximize2, Minimize2, Rows2, X } from 'lucide-react';
 import type { GroupNode } from '../../../modules/workspace/contract';
 import { Button } from '../../../ui/button';
@@ -11,7 +10,7 @@ import {
 } from '../../../ui/dropdown-menu';
 import { useWorkbenchLayout } from './layout-store';
 
-export const GroupToolbar = memo(function GroupToolbar({ group }: { group: GroupNode }) {
+export function GroupToolbar({ group }: { group: GroupNode }) {
   const isMaximized = useWorkbenchLayout((s) => s.maximized === group.id);
   const splitGroup = useWorkbenchLayout((s) => s.splitGroup);
   const setMaximized = useWorkbenchLayout((s) => s.setMaximized);
@@ -52,4 +51,4 @@ export const GroupToolbar = memo(function GroupToolbar({ group }: { group: Group
       </DropdownMenu>
     </div>
   );
-});
+}

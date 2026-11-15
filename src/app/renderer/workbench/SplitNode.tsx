@@ -1,6 +1,6 @@
 // 分割节点：递归渲染纵横分屏，组间比例经 Resizer 拖拽调整；store 只产生二元 split
 // （三屏经嵌套），渲染兼容 ≥2 子节点。
-import { memo, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { LayoutNode } from '../../../modules/workspace/contract';
 import { Resizer } from '../../../ui/resizer';
 import { cn } from '../../../ui/cn';
@@ -19,22 +19,7 @@ interface SplitNodeProps {
   onNewChat: () => void;
 }
 
-/** memo 比较：node 按引用、path 逐位相等——递归处每次展开新数组，默认浅比较必失效。
- *  拖分屏条时 setRatio 只替换路径上的节点，兄弟子树引用不变，整枝跳过重渲。 */
-function areSplitNodePropsEqual(prev: SplitNodeProps, next: SplitNodeProps): boolean {
-  return (
-    prev.node === next.node &&
-    prev.onNewChat === next.onNewChat &&
-    prev.path?.length === next.path?.length &&
-    (prev.path ?? []).every((value, index) => value === next.path?.[index])
-  );
-}
-
-export const SplitNodeView = memo(function SplitNodeView({
-  node,
-  path = [],
-  onNewChat,
-}: SplitNodeProps) {
+export function SplitNodeView({ node, path = [], onNewChat }: SplitNodeProps) {
   const setRatio = useWorkbenchLayout((s) => s.setRatio);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimension, setDimension] = useState(0);
@@ -104,4 +89,4 @@ export const SplitNodeView = memo(function SplitNodeView({
       ))}
     </div>
   );
-}, areSplitNodePropsEqual);
+}
