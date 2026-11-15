@@ -182,7 +182,7 @@ it('未配置思考强度时提供模型设置入口', async () => {
       <ChatTabSourceProvider
         source={{
           navigate,
-          workbench: { open: () => {}, openDocument: () => {} },
+          workbench: { open: () => {}, openDocument: () => {}, close: () => {} },
           opensLink: () => false,
         }}
       >

@@ -68,7 +68,7 @@ function Home() {
   const request = useNavigationStore((state) => state.generalChat);
   const source = {
     navigate: useNavigationStore.getState().navigate,
-    workbench: { open: () => {}, openDocument: () => {} },
+    workbench: { open: () => {}, openDocument: () => {}, close: () => {} },
     opensLink: () => false,
   };
   return (

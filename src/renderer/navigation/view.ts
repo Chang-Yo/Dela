@@ -2,7 +2,6 @@
 // projectId 为 null 表示通用（无项目）工作台。
 import { create } from 'zustand';
 import { agentClient, type HomeChatRequest, useSessions } from '../../modules/chat/view';
-import { leaveComposer } from '../../modules/mail/view';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../modules/settings/contract';
 import type { TabId } from '../../shared/layout';
@@ -11,7 +10,7 @@ import { formatByName, opensInEditor } from '../../core/protocol/files';
 import { parseRemoteNodeId } from '../../modules/remotes/contract';
 import { showToast } from '../app/toasts';
 import type { NavTarget, NavTargets } from '../../app/module';
-import { pageOf } from '../../app/views';
+import { pageOf, views } from '../../app/views';
 import { errorMessage } from '../../core/protocol/contract';
 
 /** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
@@ -69,7 +68,6 @@ interface NavigationState {
   newProject(): boolean;
   setCreateProject(value: boolean): void;
   consumeReveal(): void;
-  consumeGeneralChat(): void;
 }
 
 /** 历史条目：视图、跳转参数与项目（后退要能回到同一个项目面板）。 */
@@ -80,6 +78,9 @@ interface NavigationRoute {
 }
 
 let pulseSeq = 0;
+
+const leaveViews = (proceed: () => void) =>
+  views.every((view) => view.leaveGuard?.(proceed) ?? true);
 
 function routeOf(state: NavigationState): NavigationRoute {
   return { view: state.view, target: state.target, projectId: state.projectId };
@@ -157,10 +158,10 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       }
       const state = get();
       // 同一页内再次跳转只换参数、不压栈，页面据新的 target 重置。
+      if (!leaveViews(() => get().navigate(next))) return false;
       if (view === state.view) {
         if (target) set({ target });
       } else {
-        if (!leaveComposer(() => get().navigate(next))) return false;
         set({
           view,
           target,
@@ -179,7 +180,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     goBack: () => {
       const state = get();
       const prev = state.backStack[state.backStack.length - 1];
-      if (prev === undefined || !leaveComposer(() => get().goBack())) return false;
+      if (prev === undefined || !leaveViews(() => get().goBack())) return false;
       rememberProject(prev.projectId);
       set({
         view: prev.view,
@@ -197,7 +198,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     goForward: () => {
       const state = get();
       const next = state.forwardStack[0];
-      if (next === undefined || !leaveComposer(() => get().goForward())) return false;
+      if (next === undefined || !leaveViews(() => get().goForward())) return false;
       rememberProject(next.projectId);
       set({
         view: next.view,
@@ -304,6 +305,5 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
 
     setCreateProject: (value) => set({ createProject: value }),
     consumeReveal: () => set({ reveal: null }),
-    consumeGeneralChat: () => set({ generalChat: null }),
   };
 });

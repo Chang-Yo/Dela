@@ -5,11 +5,6 @@ import type {
   WorkspaceChat,
 } from '../../../core/protocol/agent';
 import { agentClient, chatClient, onAgentEvent } from './client';
-// 0020 暂缓：归档会话时关闭它的标签仍直接操作布局。
-// oxlint-disable-next-line no-restricted-imports
-import { useWorkbenchLayout } from '../../../renderer/workbench/layout-store';
-// oxlint-disable-next-line no-restricted-imports
-import { walkGroups } from '../../../renderer/workbench/layout-schema';
 
 // 会话列表镜像：会话事实（chat_sessions 表）在 main，本模块数据全来自 list-sessions 与
 // session-update 推送，只读不发起执行（「打开视图不启动执行」）。
@@ -148,22 +143,14 @@ export function keepToolImages(previous: ChatMessage | undefined, next: ChatMess
   };
 }
 
-/** 所有入口共用归档/置顶后的镜像刷新，归档仅关闭标签，不停止运行或删除消息。 */
+/** 所有入口共用归档/置顶后的镜像刷新；归档不停止运行、不删除消息，标签由调用方经工作台关闭。 */
 export async function updateSession(
   sessionId: string,
   patch: { archived?: boolean; pinned?: boolean },
 ): Promise<void> {
   if (!window.dela) throw new Error('会话管理仅在桌面端可用');
   await chatClient.update({ id: sessionId, patch });
-  if (patch.archived) closeSessionTabs([sessionId]);
   await refreshSessionLists();
-}
-
-export function closeSessionTabs(ids: string[]): void {
-  const idsToClose = new Set(ids.map((id) => `chat:${id}`));
-  for (const group of walkGroups(useWorkbenchLayout.getState().root))
-    for (const tab of group.tabs)
-      if (idsToClose.has(tab)) useWorkbenchLayout.getState().closeTab(tab, group.id);
 }
 
 export async function refreshSessionLists(): Promise<void> {

@@ -4,6 +4,7 @@ import { MailCredential } from './MailCredential';
 import { MailOnboardingStep } from './MailOnboardingStep';
 import { MailStorage } from './MailStorage';
 import { MailPage } from './MailView';
+import { leaveComposer } from './compose-close';
 
 export { leaveComposer, registerComposeSave, saveComposers } from './compose-close';
 export { MailDraftDialog } from './MailDraftDialog';
@@ -14,4 +15,5 @@ export const mailView = defineView({
   notices: { mail: { label: '邮件', icon: Mail } },
   settings: { credentials: MailCredential, storage: MailStorage },
   onboarding: MailOnboardingStep,
+  leaveGuard: leaveComposer,
 });

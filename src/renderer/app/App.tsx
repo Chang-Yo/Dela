@@ -11,7 +11,6 @@ import {
   isSmokeTest,
   readOnboardingState,
 } from '../../modules/onboarding/view';
-import { leaveComposer } from '../../modules/mail/view';
 import { SettingsPage } from '../features/settings';
 import { ReleaseNotesDialog, UpdatePrompt } from '../../modules/update/view';
 import { GlobalSearchDialog } from '../../modules/search/view';
@@ -21,7 +20,7 @@ import type { NavTarget } from '../../app/module';
 import { pageOf, views } from '../../app/views';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
 import { useRuns, useSessions, updateSession, onAgentEvent } from '../../modules/chat/view';
-import { useWorkbenchLayout } from '../workbench/layout-store';
+import { closeTabEverywhere, useWorkbenchLayout } from '../workbench/layout-store';
 import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
 import { useNoteDrafts } from '../../modules/note/view';
@@ -195,7 +194,6 @@ export default function App() {
   };
 
   const openSearchResult = (result: SearchHit) => {
-    if (!leaveComposer(() => openSearchResult(result))) return;
     useNavigationStore.getState().navigate(result.target);
   };
 
@@ -235,6 +233,7 @@ export default function App() {
           activeSessionId={activeSessionId}
           onDeleteSession={async (sessionId) => {
             await updateSession(sessionId, { archived: true });
+            closeTabEverywhere(`chat:${sessionId}`);
           }}
           onOpenSession={(sessionId) => {
             // 会话行只带 sessionId：所属项目从镜像列表反查，未命中按通用池。

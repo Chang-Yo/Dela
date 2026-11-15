@@ -95,6 +95,12 @@ export async function saveWorkbenchLayout(): Promise<boolean> {
   return saveLayoutNow();
 }
 
+/** 工作台端口的 close：同一标签可能在多个组里打开，逐组关闭。 */
+export function closeTabEverywhere(tabId: TabId): void {
+  for (const group of walkGroups(useWorkbenchLayout.getState().root))
+    if (group.tabs.includes(tabId)) useWorkbenchLayout.getState().closeTab(tabId, group.id);
+}
+
 function schedulePersist() {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {

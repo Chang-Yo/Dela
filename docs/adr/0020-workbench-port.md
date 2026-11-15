@@ -18,6 +18,8 @@
     open(tab: TabId, options?: { aside?: boolean }): void;
     /** 文档 key（条目、来源、远端节点、绝对路径）由外壳换成笔记或预览标签。 */
     openDocument(key: string, options?: { aside?: boolean }): void;
+    /** 在所有组里关闭该标签，例如会话归档后。 */
+    close(tab: TabId): void;
   }
   ```
 
@@ -27,8 +29,7 @@
 
 ## 后果
 
-- 迁移后 chat、review、sessions 只剩一处引用外壳（见下）。外壳经 chat 视图出口取 `ChatHome`、`ChatTab`、`ReviewTab`、`useSessions`、`useRuns`、`ArchivedSection` 等；标签组件在出口用 `lazy` 导出，保留分包。
+- 迁移后 chat、review、sessions 不再引用工作台与导航。外壳经 chat 视图出口取 `ChatHome`、`ChatTab`、`ReviewTab`、`useSessions`、`useRuns`、`ArchivedSection` 等；标签组件在出口用 `lazy` 导出，保留分包。
 - chat 视图用到的 `shared/api`（会话指令等）随迁移收进 chat 契约；`opensInApp` 经 `ChatTabSource` 传入。
-- 暂不决定：
-  - 归档会话时关闭它的标签：`updateSession` 仍直接操作布局，记为 lint 过渡例外。
-  - 离开页面前的守卫（0019 预告）：外壳仍直接调用邮件的 `leaveComposer`。
+- 归档会话后由调用方关闭标签：模块经 `workbench.close`，外壳直接操作布局；`updateSession` 只管归档与镜像刷新。
+- 离开页面前的守卫是视图定义的 `leaveGuard`（0019 预告的字段），导航在每次跳转（含同页换参数、后退、前进）前依次询问；邮件登记写信的保存/放弃确认，外壳不再直接调用邮件。

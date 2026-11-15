@@ -38,7 +38,8 @@ import { showToast } from '../app/toasts';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { usePreferences } from '../app/preferences';
 import { useNavigationStore } from './store';
-import { closeSessionTabs, refreshSessionLists, chatClient } from '../../modules/chat/view';
+import { refreshSessionLists, chatClient } from '../../modules/chat/view';
+import { closeTabEverywhere } from '../workbench/layout-store';
 import { Input } from '../../ui/input';
 import { purgeRemovedEntries } from '../workbench/removed-cleanup';
 import { menuItem, menuPanel } from '../../ui/menu-styles';
@@ -342,7 +343,7 @@ export function ProjectSessionNav({
                   setArchiving(true);
                   try {
                     const ids = await chatClient.archiveProject(key);
-                    closeSessionTabs(ids);
+                    for (const id of ids) closeTabEverywhere(`chat:${id}`);
                     await refreshSessionLists();
                     setConfirmArchive(null);
                   } finally {

@@ -17,7 +17,7 @@ export { registerChatAttachmentCheck, saveChatDrafts, useChatDrafts } from './dr
 export { referenceEntryCandidates } from './reference-tokens';
 export { reviewTabTitle } from './review/tab-id';
 export { runBadge, useRuns, useSessionRunStatus } from './runs';
-export { closeSessionTabs, refreshSessionLists, updateSession, useSessions } from './sessions';
+export { refreshSessionLists, updateSession, useSessions } from './sessions';
 
 export const ReviewTab = lazy(() =>
   import('./review/ReviewTab').then((module) => ({ default: module.ReviewTab })),

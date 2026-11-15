@@ -27,7 +27,7 @@ import {
   type ContentLoader,
   type LoadedDocument,
 } from '../../modules/preview/view';
-import { useWorkbenchLayout } from './layout-store';
+import { closeTabEverywhere, useWorkbenchLayout } from './layout-store';
 import { useShortcuts } from '../app/shortcuts';
 import { walkGroups } from './layout-schema';
 import { purgeRemovedEntries } from './removed-cleanup';
@@ -212,6 +212,7 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
           options?.aside
             ? openTarget(documentTabId(key), { aside: true })
             : void useNavigationStore.getState().openDocument(key),
+        close: closeTabEverywhere,
       },
       opensLink: opensInApp,
       onSaveNote: (text) =>

@@ -41,7 +41,7 @@ import { TurnChangesCard } from '../TurnChangesCard';
 import { ChatTabSourceProvider } from '../chat-source';
 
 // 落位行为由 workbench 的测试覆盖，这里只验证卡片交给工作台端口的动作。
-const workbench = { open: vi.fn(), openDocument: vi.fn() };
+const workbench = { open: vi.fn(), openDocument: vi.fn(), close: vi.fn() };
 
 const sessionId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4d';
 let turnSeq = 0;

@@ -42,6 +42,8 @@ export interface Workbench {
   open(tab: TabId, options?: { aside?: boolean }): void;
   /** 文档 key（条目、来源、远端节点、绝对路径）由外壳换成笔记或预览标签。 */
   openDocument(key: string, options?: { aside?: boolean }): void;
+  /** 在所有组里关闭该标签，例如会话归档后。 */
+  close(tab: TabId): void;
 }
 
 /** 模块的一个页面：组件收到跳转参数 target，每次跳转都是新对象，可据此重置本地状态。 */
@@ -69,6 +71,8 @@ export interface ViewDefinition {
   onboarding?: ComponentType<{ onDone: () => void }>;
   /** 本模块放进项目的来源条目。 */
   sources?: SourceDefinition;
+  /** 每次跳转前调用；要先确认（例如写信未保存）时返回 false，确认后由本模块调用 proceed 重试。 */
+  leaveGuard?(proceed: () => void): boolean;
   /** 本模块会在应用内打开的链接，聊天里点击时免去外链确认。 */
   opensLink?(url: string): boolean;
   /** 资料页（通用工作台）里本模块的一组资料；归档区以 archived 再渲染一次。 */

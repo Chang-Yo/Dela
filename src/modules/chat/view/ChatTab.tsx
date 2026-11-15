@@ -322,6 +322,7 @@ function ChatSessionView({
         onDeleteSession={(id) => {
           void updateSession(id, { archived: true })
             .then(() => {
+              workbench.close(`chat:${id}`);
               if (home && useSessions.getState().homeSessionId === id)
                 navigate({ page: 'chat', projectId: null });
             })

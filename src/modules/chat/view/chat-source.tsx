@@ -41,7 +41,7 @@ export interface ChatTabSource {
 
 const detached: ChatTabSource = {
   navigate: () => false,
-  workbench: { open: () => {}, openDocument: () => {} },
+  workbench: { open: () => {}, openDocument: () => {}, close: () => {} },
   opensLink: () => false,
 };
 

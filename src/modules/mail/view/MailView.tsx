@@ -208,9 +208,12 @@ function DesktopMailView({
 
   if (request !== openRequest) {
     setRequest(openRequest);
+    // 跳转已过离开守卫（写信已保存或放弃），写信让位给目标邮件。
     if (openRequest?.messageId !== undefined) {
       setPendingTarget(openRequest.messageId);
       setSearch('');
+      setComposing(false);
+      setDraft(undefined);
     }
   }
 
@@ -386,15 +389,6 @@ function DesktopMailView({
     setMobileReading(stacked);
     void queryClient.resetQueries({ queryKey: messageKey(id, readonly), exact: true });
   };
-
-  // 通知在邮箱页内跳转不经导航守卫：写信中等到目标时，先走保存/放弃确认再关闭写信。
-  useEffect(() => {
-    if (pendingTarget === null || !targetFound || !composing) return;
-    leaveComposer(() => {
-      setComposing(false);
-      setDraft(undefined);
-    });
-  }, [pendingTarget, targetFound, composing]);
 
   useEffect(
     () =>
