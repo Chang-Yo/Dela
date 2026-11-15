@@ -74,6 +74,12 @@ function useReferenceEntries(projectId: string | null, cwd: string | null) {
   const remote = entries.find((item) => item.id === projectId)?.remoteId;
   const remoteEntries = useRemoteReferences(remote ? projectId : null);
   const localFiles = useLocalReferences(remote ? null : cwd);
+  const workspaceDirectory = useWorkspaceStore((state) => state.workspace.directory);
+  const workspaceRoot =
+    projectId === null && !remote && workspaceDirectory
+      ? `${workspaceDirectory}${workspaceDirectory.includes('\\') ? '\\' : '/'}workspace`
+      : null;
+  const workspaceFiles = useLocalReferences(workspaceRoot);
   const courseFiles = useQueries({
     queries: referenceQueries.map((query) => ({
       ...query,
@@ -83,16 +89,21 @@ function useReferenceEntries(projectId: string | null, cwd: string | null) {
     combine: flattenReferences,
   });
   return referenceEntryCandidates(
-    [...new Map([...entries, ...localFiles].map((item) => [item.id, item])).values()],
+    [
+      ...new Map(
+        [...entries, ...localFiles, ...workspaceFiles].map((item) => [item.id, item]),
+      ).values(),
+    ],
     cwd,
     projectId,
     remote,
     remoteEntries,
     courseFiles,
+    workspaceRoot,
   );
 }
 
-// @ 引用候选即 cwd 下的文件路径；通用池另并入模块登记的候选，如已下载的课件。
+// @ 引用候选即 cwd 下的文件路径；通用池另并入资料目录与模块登记的候选，如已下载的课件。
 const referenceSource: ReferenceSource = {
   useEntries: useReferenceEntries,
   // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。

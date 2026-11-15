@@ -127,33 +127,38 @@ function relativeTo(path: string, base: string): string | null {
   return matches && target.length > root.length ? target.slice(root.length) : null;
 }
 
-/** 项目候选覆盖 cwd 下的全部文件；通用池排除项目目录，title 为相对 cwd 的路径。 */
+/** 项目候选覆盖 cwd 下的全部文件；通用池再并入资料根目录，两者都排除项目目录，title 相对各自的根。
+ *  title 冲突时先出现的保留。 */
 export function referenceCandidates(
   entries: WorkspaceEntry[],
   cwd: string | null,
   projectId: string | null,
+  workspaceRoot: string | null = null,
 ): ChatReference[] {
   if (!cwd) return [];
-  const foreign =
-    projectId === null
-      ? entries
-          .filter((entry) => entry.kind === 'project' && entry.path)
-          .map((entry) => entry.path!)
-      : [];
+  const general = projectId === null;
+  const foreign = general
+    ? entries.filter((entry) => entry.kind === 'project' && entry.path).map((entry) => entry.path!)
+    : [];
+  const roots = general && workspaceRoot ? [cwd, workspaceRoot] : [cwd];
+  const seen = new Set<string>();
   const refs: ChatReference[] = [];
-  for (const entry of entries) {
-    const path = entry.path;
-    if (!path || entry.kind === 'folder' || entry.kind === 'project') continue;
-    const title = relativeTo(path, cwd);
-    if (title === null) continue;
-    if (foreign.some((root) => relativeTo(path, root) !== null)) continue;
-    refs.push({ key: path, title });
+  for (const root of roots) {
+    for (const entry of entries) {
+      const path = entry.path;
+      if (!path || entry.kind === 'folder' || entry.kind === 'project') continue;
+      const title = relativeTo(path, root);
+      if (title === null || seen.has(title)) continue;
+      if (foreign.some((project) => relativeTo(path, project) !== null)) continue;
+      seen.add(title);
+      refs.push({ key: path, title });
+    }
   }
   return refs;
 }
 
-/** 通用池会话（随聊/资料页）的 cwd 之外并入已下载课件候选：cwd 是随聊私有目录或课件根目录
- *  本身，课件文件不在 workspace 镜像里，按 cwd 过滤永远为空。title 冲突时工作区文件优先。 */
+/** 通用池会话在 cwd 与资料根目录之外并入已下载课件候选：课件文件不在 workspace 镜像里。
+ *  title 冲突时工作区文件优先。 */
 export function withCourseReferences(
   local: ChatReference[],
   courseFiles: { path: string; title: string }[],
@@ -170,7 +175,7 @@ export function withCourseReferences(
 
 /** useEntries 的分支逻辑（WorkbenchShell 调用）：远端会话用远端索引候选（其文件不在本地
  *  镜像里，referenceCandidates 恒为空）；本机项目会话只用自己的目录候选；通用池
- *  （projectId 为 null）另并入已下载课件。 */
+ *  （projectId 为 null）另并入资料根目录与已下载课件。 */
 export function referenceEntryCandidates(
   entries: WorkspaceEntry[],
   cwd: string | null,
@@ -178,9 +183,10 @@ export function referenceEntryCandidates(
   remote: string | null | undefined,
   remoteEntries: ChatReference[],
   courseFiles: { path: string; title: string }[],
+  workspaceRoot: string | null = null,
 ): ChatReference[] {
   if (remote) return remoteEntries;
-  const local = referenceCandidates(entries, cwd, projectId);
+  const local = referenceCandidates(entries, cwd, projectId, workspaceRoot);
   if (projectId !== null) return local;
   return withCourseReferences(local, courseFiles);
 }

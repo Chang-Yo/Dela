@@ -237,6 +237,64 @@ describe('referenceEntryCandidates（useEntries 三分支）', () => {
   });
 });
 
+describe('referenceCandidates（通用池并入资料根目录）', () => {
+  const file = (path: string, kind: WorkspaceEntry['kind'] = 'file'): WorkspaceEntry => ({
+    id: path,
+    parentId: null,
+    name: path.split('/').pop()!,
+    kind,
+    sourceId: null,
+    path,
+    updatedAt: '2026-10-09T00:00:00.000Z',
+  });
+  const workspace = '/data/Dela/workspace';
+  const privateDirectory = '/data/Dela/chat-sessions/s1';
+
+  it('资料根目录下的文件进候选，title 相对资料根目录；资料里项目的文件不进', () => {
+    const entries = [
+      file(`${workspace}/笔记.md`),
+      file(`${workspace}/课程/大纲.md`),
+      file(`${workspace}/repo`, 'project'),
+      file(`${workspace}/repo/src/main.ts`),
+    ];
+    expect(referenceCandidates(entries, privateDirectory, null, workspace)).toEqual([
+      ref(`${workspace}/笔记.md`, '笔记.md'),
+      ref(`${workspace}/课程/大纲.md`, '课程/大纲.md'),
+    ]);
+  });
+
+  it('title 冲突时 cwd 下的文件优先', () => {
+    const entries = [file(`${workspace}/notes.md`), file(`${privateDirectory}/notes.md`)];
+    expect(referenceCandidates(entries, privateDirectory, null, workspace)).toEqual([
+      ref(`${privateDirectory}/notes.md`, 'notes.md'),
+    ]);
+  });
+
+  it('项目会话不并入资料根目录', () => {
+    const entries = [file(`${workspace}/笔记.md`)];
+    expect(referenceCandidates(entries, '/data/repo', 'p1', workspace)).toEqual([]);
+  });
+
+  it('referenceEntryCandidates 的通用池按 cwd、资料、课件的顺序合并', () => {
+    const entries = [file(`${workspace}/笔记.md`), file(`${privateDirectory}/草稿.md`)];
+    expect(
+      referenceEntryCandidates(
+        entries,
+        privateDirectory,
+        null,
+        null,
+        [],
+        [{ path: '/data/Dela/courses/软件工程/lec1.pdf', title: '软件工程/lec1.pdf' }],
+        workspace,
+      ),
+    ).toEqual([
+      ref(`${privateDirectory}/草稿.md`, '草稿.md'),
+      ref(`${workspace}/笔记.md`, '笔记.md'),
+      ref('/data/Dela/courses/软件工程/lec1.pdf', '软件工程/lec1.pdf'),
+    ]);
+  });
+});
+
 describe('# 会话引用', () => {
   const session = (id: string, title: string, updatedAt: string, createdAt = updatedAt) => ({
     id,
