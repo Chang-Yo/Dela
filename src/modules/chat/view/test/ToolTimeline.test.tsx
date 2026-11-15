@@ -29,6 +29,11 @@ const rows = () => [...host.querySelectorAll<HTMLButtonElement>('button[aria-exp
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal('matchMedia', () => ({
+    matches: true,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);

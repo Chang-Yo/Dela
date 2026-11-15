@@ -7,7 +7,6 @@ import {
   ArrowUpRight,
   Bot,
   Check,
-  ChevronDown,
   CircleAlert,
   Copy,
   FileText,
@@ -24,6 +23,8 @@ import { Shimmer } from '../../../ui/shimmer';
 import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
+import { Card } from '../../../ui/card';
+import { Collapse, CollapseChevron } from '../../../ui/collapse';
 import { openLightbox } from '../../../ui/lightbox';
 import { IconButton } from '../../../ui/icon-button';
 import { useMediaQuery } from '../../../ui/use-media-query';
@@ -469,7 +470,7 @@ function TaskNoticeMessage({ content, task }: { content: string; task: TaskNotic
   const [open, setOpen] = useState(false);
   const Icon = task.kind === 'bash' ? SquareTerminal : Bot;
   return (
-    <div className="my-3 grid gap-1.5 rounded-card bg-inset px-3.5 py-2.5">
+    <Card className="my-3" variant="inset">
       <div className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
         <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={1.8} />
         <span className={`shrink-0 font-medium ${task.status === 'failed' ? 'text-danger' : ''}`}>
@@ -495,22 +496,22 @@ function TaskNoticeMessage({ content, task }: { content: string; task: TaskNotic
           className="size-6"
           onClick={() => setOpen((value) => !value)}
         >
-          <ChevronDown className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+          <CollapseChevron open={open} />
         </IconButton>
       </div>
-      {open && (
-        <ChatMarkdown className="text-sm" mode="static">
+      <Collapse open={open}>
+        <ChatMarkdown className="pt-1.5 text-sm" mode="static">
           {content}
         </ChatMarkdown>
-      )}
-    </div>
+      </Collapse>
+    </Card>
   );
 }
 
 /** Pi 扩展经 sendMessage 发出的可见消息：标出 customType，与模型回复区分开。 */
 function ExtensionMessage({ content, customType }: { content: string; customType: string }) {
   return (
-    <div className="my-3 grid gap-1.5 rounded-card bg-inset px-3.5 py-2.5">
+    <Card className="my-3 grid gap-1.5" variant="inset">
       <span className="flex items-center gap-1.5 text-xs font-medium text-ink-3">
         <Package aria-hidden className="size-3" strokeWidth={1.8} />
         扩展 · {customType}
@@ -518,7 +519,7 @@ function ExtensionMessage({ content, customType }: { content: string; customType
       <ChatMarkdown className="text-sm" mode="static">
         {content}
       </ChatMarkdown>
-    </div>
+    </Card>
   );
 }
 

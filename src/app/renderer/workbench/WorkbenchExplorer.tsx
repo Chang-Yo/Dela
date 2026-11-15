@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Archive,
-  ChevronRight,
   ChevronsDownUp,
   FilePlus2,
   FileInput,
@@ -17,6 +16,7 @@ import {
 import { workspaceArchiveId, type WorkspaceEntry } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId } from '../../../modules/remotes/contract';
 import { Button } from '../../../ui/button';
+import { CollapseChevron } from '../../../ui/collapse';
 import { Input } from '../../../ui/input';
 import { Resizer } from '../../../ui/resizer';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
@@ -245,14 +245,6 @@ export function WorkbenchExplorer({
   // 区块小标题：比组头浅一档的分层提示（同步 / 文件两区），纯展示不可交互；归档区靠底部
   // 分隔线 + 自身组头分层，不另加小标题以免与"归档"组头文字重复。
   const eyebrowClass = 'px-3 pt-3 pb-1 text-xs font-medium tracking-wider text-ink-3/70';
-  const chevron = (open: boolean) => (
-    <ChevronRight
-      className={cn(
-        'size-3 transition-transform duration-base motion-reduce:transition-none',
-        open && 'rotate-90',
-      )}
-    />
-  );
   const libraryProps = {
     query,
     expanded,
@@ -511,7 +503,7 @@ export function WorkbenchExplorer({
                 onClick={() => setArchiveOpen((value) => !value)}
                 type="button"
               >
-                {chevron(archiveOpen || Boolean(query.trim()))}
+                <CollapseChevron open={archiveOpen || Boolean(query.trim())} />
                 <Archive className="size-4" />
                 归档
               </button>

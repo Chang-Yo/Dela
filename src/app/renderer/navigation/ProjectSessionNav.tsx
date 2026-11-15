@@ -2,6 +2,7 @@
 // 会话数据与运行徽标由接入方注入（本组件不 import sessions/）；通用池会话不入项目树。
 import { useEffect, useState } from 'react';
 import { Button } from '../../../ui/button';
+import { CollapseChevron } from '../../../ui/collapse';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { DropdownMenu as Menu } from 'radix-ui';
 import {
@@ -210,12 +211,7 @@ export function ProjectSessionNav({
             onClick={() => toggleProject(key)}
             type="button"
           >
-            <ChevronRight
-              className={cn(
-                'size-3 transition-transform duration-base motion-reduce:transition-none',
-                expanded && 'rotate-90',
-              )}
-            />
+            <CollapseChevron open={expanded} />
           </button>
           {project.remoteId ? (
             <Tooltip>

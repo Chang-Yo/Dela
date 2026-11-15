@@ -12,8 +12,9 @@ import {
   type CSSProperties,
 } from 'react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronRight, FileText, Folder, FolderKanban } from 'lucide-react';
+import { FileText, Folder, FolderKanban } from 'lucide-react';
 import { cn } from '../../../ui/cn';
+import { CollapseChevron } from '../../../ui/collapse';
 import { fileIconUrl } from './file-icons';
 import { ErrorText } from '../../../ui/alert';
 
@@ -521,12 +522,7 @@ export function Explorer({
                   onExpand(item.id, !open.has(item.id));
                 }}
               >
-                <ChevronRight
-                  className={cn(
-                    'size-3 transition-transform duration-base motion-reduce:transition-none',
-                    open.has(item.id) && 'rotate-90',
-                  )}
-                />
+                <CollapseChevron open={open.has(item.id)} />
               </button>
               {showIcon &&
                 (fileIcon ? (

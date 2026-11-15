@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
 import type { AgentToolResult, SubagentDetails, WorkspaceChat } from '../../../core/protocol/agent';
 import { Shimmer } from '../../../ui/shimmer';
 import { cn } from '../../../ui/cn';
+import { Collapse, CollapseChevron } from '../../../ui/collapse';
 import { ChatMarkdown } from './markdown';
 import { ToolBody } from './tool-views';
 import { fadeIn } from '../../../ui/motion';
@@ -98,16 +98,12 @@ function Disclosure({
         onClick={() => setOpen(!open)}
         className="group/row flex h-7 w-full min-w-0 items-center gap-1 text-left text-sm text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
       >
-        <ChevronRight
-          aria-hidden
-          className={cn(
-            'size-3.5 shrink-0 opacity-60 transition-transform duration-base group-hover/row:opacity-100 motion-reduce:transition-none',
-            open && 'rotate-90',
-          )}
-        />
+        <CollapseChevron className="opacity-60 group-hover/row:opacity-100" open={open} />
         {head}
       </button>
-      {open && <div className={cn(fadeIn, 'mb-2 ml-[1.125rem] min-w-0')}>{children}</div>}
+      <Collapse className="ml-[1.125rem]" open={open}>
+        <div className="min-w-0 pb-2">{children}</div>
+      </Collapse>
     </div>
   );
 }
@@ -305,13 +301,7 @@ export function ReplyTrace({
           onClick={() => setExpanded(!expanded)}
           className="group/row mb-1 flex h-7 w-full min-w-0 items-center gap-1 text-left text-sm text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2"
         >
-          <ChevronRight
-            aria-hidden
-            className={cn(
-              'size-3.5 shrink-0 opacity-60 transition-transform duration-base group-hover/row:opacity-100 motion-reduce:transition-none',
-              expanded && 'rotate-90',
-            )}
-          />
+          <CollapseChevron className="opacity-60 group-hover/row:opacity-100" open={expanded} />
           <span className="min-w-0 truncate">{foldLabel}</span>
         </button>
       )}

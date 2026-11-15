@@ -87,6 +87,11 @@ async function renderCard(sessionId2: string, turnId: string, reviewEnabled = tr
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal('matchMedia', () => ({
+    matches: true,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
   window.dela = dela;
   host = document.createElement('div');
   document.body.append(host);

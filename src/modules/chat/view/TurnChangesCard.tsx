@@ -6,6 +6,8 @@ import { ChevronDown, CodeXml, FolderOpen } from 'lucide-react';
 import type { FileChangeSummary } from '../../../core/protocol/agent';
 import type { DiffStat } from '../../../core/protocol/diff';
 import { Button } from '../../../ui/button';
+import { Card } from '../../../ui/card';
+import { Collapse, CollapseChevron } from '../../../ui/collapse';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -150,28 +152,24 @@ export function TurnChangesCard({
     { added: 0, deleted: 0 },
   );
   return (
-    <section
-      aria-label="本轮改动"
-      className="mt-3 overflow-hidden rounded-card border border-line text-sm"
-    >
-      <button
-        aria-expanded={open}
-        className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors duration-base hover:bg-hover"
-        onClick={() => setOpen((value) => !value)}
-        type="button"
-      >
-        <ChevronDown
-          aria-hidden
-          className={`size-3.5 shrink-0 text-ink-3 transition-transform duration-base ${open ? '' : '-rotate-90'}`}
-        />
-        <span className="shrink-0 text-xs text-ink-3">本轮改动 · {record.files.length} 个文件</span>
-        <span className="flex min-w-0 gap-1.5 font-mono text-xs">
-          {total.added > 0 && <span className="text-success">+{total.added}</span>}
-          {total.deleted > 0 && <span className="text-danger">-{total.deleted}</span>}
-        </span>
-      </button>
-      {open && (
-        <>
+    <Card asChild>
+      <section aria-label="本轮改动" className="mt-3 text-sm">
+        <button
+          aria-expanded={open}
+          className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors duration-base hover:bg-hover"
+          onClick={() => setOpen((value) => !value)}
+          type="button"
+        >
+          <CollapseChevron className="text-ink-3" open={open} />
+          <span className="shrink-0 text-xs text-ink-3">
+            本轮改动 · {record.files.length} 个文件
+          </span>
+          <span className="flex min-w-0 gap-1.5 font-mono text-xs">
+            {total.added > 0 && <span className="text-success">+{total.added}</span>}
+            {total.deleted > 0 && <span className="text-danger">-{total.deleted}</span>}
+          </span>
+        </button>
+        <Collapse open={open}>
           <ul className="grid border-t border-line">
             {record.files.map((file) => (
               <TurnFileRow
@@ -191,8 +189,8 @@ export function TurnChangesCard({
               {record.warnings.length > 1 && ` 等 ${record.warnings.length} 项`}
             </p>
           )}
-        </>
-      )}
-    </section>
+        </Collapse>
+      </section>
+    </Card>
   );
 }
