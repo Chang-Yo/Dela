@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { Button } from '../../../../ui/button';
+import { Kbd } from '../../../../ui/kbd';
 import {
   acceleratorFromEvent,
   acceleratorKeys,
@@ -170,12 +171,7 @@ export function ShortcutsSection() {
                     ) : accelerator ? (
                       <span className="flex items-center gap-1">
                         {acceleratorKeys(accelerator, platform, action.family).map((key) => (
-                          <kbd
-                            className="inline-flex h-6 min-w-6 items-center justify-center rounded-chip bg-field px-1.5 text-xs font-medium text-ink-2 shadow-hairline"
-                            key={key}
-                          >
-                            {key}
-                          </kbd>
+                          <Kbd key={key}>{key}</Kbd>
                         ))}
                       </span>
                     ) : (
