@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
 import { LanguageDescription, syntaxHighlighting } from '@codemirror/language';
@@ -62,7 +62,6 @@ const externalSync = Annotation.define<boolean>();
 type EditorHandlers = {
   onChange: (text: string) => void;
   onSave: () => void;
-  onScroll: (top: number) => void;
   sync: () => void;
   onCursor: (cursor: { line: number; column: number }) => void;
 };
@@ -152,12 +151,14 @@ export function MarkdownEditor({
   const wordWrap = useEditorSettings((state) => state.wordWrap) || alwaysWrap;
   const latestValue = useRef(value);
   const lastPublishedValue = useRef<string | null>(null);
-  const publishChange = (text: string) => {
+  const publishChange = useEffectEvent((text: string) => {
     lastPublishedValue.current = text;
     // 组词结束的定时回调可能早于 React 提交新的 value。
     latestValue.current = text;
     onChange(text);
-  };
+  });
+  const save = useEffectEvent(() => onSave());
+  const reportScroll = useEffectEvent((top: number) => onScroll(top));
   /* 外部值同步：IME 组文期间全量替换文档会打断输入法，推迟到组文结束后再补。 */
   const syncValue = () => {
     const current = view.current;
@@ -292,19 +293,18 @@ export function MarkdownEditor({
         column: current.state.selection.main.head - position.from + 1,
       });
     };
-    const onScroll = () => {
+    const handleScroll = () => {
       session.scrollTop = current.scrollDOM.scrollTop;
-      handlers.get(instanceKey)?.onScroll(current.scrollDOM.scrollTop);
+      reportScroll(current.scrollDOM.scrollTop);
     };
     const boundHandlers: EditorHandlers = {
       onChange: publishChange,
-      onSave,
-      onScroll,
+      onSave: save,
       sync: syncValue,
       onCursor: setCursor,
     };
     handlers.set(instanceKey, boundHandlers);
-    current.scrollDOM.addEventListener('scroll', onScroll);
+    current.scrollDOM.addEventListener('scroll', handleScroll);
     view.current = current;
     updateCursor();
     current.dispatch({
@@ -320,7 +320,7 @@ export function MarkdownEditor({
         session.state = current.state;
         session.scrollTop = current.scrollDOM.scrollTop;
       }
-      current.scrollDOM.removeEventListener('scroll', onScroll);
+      current.scrollDOM.removeEventListener('scroll', handleScroll);
       current.destroy();
       view.current = null;
       if (handlers.get(instanceKey)?.sync === boundHandlers.sync) handlers.delete(instanceKey);
@@ -357,12 +357,6 @@ export function MarkdownEditor({
       ),
     });
   }, [filename]);
-  useEffect(() => {
-    const current = view.current;
-    if (!current) return;
-    const bound = handlers.get(instanceKey);
-    if (bound) handlers.set(instanceKey, { ...bound, onChange: publishChange, onSave, onScroll });
-  }, [onChange, onSave, onScroll, instanceKey]);
   useEffect(() => {
     latestValue.current = value;
     syncValue();

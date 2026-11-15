@@ -5,9 +5,10 @@ import { showToast } from '../../../renderer/app/toasts';
 import { errorText } from '../../../renderer/workspace/store';
 import { parseRemoteNodeId, type TabId } from '../../workspace/contract';
 import { workspaceClient } from '../../workspace/view';
-import { DocumentToolbar, type NoteMode } from './document-toolbar';
+import { DocumentToolbar } from './document-toolbar';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
+import { rememberNoteMode, rememberNoteScroll, useNoteViewMemory } from './view-memory';
 import { markdownImageInsert } from './live-preview';
 import { Spinner } from '../../../ui/spinner';
 import { ConfirmDialog } from '../../../ui/dialog';
@@ -33,11 +34,6 @@ export function parseNoteTabId(tabId: string): string | null {
   return entryId || null;
 }
 
-/* 编辑模式按文件在本次会话内记忆。 */
-const noteModes = new Map<string, NoteMode>();
-/* 滚动位置按 标签+组 记忆，不持久化。 */
-const scrollMemory = new Map<string, number>();
-
 /**
  * 文本文件的编辑标签：草稿经注入的 NoteDraftSource 读写，远端 Markdown 只读。Markdown 默认即时渲染（光标所在行显示原文），
  * 可切到纯源码；其余文本按语言高亮。编辑器只把用户改的字节写回去，不做任何格式化。
@@ -52,9 +48,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const [failure, setFailure] = useState<{ entryId: string; message: string } | null>(null);
   const error = failure && failure.entryId === entryId ? failure.message : null;
   const [confirmReload, setConfirmReload] = useState(false);
-  const [mode, setMode] = useState<NoteMode>(() =>
-    entryId !== null ? (noteModes.get(entryId) ?? 'live') : 'live',
-  );
+  const mode = useNoteViewMemory((state) => state.modes[entryId ?? ''] ?? 'live');
   const reload = (id: string) => {
     setFailure(null);
     void source
@@ -125,13 +119,8 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
     );
   const markdown = draft.content.format === 'markdown';
   const readOnly = draft.content.readOnly === true;
-  const changeMode = (next: NoteMode) => {
-    noteModes.set(entryId, next);
-    setMode(next);
-  };
   const dirty = draft.text !== draft.saved;
   const runReload = () => reload(entryId);
-  /* 定位入口交给系统文件管理器。 */
   const openInFolder = () => {
     if (window.dela)
       void workspaceClient.openLocal(entryId).catch((cause) =>
@@ -152,14 +141,13 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         path={path?.length ? path : [draft.content.title]}
         markdown={markdown}
         mode={mode}
-        onModeChange={changeMode}
+        onModeChange={(next) => rememberNoteMode(entryId, next)}
         saving={draft.saving}
         dirty={dirty}
         failed={draft.error !== null || error !== null}
         dueAt={draft.content.dueAt}
         onOpenInFolder={parseRemoteNodeId(entryId) ? undefined : openInFolder}
         onReload={() => {
-          // 有未保存草稿时先经应用内确认（与移除内容等危险操作一致），不用系统原生弹窗。
           if (dirty) setConfirmReload(true);
           else runReload();
         }}
@@ -200,7 +188,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         value={draft.text}
         filename={draft.content.title}
         editorStateKey={`document:${entryId}:${groupId}:${markdown ? mode : 'code'}`}
-        scroll={scrollMemory.get(scrollKey) ?? 0}
+        scroll={useNoteViewMemory.getState().scrolls[scrollKey] ?? 0}
         readOnly={readOnly}
         livePreview={
           markdown && mode === 'live' ? (src) => source.resolveImage(entryId, src) : undefined
@@ -208,7 +196,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         extensions={markdown && !readOnly ? [imageInsert(entryId)] : []}
         onChange={(text) => source.edit(entryId, text)}
         onSave={() => void source.save(entryId)}
-        onScroll={(top) => scrollMemory.set(scrollKey, top)}
+        onScroll={(top) => rememberNoteScroll(scrollKey, top)}
       />
       <ConfirmDialog
         confirmLabel="重新载入"
