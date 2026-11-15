@@ -8,6 +8,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Clock, Folder, FolderPlus, House } from 'lucide-react';
 import { Card } from '../../../ui/card';
+import { Checkbox } from '../../../ui/checkbox';
 import { Input } from '../../../ui/input';
 import { SearchInput } from '../../../ui/search-input';
 import { Skeleton } from '../../../ui/skeleton';
@@ -357,11 +358,9 @@ export function DirectoryBrowser({
           新建文件夹
         </button>
         <label className="flex items-center gap-1.5">
-          <input
+          <Checkbox
             checked={showHidden}
-            className="size-3 accent-[var(--ink-2)]"
             onChange={(event) => setShowHidden(event.target.checked)}
-            type="checkbox"
           />
           显示隐藏目录
         </label>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../../../ui/button';
 import { Card } from '../../../../ui/card';
+import { Checkbox } from '../../../../ui/checkbox';
 import { Input } from '../../../../ui/input';
 import { LLM_MODEL_LIMIT } from '../../../../core/protocol/llm-models';
 import { capModels, selectedModels } from './model-import';
@@ -84,12 +85,7 @@ function Picker({
               className="flex min-w-0 cursor-pointer items-center gap-2 px-2.5 py-1.5 transition-colors hover:bg-hover"
               key={id}
             >
-              <input
-                checked={checked.has(id)}
-                className="size-3.5 shrink-0 accent-accent"
-                onChange={() => toggle(id)}
-                type="checkbox"
-              />
+              <Checkbox checked={checked.has(id)} onChange={() => toggle(id)} />
               <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
                 {id}
               </span>
