@@ -206,19 +206,19 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 
 ## 10. 仓库组织
 
-单仓库、单 `package.json`（`pnpm-workspace.yaml` 只放 pnpm 设置，**不是** monorepo），三个进程分别构建：`src/main/`、`src/preload/`、`src/renderer/`，共享契约在 `src/shared/`，远端 helper 是 `helper/` 的 Go 模块（只依赖标准库），预编译产物在 `vendor/`。
+单仓库、单 `package.json`（`pnpm-workspace.yaml` 只放 pnpm 设置，**不是** monorepo），三个进程的入口与外壳在 `src/app/{main,preload,renderer}/`，分别构建；Agent 内核在 `src/core`，界面组件在 `src/ui`，功能在 `src/modules` 与 `src/sjtu`。远端 helper 是 `helper/` 的 Go 模块（只依赖标准库），预编译产物在 `vendor/`。
 
 目录清单见 [AGENTS.md](../AGENTS.md) 的文件树，那一份是权威。
 
 按层约定：
 
-- `src/main/` 按业务域分目录，每域一个入口（大域名 `api.ts`，其余 `index.ts`），IPC 注册在入口或并列的 `ipc.ts`；已迁入 `src/modules` 的模块改用契约，由 `app/ipc.ts` 统一注册（见 §10.1）。大域可以在同目录拆模块，但**入口仍是对外唯一 import 点**。根级只放不属于任何业务域的模块。
-- 主进程不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。终端与 `src/sjtu` 下的交大模块尚未接入端口，仍直接引用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
-- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本，`shared` 只做转出。
-- 测试与被测代码同层：main 与 core 用各目录的 `test/` 子目录，renderer 与 shared 与源码并排。core 的测试可以引用 main 的实现做集成夹具。
+- 模块的 IPC 由契约声明，`src/app/main/ipc.ts` 统一注册（见 §10.1）。`src/main/` 只剩尚未迁出的 v2 主进程代码（数据库与迁移、凭据、文档读取、待办的 Agent 命令），不再往里加新代码。
+- core 不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/main/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。模块的 `main/` 可以直接用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
+- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/main/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本。
+- 测试与被测代码同层，放在源码旁或同目录的 `test/` 子目录。core 的测试可以引用 main 的实现做集成夹具。
 - `scripts/` 全部为 TypeScript（Node 原生执行，仓库不再有 `.mjs`），纳入 `pnpm typecheck`。
 
-边界约定：renderer 不导入 main、不访问凭据和数据库；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取；打包白名单只含 `out/**/*`、`package.json` 与品牌图——文档、凭据与 `.tools/` 都不进安装包。
+边界约定：界面代码不导入主进程代码、不访问凭据和数据库；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取；打包白名单只含 `out/**/*`、`package.json` 与品牌图——文档、凭据与 `.tools/` 都不进安装包。
 
 ### 10.1 v3 模块迁移范例
 
@@ -235,9 +235,9 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 
 交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts` 与 `app/contracts.ts` 例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。
 
-Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导，`shared` 只做转出。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
+Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
 
-依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。`view/` 只能引用 `core/protocol`、模块契约与 `src/ui`。renderer 的 Vite root 是 `src/renderer`，`src/` 下新增界面目录时要在 `globals.css` 加 `@source`，否则只在那里出现的类名不会生成。
+依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。`view/` 只能引用 `core/protocol`、`app/module`、模块契约与 `src/ui`。renderer 的 Vite root 是 `src/app/renderer`，`src/` 下新增界面目录时要在 `globals.css` 加 `@source`，否则只在那里出现的类名不会生成。
 
 ## 11. 工具链与启动
 
