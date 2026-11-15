@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../../../ui/button';
+import { EmptyState } from '../../../../ui/empty-state';
 import { Input } from '../../../../ui/input';
 import {
   Select,
@@ -163,8 +164,8 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
                 </li>
               ))}
               {entries?.length === 0 && (
-                <li className="py-6 text-center text-sm text-ink-3">
-                  还没有搜索配置，点下方添加。
+                <li>
+                  <EmptyState title="还没有搜索配置，点下方添加。" />
                 </li>
               )}
             </ul>

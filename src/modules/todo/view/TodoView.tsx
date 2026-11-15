@@ -27,6 +27,7 @@ import {
   type TodoState,
 } from '../contract';
 import { Button } from '../../../ui/button';
+import { EmptyState } from '../../../ui/empty-state';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
 import { Switch } from '../../../ui/switch';
@@ -423,7 +424,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
         ) : view === 'calendar' ? (
           <TodoCalendar items={items} month={month} onOpenItem={(item) => openItem(item.id)} />
         ) : !items.length ? (
-          <p className="py-8 text-center text-sm text-ink-3">暂无符合条件的待办</p>
+          <EmptyState title="暂无符合条件的待办" />
         ) : (
           <ul className="space-y-1">
             {items.map((item) => {

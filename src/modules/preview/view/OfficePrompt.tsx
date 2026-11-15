@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { ExternalLink, FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
+import { EmptyState } from '../../../ui/empty-state';
 import { showToast } from '../../../ui/toast';
 import { onWorkspaceEvent, workspaceClient } from '../../workspace/view';
 import type {
@@ -148,39 +149,47 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
     );
   };
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <Presentation className="size-10 text-ink-3" aria-hidden />
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="mt-1 text-xs text-ink-3">PowerPoint 演示文稿 · 只读，应用内不直接渲染</p>
-      </div>
-      {!supported && (
-        <p className="max-w-md text-xs text-ink-3">
-          你可以用系统默认应用打开原文件。当前平台不提供 PPTX 转 PDF，也可以导入已转换的 PDF 阅读。
-        </p>
-      )}
-      {exporting ? (
-        <div role="status" className="flex flex-col items-center gap-1 text-xs text-ink-3">
-          <Spinner size="lg" />
-          <span>{progressText(progress, opening)}</span>
-          {!opening && <span className="text-xs">已进行 {elapsed} 秒</span>}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          {supported && (
-            <Button size="sm" onClick={run}>
-              <FileDown aria-hidden />
-              导出为 PDF 预览
-            </Button>
+    <EmptyState
+      className="min-h-0 flex-1"
+      icon={Presentation}
+      title={title}
+      description={
+        <>
+          PowerPoint 演示文稿 · 只读，应用内不直接渲染
+          {!supported && (
+            <span className="mx-auto mt-2 block max-w-md">
+              你可以用系统默认应用打开原文件。当前平台不提供 PPTX 转 PDF，也可以导入已转换的 PDF
+              阅读。
+            </span>
           )}
-          <Button size="sm" variant="outline" onClick={openExternally}>
-            <ExternalLink aria-hidden />
-            在外部打开
-          </Button>
+        </>
+      }
+      action={
+        <div className="grid justify-items-center gap-3">
+          {exporting ? (
+            <div role="status" className="flex flex-col items-center gap-1 text-xs text-ink-3">
+              <Spinner size="lg" />
+              <span>{progressText(progress, opening)}</span>
+              {!opening && <span className="text-xs">已进行 {elapsed} 秒</span>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {supported && (
+                <Button size="sm" onClick={run}>
+                  <FileDown aria-hidden />
+                  导出为 PDF 预览
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={openExternally}>
+                <ExternalLink aria-hidden />
+                在外部打开
+              </Button>
+            </div>
+          )}
+          {error && <ErrorText className="max-w-md">{error}</ErrorText>}
         </div>
-      )}
-      {error && <ErrorText className="max-w-md">{error}</ErrorText>}
-    </div>
+      }
+    />
   );
 }
 
