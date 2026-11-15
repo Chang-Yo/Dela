@@ -190,7 +190,7 @@ function ChatSessionView({
   const saveConversation = async () => {
     if (!window.dela) return;
     setExporting(true);
-    try {
+    const exportSession = async () => {
       const { saved, missing } = await chatClient.export(active);
       if (saved)
         showToast({
@@ -198,11 +198,13 @@ function ChatSessionView({
           title: missing.length ? '会话已导出，部分文件未打包' : '会话已导出',
           description: missing.length ? missing.join('、') : undefined,
         });
+    };
+    try {
+      await exportSession();
     } catch (error) {
       showToast({ variant: 'error', title: '会话导出失败', description: errorMessage(error) });
-    } finally {
-      setExporting(false);
     }
+    setExporting(false);
   };
 
   const composer = (hero: boolean) => (

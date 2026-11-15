@@ -117,9 +117,8 @@ export function SidechatPanel({
         useChatDrafts.getState().update(key, { prompt, comments });
         setAttachments(sent);
       }
-    } finally {
-      setPending(false);
     }
+    setPending(false);
   };
 
   const close = () => {

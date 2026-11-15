@@ -270,7 +270,9 @@ export function ChatComposer({
     if (fileError) setFileError(null);
     const next = detectMenu(text, caret);
     // 候选词变化时高亮从头开始；同词内移动光标保留当前高亮。
-    if (next?.kind !== menu?.kind || next?.query !== menu?.query) setIndex(0);
+    const kindChanged = next?.kind !== menu?.kind;
+    const queryChanged = next?.query !== menu?.query;
+    if (kindChanged || queryChanged) setIndex(0);
     setMenu(next);
   };
 
@@ -316,17 +318,21 @@ export function ChatComposer({
     let attachmentCount = attachments.length;
     for (const file of files) {
       const kind = await chatFileKindOfFile(file);
+      if (kind === 'image' && imageCount >= INLINE_IMAGE_MAX) {
+        setFileError(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
+        continue;
+      }
+      if (kind !== 'image' && attachmentCount >= CHAT_ATTACHMENT_MAX) {
+        setFileError(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
+        continue;
+      }
       try {
         if (kind === 'image') {
-          if (imageCount >= INLINE_IMAGE_MAX)
-            throw new Error(`最多插入 ${INLINE_IMAGE_MAX} 张图片`);
           const bytes = new Uint8Array(await file.arrayBuffer());
           const view = await agentClient['stage-media']({ name: file.name, bytes });
           insertPos = insertImageView(view, insertPos);
           imageCount += 1;
         } else {
-          if (attachmentCount >= CHAT_ATTACHMENT_MAX)
-            throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
           await onAddAttachmentFile(file);
           attachmentCount += 1;
         }
@@ -355,9 +361,10 @@ export function ChatComposer({
               }
               insertPos = insertImageView(view, insertPos);
               imageCount += 1;
+            } else if (attachmentCount >= CHAT_ATTACHMENT_MAX) {
+              releaseChatMedia([view.id]);
+              setFileError(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
             } else {
-              if (attachmentCount >= CHAT_ATTACHMENT_MAX)
-                throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
               onAddAttachmentView(view);
               attachmentCount += 1;
             }

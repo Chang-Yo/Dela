@@ -78,28 +78,29 @@ export function ArchivedSection({ navigate }: { navigate: Navigate }) {
         title: remove ? '删除失败' : '恢复失败',
         description: errorMessage(cause),
       });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const removeAll = async () => {
     if (busy || !window.dela || !sessions?.length) return;
     setBusy(true);
-    try {
-      // 逐条永久删除：主进程拒绝未归档会话，这里的数据本就全部已归档。
+    // 逐条永久删除：主进程拒绝未归档会话，这里的数据本就全部已归档。
+    const removeEach = async () => {
       for (const session of sessions) {
         await chatClient.remove(session.id);
         useSessions.getState().forgetSession(session.id);
       }
+    };
+    try {
+      await removeEach();
       await reload();
       await refreshSessionLists();
       setConfirm(null);
     } catch (cause) {
       showToast({ variant: 'error', title: '删除失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const projectOptions = (sessions ?? []).reduce<Array<{ id: string; name: string }>>(
