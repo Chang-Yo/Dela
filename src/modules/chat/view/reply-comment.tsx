@@ -105,6 +105,13 @@ function quoteText(range: Range): string {
   return text.trim();
 }
 
+// 聚焦不滚动消息视口；改评论时光标放在原文末尾。引用不变，所以只在挂载时执行。
+const focusAtEnd = (field: HTMLTextAreaElement | null) => {
+  if (!field) return;
+  field.focus({ preventScroll: true });
+  field.setSelectionRange(field.value.length, field.value.length);
+};
+
 /** 评论输入：回车或 ✓ 确认（可留空），Shift+回车换行，Esc 取消；输入法组字时的回车不提交。 */
 function CommentInput({
   initial = '',
@@ -116,14 +123,6 @@ function CommentInput({
   onCancel: () => void;
 }) {
   const [text, setText] = useState(initial);
-  const fieldRef = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const field = fieldRef.current;
-    if (!field) return;
-    // 聚焦不滚动消息视口；改评论时光标放在原文末尾。
-    field.focus({ preventScroll: true });
-    field.setSelectionRange(field.value.length, field.value.length);
-  }, []);
   const submit = () => onSubmit(text.trim());
   return (
     <div className="flex items-end gap-1">
@@ -142,7 +141,7 @@ function CommentInput({
           }
         }}
         placeholder="添加评论…"
-        ref={fieldRef}
+        ref={focusAtEnd}
         rows={1}
         value={text}
       />
