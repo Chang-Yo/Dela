@@ -114,9 +114,8 @@ export default function App() {
     return group?.active?.startsWith('chat:') ?? false;
   });
 
-  // 工作区镜像载入 + 会话静默后的条目/干净草稿刷新（工具可能写过工作区）。
+  // 会话静默后的条目/干净草稿刷新（工具可能写过工作区）。
   useEffect(() => {
-    void useWorkspaceStore.getState().load();
     return onAgentEvent('session-update', ({ sessionId, chat }) => {
       if (chat.running) return;
       const store = useWorkspaceStore.getState();

@@ -305,10 +305,6 @@ export function AppShell({
     shortcutsRef.current = { navigate, onImportFiles, onNewProject, onSearch, stepZoom };
   });
   useEffect(() => {
-    // 启动时读取一次用户覆盖的键位（默认值首帧即可用）。
-    void useShortcuts.getState().load();
-  }, []);
-  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) return;
       // 动作由键位表解析：用户改键后此处无需改动，未绑定/未命中即不拦截。

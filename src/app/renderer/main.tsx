@@ -9,6 +9,8 @@ import App from './shell/App';
 import { connectQueryEvents } from './shell/query-events';
 import { saveWorkspace } from './shell/save-workspace';
 import { useNavigationStore } from './navigation/view';
+import { useShortcuts } from './shell/shortcuts';
+import { useWorkspaceStore } from '../../modules/workspace/view';
 import './styles/globals.css';
 
 // 后端数据的唯一缓存（docs/adr/0009）：数据都在本机主进程，失败不重试，切回窗口不重查。
@@ -18,6 +20,8 @@ const queryClient = new QueryClient({
 connectQueryEvents(queryClient, contracts, window.dela?.bridge);
 for (const view of views) view.start?.(useNavigationStore.getState().navigate);
 useUpdateState.setState({ beforeInstall: saveWorkspace });
+void useWorkspaceStore.getState().load();
+void useShortcuts.getState().load();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
