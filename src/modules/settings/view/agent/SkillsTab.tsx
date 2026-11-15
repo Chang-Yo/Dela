@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Cloud, CloudUpload, FileText, FolderOpen, RefreshCw } from 'lucide-react';
 import type {
   RemoteSkillUpload,
@@ -81,57 +82,48 @@ const remoteProjectsOf = (entries: WorkspaceEntry[]) =>
 
 /** 设置 › Skills：内置、本机目录与每个本地项目的技能，分组列出并逐个启停。 */
 export function SkillsTab() {
-  // null 表示尚未读到列表，避免闪烁出错误的空态。
-  const [skills, setSkills] = useState<SkillView[] | null>(null);
+  const queryClient = useQueryClient();
+  const setSkills = (views: SkillView[] | undefined) =>
+    queryClient.setQueryData(['capabilities', 'skills'], views);
+  const install = useMutation({
+    mutationFn: (name: string) => capabilitiesClient.installSkillDependencies(name),
+    onSuccess: setSkills,
+    onError: () => queryClient.invalidateQueries({ queryKey: ['capabilities', 'skills'] }),
+  });
+  const installing = install.isPending;
+  // 未读到列表（data 为 undefined）时不渲染空态，避免闪烁；依赖安装期间每秒重读进度。
+  const list = useQuery({
+    queryKey: ['capabilities', 'skills'],
+    queryFn: () => capabilitiesClient.listSkills(),
+    enabled: Boolean(window.dela),
+    refetchInterval: (query) =>
+      installing || query.state.data?.some((skill) => skill.dependency?.status === 'installing')
+        ? 1000
+        : false,
+  });
+  const skills = list.data;
   const [busy, setBusy] = useState(false);
-  const [installing, setInstalling] = useState(false);
-  const cancelRequested = useRef(false);
-  const [error, setError] = useState<string | null>(null);
   // 按来处过滤：全部 / 内置 / 本机 / 项目（只列有内容的来处）。
   const [filter, setFilter] = useState<'all' | SkillOrigin>('all');
   const [viewing, setViewing] = useState<SkillView | null>(null);
   const [uploading, setUploading] = useState<SkillView | null>(null);
 
-  const refresh = () => {
-    void capabilitiesClient
-      .listSkills()
-      .then(setSkills)
-      .catch((cause) => setError(errorText(cause)));
-  };
+  const refresh = () => void list.refetch();
 
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  const dependencyInstalling =
-    installing || skills?.some((skill) => skill.dependency?.status === 'installing');
-  useEffect(() => {
-    if (!dependencyInstalling) return;
-    const timer = window.setInterval(refresh, 1000);
-    return () => window.clearInterval(timer);
-  }, [dependencyInstalling]);
-
-  const install = async (skill: SkillView) => {
+  const installDependencies = (skill: SkillView) => {
     if (!window.dela || installing) return;
-    cancelRequested.current = false;
-    setInstalling(true);
-    try {
-      setSkills(await capabilitiesClient.installSkillDependencies(skill.name));
-    } catch (cause) {
-      refresh();
-      if (!cancelRequested.current)
-        showToast({ variant: 'error', title: '组件安装未完成', description: errorText(cause) });
-    } finally {
-      setInstalling(false);
-    }
+    install.mutate(skill.name, {
+      onError: (cause) =>
+        showToast({ variant: 'error', title: '组件安装未完成', description: errorText(cause) }),
+    });
   };
 
+  // 先 reset：用户主动取消引发的安装失败不再作为错误提示。
   const cancelInstallation = async (name: string) => {
-    cancelRequested.current = true;
+    install.reset();
     try {
       await capabilitiesClient.cancelSkillInstallation(name);
     } catch (cause) {
-      cancelRequested.current = false;
       showToast({ variant: 'error', title: '取消失败', description: errorText(cause) });
     }
   };
@@ -186,7 +178,7 @@ export function SkillsTab() {
         }
         title="Skills"
       />
-      {skills !== null && skills.length > 0 && (
+      {skills && skills.length > 0 && (
         <div className="flex items-center justify-between gap-4">
           <SegmentedControl
             labels={FILTER_LABELS}
@@ -197,7 +189,7 @@ export function SkillsTab() {
           <span className="text-xs tabular-nums text-ink-3">{visible.length} 项</span>
         </div>
       )}
-      {skills !== null && skills.length === 0 && (
+      {skills?.length === 0 && (
         <SettingsGroup>
           <div className="grid gap-1 py-3.5">
             <span className="text-sm font-medium text-ink">还没有发现 Skill</span>
@@ -208,7 +200,7 @@ export function SkillsTab() {
           </div>
         </SettingsGroup>
       )}
-      {skills !== null && skills.length > 0 && visible.length === 0 && (
+      {skills && skills.length > 0 && visible.length === 0 && (
         <SettingsGroup>
           <p className="py-3.5 text-sm text-ink-3">该范围下没有 Skill。</p>
         </SettingsGroup>
@@ -304,7 +296,7 @@ export function SkillsTab() {
                         取消安装
                       </Button>
                     ) : (
-                      <Button size="sm" onClick={() => void install(skill)}>
+                      <Button size="sm" onClick={() => installDependencies(skill)}>
                         {skill.dependency.status === 'error' ? '重试安装' : '安装并启用'}
                       </Button>
                     )
@@ -322,7 +314,7 @@ export function SkillsTab() {
           </ul>
         </SettingsGroup>
       ))}
-      {error && <ErrorText>{error}</ErrorText>}
+      {list.error && <ErrorText>{errorText(list.error)}</ErrorText>}
       {viewing && (
         <SkillContentView
           onClose={() => setViewing(null)}
@@ -345,16 +337,11 @@ function SkillContentView({
   onReveal: () => void;
   skill: SkillView;
 }) {
-  // null 表示正在读取；读取失败时展示错误并保留关闭入口。
-  const [content, setContent] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void capabilitiesClient
-      .readSkill(skill.id)
-      .then(setContent)
-      .catch((cause) => setError(errorText(cause)));
-  }, [skill.id]);
+  // data 为 undefined 表示正在读取；读取失败时展示错误并保留关闭入口。
+  const { data: content, error } = useQuery({
+    queryKey: ['capabilities', 'skillContent', skill.id],
+    queryFn: () => capabilitiesClient.readSkill(skill.id),
+  });
 
   return (
     <Dialog
@@ -369,7 +356,7 @@ function SkillContentView({
           {skill.path}
         </DialogDescription>
         <div className="mt-3 min-h-32 overflow-y-auto rounded-card bg-inset p-3">
-          {content === null && !error ? (
+          {content === undefined && !error ? (
             <p className="flex items-center gap-2 text-xs text-ink-3" role="status">
               <Spinner />
               正在读取…
@@ -379,7 +366,7 @@ function SkillContentView({
               {content}
             </pre>
           )}
-          {error && <ErrorText>{error}</ErrorText>}
+          {error && <ErrorText>{errorText(error)}</ErrorText>}
         </div>
         <div className="mt-3 flex items-center justify-end gap-2">
           <Button onClick={onReveal} size="sm" variant="ghost">

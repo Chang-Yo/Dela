@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock, SlidersHorizontal } from 'lucide-react';
 import type { AgentCapabilityView } from '../../../../core/protocol/capabilities';
 import { Button } from '../../../../ui/button';
@@ -31,29 +32,27 @@ function groupByDomain(capabilities: AgentCapabilityView[]) {
 
 /** 子 Agent 并发上限（task 开启时显示）：失焦或回车时保存，超出范围按主进程的校验报错并回滚。 */
 function SubagentLimit() {
-  const [saved, setSaved] = useState<number | null>(null);
-  const [draft, setDraft] = useState('');
-  useEffect(() => {
-    void capabilitiesClient
-      .subagentLimit()
-      .then((limit) => {
-        setSaved(limit);
-        setDraft(String(limit));
-      })
-      .catch(() => {});
-  }, []);
-  if (saved === null) return null;
+  const queryClient = useQueryClient();
+  const saved = useQuery({
+    queryKey: ['capabilities', 'subagentLimit'],
+    queryFn: () => capabilitiesClient.subagentLimit(),
+  }).data;
+  // null 表示没有未保存的编辑，输入框显示已保存值。
+  const [edited, setEdited] = useState<string | null>(null);
+  if (saved === undefined) return null;
+  const draft = edited ?? String(saved);
   const save = async () => {
     const limit = Number(draft);
     if (limit === saved) return;
     try {
-      const next = await capabilitiesClient.setSubagentLimit(limit);
-      setSaved(next);
-      setDraft(String(next));
+      queryClient.setQueryData(
+        ['capabilities', 'subagentLimit'],
+        await capabilitiesClient.setSubagentLimit(limit),
+      );
     } catch {
       showToast({ variant: 'error', title: '保存失败', description: '上限须为 1 到 16 的整数' });
-      setDraft(String(saved));
     }
+    setEdited(null);
   };
   return (
     <div
@@ -75,7 +74,7 @@ function SubagentLimit() {
         type="number"
         value={draft}
         onBlur={() => void save()}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => setEdited(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.currentTarget.blur();
         }}
@@ -87,39 +86,31 @@ function SubagentLimit() {
 /** 设置 › 内置能力：Agent 可用的内置工具按域开关；关闭即从模型工具表移除。
  *  WebSearch 的搜索服务注册入口在「网络」域头部，弹窗管理。 */
 export function CapabilitiesSection() {
-  // null 表示尚未读到清单，避免闪烁出错误的“全开”状态。
-  const [capabilities, setCapabilities] = useState<AgentCapabilityView[] | null>(null);
+  const queryClient = useQueryClient();
+  // 未读到清单（data 为 undefined）时不渲染开关，避免闪烁出错误的“全开”状态。
+  const list = useQuery({
+    queryKey: ['capabilities', 'builtin'],
+    queryFn: () => capabilitiesClient.listBuiltinCapabilities(),
+    enabled: Boolean(window.dela),
+  });
+  const capabilities = list.data;
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  useEffect(() => {
-    let request = 0;
-    const refresh = () => {
-      const current = ++request;
-      void capabilitiesClient
-        .listBuiltinCapabilities()
-        .then((list) => {
-          if (current === request) setCapabilities(list);
-        })
-        .catch((cause) => {
-          if (current === request) setError(errorText(cause));
-        });
-    };
-    const unsubscribe = onWebSearchChanged(refresh);
-    refresh();
-    return () => {
-      unsubscribe();
-      request++;
-    };
-  }, []);
+  useEffect(
+    () =>
+      onWebSearchChanged(
+        () => void queryClient.invalidateQueries({ queryKey: ['capabilities', 'builtin'] }),
+      ),
+    [queryClient],
+  );
 
   // 即时保存 + 失败回滚（与 Skills / MCP 页签一致）。
   const run = async (operation: () => Promise<AgentCapabilityView[]>) => {
     if (!window.dela || busy) return;
     setBusy(true);
     try {
-      setCapabilities(await operation());
+      queryClient.setQueryData(['capabilities', 'builtin'], await operation());
     } catch (cause) {
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
     } finally {
@@ -134,7 +125,7 @@ export function CapabilitiesSection() {
         <p className="text-sm text-ink-3">内置能力配置仅在桌面端可用。</p>
       ) : (
         <>
-          {capabilities === null && !error ? (
+          {capabilities === undefined && !list.error ? (
             <SettingsGroup>
               <p className="flex items-center gap-2 py-3.5 text-xs text-ink-3" role="status">
                 <Spinner />
@@ -244,7 +235,7 @@ export function CapabilitiesSection() {
               })}
             </div>
           )}
-          {error && <ErrorText>{error}</ErrorText>}
+          {list.error && <ErrorText>{errorText(list.error)}</ErrorText>}
           {searchOpen && <SearchConfigDialog onClose={() => setSearchOpen(false)} />}
         </>
       )}

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // 设置 › Skills 的上传入口：目标只列远端项目，冲突（远端已存在）转覆盖确认后用 overwrite 重试。
 import { act } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SkillView } from '../../../../core/protocol/capabilities';
@@ -79,6 +80,19 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+async function renderTab() {
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SkillsTab />
+      </QueryClientProvider>,
+    ),
+  );
+  await settle();
+}
+
 function stubCapabilities(handlers: Record<string, (input: never) => unknown>) {
   for (const [name, handler] of Object.entries(handlers)) api[`capabilities:${name}`] = handler;
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
@@ -93,7 +107,7 @@ async function openDialog(
 ) {
   useWorkspaceStore.setState({ workspace: state([remoteProject, localProject]), loaded: true });
   stubCapabilities({ listSkills: async () => [skill], uploadSkillToRemote });
-  await act(async () => root.render(<SkillsTab />));
+  await renderTab();
   const open = container.querySelector<HTMLButtonElement>('[aria-label="上传 lint 到远端项目"]')!;
   await act(async () => open.click());
 }
@@ -101,7 +115,7 @@ async function openDialog(
 it('empty state without remote projects', async () => {
   useWorkspaceStore.setState({ workspace: state([localProject]), loaded: true });
   stubCapabilities({ listSkills: async () => [skill], uploadSkillToRemote: vi.fn() });
-  await act(async () => root.render(<SkillsTab />));
+  await renderTab();
   await act(async () =>
     container.querySelector<HTMLButtonElement>('[aria-label="上传 lint 到远端项目"]')!.click(),
   );
@@ -165,9 +179,10 @@ it('requires dependency installation before enabling document reading', async ()
   const ready: SkillView = { ...missing, enabled: true, dependency: { status: 'ready' } };
   const installSkillDependencies = vi.fn(async () => [ready]);
   stubCapabilities({ listSkills: async () => [missing], installSkillDependencies });
-  await act(async () => root.render(<SkillsTab />));
+  await renderTab();
   expect(container.querySelector('[role="switch"]')).toBeNull();
   await act(async () => buttonByText('安装并启用').click());
+  await settle();
   expect(installSkillDependencies).toHaveBeenCalledWith('document-reading');
   expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
 });
@@ -181,7 +196,7 @@ it('keeps a failed dependency disabled and offers retry', async () => {
   };
   const installSkillDependencies = vi.fn().mockRejectedValue(new Error('下载失败'));
   stubCapabilities({ listSkills: async () => [failed], installSkillDependencies });
-  await act(async () => root.render(<SkillsTab />));
+  await renderTab();
   await act(async () => buttonByText('重试安装').click());
   expect(container.querySelector('[role="switch"]')).toBeNull();
   expect(buttonByText('重试安装').disabled).toBe(false);
@@ -206,8 +221,9 @@ it('cancels installation without presenting the user action as a failure', async
     installSkillDependencies: () => pending,
     cancelSkillInstallation,
   });
-  await act(async () => root.render(<SkillsTab />));
+  await renderTab();
   await act(async () => buttonByText('安装并启用').click());
+  await settle();
   await act(async () => buttonByText('取消安装').click());
   expect(cancelSkillInstallation).toHaveBeenCalledWith('document-reading');
   expect(useToastStore.getState().toasts).toHaveLength(0);
@@ -236,7 +252,7 @@ it('groups skills by where they come from and toggles them by id', async () => {
     skills.map((item) => (item.id === id ? { ...item, enabled } : item)),
   );
   stubCapabilities({ listSkills: async () => skills, setSkillEnabled });
-  await act(async () => root.render(<SkillsTab />));
+  await renderTab();
 
   const titles = [...container.querySelectorAll('section')].map(
     (section) => section.firstElementChild?.textContent ?? '',

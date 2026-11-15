@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { WebSearchEntryInput } from '../../../../core/protocol/capabilities';
@@ -53,7 +54,14 @@ it('导入 DeepSeek 密钥后切换到 Brave，不应把 DeepSeek 密钥保存�
   api['capabilities:saveWebSearchEntry'] = saveWebSearchEntry;
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
 
-  await act(async () => root.render(<SearchConfigDialog onClose={() => {}} />));
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SearchConfigDialog onClose={() => {}} />
+      </QueryClientProvider>,
+    ),
+  );
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
   await act(async () => button('添加搜索服务').click());
   const name = document.querySelector<HTMLInputElement>('input[placeholder^="区分用途"]')!;
   const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;

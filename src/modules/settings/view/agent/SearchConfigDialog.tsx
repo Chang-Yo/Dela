@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
@@ -55,24 +56,21 @@ const headerAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
 
 /** 列表与新增/编辑表单两态；当前使用哪一条在聊天输入框左下角选择。 */
 export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
-  const [entries, setEntries] = useState<WebSearchEntry[] | null>(null);
+  const queryClient = useQueryClient();
+  const list = useQuery({
+    queryKey: ['capabilities', 'webSearchEntries'],
+    queryFn: () => capabilitiesClient.listWebSearchEntries(),
+  });
+  const entries = list.data;
+  const setEntries = (next: WebSearchEntry[]) =>
+    queryClient.setQueryData(['capabilities', 'webSearchEntries'], next);
   /** null = 列表态；有值为表单态（无 id = 新建）。 */
   const [draft, setDraft] = useState<WebSearchEntryInput | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const shownError = error ?? (list.error ? errorText(list.error) : null);
   /** 两步删除防误触：待确认的条目 id，删除键先变「确认删除」。 */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-  const load = () => {
-    void capabilitiesClient
-      .listWebSearchEntries()
-      .then((list) => {
-        setEntries(list);
-        setError(null);
-      })
-      .catch((cause) => setError(errorText(cause)));
-  };
-  useEffect(load, []);
 
   const remove = async (id: string) => {
     if (!window.dela || busy) return;
@@ -94,7 +92,7 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
           <EntryForm
             draft={draft}
             busy={busy}
-            error={error}
+            error={shownError}
             onCancel={() => {
               setDraft(null);
               setError(null);
@@ -185,7 +183,7 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
             </Button>
           </>
         )}
-        {error && !draft && <ErrorText className="mt-2">{error}</ErrorText>}
+        {shownError && !draft && <ErrorText className="mt-2">{shownError}</ErrorText>}
       </DialogContent>
     </Dialog>
   );
@@ -223,8 +221,6 @@ function EntryForm({
   /** DeepSeek 密钥的导入来源；多于一个时在 Key 下展开选择。 */
   const [keySources, setKeySources] = useState<WebSearchKeySource[] | null>(null);
   const [sourceId, setSourceId] = useState('');
-  /** 与 sourceId 同步的最新请求目标：导入返回时据此丢弃过期结果。 */
-  const sourceIdRef = useRef('');
 
   const save = async () => {
     if (!window.dela || busy) return;
@@ -293,10 +289,8 @@ function EntryForm({
         return;
       }
       const target = id ?? sources[0]!.id;
-      sourceIdRef.current = target;
       setSourceId(target);
       const key = await capabilitiesClient.readWebSearchKey(target);
-      if (sourceIdRef.current !== target) return;
       if (!key) {
         onError('导入失败：该供应商没有可用的密钥');
         return;
@@ -329,7 +323,6 @@ function EntryForm({
                 setProvider(id);
                 setApiKey('');
                 setSourceId('');
-                sourceIdRef.current = '';
                 setKeySources(null);
               }}
               size="sm"

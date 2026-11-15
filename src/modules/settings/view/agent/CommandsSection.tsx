@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
 import { agentClient, chatClient } from '../../../chat/view';
 import { Button } from '../../../../ui/button';
@@ -17,46 +18,39 @@ type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView }
 
 /** 设置 › 自定义指令：用户附加的全局指令（每次对话生效）+ 可复用的 / 指令模板。 */
 export function CommandsSection() {
-  const [commands, setCommands] = useState<ChatCommandView[] | null>(null);
+  const queryClient = useQueryClient();
+  const commandList = useQuery({
+    queryKey: ['settings', 'commands'],
+    queryFn: () => agentClient['list-commands']({}),
+  });
+  const commands = commandList.data;
   const [dialog, setDialog] = useState<EditState>(null);
   const [busy, setBusy] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  // Instruction：null 表示尚未读到当前值；draft 为用户正在编辑的正文。
-  const [instruction, setInstruction] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
+  // 未读到当前值（data 为 undefined）时不可编辑；edited 为 null 表示没有未保存的编辑。
+  const instructionQuery = useQuery({
+    queryKey: ['settings', 'instruction'],
+    queryFn: () => settingsClient.instruction(),
+    enabled: Boolean(window.dela),
+  });
+  const instruction = instructionQuery.data;
+  const [edited, setEdited] = useState<string | null>(null);
+  const draft = edited ?? instruction ?? '';
   const [instructionBusy, setInstructionBusy] = useState(false);
-  const [instructionError, setInstructionError] = useState<string | null>(null);
 
   const refresh = () => {
-    void agentClient['list-commands']({})
-      .then((views) => {
-        setCommands(views);
-        setConfirmId(null);
-      })
-      .catch((cause) => setError(errorText(cause)));
+    void queryClient
+      .invalidateQueries({ queryKey: ['settings', 'commands'] })
+      .then(() => setConfirmId(null));
   };
 
-  useEffect(refresh, []);
-
-  useEffect(() => {
-    if (!window.dela) return;
-    void settingsClient
-      .instruction()
-      .then((text) => {
-        setInstruction(text);
-        setDraft(text);
-      })
-      .catch((cause) => setInstructionError(errorText(cause)));
-  }, []);
-
   const saveInstruction = async () => {
-    if (!window.dela || instructionBusy || instruction === null) return;
+    if (!window.dela || instructionBusy || instruction === undefined) return;
     setInstructionBusy(true);
     try {
       const saved = await settingsClient.setInstruction(draft);
-      setInstruction(saved);
-      setDraft(saved);
+      queryClient.setQueryData(['settings', 'instruction'], saved);
+      setEdited(null);
       showToast({ variant: 'success', title: '已保存' });
     } catch (cause) {
       showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
@@ -93,10 +87,10 @@ export function CommandsSection() {
             <textarea
               aria-label="全局指令"
               className="min-h-24 rounded-control bg-field px-2.5 py-1.5 text-sm leading-relaxed text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus"
-              disabled={instruction === null || instructionBusy}
+              disabled={instruction === undefined || instructionBusy}
               maxLength={2000}
               onChange={(event) => {
-                setDraft(event.target.value);
+                setEdited(event.target.value);
               }}
               placeholder="例如：回答先给结论再给依据，尽量简洁；涉及日期时使用北京时间。"
               rows={4}
@@ -104,14 +98,14 @@ export function CommandsSection() {
             />
             <div className="flex items-center justify-end gap-2">
               <Button
-                disabled={instruction === null || instructionBusy || draft === instruction}
+                disabled={instruction === undefined || instructionBusy || draft === instruction}
                 onClick={() => void saveInstruction()}
                 size="sm"
               >
                 {instructionBusy ? '保存中…' : '保存'}
               </Button>
             </div>
-            {instructionError && <ErrorText>{instructionError}</ErrorText>}
+            {instructionQuery.error && <ErrorText>{errorText(instructionQuery.error)}</ErrorText>}
           </div>
           <div className="grid gap-2">
             <SettingsGroup
@@ -124,12 +118,12 @@ export function CommandsSection() {
               description="输入 / 名称手动触发，仅该轮生效。"
               title="快捷指令"
             >
-              {commands !== null && commands.length === 0 && (
+              {commands?.length === 0 && (
                 <p className="py-3.5 text-sm text-ink-3">
                   还没有自定义指令，例如「周报」：汇总本周日程与未读邮件。
                 </p>
               )}
-              {commands !== null && commands.length > 0 && (
+              {commands && commands.length > 0 && (
                 <ul className="grid">
                   {commands.map((command) => (
                     <li
@@ -187,7 +181,7 @@ export function CommandsSection() {
                 </ul>
               )}
             </SettingsGroup>
-            {error && <ErrorText>{error}</ErrorText>}
+            {commandList.error && <ErrorText>{errorText(commandList.error)}</ErrorText>}
           </div>
           {dialog && (
             <CommandFormDialog editing={dialog} onClose={() => setDialog(null)} onSaved={refresh} />
