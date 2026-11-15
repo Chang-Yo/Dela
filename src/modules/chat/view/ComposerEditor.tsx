@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useEffectEvent, useRef, type RefObject } from 'react';
 import {
   defaultKeymap,
   history,
@@ -44,15 +44,6 @@ export type ComposerEditorHandle = {
   insertAt: (pos: number, text: string) => void;
   replaceRange: (from: number, to: number, text: string) => void;
   selectionStart: () => number;
-};
-
-type EditorHandlers = {
-  onChange: (text: string) => void;
-  onSend: () => void;
-  onCaret: (text: string, caret: number) => void;
-  onFiles: (files: File[], pos: number) => void;
-  onDropHandled?: () => void;
-  menu: ComposerMenuApi;
 };
 
 /** 内联图片 chip：预览缩略图 + 移除按钮，替换 ![…](dela-img:id) token 的显示。 */
@@ -341,28 +332,12 @@ export function ComposerEditor({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const handlers = useRef<EditorHandlers>({
-    onChange,
-    onSend,
-    onCaret,
-    onFiles,
-    onDropHandled,
-    menu,
-  });
-  handlers.current = { onChange, onSend, onCaret, onFiles, onDropHandled, menu };
-  const latestValue = useRef(value);
-  latestValue.current = value;
-  // 外部值同步（发送失败恢复等）：IME 组文期间全量替换会打断输入法，此时丢弃外部变更，
-  // 以用户输入为准（后续 onChange 会把草稿收敛回编辑器内容）。
-  const syncValue = () => {
-    const current = view.current;
-    if (!current) return;
-    if (latestValue.current === current.state.doc.toString()) return;
-    if (current.compositionStarted) return;
-    current.dispatch({
-      changes: { from: 0, to: current.state.doc.length, insert: latestValue.current },
-    });
-  };
+  const emitChange = useEffectEvent((text: string) => onChange(text));
+  const emitSend = useEffectEvent(() => onSend());
+  const emitCaret = useEffectEvent((text: string, caret: number) => onCaret(text, caret));
+  const emitFiles = useEffectEvent((files: File[], pos: number) => onFiles(files, pos));
+  const emitDropHandled = useEffectEvent(() => onDropHandled?.());
+  const pressMenuKey = useEffectEvent((key: 'down' | 'up' | 'select' | 'close') => menu.onKey(key));
 
   useEffect(() => {
     const current = new EditorView({
@@ -391,17 +366,17 @@ export function ComposerEditor({
           Prec.highest(
             keymap.of([
               // 候选菜单打开时接管方向键/Enter/Tab/Esc；返回 false 回落到默认行为。
-              { key: 'ArrowDown', run: () => handlers.current.menu.onKey('down') },
-              { key: 'ArrowUp', run: () => handlers.current.menu.onKey('up') },
-              { key: 'Escape', run: () => handlers.current.menu.onKey('close') },
-              { key: 'Tab', run: () => handlers.current.menu.onKey('select') },
+              { key: 'ArrowDown', run: () => pressMenuKey('down') },
+              { key: 'ArrowUp', run: () => pressMenuKey('up') },
+              { key: 'Escape', run: () => pressMenuKey('close') },
+              { key: 'Tab', run: () => pressMenuKey('select') },
               {
                 key: 'Enter',
                 run: (target) => {
                   // IME 组文中的 Enter 是候选词操作，不发送。
                   if (target.compositionStarted) return false;
-                  if (handlers.current.menu.onKey('select')) return true;
-                  handlers.current.onSend();
+                  if (pressMenuKey('select')) return true;
+                  emitSend();
                   return true;
                 },
               },
@@ -417,19 +392,16 @@ export function ComposerEditor({
           syntaxHighlighting(markdownHighlightStyle),
           EditorView.contentAttributes.of({ 'aria-label': '发送给助手', spellcheck: 'false' }),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged) handlers.current.onChange(update.state.doc.toString());
+            if (update.docChanged) emitChange(update.state.doc.toString());
             if (update.docChanged || update.selectionSet)
-              handlers.current.onCaret(
-                update.state.doc.toString(),
-                update.state.selection.main.head,
-              );
+              emitCaret(update.state.doc.toString(), update.state.selection.main.head);
           }),
           EditorView.domEventHandlers({
             paste: (event, target) => {
               const files = filesFromTransfer(event.clipboardData);
               if (!files.length) return false;
               event.preventDefault();
-              handlers.current.onFiles(files, target.state.selection.main.head);
+              emitFiles(files, target.state.selection.main.head);
               return true;
             },
             drop: (event, target) => {
@@ -440,9 +412,9 @@ export function ComposerEditor({
               const pos =
                 target.posAtCoords({ x: event.clientX, y: event.clientY }) ??
                 target.state.selection.main.head;
-              handlers.current.onFiles(files, pos);
+              emitFiles(files, pos);
               // stopPropagation 会阻断容器 onDrop，需主动通知容器复位拖拽蒙版。
-              handlers.current.onDropHandled?.();
+              emitDropHandled();
               return true;
             },
           }),
@@ -471,11 +443,13 @@ export function ComposerEditor({
       view.current = null;
       current.destroy();
     };
-    // 视图只装配一次；外部值经下方 effect 单向同步。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 外部值同步（发送失败恢复等）：IME 组文期间全量替换会打断输入法，此时丢弃外部变更，
+  // 以用户输入为准（后续 onChange 会把草稿收敛回编辑器内容）。
   useEffect(() => {
-    syncValue();
+    const current = view.current;
+    if (!current || value === current.state.doc.toString() || current.compositionStarted) return;
+    current.dispatch({ changes: { from: 0, to: current.state.doc.length, insert: value } });
   }, [value]);
   // 已知引用候选变化（镜像/远端索引载入）时同步进 CM state，重算 token 装饰。
   useEffect(() => {
