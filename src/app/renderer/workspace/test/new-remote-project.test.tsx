@@ -82,6 +82,11 @@ const listing = (path: string, names: string[]): RemoteBrowseResult => ({
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal('matchMedia', () => ({
+    matches: true,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
