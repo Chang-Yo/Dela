@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { renderShuiyuanHtml, sanitizeShuiyuanHtml } from './shuiyuan-html';
 import {
   frameHeightFromEvent,
@@ -66,19 +66,23 @@ export function ShuiyuanHtmlBody({
   });
   const document = renderShuiyuanHtml(doc, dark, rootSize);
 
+  const openTopic = useEffectEvent((topicId: number, postNumber?: number) =>
+    onOpenTopic?.(topicId, postNumber),
+  );
+
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const height = frameHeightFromEvent(event, iframeRef.current);
       if (height !== null) setBodyHeight(height);
       const href = frameLinkFromEvent(event, iframeRef.current);
       const target = href ? shuiyuanTopicFromUrl(href) : null;
-      if (target && onOpenTopic) onOpenTopic(target.topicId, target.postNumber);
+      if (target) openTopic(target.topicId, target.postNumber);
       const image = frameImageFromEvent(event, iframeRef.current);
       if (image) openLightbox(image.src, image.alt);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [onOpenTopic]);
+  }, []);
 
   return (
     <iframe
