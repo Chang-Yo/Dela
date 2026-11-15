@@ -282,6 +282,7 @@
   --animate-toast-out: toast-out 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
   --animate-fade-out: fade-out 150ms ease-out both;
   --animate-rise-in: rise-in 600ms ease-out backwards;
+  --animate-view-in: view-in 160ms ease-out backwards;
   --animate-step-in-next: step-in-next 220ms ease-out backwards;
   --animate-step-in-prev: step-in-prev 220ms ease-out backwards;
   --animate-stroke-draw: stroke-draw 500ms ease-out backwards;
@@ -390,6 +391,13 @@
   from {
     opacity: 0;
     translate: 0 var(--rise-distance, 10px);
+  }
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
   }
 }
 

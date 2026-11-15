@@ -1,7 +1,6 @@
 // 应用根组件：launch 阶段（首启引导）、AppShell 壳与视图切换。
 // 视图路由在 ./navigation；主题/缩放在 ./theme；工作台在 workbench/WorkbenchShell。
 import { useEffect, useState } from 'react';
-import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -249,38 +248,30 @@ export default function App() {
             void useNavigationStore.getState().navigate({ page: id } as NavTarget)
           }
         >
-          <MotionConfig reducedMotion="user">
-            <AnimatePresence initial={false} mode="wait">
-              <motion.div
-                animate={{ opacity: 1, y: 0 }}
-                className="flex min-h-0 flex-1 flex-col"
-                exit={{ opacity: 0 }}
-                initial={{ opacity: 0, y: 4 }}
-                // home 与工作台共用装配壳和 key；主动打开项目或资料时复用宿主，
-                // 避免整壳淡出重挂与布局重复载入。
-                key={view === 'home' || view === 'workbench' ? 'workspace' : view}
-                transition={{ duration: 0.16 }}
-              >
-                {/* 视图切换层的错误边界：单个视图渲染崩溃降级为静态提示，可重试重挂载。 */}
-                <ErrorBoundary title="此视图遇到错误">
-                  {(view === 'workbench' || view === 'home') && (
-                    <WorkbenchShell home={view === 'home'} />
-                  )}
-                  {target && <ModulePage target={target} />}
-                  {view === 'settings' && (
-                    <SettingsPage
-                      fontSize={fontSize}
-                      onFontSizeChange={changeFontSize}
-                      onThemeChange={changeTheme}
-                      onZoomChange={changeZoom}
-                      theme={theme}
-                      zoom={zoom}
-                    />
-                  )}
-                </ErrorBoundary>
-              </motion.div>
-            </AnimatePresence>
-          </MotionConfig>
+          <div
+            className="flex min-h-0 flex-1 animate-view-in flex-col motion-reduce:animate-none"
+            // home 与工作台共用装配壳和 key；主动打开项目或资料时复用宿主，
+            // 避免整壳重挂与布局重复载入。
+            key={view === 'home' || view === 'workbench' ? 'workspace' : view}
+          >
+            {/* 视图切换层的错误边界：单个视图渲染崩溃降级为静态提示，可重试重挂载。 */}
+            <ErrorBoundary title="此视图遇到错误">
+              {(view === 'workbench' || view === 'home') && (
+                <WorkbenchShell home={view === 'home'} />
+              )}
+              {target && <ModulePage target={target} />}
+              {view === 'settings' && (
+                <SettingsPage
+                  fontSize={fontSize}
+                  onFontSizeChange={changeFontSize}
+                  onThemeChange={changeTheme}
+                  onZoomChange={changeZoom}
+                  theme={theme}
+                  zoom={zoom}
+                />
+              )}
+            </ErrorBoundary>
+          </div>
         </AppShell>
       )}
       {appVisible && (
