@@ -342,10 +342,9 @@
                   "!**/modules/*/contract",
                   "**/shared/**",
                   "**/renderer/**",
-                  "!**/renderer/app/toasts",
-                  "!**/renderer/lib/*"
+                  "!**/renderer/lib/mobile-drawer"
                 ],
-                "message": "view 只能引用 core/protocol、app/module、模块契约、src/ui 与外壳服务（renderer/app/toasts、renderer/lib）。"
+                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui；renderer 仅 lib/mobile-drawer 暂时放行。"
               },
               {
                 "group": [
@@ -402,10 +401,9 @@
                   "!**/modules/*/contract",
                   "**/shared/**",
                   "**/renderer/**",
-                  "!**/renderer/app/toasts",
-                  "!**/renderer/lib/*"
+                  "!**/renderer/lib/mobile-drawer"
                 ],
-                "message": "view 只能引用 core/protocol、app/module、模块契约、src/ui 与外壳服务（renderer/app/toasts、renderer/lib）。"
+                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui；renderer 仅 lib/mobile-drawer 暂时放行。"
               },
               {
                 "group": [
