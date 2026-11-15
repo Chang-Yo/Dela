@@ -1,5 +1,4 @@
 import { useEffect, useEffectEvent } from 'react';
-import { MotionConfig, motion } from 'framer-motion';
 
 // 时间线（秒）：两行大标题错峰淡入 → 停留 → 整层淡出交还主界面。
 // 只用透明度与位移，不用缩放。
@@ -26,33 +25,34 @@ export function CompletionOverlay({ onFinished }: { onFinished: () => void }) {
   }, []);
 
   return (
-    <MotionConfig reducedMotion="user">
-      <motion.div
-        animate={{ opacity: 0 }}
-        className="fixed inset-0 z-takeover grid place-items-center bui-light bg-surface text-ink"
-        data-onboarding-completion=""
-        initial={{ opacity: 1 }}
-        transition={{ delay: fadeAtSeconds, duration: fadeSeconds, ease: 'easeOut' }}
-      >
-        <h1 className="px-8 text-center text-4xl leading-snug font-bold tracking-tight">
-          <motion.span
-            animate={{ opacity: 1, y: 0 }}
-            className="block"
-            initial={{ opacity: 0, y: 10 }}
-            transition={{ delay: line1AtSeconds, duration: lineSeconds, ease: 'easeOut' }}
-          >
-            The world keeps changing,
-          </motion.span>
-          <motion.span
-            animate={{ opacity: 1, y: 0 }}
-            className="block"
-            initial={{ opacity: 0, y: 10 }}
-            transition={{ delay: line2AtSeconds, duration: lineSeconds, ease: 'easeOut' }}
-          >
-            Dela always stays with you
-          </motion.span>
-        </h1>
-      </motion.div>
-    </MotionConfig>
+    <div
+      className="fixed inset-0 z-takeover grid animate-fade-out place-items-center bui-light bg-surface text-ink motion-reduce:animate-none"
+      data-onboarding-completion=""
+      style={{
+        animationDelay: `${fadeAtSeconds}s`,
+        animationDuration: `${fadeSeconds}s`,
+      }}
+    >
+      <h1 className="px-8 text-center text-4xl leading-snug font-bold tracking-tight">
+        <span
+          className="block animate-rise-in motion-reduce:animate-none"
+          style={{
+            animationDelay: `${line1AtSeconds}s`,
+            animationDuration: `${lineSeconds}s`,
+          }}
+        >
+          The world keeps changing,
+        </span>
+        <span
+          className="block animate-rise-in motion-reduce:animate-none"
+          style={{
+            animationDelay: `${line2AtSeconds}s`,
+            animationDuration: `${lineSeconds}s`,
+          }}
+        >
+          Dela always stays with you
+        </span>
+      </h1>
+    </div>
   );
 }

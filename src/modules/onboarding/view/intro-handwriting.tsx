@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import type { CSSProperties } from 'react';
 import { cn } from '../../../ui/cn';
 import { INTRO_LETTERING } from './intro-lettering';
 
@@ -20,7 +20,6 @@ export function HandwritingLine({
   className,
   delay,
   duration,
-  instant = false,
   line,
 }: {
   line: LetteringKey;
@@ -30,8 +29,6 @@ export function HandwritingLine({
   /** 相邻字的起始间隔（秒），应小于 duration 才会连笔。 */
   charDelay: number;
   delay: number;
-  /** 减弱动效时直接给出终态，不做描边。 */
-  instant?: boolean;
 }) {
   const { box, glyphs } = INTRO_LETTERING[line];
   return (
@@ -54,20 +51,21 @@ export function HandwritingLine({
         const dash = glyph.contours.reduce((max, contour) => Math.max(max, contour.length), 0);
         return (
           <g key={`${index}-${glyph.char}`} transform={`translate(${glyph.x} 0)`}>
-            <motion.path
-              animate={{ fillOpacity: 1, strokeDashoffset: 0 }}
+            <path
+              className="animate-stroke-draw motion-reduce:animate-none"
               d={d}
               fill="currentColor"
-              initial={instant ? false : { fillOpacity: 0, strokeDashoffset: dash }}
               stroke="currentColor"
               strokeDasharray={dash}
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={STROKE_WIDTH}
-              transition={
-                instant
-                  ? { duration: 0 }
-                  : { delay: delay + index * charDelay, duration, ease: 'easeOut' }
+              style={
+                {
+                  '--dash': dash,
+                  animationDelay: `${delay + index * charDelay}s`,
+                  animationDuration: `${duration}s`,
+                } as CSSProperties
               }
             />
           </g>

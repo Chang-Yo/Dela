@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AnimatePresence, motion } from 'framer-motion';
 import { CircleCheck, CircleX, Eye, EyeOff, ListPlus, PlugZap } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { SelectItem } from '../../../../ui/select';
@@ -13,6 +12,7 @@ import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import { IconButton } from '../../../../ui/icon-button';
 import { Button } from '../../../../ui/button';
+import { Collapse } from '../../../../ui/collapse';
 import { Input } from '../../../../ui/input';
 import { llmClient } from '../../../chat/view';
 import { errorMessage } from '../../../../core/protocol/contract';
@@ -152,7 +152,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
           {
             title: '选择服务商',
             content: (
-              <div className="grid gap-4">
+              <div className="grid">
                 <StepSelect
                   disabled={catalog === null}
                   // 目录到达时重挂载：同一实例里值与选项同时出现，表单内的原生 select 会把值清空。
@@ -169,43 +169,32 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                   ))}
                   <SelectItem value={CUSTOM}>自定义（OpenAI 兼容）</SelectItem>
                 </StepSelect>
-                <AnimatePresence initial={false}>
-                  {custom && (
-                    <motion.div
-                      animate={{ height: 'auto', opacity: 1 }}
-                      className="overflow-hidden"
-                      exit={{ height: 0, opacity: 0 }}
-                      initial={{ height: 0, opacity: 0 }}
-                      key="custom-fields"
-                      transition={{ duration: 0.22, ease: 'easeOut' }}
-                    >
-                      <div className="grid gap-4">
-                        <label className="grid gap-2">
-                          <span className="text-sm font-medium text-ink-2">名称</span>
-                          <Input
-                            size="lg"
-                            autoComplete="off"
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder="给这个服务起个名字"
-                            required
-                            value={name}
-                          />
-                        </label>
-                        <label className="grid gap-2">
-                          <span className="text-sm font-medium text-ink-2">API 地址</span>
-                          <Input
-                            size="lg"
-                            autoComplete="off"
-                            onChange={(event) => setBaseUrl(event.target.value)}
-                            placeholder="https://api.example.com/v1"
-                            required
-                            value={baseUrl}
-                          />
-                        </label>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <Collapse className="pt-4" open={custom}>
+                  <div className="grid gap-4">
+                    <label className="grid gap-2">
+                      <span className="text-sm font-medium text-ink-2">名称</span>
+                      <Input
+                        size="lg"
+                        autoComplete="off"
+                        onChange={(event) => setName(event.target.value)}
+                        placeholder="给这个服务起个名字"
+                        required
+                        value={name}
+                      />
+                    </label>
+                    <label className="grid gap-2">
+                      <span className="text-sm font-medium text-ink-2">API 地址</span>
+                      <Input
+                        size="lg"
+                        autoComplete="off"
+                        onChange={(event) => setBaseUrl(event.target.value)}
+                        placeholder="https://api.example.com/v1"
+                        required
+                        value={baseUrl}
+                      />
+                    </label>
+                  </div>
+                </Collapse>
               </div>
             ),
           },
