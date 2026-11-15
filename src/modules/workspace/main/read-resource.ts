@@ -1,13 +1,10 @@
 import { z } from 'zod';
-import { mailAttachment, readMailMessage } from '../../../modules/mail';
-import { resourceRefSchema, type ResourceRef } from '../../../modules/workspace/contract';
-import { readWorkspaceResource, withAttachmentFile, type ResourceContent } from '../../resources';
-import { workspaceFilePath } from '../../../modules/workspace';
+import { resourceRefSchema, type ResourceRef } from '../contract';
+import { workspaceFilePath } from './api';
+import { readWorkspaceResource, type ResourceContent } from './resources';
 import type { CommandDomain } from '../../../core/capabilities/commands';
 import { resourceResolver, type ResourceResolver } from '../../../core/capabilities/resources';
 import { freshness, offset, tool, toolError } from '../../../core/capabilities/domain-tools';
-
-type MailRef = Extract<ResourceRef, { type: 'mail' }>;
 
 /** 业务层中文错误消息 → 统一错误码（消息保持原文）；未识别的错误原样抛出。 */
 function refineReadError(error: unknown): unknown {
@@ -18,32 +15,7 @@ function refineReadError(error: unknown): unknown {
   return error;
 }
 
-async function readMailRef(ref: MailRef, offset: number, limit: number) {
-  const mail = await readMailMessage(ref.id);
-  const text = mail.bodyText ?? mail.bodyHtml ?? '';
-  return {
-    ref,
-    title: mail.subject,
-    format: mail.bodyText !== null ? 'text' : 'html',
-    revision: null,
-    sender: mail.sender,
-    to: mail.to,
-    cc: mail.cc,
-    date: mail.date,
-    // 正文缺失时 readMailMessage 会联网补齐，读取结果即当前可见内容；邮件不可变，时间以邮件日期为准。
-    freshness: freshness('realtime', mail.date ?? undefined),
-    text: text.slice(offset, offset + limit),
-    totalCharacters: text.length,
-    nextOffset: offset + limit < text.length ? offset + limit : null,
-    attachments: mail.attachments.map((a) => ({
-      name: a.filename,
-      size: a.size,
-      ref: a.part ? { type: 'attachment' as const, messageId: mail.id, part: a.part } : null,
-    })),
-  };
-}
-
-function documentHint(ref: ResourceRef, title: string, format: string) {
+export function documentHint(ref: ResourceRef, title: string, format: string) {
   return {
     ref,
     title,
@@ -114,21 +86,12 @@ export const readResourceTool = tool(
   },
 );
 
-// 通用引用的解析器；交大来源的解析器由各自模块注册。
-export const builtinResourceResolvers: {
-  [Type in ResourceRef['type']]?: ResourceResolver<Extract<ResourceRef, { type: Type }>>;
-} = {
-  workspace: {
-    read: async (ref, offset, limit) =>
-      readDocument(ref, await readWorkspaceResource(ref.id), offset, limit),
-    path: (ref) => workspaceFilePath(ref.id),
-  },
-  attachment: {
-    read: async (ref) =>
-      documentHint(ref, mailAttachment(ref.messageId, ref.part).attachment.filename, 'file'),
-    withFile: (ref, consume) => withAttachmentFile(ref.messageId, ref.part, consume),
-  },
-  mail: { read: readMailRef },
+export const workspaceResourceResolver: ResourceResolver<
+  Extract<ResourceRef, { type: 'workspace' }>
+> = {
+  read: async (ref, offset, limit) =>
+    readDocument(ref, await readWorkspaceResource(ref.id), offset, limit),
+  path: (ref) => workspaceFilePath(ref.id),
 };
 
 export const resourceDomain = {

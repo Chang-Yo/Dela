@@ -1,5 +1,5 @@
 import { prepareStorage, entry, projectLocation, remoteProjectOf, workspaceFilePath } from './api';
-import { exportOfficePdf } from '../../../main/documents/export';
+import { exportOfficePdf } from '../../preview';
 import {
   downloadRemoteFile,
   remoteById,

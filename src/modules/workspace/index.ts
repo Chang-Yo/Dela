@@ -2,6 +2,7 @@
 import { defineModule } from '../../app/module';
 import { invalidateSessions } from '../../core/agent/session/run';
 import { registerCommandDomain } from '../../core/capabilities/commands';
+import { registerResourceResolver } from '../../core/capabilities/resources';
 import { onRemoteChange } from '../../core/remote/events';
 import { emit } from '../../core/ports';
 import { registerContextDirectory } from '../../core/agent/context-directories';
@@ -13,7 +14,6 @@ import {
   readRemoteDocument,
   remotePortsState,
 } from '../remotes';
-import { openResourceFile } from '../../main/resources';
 import { resourceRefSchema, workspaceContract } from './contract';
 import { registerSearchProvider } from '../search';
 import {
@@ -55,6 +55,8 @@ import {
   projectGitCheckout,
 } from './main/project';
 import { chatSearch, projectSearch } from './main/search';
+import { resourceDomain, workspaceResourceResolver } from './main/read-resource';
+import { openResourceFile } from './main/resources';
 import { workspaceSource } from './main/sources';
 
 export {
@@ -73,6 +75,20 @@ export {
   workspaceFilePath,
   workspaceProjects,
 } from './main/api';
+export {
+  documentHint,
+  readDocument,
+  resourceDomain,
+  workspaceResourceResolver,
+} from './main/read-resource';
+export {
+  prepareDocumentFile,
+  prepareDocumentResource,
+  readWorkspaceResource,
+  releaseDocumentResource,
+  withResourceFile,
+  type ResourceContent,
+} from './main/resources';
 export { attachContextMenu } from './main/context-menu';
 export { availablePath, diskName } from './main/disk-name';
 export { localFileFormat, textRevision } from './main/files';
@@ -158,7 +174,9 @@ export const workspaceModule = defineModule({
     saveLayout: ({ projectId, layout }) => saveWorkspaceLayout(projectId, layout),
   }),
   register() {
+    registerCommandDomain(resourceDomain);
     registerCommandDomain(workspaceDomain);
+    registerResourceResolver('workspace', workspaceResourceResolver);
     registerContextDirectory({ id: 'workspace', label: '资料', directory: workspaceRootDirectory });
     registerSearchProvider(projectSearch);
     registerSearchProvider(chatSearch);

@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 
-vi.mock('../../../../main/agent/domain/read-resource', () => ({ readDocument: vi.fn() }));
+vi.mock('../../../../modules/workspace/main/read-resource', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../modules/workspace/main/read-resource')>()),
+  readDocument: vi.fn(),
+}));
 vi.mock('../api', () => ({
   cachedFile: vi.fn(),
   canvasFilePath: vi.fn(),

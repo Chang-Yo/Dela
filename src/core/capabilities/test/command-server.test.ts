@@ -16,7 +16,9 @@ vi.mock('electron', () => ({
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 vi.mock('../skills', () => ({ effectiveDisabledSkills: () => new Set(['curriculum', 'canvas']) }));
 import { COMMAND_BRIDGE, startDomainBridge } from '../command-server';
-import { registerBuiltinCapabilities } from '../../../main/agent/domain';
+import { registerCommandDomain } from '../commands';
+import { todoDomain } from '../../../modules/todo/main/agent';
+import { resourceDomain } from '../../../modules/workspace/main/read-resource';
 import { locateBash } from '../../../modules/terminal';
 
 /** 把请求体写进文件而不真的发请求；只认桥当前使用的 --data-binary。 */
@@ -105,7 +107,7 @@ describe('dela 命令桥', () => {
 });
 
 it('停用的 Skill 对应的命令不出现在 help 中，也不能执行', async () => {
-  registerBuiltinCapabilities();
+  for (const domain of [todoDomain, resourceDomain]) registerCommandDomain(domain);
   const bridge = await startDomainBridge();
   const call = async (command: string, input: unknown = {}) =>
     (await fetch(bridge.url, {

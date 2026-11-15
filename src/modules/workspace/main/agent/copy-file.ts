@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { copyResourceToProject } from '../../../../main/resources';
+import { copyResourceToProject } from '../resources';
 import { resourceRefSchema, workspaceEntryIdSchema } from '../../contract';
 import { tool } from '../../../../core/capabilities/domain-tools';
 

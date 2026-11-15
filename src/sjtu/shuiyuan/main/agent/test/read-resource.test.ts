@@ -1,8 +1,18 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 
-vi.mock('../../../../../modules/mail', () => ({ readMailMessage: vi.fn() }));
-vi.mock('../../../../../main/resources', () => ({ readWorkspaceResource: vi.fn() }));
-vi.mock('../../../../../modules/workspace', () => ({ workspaceFilePath: vi.fn() }));
+vi.mock('../../../../../modules/workspace/main/resources', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../modules/workspace/main/resources')>()),
+  readWorkspaceResource: vi.fn(),
+}));
+vi.mock('../../../../../modules/preview', () => ({
+  DOCUMENT_SKILL: 'document-reading',
+  assertDocumentDependency: vi.fn(),
+  documentPython: () => 'component/python.exe',
+}));
+vi.mock('../../../../../modules/workspace/main/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../modules/workspace/main/api')>()),
+  workspaceFilePath: vi.fn(),
+}));
 vi.mock('../../api', () => ({
   getShuiyuanTopic: vi.fn(),
   getShuiyuanState: () => ({ connected: true }),
@@ -15,21 +25,18 @@ vi.mock('../../sources', () => ({
 }));
 
 import {
-  builtinResourceResolvers,
-  readResourceTool,
-} from '../../../../../main/agent/domain/read-resource';
+  readWorkspaceResource,
+  resourceDomain,
+  workspaceResourceResolver,
+} from '../../../../../modules/workspace';
 import { shuiyuanOnlineResourceResolver } from '../../resources';
-import {
-  registerResourceResolver,
-  type ResourceResolver,
-} from '../../../../../core/capabilities/resources';
+import { registerResourceResolver } from '../../../../../core/capabilities/resources';
 import { getShuiyuanTopic } from '../../api';
 import { readShuiyuanSnapshot } from '../../snapshot-files';
 import { getShuiyuanSourceRef } from '../../sources';
-import { readWorkspaceResource } from '../../../../../main/resources';
 
-for (const [type, resolver] of Object.entries(builtinResourceResolvers))
-  registerResourceResolver(type, resolver as ResourceResolver);
+const readResourceTool = resourceDomain.commands.read_resource;
+registerResourceResolver('workspace', workspaceResourceResolver);
 registerResourceResolver('shuiyuan-online', shuiyuanOnlineResourceResolver);
 
 const ref = { type: 'shuiyuan-online', id: 42 };

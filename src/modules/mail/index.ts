@@ -1,6 +1,7 @@
 // 邮件：IMAP/SMTP 通用收发，交大邮箱只是一条服务器预设；收件箱未读注册为通知来源。
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
+import { registerResourceResolver } from '../../core/capabilities/resources';
 import { registerSecretLabel } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { registerSearchProvider } from '../search';
@@ -32,6 +33,7 @@ import {
 } from './main/api';
 import { deleteLocalDraft, listLocalDrafts, openEmailDraft, saveLocalDraft } from './main/drafts';
 import { registerMailNotices } from './main/notice-source';
+import { attachmentResourceResolver, mailResourceResolver } from './main/resources';
 import { mailSearch } from './main/search';
 import { addComposeImage, releaseComposeFiles } from './main/send';
 
@@ -84,6 +86,8 @@ export const mailModule = defineModule({
   register() {
     registerSecretLabel('mail-credentials', '邮箱凭据');
     registerCommandDomain(mailDomain);
+    registerResourceResolver('mail', mailResourceResolver);
+    registerResourceResolver('attachment', attachmentResourceResolver);
     registerSearchProvider(mailSearch);
     registerMailNotices();
   },

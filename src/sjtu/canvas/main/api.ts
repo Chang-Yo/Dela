@@ -16,8 +16,12 @@ import type {
   SourceItem,
 } from '../contract';
 import { pickCourseFiles, collectCourseFileEntries } from './course-files';
-import { officeExportPreviewInfo, readOfficeExportLink } from '../../../main/documents/links';
-import { classifyOfficeFile, officeZipMime } from '../../../main/documents/parse';
+import {
+  classifyOfficeFile,
+  officeExportPreviewInfo,
+  officeZipMime,
+  readOfficeExportLink,
+} from '../../../modules/preview';
 import { loadCanvasToken, saveCanvasToken } from './credentials';
 import type { DocumentContent } from '../../../modules/workspace/contract';
 

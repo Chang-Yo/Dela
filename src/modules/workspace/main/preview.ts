@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { stat as fileStat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { Readable } from 'node:stream';
-import { officeZipMime } from '../../../main/documents/parse';
+import { officeZipMime } from '../../preview';
 import { remoteById, remoteDocumentMime, targetOf, withinRemoteRoot } from '../../remotes';
 import { readRemoteRange, statRemoteFile } from '../../../core/remote/operations';
 import { projectLocation, resolveWorkspaceAsset, workspacePreviewPath } from './api';
@@ -33,12 +33,12 @@ export function registerPreviewScheme(): void {
   ]);
 }
 // 预览协议放行的文件类型与响应 content-type；路径放行由各 host 的解析函数决定。
-const previewContentType: Record<string, string> = {
+const previewContentType = (): Record<string, string> => ({
   '.pdf': 'application/pdf',
   '.docx': officeZipMime.docx,
   '.xlsx': officeZipMime.xlsx,
   '.pptx': officeZipMime.pptx,
-};
+});
 
 /** Range 请求的响应头与区间：本地文件与远端文件共用一份，416 直接返回 Response。 */
 function rangePlan(
@@ -60,7 +60,8 @@ function rangePlan(
 
 export async function previewFileResponse(path: string, request: Request): Promise<Response> {
   const size = (await fileStat(path)).size;
-  const contentType = previewContentType[extname(path).toLowerCase()] ?? 'application/octet-stream';
+  const contentType =
+    previewContentType()[extname(path).toLowerCase()] ?? 'application/octet-stream';
   const plan = rangePlan(request, size, contentType);
   if (plan instanceof Response) return plan;
   const body =

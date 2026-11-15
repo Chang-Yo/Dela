@@ -1,22 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { workspaceFilePath } from '../../modules/workspace';
+import { workspaceFilePath } from '../api';
 import { copyResourceToProject, openResourceFile } from '../resources';
-import { provideTestHostPorts } from '../../core/test/host-mock';
-import { hostPorts } from '../../core/ports';
-import { builtinResourceResolvers } from '../agent/domain/read-resource';
-import { registerResourceResolver, type ResourceResolver } from '../../core/capabilities/resources';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import { hostPorts } from '../../../../core/ports';
+import { workspaceResourceResolver } from '../read-resource';
+import { attachmentResourceResolver, mailResourceResolver } from '../../../mail/main/resources';
+import { registerResourceResolver } from '../../../../core/capabilities/resources';
 
+vi.mock('../../../preview', () => ({
+  DOCUMENT_SKILL: 'document-reading',
+  assertDocumentDependency: vi.fn(),
+  documentPython: () => 'component/python.exe',
+}));
 vi.mock('node:fs/promises', () => ({ mkdtemp: vi.fn(), rm: vi.fn() }));
-vi.mock('../../modules/mail', () => ({ readMailMessage: vi.fn(), saveMailAttachment: vi.fn() }));
-vi.mock('../../modules/workspace', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../modules/workspace')>()),
+vi.mock('../../../mail/main/api', () => ({
+  readMailMessage: vi.fn(),
+  saveMailAttachment: vi.fn(),
+}));
+vi.mock('../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api')>()),
   importWorkspaceFiles: vi.fn(),
   workspaceFilePath: vi.fn(),
 }));
-vi.mock('../storage', () => ({ diskName: (name: string) => name.replace(/[/\\]/g, '_') }));
 
-for (const [type, resolver] of Object.entries(builtinResourceResolvers))
-  registerResourceResolver(type, resolver as ResourceResolver);
+registerResourceResolver('workspace', workspaceResourceResolver);
+registerResourceResolver('mail', mailResourceResolver);
+registerResourceResolver('attachment', attachmentResourceResolver);
 
 const parentId = 'a03d4e01-ae55-4168-8572-ef88cb9f2e10';
 afterEach(() => vi.resetAllMocks());

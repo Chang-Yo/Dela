@@ -15,7 +15,7 @@ import { z } from 'zod';
 import type { MailComposeFile, PreparedEmail, MailDraftSummary } from '../contract';
 import { resourceRefSchema } from '../../workspace/contract';
 import { hostPorts } from '../../../core/ports';
-import { withResourceFile } from '../../../main/resources';
+import { withResourceFile } from '../../workspace';
 import {
   addComposeAttachment,
   releaseComposeFiles,

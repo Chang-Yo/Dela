@@ -18,8 +18,7 @@ import { remoteById, targetOf } from '../../remotes';
 import { locateRemote } from '../../../core/remote/operations';
 import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from './sources';
 import { availablePath, diskName } from './disk-name';
-import { officeExportPreviewInfo, readOfficeExportLink } from '../../../main/documents/links';
-import { officeZipMime } from '../../../main/documents/parse';
+import { officeExportPreviewInfo, officeZipMime, readOfficeExportLink } from '../../preview';
 import {
   workspaceArchiveId,
   workspaceEntryIdSchema,

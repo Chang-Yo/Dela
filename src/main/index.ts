@@ -27,7 +27,6 @@ import { closeHelper } from '../core/remote/helper';
 import { closeAllPortTunnels, closeRemoteOpens } from '../modules/remotes';
 import { closeRemoteWatch } from '../core/remote/watch';
 import { registerSearchProvider } from '../modules/search';
-import { registerBuiltinCapabilities } from './agent/domain';
 import { registerModuleIpc } from '../app/main/ipc';
 import { modules } from '../app/modules';
 import { hasMailComposer } from '../modules/mail';
@@ -193,7 +192,6 @@ app
     }
     registerAgentIpc();
     registerModuleIpc(modules);
-    registerBuiltinCapabilities();
     for (const module of modules) module.register?.();
     registerSearchProvider(settingsSearch);
     // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。

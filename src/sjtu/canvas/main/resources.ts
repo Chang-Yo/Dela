@@ -1,8 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { hostPorts } from '../../../core/ports';
-import { readDocument } from '../../../main/agent/domain/read-resource';
-import { previewFileResponse, type WorkspaceSource } from '../../../modules/workspace';
-import type { ResourceContent } from '../../../main/resources';
+import {
+  previewFileResponse,
+  readDocument,
+  type ResourceContent,
+  type WorkspaceSource,
+} from '../../../modules/workspace';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
 import type { ResourceRef } from '../../../modules/workspace/contract';
 import {

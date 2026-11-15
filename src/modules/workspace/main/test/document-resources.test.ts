@@ -7,13 +7,13 @@ import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 const profile = vi.hoisted(() => ({ root: '' }));
 profile.root = mkdtempSync(join(tmpdir(), 'dela-document-resource-'));
 vi.mock('electron', () => ({ app: { getPath: () => profile.root } }));
-vi.mock('../documents/runtime', () => ({
+vi.mock('../../../preview', () => ({
   DOCUMENT_SKILL: 'document-reading',
   assertDocumentDependency: vi.fn(),
   documentPython: () => 'component/python.exe',
 }));
-vi.mock('../../modules/workspace', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../modules/workspace')>()),
+vi.mock('../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api')>()),
   workspaceFilePath: vi.fn(),
   importWorkspaceFiles: vi.fn(),
   entry: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../../modules/workspace', async (importOriginal) => ({
     throw new Error('GUI preview must not be called');
   }),
 }));
-vi.mock('../../modules/mail', () => ({
+vi.mock('../../../mail/main/api', () => ({
   readMailMessage: vi.fn(async () => ({ attachments: [{ part: '1', filename: '报名.xlsx' }] })),
   saveMailAttachment: vi.fn(async (_id: number, _part: string, path: string) =>
     writeFile(path, 'attachment bytes'),
@@ -33,18 +33,16 @@ import {
   readWorkspaceResource,
   releaseDocumentResource,
 } from '../resources';
-import {
-  entry,
-  readWorkspaceEntry,
-  registerWorkspaceSource,
-  workspaceFilePath,
-} from '../../modules/workspace';
-import { builtinResourceResolvers, readResourceTool } from '../agent/domain/read-resource';
-import { registerResourceResolver, type ResourceResolver } from '../../core/capabilities/resources';
-import { assertDocumentDependency } from '../documents/runtime';
+import { entry, readWorkspaceEntry, workspaceFilePath } from '../api';
+import { registerWorkspaceSource } from '../sources';
+import { attachmentResourceResolver, mailResourceResolver } from '../../../mail/main/resources';
+import { readResourceTool, workspaceResourceResolver } from '../read-resource';
+import { registerResourceResolver } from '../../../../core/capabilities/resources';
+import { assertDocumentDependency } from '../../../preview';
 
-for (const [type, resolver] of Object.entries(builtinResourceResolvers))
-  registerResourceResolver(type, resolver as ResourceResolver);
+registerResourceResolver('workspace', workspaceResourceResolver);
+registerResourceResolver('mail', mailResourceResolver);
+registerResourceResolver('attachment', attachmentResourceResolver);
 
 beforeEach(() => vi.clearAllMocks());
 afterAll(() => rm(profile.root, { recursive: true, force: true }));
@@ -198,6 +196,6 @@ it('returns attachment metadata without downloading it', async () => {
     ref: { type: 'attachment', messageId: 1, part: '1' },
   });
   expect(result).toMatchObject({ title: '报名.xlsx', format: 'file', readable: false });
-  const { saveMailAttachment } = await import('../../modules/mail');
+  const { saveMailAttachment } = await import('../../../mail/main/api');
   expect(saveMailAttachment).not.toHaveBeenCalled();
 });

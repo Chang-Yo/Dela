@@ -37,12 +37,12 @@ import {
 } from '../src/modules/workspace';
 import { registerModuleIpc } from '../src/app/main/ipc';
 import { notificationsModule } from '../src/modules/notifications';
+import { previewModule } from '../src/modules/preview';
 import { remotesModule } from '../src/modules/remotes';
 import { settingsModule } from '../src/modules/settings';
 import { updateModule } from '../src/modules/update';
 import { canvasModule } from '../src/sjtu/canvas';
 import { registerAgentIpc } from '../src/app/main/agent-ipc';
-import { registerBuiltinCapabilities } from '../src/main/agent/domain';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
 app.setPath('userData', profile);
@@ -379,7 +379,8 @@ app
     });
 
     registerAgentIpc();
-    registerBuiltinCapabilities();
+    previewModule.register?.();
+    workspaceModule.register?.();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     registerModuleIpc([
       workspaceModule,

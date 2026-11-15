@@ -1,30 +1,19 @@
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import {
-  resourceRefSchema,
-  type ResourceRef,
-  workspaceEntryIdSchema,
-} from '../modules/workspace/contract';
-import { readMailMessage, saveMailAttachment } from '../modules/mail';
-import { resourceResolver } from '../core/capabilities/resources';
-import {
-  entry,
-  importWorkspaceFiles,
-  localFileFormat,
-  textRevision,
-  workspaceFilePath,
-  workspaceSource,
-} from '../modules/workspace';
+import { resourceRefSchema, type ResourceRef, workspaceEntryIdSchema } from '../contract';
+import { resourceResolver } from '../../../core/capabilities/resources';
+import { entry, importWorkspaceFiles, workspaceFilePath } from './api';
+import { localFileFormat, textRevision } from './files';
+import { workspaceSource } from './sources';
 import {
   TEXT_PREVIEW_MAX_BYTES,
   formatByName,
   imageMimeOf,
   isTextContent,
-} from '../core/protocol/files';
-import { diskName } from '../modules/workspace';
-import { hostPorts } from '../core/ports';
-import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
+} from '../../../core/protocol/files';
+import { hostPorts } from '../../../core/ports';
+import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from '../../preview';
 
 export interface ResourceContent {
   title: string;
@@ -121,25 +110,6 @@ export async function withResourceFile<T>(
   if (resolver.path) return consume(await resolver.path(source));
   if (!resolver.withFile) throw new Error('请选择项目文件、Canvas 文件或邮件附件');
   return resolver.withFile(source, consume);
-}
-
-export async function withAttachmentFile<T>(
-  messageId: number,
-  part: string,
-  consume: (path: string) => Promise<T> | T,
-): Promise<T> {
-  const mail = await readMailMessage(messageId);
-  const attachment = mail.attachments.find((item) => item.part === part);
-  if (!attachment) throw new Error('附件不存在，请先同步邮件');
-  const temporaryDirectory = await mkdtemp(join(hostPorts().paths.temp(), 'dela-attachment-'));
-  try {
-    const path = join(temporaryDirectory, diskName(attachment.filename));
-    await saveMailAttachment(messageId, part, path);
-    return await consume(path);
-  } finally {
-    // Only remove the temporary directory created by this call.
-    await rm(temporaryDirectory, { recursive: true, force: true });
-  }
 }
 
 export async function copyResourceToProject(input: unknown) {
