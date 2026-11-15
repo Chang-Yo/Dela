@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Card } from '../../../ui/card';
 
 /**
  * 设置分组容器：同类控件行共用 `bg-inset` 底色、分隔线内缩，读作同一列表；单个表单控件与信息展示型内容不再包一层。
@@ -23,7 +24,9 @@ export function SettingsGroup({
       {(title || action) && (
         <SettingsGroupLabel action={action} description={description} title={title} />
       )}
-      <div className="overflow-hidden rounded-card bg-inset px-4">{children}</div>
+      <Card className="overflow-hidden py-0" variant="inset">
+        {children}
+      </Card>
     </section>
   );
 }

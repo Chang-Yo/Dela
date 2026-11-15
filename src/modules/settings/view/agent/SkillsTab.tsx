@@ -8,6 +8,7 @@ import type {
 } from '../../../../core/protocol/capabilities';
 import type { WorkspaceEntry } from '../../../workspace/contract';
 import { Button } from '../../../../ui/button';
+import { Card } from '../../../../ui/card';
 import { DownloadProgressRow } from '../../../../ui/download-progress';
 import { Switch } from '../../../../ui/switch';
 import { SegmentedControl } from '../../../../ui/segmented-control';
@@ -358,7 +359,7 @@ function SkillContentView({
         <DialogDescription className="truncate font-mono" title={skill.path}>
           {skill.path}
         </DialogDescription>
-        <div className="mt-3 min-h-32 overflow-y-auto rounded-card bg-inset p-3">
+        <Card className="mt-3 min-h-32 overflow-y-auto" variant="inset">
           {content === undefined && !error ? (
             <p className="flex items-center gap-2 text-xs text-ink-3" role="status">
               <Spinner />
@@ -370,7 +371,7 @@ function SkillContentView({
             </pre>
           )}
           {error && <ErrorText>{errorMessage(error)}</ErrorText>}
-        </div>
+        </Card>
         <div className="mt-3 flex items-center justify-end gap-2">
           <Button onClick={onReveal} size="sm" variant="ghost">
             <FolderOpen />

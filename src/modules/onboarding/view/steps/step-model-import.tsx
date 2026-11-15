@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../../../../ui/button';
+import { Card } from '../../../../ui/card';
 import { Input } from '../../../../ui/input';
 import { LLM_MODEL_LIMIT } from '../../../../core/protocol/llm-models';
 import { capModels, selectedModels } from './model-import';
@@ -74,7 +75,7 @@ function Picker({
         placeholder={`搜索 ${options.length} 个模型…`}
         value={query}
       />
-      <div className="max-h-64 overflow-y-auto rounded-card border border-line">
+      <Card className="max-h-64 overflow-y-auto">
         {visible.length === 0 ? (
           <p className="px-3 py-4 text-xs text-ink-3">没有匹配的模型</p>
         ) : (
@@ -95,7 +96,7 @@ function Picker({
             </label>
           ))
         )}
-      </div>
+      </Card>
       <p className="text-xs text-ink-3" role="status">
         已选 {picked.length} 个{dropped > 0 ? `，超出的 ${dropped} 个不会被导入` : ''}
       </p>

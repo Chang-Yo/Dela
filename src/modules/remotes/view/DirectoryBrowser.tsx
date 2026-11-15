@@ -7,6 +7,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Clock, Folder, FolderPlus, House, Search } from 'lucide-react';
+import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/cn';
 import type { RemoteDraft } from '../contract';
@@ -145,7 +146,7 @@ export function DirectoryBrowser({
   };
 
   return (
-    <div className="grid min-h-0 grid-rows-[auto_auto_1fr_auto] overflow-hidden rounded-card border border-line">
+    <Card className="grid min-h-0 grid-rows-[auto_auto_1fr_auto]">
       <div className="flex items-center gap-1.5 border-b border-line px-2 py-1.5">
         <IconButton
           size="sm"
@@ -369,6 +370,6 @@ export function DirectoryBrowser({
           显示隐藏目录
         </label>
       </div>
-    </div>
+    </Card>
   );
 }

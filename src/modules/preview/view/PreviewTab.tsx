@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useEffectEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '../../../ui/button';
+import { Card } from '../../../ui/card';
 import { useRootFontSize } from '../../../ui/root-font-size';
 import { sanitizeHtml } from '../../mail/view';
 import { showToast } from '../../../ui/toast';
@@ -148,7 +149,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {/* 白底文档以圆角卡片呈现：暗色模式下避免白色大块与深色界面生硬相接。 */}
       {branch === 'html' && (
-        <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-line">
+        <Card className="min-h-0 flex-1">
           <iframe
             title={content.title}
             className="size-full border-0 bg-paper"
@@ -172,7 +173,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
               );
             }}
           />
-        </div>
+        </Card>
       )}
       {branch === 'pdf' &&
         (content.previewUrl ? (

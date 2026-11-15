@@ -10,6 +10,7 @@ import {
 import type { TodoItem } from '../contract';
 import { todoCompleted, todoStatusLabels } from '../contract';
 import { Button } from '../../../ui/button';
+import { Card } from '../../../ui/card';
 import { useRootFontSize } from '../../../ui/root-font-size';
 import { sanitizeHtml } from '../../mail/view';
 import { useFrameBodyHeight } from '../../../ui/use-frame-body-height';
@@ -27,7 +28,7 @@ function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => v
   const [height, setBody] = useFrameBodyHeight();
   // 白底文档以圆角卡片呈现：暗色模式下避免白色大块与面板生硬相接。
   return (
-    <div className="overflow-hidden rounded-card border border-line">
+    <Card>
       <iframe
         title="作业描述"
         className="w-full border-0 bg-paper"
@@ -47,7 +48,7 @@ function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => v
           });
         }}
       />
-    </div>
+    </Card>
   );
 }
 

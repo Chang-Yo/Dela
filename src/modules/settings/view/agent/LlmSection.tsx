@@ -4,6 +4,7 @@ import { Check, Lock, Pencil, PlugZap, Plus, Search, Trash2 } from 'lucide-react
 import { StatusPill } from '../../../../ui/status-pill';
 import { Switch } from '../../../../ui/switch';
 import { Button } from '../../../../ui/button';
+import { Card } from '../../../../ui/card';
 import { Input } from '../../../../ui/input';
 import {
   Select,
@@ -1035,34 +1036,36 @@ function ProviderDetail({
                   onChange={(event) => setModelInput(event.target.value)}
                   placeholder="搜索模型…"
                 />
-                <ul className="max-h-72 overflow-y-auto divide-y rounded-card border border-line">
-                  {vendor.models
-                    .filter((model) =>
-                      `${model.id} ${model.name}`
-                        .toLowerCase()
-                        .includes(modelInput.trim().toLowerCase()),
-                    )
-                    .map((model) => (
-                      <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={model.id}>
-                        <span className="grid min-w-0 flex-1">
-                          <span className="truncate text-sm">{model.name}</span>
-                          <span className="truncate font-mono text-xs text-ink-3">
-                            {model.id} · {compactTokens(model.contextWindow)}
-                            {model.vision ? ' · 视觉' : ''}
+                <Card asChild className="max-h-72 divide-y overflow-y-auto">
+                  <ul>
+                    {vendor.models
+                      .filter((model) =>
+                        `${model.id} ${model.name}`
+                          .toLowerCase()
+                          .includes(modelInput.trim().toLowerCase()),
+                      )
+                      .map((model) => (
+                        <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={model.id}>
+                          <span className="grid min-w-0 flex-1">
+                            <span className="truncate text-sm">{model.name}</span>
+                            <span className="truncate font-mono text-xs text-ink-3">
+                              {model.id} · {compactTokens(model.contextWindow)}
+                              {model.vision ? ' · 视觉' : ''}
+                            </span>
                           </span>
-                        </span>
-                        <Button
-                          aria-label={`添加模型 ${model.id}`}
-                          disabled={models.includes(model.id) || models.length >= LLM_MODEL_LIMIT}
-                          onClick={() => addModel(model.id)}
-                          size="icon-xs"
-                          variant="ghost"
-                        >
-                          {models.includes(model.id) ? <Check /> : <Plus />}
-                        </Button>
-                      </li>
-                    ))}
-                </ul>
+                          <Button
+                            aria-label={`添加模型 ${model.id}`}
+                            disabled={models.includes(model.id) || models.length >= LLM_MODEL_LIMIT}
+                            onClick={() => addModel(model.id)}
+                            size="icon-xs"
+                            variant="ghost"
+                          >
+                            {models.includes(model.id) ? <Check /> : <Plus />}
+                          </Button>
+                        </li>
+                      ))}
+                  </ul>
+                </Card>
                 {importNotice && (
                   <p className="text-xs text-ink-3" role="status">
                     {importNotice}
@@ -1085,26 +1088,28 @@ function ProviderDetail({
                   onChange={(event) => setModelInput(event.target.value)}
                   placeholder="搜索或输入模型 ID…"
                 />
-                <ul className="max-h-60 overflow-y-auto divide-y rounded-card border border-line">
-                  {(verifyResult?.models ?? [])
-                    .filter((id) => id.toLowerCase().includes(modelInput.trim().toLowerCase()))
-                    .map((id) => (
-                      <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={id}>
-                        <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
-                          {id}
-                        </span>
-                        <Button
-                          aria-label={`添加模型 ${id}`}
-                          disabled={models.includes(id) || models.length >= LLM_MODEL_LIMIT}
-                          onClick={() => addModel(id)}
-                          size="icon-xs"
-                          variant="ghost"
-                        >
-                          {models.includes(id) ? <Check /> : <Plus />}
-                        </Button>
-                      </li>
-                    ))}
-                </ul>
+                <Card asChild className="max-h-60 divide-y overflow-y-auto">
+                  <ul>
+                    {(verifyResult?.models ?? [])
+                      .filter((id) => id.toLowerCase().includes(modelInput.trim().toLowerCase()))
+                      .map((id) => (
+                        <li className="flex min-w-0 items-center gap-2 px-3 py-2" key={id}>
+                          <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
+                            {id}
+                          </span>
+                          <Button
+                            aria-label={`添加模型 ${id}`}
+                            disabled={models.includes(id) || models.length >= LLM_MODEL_LIMIT}
+                            onClick={() => addModel(id)}
+                            size="icon-xs"
+                            variant="ghost"
+                          >
+                            {models.includes(id) ? <Check /> : <Plus />}
+                          </Button>
+                        </li>
+                      ))}
+                  </ul>
+                </Card>
                 {verifyResult && (
                   <p
                     className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-danger')}

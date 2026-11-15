@@ -1,4 +1,5 @@
 import { Streamdown, type Components } from 'streamdown';
+import { Card } from '../../../ui/card';
 
 /**
  * 条款正文（仓库根目录 docs 下的 Markdown）到界面的映射：隐私页、使用条款页与首次启动的
@@ -18,9 +19,9 @@ const components: Components = {
   ul: ({ children }) => <ul className="mt-3 grid list-disc gap-1.5 pl-4">{children}</ul>,
   // 使用条款开头的接受声明做成卡片，段落的 mt-3 在这里要压掉。
   blockquote: ({ children }) => (
-    <blockquote className="rounded-card bg-inset px-4 py-3 text-ink [&_p]:mt-0">
-      {children}
-    </blockquote>
+    <Card asChild className="text-ink [&_p]:mt-0" variant="inset">
+      <blockquote>{children}</blockquote>
+    </Card>
   ),
   // 站外链接由主进程的 will-navigate / setWindowOpenHandler 交给系统浏览器。
   a: ({ children, href }) => (

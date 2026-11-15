@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../../ui/button';
+import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
 import type { RemoteConnection, RemoteDraft } from '../contract';
 import { useWorkspaceStore } from '../../workspace/view';
@@ -183,7 +184,7 @@ export function ConnectionForm({
         暂不支持密码登录：请使用密钥或 ssh agent，或在 ~/.ssh/config 中为该主机配置好认证。
       </p>
       {projects.length > 0 && (
-        <div className="grid gap-1 rounded-card bg-inset px-4 py-2">
+        <Card className="grid gap-1" variant="inset">
           <h3 className="text-sm font-semibold text-ink-2">使用此连接的项目</h3>
           <ul className="grid">
             {projects.map((project) => (
@@ -211,7 +212,7 @@ export function ConnectionForm({
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
       {error && <ErrorText>{error}</ErrorText>}
       {connection && onRemoved && removeConfirm && (

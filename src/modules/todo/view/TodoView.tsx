@@ -27,6 +27,7 @@ import {
   type TodoState,
 } from '../contract';
 import { Button } from '../../../ui/button';
+import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
 import { Switch } from '../../../ui/switch';
 import { cn } from '../../../ui/cn';
@@ -155,7 +156,7 @@ function TodoComposer({
           value={title}
           variant="ghost"
         />
-        <div className="grid divide-y overflow-hidden rounded-card border border-line">
+        <Card className="grid divide-y">
           <div className="flex min-h-11 items-center gap-2 px-3">
             <span className="w-8 shrink-0 text-xs text-ink-3">截止</span>
             <div className="min-w-0 flex-1">
@@ -187,7 +188,7 @@ function TodoComposer({
             onCalendarChange={setCalendar}
             onColorChange={setColor}
           />
-        </div>
+        </Card>
         <textarea
           aria-label="备注"
           className={cn(inputClass, 'min-h-20 resize-y')}
