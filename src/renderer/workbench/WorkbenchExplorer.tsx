@@ -107,7 +107,7 @@ export function WorkbenchExplorer({
   // 本地写入入口（importDroppedFiles / moveEntry）会把它当本地目录，必须关掉。
   const remoteRoot = Boolean(root?.remoteId);
   // 标题上的连接提示与目录树说同一件事：目的地来自连接列表，状态由目录树写进 store。
-  const connections = useRemoteConnections(root?.remoteId ?? '');
+  const connections = useRemoteConnections();
   const activity = useRemoteActivity((s) => s.byProject);
   const selected = useTreeState((s) => s.selected);
   const expanded = useTreeState((s) => s.expanded);

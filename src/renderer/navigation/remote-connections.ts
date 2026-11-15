@@ -1,27 +1,15 @@
-// 已保存的 ssh 连接（id → 连接），供目录树、项目行与资源管理器标题共用，避免三处各拉一遍。
-// key 是「这次要用到哪些连接」；新增/删除连接必定改变 remoteId 集合，所以 key 变化即重拉，无需另做失效。
-import { useEffect, useState } from 'react';
+// 已保存的 ssh 连接（id → 连接），供目录树、项目行与资源管理器标题共用：读的是同一份连接缓存，
+// 新增/删除连接后由设置页刷新，三处同步更新。
+import { useQuery } from '@tanstack/react-query';
 import type { RemoteConnection } from '../../modules/remotes/contract';
-import { remotesClient } from '../../modules/remotes/view';
+import { remoteConnectionsQuery } from '../../modules/remotes/view';
 
-export function useRemoteConnections(key: string): Record<string, RemoteConnection> {
-  const [connections, setConnections] = useState<Record<string, RemoteConnection>>({});
-  useEffect(() => {
-    let live = true;
-    if (!window.dela) return;
-    void remotesClient.list().then(
-      (list) => {
-        if (live) setConnections(Object.fromEntries(list.map((item) => [item.id, item])));
-      },
-      () => {
-        /* 读不到连接列表只是少一行提示，树与项目行照常可用。 */
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [key]);
-  return connections;
+const byId = (list: RemoteConnection[]) => Object.fromEntries(list.map((item) => [item.id, item]));
+const noConnections: Record<string, RemoteConnection> = {};
+
+/** 读不到连接列表只是少一行提示，树与项目行照常可用。 */
+export function useRemoteConnections(): Record<string, RemoteConnection> {
+  return useQuery({ ...remoteConnectionsQuery, select: byId }).data ?? noConnections;
 }
 
 /** 目的地（行提示与悬浮提示共用的写法）：端口只在显式指定时带上。 */

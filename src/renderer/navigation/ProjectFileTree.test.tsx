@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // 远端文件树的行为：懒加载、项目身份、连接提示与降级、目录监视上报。
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceEntry } from '../../shared/api';
 import type { RemoteChannelState, RemoteDirectoryEntry } from '../../modules/remotes/contract';
@@ -25,12 +26,16 @@ const workspace = vi.hoisted(() => {
   return { handlers, remotes, listeners, bridge };
 });
 import { CONNECT_HINT_DELAY_MS, ProjectFileTree } from './ProjectFileTree';
-import { remoteAccent } from '../../modules/remotes/view';
+import { remoteAccent, useRemoteState } from '../../modules/remotes/view';
 import { useRemoteActivity } from './remote-activity';
 import { useWorkspaceStore } from '../workspace/store';
 
 let container: HTMLDivElement;
 let root: Root;
+let client: QueryClient;
+
+const renderUi = (ui: ReactNode) =>
+  root.render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 
 const remoteProject: WorkspaceEntry = {
   id: 'p-remote',
@@ -65,9 +70,11 @@ beforeEach(() => {
   for (const name of Object.keys(workspace.handlers)) delete workspace.handlers[name];
   workspace.remotes.list = async () => [];
   workspace.remotes.helperStates = async () => [];
-  workspace.listeners.clear();
+  // 通道推送由 remotes 模块在加载时订阅一次，监听器不能清；只清上一条推送下来的状态。
+  useRemoteState.setState({ pushedChannels: null });
   // 取数状态是模块级 store：逐条用例清空，免得「正在连接」从上一条带过来。
   useRemoteActivity.setState({ byProject: {} });
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -80,6 +87,14 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+/** 查询结果经 setTimeout(0) 通知，且子目录要等父目录回来才发请求：多让几轮。 */
+const settle = async () => {
+  for (let tick = 0; tick < 4; tick += 1)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+};
+
 async function renderTree(
   expanded: string[],
   onSelect = vi.fn(),
@@ -87,7 +102,7 @@ async function renderTree(
   rootId: string | null = null,
 ) {
   await act(async () =>
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={entries}
         expanded={expanded}
@@ -100,6 +115,7 @@ async function renderTree(
       />,
     ),
   );
+  await settle();
   return { onSelect, onExpand };
 }
 
@@ -125,7 +141,7 @@ it('dims ignored names and hides repository metadata without hiding configuratio
     gitIgnored: true,
   });
   await act(async () =>
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={['ignored.log', '.git', '.DS_Store', '.env', '.gitignore'].map(file)}
         expanded={[]}
@@ -161,7 +177,7 @@ it('reads only expanded local directories and releases children when their ances
   const release = vi.spyOn(useWorkspaceStore.getState(), 'releaseDirectory');
   const render = async (expanded: string[]) => {
     await act(async () =>
-      root.render(
+      renderUi(
         <ProjectFileTree
           entries={[project, folder]}
           expanded={expanded}
@@ -355,7 +371,7 @@ it('marks a remote project row with its connection colour and leaves local rows 
   workspace.handlers.listRemoteDirectory = listRemoteDirectory;
 
   await act(async () =>
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={[...entries, otherRemote, localProject]}
         expanded={['p-remote']}
@@ -368,6 +384,7 @@ it('marks a remote project row with its connection colour and leaves local rows 
       />,
     ),
   );
+  await settle();
 
   const cloud = row('proj').querySelector<SVGElement>('svg.lucide-cloud')!;
   expect(cloud).toBeTruthy();
@@ -424,7 +441,7 @@ it('refreshes a remote directory when it is collapsed and expanded again', async
   expect(listRemoteDirectory).toHaveBeenCalledTimes(1);
 
   await act(async () =>
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={entries}
         expanded={[]}
@@ -500,7 +517,7 @@ it('keeps two connections on the same remote path apart', async () => {
   const onExpand = vi.fn();
 
   await act(async () =>
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={[first, second]}
         expanded={['p-a', 'p-b']}
@@ -513,6 +530,7 @@ it('keeps two connections on the same remote path apart', async () => {
       />,
     ),
   );
+  await settle();
 
   expect(listRemoteDirectory).toHaveBeenCalledWith({ projectId: 'p-a', path: '/home/u/proj' });
   expect(listRemoteDirectory).toHaveBeenCalledWith({ projectId: 'p-b', path: '/home/u/proj' });
@@ -582,7 +600,7 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   workspace.handlers.watchRemoteDirectories = watchRemoteDirectories;
 
   await act(async () => {
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={entries}
         expanded={['p-remote', 'p-remote:/home/u/proj/src']}
@@ -606,7 +624,7 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
 
   const calls = watchRemoteDirectories.mock.calls.length;
   await act(async () => {
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={entries}
         expanded={['p-remote', 'p-remote:/home/u/proj/src']}
@@ -625,7 +643,7 @@ it('reports the expanded remote directories to watch, and cancels them on unmoun
   expect(watchRemoteDirectories.mock.calls.length).toBe(calls);
 
   await act(async () => {
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={entries}
         expanded={['p-remote']}
@@ -670,7 +688,7 @@ it('keeps the full action menu on a local project row', async () => {
     updatedAt: '2026-10-09T00:00:00.000Z',
   };
   await act(async () =>
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={[localProject]}
         expanded={[]}
@@ -700,7 +718,7 @@ it('shows the connecting hint while a remote root is still being read', async ()
   const slow: WorkspaceEntry = { ...remoteProject, id: 'p-slow', name: '慢项目' };
 
   await act(async () =>
-    root.render(
+    renderUi(
       <ProjectFileTree
         entries={[slow]}
         expanded={['p-slow']}
@@ -725,6 +743,7 @@ it('shows the connecting hint while a remote root is still being read', async ()
       { name: 'src', path: '/home/u/proj/src', directory: true, size: null, modifiedAt: null },
     ]),
   );
+  await settle();
   expect(document.querySelector('[role="status"]')).toBeNull();
   expect(row('src')).toBeTruthy();
 });

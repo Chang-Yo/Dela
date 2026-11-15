@@ -124,13 +124,9 @@ export function ProjectSessionNav({
       (a, b) =>
         Number(Boolean(preferences[b.id]?.pinned)) - Number(Boolean(preferences[a.id]?.pinned)),
     );
-  // 远端项目的悬浮提示要「连的是哪台」与「此刻在不在连」：连接列表按涉及到的连接拉一次，
+  // 远端项目的悬浮提示要「连的是哪台」与「此刻在不在连」：连接取自共享的连接缓存，
   // 取数状态由目录树写、这里读（两处说法因此一致）。
-  const remoteIdsKey = projects
-    .map((project) => project.remoteId)
-    .filter(Boolean)
-    .join('|');
-  const connections = useRemoteConnections(remoteIdsKey);
+  const connections = useRemoteConnections();
   const activity = useRemoteActivity((state) => state.byProject);
   const [entryRequest, setEntryRequest] = useState<EntryDialogRequest | null>(null);
   const [sectionProjectId, setSectionProjectId] = useState<string | null>(null);

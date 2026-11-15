@@ -1,12 +1,13 @@
-// 远程项目在文件树里的懒加载：展开一层拉一层，结果只留在组件状态里——远端是这些条目的唯一事实来源。
+// 远程项目在文件树里的懒加载：展开一层拉一层，每层是一条查询，收起即丢弃——远端是这些条目的唯一事实来源。
 // 子条目 id 带项目身份（remoteNodeId）：只用路径会让两台连接上的同路径目录串成同一个节点。
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { WorkspaceEntry } from '../../shared/api';
-import type { RemoteChannelState, RemoteDirectoryEntry } from '../../modules/remotes/contract';
+import type { RemoteDirectoryEntry } from '../../modules/remotes/contract';
 import { remoteNodeId } from '../../modules/remotes/contract';
 import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
-import { onRemotesEvent, remoteAccent, remotesClient } from '../../modules/remotes/view';
+import { remoteAccent, useRemoteChannels } from '../../modules/remotes/view';
 import type { ExplorerItem } from '../components/explorer';
 import { errorText } from '../workspace/store';
 import { useRemoteActivity } from './remote-activity';
@@ -21,9 +22,49 @@ const CHANGE_DEBOUNCE_MS = 300;
 /** 上报 watch 的合并窗口：展开/收起常成串发生，攒一下只报最终集合。 */
 const WATCH_DEBOUNCE_MS = 150;
 
+const directoryQueries = ['workspace', 'listRemoteDirectory'];
+
 /** 是否落在变化目录之内（含它自己）：这些清单都要重读。 */
 const withinChange = (path: string, changed: string) =>
   path === changed || path.startsWith(`${changed}/`);
+
+/** 展开的远端目录报给主进程做 watch：Dela 之外改的远端文件因此也能自己出现在树里。 */
+function createRemoteWatcher() {
+  /** 已经报给主进程的监视集合（项目 id → 序列化后的路径列表）：没变就不重报。 */
+  const reported = new Map<string, string>();
+  let wanted = new Map<string, string[]>();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const flush = () => {
+    timer = undefined;
+    for (const projectId of reported.keys()) if (!wanted.has(projectId)) wanted.set(projectId, []);
+    for (const [projectId, paths] of wanted) {
+      const serialized = paths.join('\n');
+      if (reported.get(projectId) === serialized) continue;
+      reported.set(projectId, serialized);
+      void workspaceClient.watchRemoteDirectories({ projectId, paths }).catch((error: unknown) => {
+        // 报不上去只是少了实时刷新：工具改动那条路照常，不打扰用户，但留一条线索。
+        console.warn('[workspace] 上报远端监视目录失败', error);
+        reported.delete(projectId);
+      });
+    }
+  };
+  return {
+    /** 窗口内只记最新集合，窗口结束才发；不再展开的项目由 flush 补一次空集合取消监视。 */
+    report(next: Map<string, string[]>) {
+      wanted = next;
+      timer ??= setTimeout(flush, WATCH_DEBOUNCE_MS);
+    },
+    /** 树卸载时取消监视：远端不该继续为看不见的目录留 inotify watch，待发的窗口也一并清掉。 */
+    dispose() {
+      clearTimeout(timer);
+      timer = undefined;
+      wanted = new Map();
+      for (const projectId of reported.keys())
+        void workspaceClient.watchRemoteDirectories({ projectId, paths: [] }).catch(() => {});
+      reported.clear();
+    },
+  };
+}
 
 export const remoteTitle = (destination: string | undefined, path: string) =>
   destination ? `${destination}:${trimSlash(path)}` : trimSlash(path);
@@ -50,196 +91,105 @@ export function useRemoteTree(
   expanded: string[],
   rootId: string | null,
 ): RemoteTree {
-  const [listings, setListings] = useState<Record<string, RemoteDirectoryEntry[]>>({});
-  const [failed, setFailed] = useState<Record<string, string>>({});
+  const queryClient = useQueryClient();
   const setPhase = useRemoteActivity((state) => state.setPhase);
   const rootActivity = useRemoteActivity((state) => (rootId ? state.byProject[rootId] : undefined));
-  // 连接列表按「这棵树里涉及哪些连接」拉一次：目的地既给行提示，也给项目行与面板标题的悬浮提示。
-  const remoteIdsKey = entries
-    .filter((entry) => entry.kind === 'project' && entry.remoteId)
-    .map((entry) => entry.remoteId)
-    .join('|');
-  const connections = useRemoteConnections(remoteIdsKey);
+  const connections = useRemoteConnections();
   const destinations = Object.fromEntries(
     Object.entries(connections).map(([id, connection]) => [id, connection.host]),
   );
-  const [channels, setChannels] = useState<RemoteChannelState[]>([]);
-  const inFlight = useRef(new Set<string>());
-  /** 已缓存清单：远端路径供变化通知判断过期，项目 id 供上报 watch 分组。 */
-  const listed = useRef(new Map<string, { projectId: string; path: string }>());
-  const changed = useRef(new Set<string>());
-  const flushTimer = useRef<number | undefined>(undefined);
-  /** 已经报给主进程的监视集合（项目 id → 路径列表）：没变就不重报。 */
-  const watching = useRef(new Map<string, string>());
-  const watchTimer = useRef<number | undefined>(undefined);
+  const [watcher] = useState(createRemoteWatcher);
   /** 项目自身的展开键与打开的项目 id 等价：项目打开时它必然展开，行本身不在树里。 */
   const isOpen = (key: string) => key === rootId || expanded.includes(key);
 
   const projects = entries.filter(
     (entry) => entry.kind === 'project' && entry.remoteId && entry.path,
   );
+  const channels = Object.values(useRemoteChannels(projects.length > 0));
   /** 远端目录在树里的键：项目根用条目 id（与树里项目行一致），子目录带上项目身份。
    *  归属只由「从哪个项目走下来」决定，远端路径本身不再参与跨项目的解释。 */
   const keyOf = (project: WorkspaceEntry, path: string) =>
     trimSlash(project.path!) === path ? project.id : remoteNodeId(project.id, path);
-  /** 项目 id → 远端根：只有项目根这一层的读取代表「这台连接能不能用」（连服务器就发生在这里）。 */
-  const rootPaths = new Map(projects.map((project) => [project.id, trimSlash(project.path!)]));
 
-  const openKeys = new Set<string>();
-  const pending: { key: string; projectId: string; path: string }[] = [];
+  // 展开且可达的远端目录各是一条查询：子目录要等父目录的清单回来才知道，所以沿缓存往下走。
+  const openDirectories: { key: string; projectId: string; path: string; root: boolean }[] = [];
   const visit = (project: WorkspaceEntry, path: string, key: string) => {
     if (!isOpen(key)) return;
-    openKeys.add(key);
-    const listing = listings[key];
-    if (!listing) {
-      if (!failed[key]) pending.push({ key, projectId: project.id, path });
-      return;
-    }
-    for (const child of listing)
+    openDirectories.push({ key, projectId: project.id, path, root: key === project.id });
+    const listing = queryClient.getQueryData<RemoteDirectoryEntry[]>([
+      ...directoryQueries,
+      project.id,
+      path,
+    ]);
+    for (const child of listing ?? [])
       if (child.directory) visit(project, child.path, keyOf(project, child.path));
   };
   for (const project of projects) visit(project, trimSlash(project.path!), project.id);
 
-  const hasRemote = projects.length > 0;
-
-  // helper 通道状态由主进程推整份快照：只提示对得上目的地的项目，别的服务器不打扰这棵树。
-  useEffect(() => {
-    if (!hasRemote) return;
-    const stop = onRemotesEvent('helperState', setChannels);
-    // 推送只报变化：订阅后补拉一次当前快照，晚挂上的树也能看到已经不可用的通道。
-    void remotesClient.helperStates().then(setChannels);
-    return stop;
-  }, [hasRemote]);
-
-  // 收起时清掉失败记录：再次展开重试一次，避免一次网络抖动后目录永久打不开。
-  // 同理丢掉收起目录的清单与它的 watch：收起再展开就是用户手动刷新的一层。
-  // 依赖用内容而不是集合本身：每次渲染都是新集合，直接入依赖会让副作用每帧都跑。
-  const openKey = [...openKeys].sort().join('\n');
-  useEffect(() => {
-    for (const key of [...listed.current.keys()])
-      if (!openKeys.has(key)) listed.current.delete(key);
-    setFailed((prev) => {
-      const stale = Object.keys(prev).filter((key) => !openKeys.has(key));
-      if (!stale.length) return prev;
-      const next = { ...prev };
-      for (const key of stale) delete next[key];
-      return next;
-    });
-    setListings((prev) => {
-      const stale = Object.keys(prev).filter((key) => !openKeys.has(key));
-      if (!stale.length) return prev;
-      const next = { ...prev };
-      for (const key of stale) delete next[key];
-      return next;
-    });
-  }, [openKey]);
-
-  // 展开的远端目录报给主进程做 watch：Dela 之外改的远端文件因此也能自己出现在树里。
-  // 合并窗口内攒着发，序列化后没变就不重报；不再展开的项目补一次空集合取消监视。
-  useEffect(() => {
-    if (!window.dela) return;
-    // 只在没有待发窗口时起一个：这个 effect 每次渲染都会跑，反复重置会让它永远发不出去。
-    if (watchTimer.current !== undefined) return;
-    watchTimer.current = window.setTimeout(() => {
-      watchTimer.current = undefined;
-      // 集合同在窗口结束时才读：这 150ms 里有清单刚拉回来，提前读会漏掉它们。
-      const byProject = new Map<string, Set<string>>();
-      for (const { projectId, path } of listed.current.values()) {
-        const paths = byProject.get(projectId) ?? new Set<string>();
-        paths.add(path);
-        byProject.set(projectId, paths);
-      }
-      for (const projectId of watching.current.keys())
-        if (!byProject.has(projectId)) byProject.set(projectId, new Set());
-      for (const [projectId, paths] of byProject) {
-        const wanted = [...paths].sort();
-        const serialized = wanted.join('\n');
-        if (watching.current.get(projectId) === serialized) continue;
-        watching.current.set(projectId, serialized);
-        void workspaceClient
-          .watchRemoteDirectories({ projectId, paths: wanted })
-          .catch((error: unknown) => {
-            // 报不上去只是少了实时刷新：工具改动那条路照常，不打扰用户，但留一条线索。
-            console.warn('[workspace] 上报远端监视目录失败', error);
-            watching.current.delete(projectId);
-          });
-      }
-    }, WATCH_DEBOUNCE_MS);
-  });
-
-  // 树卸载（项目关掉、切走视图）时取消监视：远端不该继续为看不见的目录留 inotify watch。
-  // 待发的窗口也必须一起清掉：它在卸载后才触发时会把旧集合重报一遍，等于白取消。
-  useEffect(
-    () => () => {
-      if (watchTimer.current !== undefined) {
-        clearTimeout(watchTimer.current);
-        watchTimer.current = undefined;
-      }
-      listed.current.clear();
-      if (window.dela)
-        for (const projectId of watching.current.keys())
-          void workspaceClient.watchRemoteDirectories({ projectId, paths: [] }).catch(() => {});
-      watching.current.clear();
-    },
-    [],
-  );
-
-  // 远端工具写过文件、跑过 bash，或远端自己变了（watch）：丢掉受影响的清单（这层自己变了，
-  // 或它下面的目录变了——新条目要现出来），缺清单的展开目录由下面那个 effect 自动重拉。
-  useEffect(() => {
-    return onWorkspaceEvent('remoteChange', (path) => {
-      changed.current.add(trimSlash(path));
-      if (flushTimer.current !== undefined) return;
-      flushTimer.current = window.setTimeout(() => {
-        flushTimer.current = undefined;
-        const paths = [...changed.current];
-        changed.current.clear();
-        const stale = new Set<string>();
-        for (const [key, { path: listedPath }] of listed.current)
-          if (paths.some((changedPath) => withinChange(listedPath, changedPath))) stale.add(key);
-        if (!stale.size) return;
-        for (const key of stale) listed.current.delete(key);
-        const drop = <T>(prev: Record<string, T>) =>
-          Object.fromEntries(Object.entries(prev).filter(([key]) => !stale.has(key)));
-        setListings(drop);
-        setFailed(drop);
-      }, CHANGE_DEBOUNCE_MS);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!window.dela) return;
-    for (const node of pending) {
-      if (inFlight.current.has(node.key)) continue;
-      inFlight.current.add(node.key);
-      // 这一层的「作废标记」：清单被丢掉（收起、或远端变化）之后，在途的旧响应不能把旧内容写回来。
-      const marker = { projectId: node.projectId, path: node.path };
-      listed.current.set(node.key, marker);
+  // 收起即丢弃（gcTime 0）：再展开就是用户手动刷新的一层，失败也在重新展开时重试。
+  const results = useQueries({
+    queries: openDirectories.map(({ projectId, path, root }) => ({
+      queryKey: [...directoryQueries, projectId, path],
+      gcTime: 0,
       // 项目根这一层就是「连接」：冷启动（探测+上传+启动+隧道+握手）全在这里等，
       // 所以在状态里报出来，让面板与悬浮提示说的是同一件事。重复读取也照报——
       // 面板只在「没有任何内容」时才画过渡，热通道那几十毫秒够不到 200ms 的门槛。
-      const root = rootPaths.get(node.projectId) === node.path;
-      if (root) setPhase(node.projectId, 'connecting');
-      void workspaceClient
-        .listRemoteDirectory({ projectId: node.projectId, path: node.path })
-        .then(
-          (items) => {
-            if (listed.current.get(node.key) !== marker) return;
-            if (root) setPhase(node.projectId, 'ready');
-            setListings((prev) => ({ ...prev, [node.key]: items }));
-          },
-          (cause) => {
-            if (listed.current.get(node.key) !== marker) return;
-            const reason = `读取失败 ${node.path}：${errorText(cause)}`;
-            if (root) setPhase(node.projectId, 'failed', reason);
-            setFailed((prev) => ({ ...prev, [node.key]: reason }));
-          },
-        )
-        .finally(() => {
-          inFlight.current.delete(node.key);
-        });
-    }
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        if (root) setPhase(projectId, 'connecting');
+        try {
+          const items = await workspaceClient.listRemoteDirectory({ projectId, path });
+          if (root && !signal.aborted) setPhase(projectId, 'ready');
+          return items;
+        } catch (cause) {
+          const reason = `读取失败 ${path}：${errorText(cause)}`;
+          if (root && !signal.aborted) setPhase(projectId, 'failed', reason);
+          throw new Error(reason);
+        }
+      },
+    })),
   });
+  const listings: Record<string, RemoteDirectoryEntry[]> = {};
+  for (const [index, { key }] of openDirectories.entries()) {
+    const data = results[index]?.data;
+    if (data) listings[key] = data;
+  }
+
+  const watchKey = openDirectories
+    .map(({ projectId, path }) => `${projectId}\t${path}`)
+    .sort()
+    .join('\n');
+  useEffect(() => {
+    const byProject = new Map<string, string[]>();
+    for (const { projectId, path } of openDirectories)
+      byProject.set(projectId, [...(byProject.get(projectId) ?? []), path].sort());
+    watcher.report(byProject);
+  }, [watcher, watchKey]);
+  useEffect(() => watcher.dispose, [watcher]);
+
+  // 远端工具写过文件、跑过 bash，或远端自己变了（watch）：这层自己变了，或它下面的目录变了
+  // ——新条目要现出来，受影响的展开目录重读。
+  useEffect(() => {
+    const changed = new Set<string>();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stop = onWorkspaceEvent('remoteChange', (path) => {
+      changed.add(trimSlash(path));
+      if (timer !== undefined) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        const paths = [...changed];
+        changed.clear();
+        void queryClient.invalidateQueries({
+          queryKey: directoryQueries,
+          predicate: ({ queryKey }) =>
+            paths.some((changedPath) => withinChange(queryKey[3] as string, changedPath)),
+        });
+      }, CHANGE_DEBOUNCE_MS);
+    });
+    return () => {
+      clearTimeout(timer);
+      stop();
+    };
+  }, [queryClient]);
 
   const items: ExplorerItem[] = [];
   for (const project of projects) {
@@ -269,7 +219,7 @@ export function useRemoteTree(
   }
 
   // 只报失败：读取中的提示会在每次展开/收起时插进、抽走一行，整棵树跟着上下跳。
-  const status = Object.values(failed)[0] ?? null;
+  const status = results.find((result) => result.isError)?.error.message ?? null;
 
   // 不可用提示按目的地对准：这棵树里有项目连着那台服务器才显示，消息里带上目的地。
   // 多条通道各自不可用时，一台恢复只让它自己那条从快照里消失，别的提示不受影响。
