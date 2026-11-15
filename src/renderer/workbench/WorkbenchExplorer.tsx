@@ -45,7 +45,7 @@ import {
   promoteEntry,
   runEntryWork,
 } from '../workspace/entry-actions';
-import { errorText, useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../workspace/store';
 import { usePreferenceWidth, usePreferences } from '../app/preferences';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState } from './explorer-state';
@@ -54,6 +54,7 @@ import { cn } from '../../ui/cn';
 import { overlayFade } from '../../ui/motion';
 import { IconButton } from '../../ui/icon-button';
 import { localPathsOf, workspaceClient } from '../../modules/workspace/view';
+import { errorMessage } from '../../core/protocol/contract';
 
 const SIDEBAR_MIN_WIDTH = 160;
 /** 目录宽度上界：再宽会明显挤占右侧内容栏。 */
@@ -224,7 +225,7 @@ export function WorkbenchExplorer({
         onCreated(created);
         return null;
       } catch (cause) {
-        return errorText(cause);
+        return errorMessage(cause);
       }
     },
   };

@@ -2,9 +2,9 @@ import { renderAsync } from 'docx-preview';
 import { Minus, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../../renderer/workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/alert';
+import { errorMessage } from '../../../core/protocol/contract';
 
 // 缩放范围与步进：与 PdfReader 的 10% 步进一致。
 const MIN_ZOOM = 0.5;
@@ -51,7 +51,7 @@ export function DocxPreview({ url }: { url: string }) {
         });
         setResult({ run, error: '' });
       } catch (cause) {
-        if (!controller.signal.aborted) setResult({ run, error: errorText(cause) });
+        if (!controller.signal.aborted) setResult({ run, error: errorMessage(cause) });
       }
     })();
     return () => controller.abort();

@@ -6,8 +6,8 @@ import { Button } from '../../../ui/button';
 import { IconButton } from '../../../ui/icon-button';
 import { cn } from '../../../ui/cn';
 import { poolKey, querySessions } from '../../sessions/store';
-import { errorText } from '../../workspace/store';
 import { drawerFromRight } from '../../../ui/motion';
+import { errorMessage } from '../../../core/protocol/contract';
 
 function SessionList({
   sessions,
@@ -135,7 +135,7 @@ export function ChatSessions({
           if (active) {
             setResults({});
             setLoadError(true);
-            console.error(errorText(e));
+            console.error(errorMessage(e));
           }
         });
     }, 200);

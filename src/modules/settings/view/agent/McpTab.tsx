@@ -5,7 +5,6 @@ import type { McpServerView } from '../../../../core/protocol/capabilities';
 import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
 import { cn } from '../../../../ui/cn';
-import { errorText } from '../../../../renderer/workspace/store';
 import { showToast } from '../../../../renderer/app/toasts';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
@@ -15,6 +14,7 @@ import { ConfirmDialog } from '../../../../ui/dialog';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import { capabilitiesClient } from '../../../chat/view';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 /** 设置 › MCP：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {
@@ -49,7 +49,7 @@ export function McpTab() {
       );
     } catch (cause) {
       setServers(previous);
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -61,7 +61,7 @@ export function McpTab() {
     try {
       setServers(await capabilitiesClient.refreshMcpServer(id));
     } catch (cause) {
-      showToast({ variant: 'error', title: '重连失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '重连失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -76,7 +76,7 @@ export function McpTab() {
     } catch (cause) {
       // 删除失败也要让用户看到原因：关闭确认框，错误经 toast 提示。
       setConfirmId(null);
-      showToast({ variant: 'error', title: '删除失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '删除失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -196,7 +196,7 @@ export function McpTab() {
           </ul>
         </SettingsGroup>
       )}
-      {list.error && <ErrorText>{errorText(list.error)}</ErrorText>}
+      {list.error && <ErrorText>{errorMessage(list.error)}</ErrorText>}
       {dialog && (
         <McpFormDialog editing={dialog} onClose={() => setDialog(null)} onSaved={setServers} />
       )}

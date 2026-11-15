@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import { ExternalLink, FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { showToast } from '../../../renderer/app/toasts';
-import { errorText } from '../../../renderer/workspace/store';
 import { onWorkspaceEvent, workspaceClient } from '../../workspace/view';
 import type {
   OfficeExportEvent,
@@ -13,6 +12,7 @@ import type {
 } from '../../workspace/contract';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
+import { errorMessage } from '../../../core/protocol/contract';
 
 function progressText(progress: OfficeExportProgress | null, opening = false): string {
   if (opening) return '导出完成，正在打开…';
@@ -76,7 +76,7 @@ const useOfficeExports = create<{
         });
       },
       (cause) => {
-        const message = errorText(cause);
+        const message = errorMessage(cause);
         set((state) => {
           const run = state.runs[key];
           if (!run) return state;
@@ -143,7 +143,7 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
       showToast({
         variant: 'error',
         title: '打开失败',
-        description: errorText(cause),
+        description: errorMessage(cause),
       }),
     );
   };

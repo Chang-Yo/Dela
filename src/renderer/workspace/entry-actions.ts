@@ -4,12 +4,13 @@ import type { QueryClient } from '@tanstack/react-query';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { sourceTitle } from '../../app/views';
 import { useNoteDrafts } from '../../modules/note/view';
-import { errorText, useWorkspaceStore } from './store';
+import { useWorkspaceStore } from './store';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useNavigationStore as useTreeState } from '../navigation/store';
 import { relocateWorkspacePath } from '../../modules/workspace/contract';
 import { localPathsOf, workspaceClient } from '../../modules/workspace/view';
 import { showToast } from '../app/toasts';
+import { errorMessage } from '../../core/protocol/contract';
 
 /** 重命名前先冲盘，成功后一次迁移本窗口已知路径与草稿。 */
 export async function updateEntry(
@@ -46,7 +47,7 @@ export const runEntryWork = async (work: () => Promise<void>) => {
   try {
     await work();
   } catch (error) {
-    showToast({ variant: 'error', title: '条目操作失败', description: errorText(error) });
+    showToast({ variant: 'error', title: '条目操作失败', description: errorMessage(error) });
   }
 };
 

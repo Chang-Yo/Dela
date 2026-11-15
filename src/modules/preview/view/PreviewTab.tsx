@@ -5,7 +5,6 @@ import { Button } from '../../../ui/button';
 import { useRootFontSize } from '../../../renderer/lib/root-font-size';
 import { sanitizeHtml } from '../../../renderer/lib/sanitize-html';
 import { showToast } from '../../../renderer/app/toasts';
-import { errorText } from '../../../renderer/workspace/store';
 import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
@@ -13,6 +12,7 @@ import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
 import { rememberPreviewScroll, usePreviewScroll } from './scroll-memory';
 import { parsePreviewTabId } from './tab-id';
 import { Spinner } from '../../../ui/spinner';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const PdfReader = lazy(() =>
   import('./PdfReader').then((module) => ({ default: module.PdfReader })),
@@ -57,7 +57,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   });
   const doc = query.data;
   // 首次加载失败用占位错误（带重试）；已加载后的重读失败走浮窗，不打断当前内容。
-  const error = query.isError && !doc && !query.isFetching ? errorText(query.error) : null;
+  const error = query.isError && !doc && !query.isFetching ? errorMessage(query.error) : null;
   const scrollKey = `${tabId}:${groupId}`;
   const scroll = usePreviewScroll.getState()[scrollKey] ?? 0;
   const onScroll = (top: number) => rememberPreviewScroll(scrollKey, top);
@@ -68,7 +68,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         showToast({
           variant: 'error',
           title: '重新读取文件失败',
-          description: errorText(result.error),
+          description: errorMessage(result.error),
         });
     });
 

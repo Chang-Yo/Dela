@@ -27,8 +27,8 @@ import type { EdgeZone } from './tab-dnd';
 import { relocateWorkspacePath } from '../../modules/workspace/contract';
 import { workspaceClient } from '../../modules/workspace/view';
 import { terminalClient } from '../../modules/terminal/view';
-import { errorText } from '../workspace/store';
 import { showToast } from '../app/toasts';
+import { errorMessage } from '../../core/protocol/contract';
 
 const PERSIST_DEBOUNCE_MS = 800;
 
@@ -154,7 +154,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
         saved = await workspaceClient.layout(projectId);
       } catch (cause) {
         loadFailed = true;
-        showToast({ variant: 'error', title: '布局载入失败', description: errorText(cause) });
+        showToast({ variant: 'error', title: '布局载入失败', description: errorMessage(cause) });
       }
     }
     if (token !== initToken) return;
@@ -256,7 +256,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     )
       void terminalClient.closeProject(tabId.slice('terminal:'.length)).catch((cause) => {
         console.error(cause);
-        showToast({ variant: 'error', title: '关闭终端失败', description: errorText(cause) });
+        showToast({ variant: 'error', title: '关闭终端失败', description: errorMessage(cause) });
       });
     schedulePersist();
   },

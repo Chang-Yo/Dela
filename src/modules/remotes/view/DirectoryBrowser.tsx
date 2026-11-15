@@ -11,9 +11,9 @@ import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/cn';
 import type { RemoteDraft } from '../contract';
 import { showToast } from '../../../renderer/app/toasts';
-import { errorText } from '../../../renderer/workspace/store';
 import { remotesClient } from './client';
 import { IconButton } from '../../../ui/icon-button';
+import { errorMessage } from '../../../core/protocol/contract';
 
 function crumbs(path: string): { name: string; path: string }[] {
   const parts = path.split('/').filter(Boolean);
@@ -87,7 +87,7 @@ export function DirectoryBrowser({
   });
   const cached = browse.data;
   const loading = browse.isFetching;
-  const error = !loading && browse.error ? errorText(browse.error) : null;
+  const error = !loading && browse.error ? errorMessage(browse.error) : null;
 
   const createFolder = async () => {
     const name = creating?.trim();
@@ -111,7 +111,7 @@ export function DirectoryBrowser({
       edit({ creating: null });
       onSelect(created);
     } catch (cause) {
-      showToast({ variant: 'error', title: '新建文件夹失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '新建文件夹失败', description: errorMessage(cause) });
     }
   };
 

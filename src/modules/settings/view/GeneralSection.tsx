@@ -5,9 +5,9 @@ import { SectionHeader } from './SectionHeader';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';
-import { errorText } from '../../../renderer/workspace/store';
 import { showToast } from '../../../renderer/app/toasts';
 import { UpdateControl } from '../../update/view';
+import { errorMessage } from '../../../core/protocol/contract';
 
 export function GeneralSection({ navEntries }: { navEntries: ReactNode }) {
   const queryClient = useQueryClient();
@@ -29,7 +29,7 @@ export function GeneralSection({ navEntries }: { navEntries: ReactNode }) {
         window.dela ? await settingsClient.setOpenAtLogin(next) : next,
       );
     } catch (cause) {
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }

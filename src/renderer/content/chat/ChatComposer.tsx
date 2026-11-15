@@ -20,7 +20,6 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '../../../ui/cn';
-import { errorText } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
 import { ReplyCommentRail } from './reply-comment';
@@ -58,6 +57,7 @@ import {
   llmClient,
   onWebSearchChanged,
 } from '../../../modules/chat/view';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const builtinCommands = [
   { name: '日程', prompt: '帮我查看本周的日程安排', hint: '课程与个人事件' },
@@ -357,7 +357,7 @@ export function ChatComposer({
         }
         setFileError(null);
       } catch (e) {
-        setFileError(errorText(e));
+        setFileError(errorMessage(e));
       }
     }
   };
@@ -388,11 +388,11 @@ export function ChatComposer({
             }
           } catch (error) {
             releaseChatMedia([view.id]);
-            setFileError(errorText(error));
+            setFileError(errorMessage(error));
           }
         }
       })
-      .catch((e) => setFileError(errorText(e)));
+      .catch((e) => setFileError(errorMessage(e)));
   };
 
   // 候选菜单的键盘协议：菜单打开时消费按键并移动高亮，否则交回编辑器默认行为。
@@ -453,7 +453,7 @@ export function ChatComposer({
       refreshSearch();
       setSearchPickerOpen(false);
     } catch (cause) {
-      setFileError(errorText(cause));
+      setFileError(errorMessage(cause));
       setSearchPickerOpen(false);
     }
   };

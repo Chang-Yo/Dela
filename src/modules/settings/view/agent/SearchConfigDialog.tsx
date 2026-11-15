@@ -16,12 +16,12 @@ import type {
   WebSearchEntryInput,
   WebSearchKeySource,
 } from '../../../../core/protocol/capabilities';
-import { errorText } from '../../../../renderer/workspace/store';
 import { Switch } from '../../../../ui/switch';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
 import { capabilitiesClient } from '../../../chat/view';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 /** 各类型展示名（键序即表单类型按钮的排列顺序，DeepSeek 置首）。 */
 const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {
@@ -68,7 +68,7 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState<WebSearchEntryInput | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const shownError = error ?? (list.error ? errorText(list.error) : null);
+  const shownError = error ?? (list.error ? errorMessage(list.error) : null);
   /** 两步删除防误触：待确认的条目 id，删除键先变「确认删除」。 */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -78,7 +78,7 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
     try {
       setEntries(await capabilitiesClient.removeWebSearchEntry(id));
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
       setConfirmDeleteId(null);
@@ -270,7 +270,7 @@ function EntryForm({
         );
       }
     } catch (cause) {
-      onError(errorText(cause));
+      onError(errorMessage(cause));
     } finally {
       onBusy(false);
     }
@@ -297,7 +297,7 @@ function EntryForm({
       }
       setApiKey(key);
     } catch (cause) {
-      onError(errorText(cause));
+      onError(errorMessage(cause));
     } finally {
       onBusy(false);
     }

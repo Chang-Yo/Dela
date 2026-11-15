@@ -10,9 +10,9 @@ import { EventBus, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { ChevronLeft, ChevronRight, Minus, MoveHorizontal, Plus } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../../renderer/workspace/store';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import { ErrorText } from '../../../ui/alert';
+import { errorMessage } from '../../../core/protocol/contract';
 
 declare const __PDF_ASSET_DIR__: string;
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -65,7 +65,7 @@ export function PdfReader({
     let task: PDFDocumentLoadingTask | undefined;
     const fail = (error: unknown) => {
       if (disposed || controller.signal.aborted) return;
-      setError(errorText(error));
+      setError(errorMessage(error));
       initialized = false;
       setPageCount(0);
       controller.abort();

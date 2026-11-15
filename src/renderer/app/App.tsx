@@ -27,13 +27,14 @@ import { walkGroups } from '../workbench/layout-schema';
 import { importFromDialog } from '../workspace/entry-actions';
 import { onAgentEvent } from '../../modules/chat/view';
 import { useNoteDrafts } from '../../modules/note/view';
-import { errorText, useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../workspace/store';
 import { showToast } from './toasts';
 import { useNavigationStore } from '../navigation/view';
 import { useMobileDrawer } from '../lib/mobile-drawer';
 import { useNotificationCounts } from '../../modules/notifications/view';
 import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
+import { errorMessage } from '../../core/protocol/contract';
 
 /** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
  *  通用池（键 'general'）不入项目树，但保留镜像预热：会话标签标题解析（registry
@@ -213,7 +214,11 @@ export default function App() {
           onNavigate={(next) => void useNavigationStore.getState().navigate(next)}
           onZoomChange={(next) =>
             void changeZoom(next).catch((cause) =>
-              showToast({ variant: 'error', title: '调整缩放失败', description: errorText(cause) }),
+              showToast({
+                variant: 'error',
+                title: '调整缩放失败',
+                description: errorMessage(cause),
+              }),
             )
           }
           view={view}

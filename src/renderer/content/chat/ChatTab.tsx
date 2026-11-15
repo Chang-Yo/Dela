@@ -14,12 +14,13 @@ import { useChat, useChatDraft, type ChatReference } from './use-chat';
 import { referenceContext, sessionReferences } from './reference-tokens';
 import { useNavigationStore } from '../../navigation/view';
 import { poolKey, updateSession, useSessions } from '../../sessions/store';
-import { errorText, useWorkspaceStore } from '../../workspace/store';
+import { useWorkspaceStore } from '../../workspace/store';
 import { openTarget } from '../../workbench/open-target';
 import { showToast } from '../../app/toasts';
 import { reviewTabId } from '../review/tab-id';
 import { SidechatPanel } from './SidechatPanel';
 import { openSidechat, useSidechats } from './sidechat-store';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
 export function parseChatTabId(tabId: string): string | null {
@@ -222,7 +223,7 @@ const ChatSessionView = memo(function ChatSessionView({
           description: missing.length ? missing.join('、') : undefined,
         });
     } catch (error) {
-      showToast({ variant: 'error', title: '会话导出失败', description: errorText(error) });
+      showToast({ variant: 'error', title: '会话导出失败', description: errorMessage(error) });
     } finally {
       setExporting(false);
     }
@@ -348,7 +349,7 @@ const ChatSessionView = memo(function ChatSessionView({
                 navigation.openGeneralChat(true);
             })
             .catch((error) => {
-              showToast({ variant: 'error', title: '归档失败', description: errorText(error) });
+              showToast({ variant: 'error', title: '归档失败', description: errorMessage(error) });
             });
         }}
         onOpenChange={setSessionsOpen}

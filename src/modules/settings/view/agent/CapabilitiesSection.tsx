@@ -7,12 +7,12 @@ import { Input } from '../../../../ui/input';
 import { Switch } from '../../../../ui/switch';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
-import { errorText } from '../../../../renderer/workspace/store';
 import { showToast } from '../../../../renderer/app/toasts';
 import { SearchConfigDialog } from './SearchConfigDialog';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import { capabilitiesClient, onWebSearchChanged } from '../../../chat/view';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 /** 按领域聚拢能力（顺序取主进程返回的领域顺序，不依赖同名项相邻）。 */
 function groupByDomain(capabilities: AgentCapabilityView[]) {
@@ -112,7 +112,7 @@ export function CapabilitiesSection() {
     try {
       queryClient.setQueryData(['capabilities', 'builtin'], await operation());
     } catch (cause) {
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -235,7 +235,7 @@ export function CapabilitiesSection() {
               })}
             </div>
           )}
-          {list.error && <ErrorText>{errorText(list.error)}</ErrorText>}
+          {list.error && <ErrorText>{errorMessage(list.error)}</ErrorText>}
           {searchOpen && <SearchConfigDialog onClose={() => setSearchOpen(false)} />}
         </>
       )}

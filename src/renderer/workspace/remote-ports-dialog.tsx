@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Globe, RefreshCw, Square } from 'lucide-react';
 import { Button } from '../../ui/button';
 import type { RemotePortsState } from '../../modules/remotes/contract';
-import { errorText } from './store';
 import { workspaceClient } from '../../modules/workspace/view';
 import { ErrorText } from '../../ui/alert';
 import { Spinner } from '../../ui/spinner';
@@ -15,6 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../../ui/dialog';
+import { errorMessage } from '../../core/protocol/contract';
 
 export function RemotePortsDialog({
   projectId,
@@ -37,7 +37,7 @@ export function RemotePortsDialog({
       setState(await workspaceClient.remotePorts(projectId));
       setError(null);
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setWorking(false);
     }
@@ -54,7 +54,7 @@ export function RemotePortsDialog({
       await workspaceClient.openRemotePort({ projectId, port });
       await reload();
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusyPort(null);
     }
@@ -67,7 +67,7 @@ export function RemotePortsDialog({
       await workspaceClient.closeRemotePort({ projectId, port });
       await reload();
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusyPort(null);
     }

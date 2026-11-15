@@ -11,12 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../../ui/select';
-import { errorText, useWorkspaceStore } from '../../../workspace/store';
+import { useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { refreshSessionLists, useSessions, updateSession } from '../../../sessions/store';
 import { useNavigationStore } from '../../../navigation/view';
 import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { Callout, ErrorText } from '../../../../ui/alert';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 /** 项目筛选哨兵：Radix Select 不接受空串，「全部」与「随聊」（无项目）各用一个哨兵值。 */
 const allProjects = '__all__';
@@ -49,7 +50,7 @@ export function ArchivedSection() {
         if (active) setSessions(list);
       })
       .catch((cause) => {
-        if (active) setError(errorText(cause));
+        if (active) setError(errorMessage(cause));
       });
     return () => {
       active = false;
@@ -95,7 +96,7 @@ export function ArchivedSection() {
       showToast({
         variant: 'error',
         title: remove ? '删除失败' : '恢复失败',
-        description: errorText(cause),
+        description: errorMessage(cause),
       });
     } finally {
       setBusy(false);
@@ -115,7 +116,7 @@ export function ArchivedSection() {
       await refreshSessionLists();
       setConfirm(null);
     } catch (cause) {
-      showToast({ variant: 'error', title: '删除失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '删除失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }

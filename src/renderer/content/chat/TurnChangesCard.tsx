@@ -18,7 +18,7 @@ import { FileIcon, basenameOf, dirnameOf } from '../review/view-utils';
 import { fileManagerName } from '../../lib/platform';
 import { showToast } from '../../app/toasts';
 import { agentClient, chatClient } from '../../../modules/chat/view';
-import { errorText } from '../../workspace/store';
+import { errorMessage } from '../../../core/protocol/contract';
 
 // 冻结记录写后不变：按「会话:轮次」缓存读取，卡片随展开/收起与切标签重挂载时不重复走 IPC。
 const turnCache = new Map<string, Promise<TurnChanges | null>>();
@@ -63,7 +63,7 @@ const TurnFileRow = memo(function TurnFileRow({
 }) {
   const deleted = file.status === 'deleted';
   const fail = (cause: unknown) =>
-    showToast({ variant: 'error', title: '打开失败', description: errorText(cause) });
+    showToast({ variant: 'error', title: '打开失败', description: errorMessage(cause) });
   /** deleted 时必然解析失败，对应按钮已禁用。 */
   const openInDela = () => {
     void chatClient

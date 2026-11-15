@@ -12,11 +12,12 @@ import { parseRemoteNodeId } from '../../modules/remotes/contract';
 import { workspaceClient } from '../../modules/workspace/view';
 import { useNoteDrafts } from '../../modules/note/view';
 import { updateEntry, type EntryAction } from './entry-actions';
-import { errorText, useWorkspaceStore } from './store';
+import { useWorkspaceStore } from './store';
 import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';
 import { ErrorText } from '../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../ui/dialog';
 import { Field } from '../../ui/field';
+import { errorMessage } from '../../core/protocol/contract';
 
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
@@ -129,7 +130,7 @@ export function EntryDialogs({
       onOpenProject?.(created.id);
       onCreated?.(created);
     } catch (error) {
-      setModalError(errorText(error));
+      setModalError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -184,7 +185,7 @@ export function EntryDialogs({
         onCreated?.(created);
       }
     } catch (error) {
-      setModalError(errorText(error));
+      setModalError(errorMessage(error));
     } finally {
       setBusy(false);
     }

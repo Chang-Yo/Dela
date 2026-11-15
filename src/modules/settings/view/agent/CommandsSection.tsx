@@ -8,11 +8,11 @@ import type { ChatCommandView } from '../../../../core/protocol/agent';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
 import { settingsClient } from '../client';
-import { errorText } from '../../../../renderer/workspace/store';
 import { showToast } from '../../../../renderer/app/toasts';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
@@ -53,7 +53,7 @@ export function CommandsSection() {
       setEdited(null);
       showToast({ variant: 'success', title: '已保存' });
     } catch (cause) {
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     } finally {
       setInstructionBusy(false);
     }
@@ -66,7 +66,7 @@ export function CommandsSection() {
       await chatClient.deleteCommand(id);
       refresh();
     } catch (cause) {
-      showToast({ variant: 'error', title: '删除失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '删除失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -105,7 +105,9 @@ export function CommandsSection() {
                 {instructionBusy ? '保存中…' : '保存'}
               </Button>
             </div>
-            {instructionQuery.error && <ErrorText>{errorText(instructionQuery.error)}</ErrorText>}
+            {instructionQuery.error && (
+              <ErrorText>{errorMessage(instructionQuery.error)}</ErrorText>
+            )}
           </div>
           <div className="grid gap-2">
             <SettingsGroup
@@ -181,7 +183,7 @@ export function CommandsSection() {
                 </ul>
               )}
             </SettingsGroup>
-            {commandList.error && <ErrorText>{errorText(commandList.error)}</ErrorText>}
+            {commandList.error && <ErrorText>{errorMessage(commandList.error)}</ErrorText>}
           </div>
           {dialog && (
             <CommandFormDialog editing={dialog} onClose={() => setDialog(null)} onSaved={refresh} />
@@ -219,7 +221,7 @@ function CommandFormDialog({
       onSaved();
       onClose();
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }

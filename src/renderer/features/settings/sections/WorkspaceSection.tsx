@@ -3,9 +3,10 @@ import { Folder } from 'lucide-react';
 import type { WorkbenchLayout } from '../../../../shared/layout';
 import { Button } from '../../../../ui/button';
 import { SectionHeader, SettingRow, SettingsGroup } from '../../../../modules/settings/view';
-import { errorText, useWorkspaceStore } from '../../../workspace/store';
+import { useWorkspaceStore } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { workspaceClient } from '../../../../modules/workspace/view';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 /** 重置后的默认布局：单组空标签（workbench 的 createDefaultLayout 同构）。 */
 const defaultLayout: WorkbenchLayout = {
@@ -33,7 +34,7 @@ export function WorkspaceSection() {
       .chooseDirectory()
       .then(() => useWorkspaceStore.getState().refresh())
       .catch((cause) =>
-        showToast({ variant: 'error', title: '选择目录失败', description: errorText(cause) }),
+        showToast({ variant: 'error', title: '选择目录失败', description: errorMessage(cause) }),
       );
   };
 
@@ -46,7 +47,7 @@ export function WorkspaceSection() {
       setResetConfirm(false);
       showToast({ variant: 'success', title: '布局已重置', description: '下次进入该项目时生效。' });
     } catch (cause) {
-      showToast({ variant: 'error', title: '重置失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '重置失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Resizer } from '../../ui/resizer';
 import { useEditorSettings } from '../lib/editor-settings';
-import { errorText, useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../workspace/store';
 import { usePreferences } from '../app/preferences';
 import { showToast, ToastHost } from '../app/toasts';
 import { DelaBrand } from '../../modules/settings/view';
@@ -65,6 +65,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../ui/dialog';
+import { errorMessage } from '../../core/protocol/contract';
 
 /** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-slow ease-out';
@@ -276,7 +277,7 @@ export function AppShell({
         showToast({
           variant: 'error',
           title: '打开项目目录失败',
-          description: errorText(cause),
+          description: errorMessage(cause),
         });
       });
   };

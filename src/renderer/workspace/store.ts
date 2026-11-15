@@ -1,6 +1,7 @@
 // 条目树镜像。视图持久化在 workbench 布局，笔记草稿生命周期在 ./drafts.ts。
 import { create } from 'zustand';
 import { workspaceArchiveId, type WorkspaceEntry, type WorkspaceState } from '../../shared/api';
+import { errorMessage } from '../../core/protocol/contract';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 
 type Store = {
@@ -16,11 +17,6 @@ type Store = {
   refresh: (paths?: string[]) => Promise<void>;
   setError: (error: unknown) => void;
 };
-
-export const errorText = (error: unknown) =>
-  error instanceof Error
-    ? error.message.replace(/^Error invoking remote method '[^']+': Error: /, '')
-    : String(error);
 
 let loadPromise: Promise<void> | null = null;
 let refreshPromise: Promise<void> | null = null;
@@ -128,7 +124,7 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
   },
   loaded: false,
   error: null,
-  setError: (error) => set({ error: error === null ? null : errorText(error) }),
+  setError: (error) => set({ error: error === null ? null : errorMessage(error) }),
   load: () => {
     if (get().loaded || !window.dela) return Promise.resolve();
     if (!subscribedChanges) {
@@ -148,7 +144,7 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
           const workspace = await workspaceClient.state();
           set({ workspace, overview: workspace, loaded: true });
         } catch (cause) {
-          set({ error: errorText(cause) });
+          set({ error: errorMessage(cause) });
         }
       })().finally(() => {
         loadPromise = null;

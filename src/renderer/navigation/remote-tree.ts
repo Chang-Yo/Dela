@@ -9,9 +9,9 @@ import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 import { remoteAccent, useRemoteChannels } from '../../modules/remotes/view';
 import type { ExplorerItem } from '../../modules/workspace/view';
-import { errorText } from '../workspace/store';
 import { useRemoteActivity } from './remote-activity';
 import { useRemoteConnections } from './remote-connections';
+import { errorMessage } from '../../core/protocol/contract';
 
 /** 项目根的 path 可能带尾斜杠，远端子路径一律不带：统一后再作缓存与展开键。 */
 const trimSlash = (path: string) => path.replace(/\/+$/, '');
@@ -141,7 +141,7 @@ export function useRemoteTree(
           if (root && !signal.aborted) setPhase(projectId, 'ready');
           return items;
         } catch (cause) {
-          const reason = `读取失败 ${path}：${errorText(cause)}`;
+          const reason = `读取失败 ${path}：${errorMessage(cause)}`;
           if (root && !signal.aborted) setPhase(projectId, 'failed', reason);
           throw new Error(reason);
         }

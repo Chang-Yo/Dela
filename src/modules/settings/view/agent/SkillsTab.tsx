@@ -11,7 +11,7 @@ import { Button } from '../../../../ui/button';
 import { DownloadProgressRow } from '../../../../ui/download-progress';
 import { Switch } from '../../../../ui/switch';
 import { SegmentedControl } from '../../../../ui/segmented-control';
-import { errorText, useWorkspaceStore } from '../../../../renderer/workspace/store';
+import { useWorkspaceStore } from '../../../../renderer/workspace/store';
 import { showToast } from '../../../../renderer/app/toasts';
 import { cn } from '../../../../ui/cn';
 import { SectionHeader } from '../SectionHeader';
@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from '../../../../ui/dialog';
 import { capabilitiesClient } from '../../../chat/view';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 const ORIGINS = ['builtin', 'user', 'project'] as const;
 const ORIGIN_LABELS: Record<SkillOrigin, string> = {
@@ -114,7 +115,7 @@ export function SkillsTab() {
     if (!window.dela || installing) return;
     install.mutate(skill.name, {
       onError: (cause) =>
-        showToast({ variant: 'error', title: '组件安装未完成', description: errorText(cause) }),
+        showToast({ variant: 'error', title: '组件安装未完成', description: errorMessage(cause) }),
     });
   };
 
@@ -124,7 +125,7 @@ export function SkillsTab() {
     try {
       await capabilitiesClient.cancelSkillInstallation(name);
     } catch (cause) {
-      showToast({ variant: 'error', title: '取消失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '取消失败', description: errorMessage(cause) });
     }
   };
 
@@ -140,7 +141,7 @@ export function SkillsTab() {
       setSkills(await capabilitiesClient.setSkillEnabled({ id: skill.id, enabled: next }));
     } catch (cause) {
       setSkills(previous);
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -148,11 +149,13 @@ export function SkillsTab() {
 
   // 目录可能已被删除，reveal 失败要经 toast 提示。
   const reveal = (skill: SkillView) => {
-    void capabilitiesClient
-      .revealSkill(skill.id)
-      .catch((cause) =>
-        showToast({ variant: 'error', title: '打开所在位置失败', description: errorText(cause) }),
-      );
+    void capabilitiesClient.revealSkill(skill.id).catch((cause) =>
+      showToast({
+        variant: 'error',
+        title: '打开所在位置失败',
+        description: errorMessage(cause),
+      }),
+    );
   };
 
   if (!window.dela) {
@@ -314,7 +317,7 @@ export function SkillsTab() {
           </ul>
         </SettingsGroup>
       ))}
-      {list.error && <ErrorText>{errorText(list.error)}</ErrorText>}
+      {list.error && <ErrorText>{errorMessage(list.error)}</ErrorText>}
       {viewing && (
         <SkillContentView
           onClose={() => setViewing(null)}
@@ -366,7 +369,7 @@ function SkillContentView({
               {content}
             </pre>
           )}
-          {error && <ErrorText>{errorText(error)}</ErrorText>}
+          {error && <ErrorText>{errorMessage(error)}</ErrorText>}
         </div>
         <div className="mt-3 flex items-center justify-end gap-2">
           <Button onClick={onReveal} size="sm" variant="ghost">
@@ -405,7 +408,7 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
       );
       setConflict(false);
     } catch (cause) {
-      const message = errorText(cause);
+      const message = errorMessage(cause);
       const exists = message.startsWith(REMOTE_EXISTS_PREFIX);
       setConflict(exists);
       if (!exists) showToast({ variant: 'error', title: '上传失败', description: message });

@@ -12,10 +12,10 @@ import {
 } from '../../../../modules/settings/contract';
 import { useShortcuts } from '../../../app/shortcuts';
 import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
-import { errorText } from '../../../workspace/store';
 import { showToast } from '../../../app/toasts';
 import { platform } from '../../../lib/platform';
 import { ErrorText } from '../../../../ui/alert';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 /** 键位串 → 可读文本（错误提示用）。 */
 function acceleratorText(accelerator: string | null, family?: 'digit'): string {
@@ -56,7 +56,7 @@ export function ShortcutsSection() {
           shortcutActions.find((item) => item.id === id)?.defaultKeys === accelerator
             ? '恢复默认失败'
             : '保存快捷键失败',
-        description: errorText(cause),
+        description: errorMessage(cause),
       });
     } finally {
       setBusy(false);
@@ -115,7 +115,7 @@ export function ShortcutsSection() {
                   showToast({
                     variant: 'error',
                     title: '恢复默认失败',
-                    description: errorText(cause),
+                    description: errorMessage(cause),
                   }),
                 )
                 .finally(() => setBusy(false));

@@ -30,7 +30,6 @@ import {
 } from '../../../../core/protocol/llm-models';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
-import { errorText } from '../../../../renderer/workspace/store';
 import { showToast } from '../../../../renderer/app/toasts';
 import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
@@ -44,6 +43,7 @@ import {
 } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
 import { llmClient } from '../../../chat/view';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
@@ -372,7 +372,7 @@ export function LlmSection() {
       await operation();
       void queryClient.invalidateQueries({ queryKey: ['llm', 'providers'] });
     } catch (cause) {
-      showToast({ variant: 'error', title: '供应商操作失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '供应商操作失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -485,7 +485,7 @@ export function LlmSection() {
           </SettingsGroup>
         ) : null}
       </div>
-      {loadError && <ErrorText>{errorText(loadError)}</ErrorText>}
+      {loadError && <ErrorText>{errorMessage(loadError)}</ErrorText>}
     </div>
   );
 }
@@ -542,7 +542,7 @@ function ProviderDetail({
     mutationFn: (input: LlmVerifyInput) =>
       llmClient
         .verify(input)
-        .catch((cause): LlmVerifyResult => ({ ok: false, message: errorText(cause) })),
+        .catch((cause): LlmVerifyResult => ({ ok: false, message: errorMessage(cause) })),
   });
   const verifying = verifyConnection.isPending;
   const verifyResult = verifyConnection.data ?? null;
@@ -653,7 +653,7 @@ function ProviderDetail({
         settings: inputs.settings,
       });
     } catch (cause) {
-      result = { ok: false, message: errorText(cause) };
+      result = { ok: false, message: errorMessage(cause) };
     }
     setModelChecks((current) => {
       const check = current[id];
@@ -685,7 +685,7 @@ function ProviderDetail({
       if (d.apiKey) setApiKey((current) => (current === d.apiKey ? '' : current));
       onSaved(saved);
     } catch (cause) {
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     }
   };
 
@@ -705,7 +705,7 @@ function ProviderDetail({
       // 新建即启用；创建成功切换到该提供商的编辑态（组件按 id 重挂载，无需手动同步字段）。
       onSaved(saved);
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setSaving(false);
     }

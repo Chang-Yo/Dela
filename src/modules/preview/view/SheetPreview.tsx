@@ -3,9 +3,9 @@ import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../../renderer/workspace/store';
 import { usePinchZoom } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/alert';
+import { errorMessage } from '../../../core/protocol/contract';
 
 // 单工作表最多解析的行数：防超大表同步渲染冻结 renderer。
 const SHEET_ROW_LIMIT = 2000;
@@ -84,7 +84,7 @@ export function SheetPreview({ url }: { url: string }) {
   });
   const sheets = workbook.data ?? [];
   const loaded = workbook.isSuccess;
-  const error = workbook.isError && !workbook.isFetching ? errorText(workbook.error) : '';
+  const error = workbook.isError && !workbook.isFetching ? errorMessage(workbook.error) : '';
   const step = (direction: number) =>
     setZoom((value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value + direction * ZOOM_STEP)));
   const current = sheets[active];

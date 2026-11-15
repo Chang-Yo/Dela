@@ -17,8 +17,8 @@ import { SectionHeader } from './SectionHeader';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';
-import { errorText } from '../../../renderer/workspace/store';
 import { showToast } from '../../../renderer/app/toasts';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const themes: Array<{ id: ThemePreference; label: string }> = [
   { id: 'light', label: '浅色' },
@@ -75,7 +75,7 @@ function useOptionSave() {
     try {
       await operation();
     } catch (cause) {
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }

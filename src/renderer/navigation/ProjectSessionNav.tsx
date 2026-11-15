@@ -34,7 +34,7 @@ import { fileManagerName } from '../lib/platform';
 import type { WorkspaceEntry } from '../../shared/api';
 import { remoteAccent } from '../../modules/remotes/view';
 import { useVisibleNavEntries, type NavEntryId } from './entries';
-import { errorText, useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { SessionRow, type NavSessionSummary, type SessionRunBadge } from './SessionRow';
 import { usePreferences } from '../app/preferences';
@@ -57,6 +57,7 @@ import {
   DialogFooter,
   DialogTitle,
 } from '../../ui/dialog';
+import { errorMessage } from '../../core/protocol/contract';
 
 export type { NavSessionSummary, SessionRunBadge };
 
@@ -153,7 +154,7 @@ export function ProjectSessionNav({
     try {
       await action();
     } catch (cause) {
-      showToast({ variant: 'error', title, description: errorText(cause) });
+      showToast({ variant: 'error', title, description: errorMessage(cause) });
     }
   };
   const hidden = cn('truncate', labelFade, collapsed && 'opacity-0');

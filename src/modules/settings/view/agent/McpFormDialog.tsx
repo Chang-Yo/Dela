@@ -4,12 +4,12 @@ import { Input } from '../../../../ui/input';
 import { Textarea } from '../../../../ui/textarea';
 import { SegmentedControl } from '../../../../ui/segmented-control';
 import type { McpServerView, McpTransportConfig } from '../../../../core/protocol/capabilities';
-import { errorText } from '../../../../renderer/workspace/store';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
 import { ErrorText } from '../../../../ui/alert';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
 import { capabilitiesClient } from '../../../chat/view';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
 
@@ -65,7 +65,7 @@ export function McpFormDialog({
       onSaved(views);
       onClose();
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }

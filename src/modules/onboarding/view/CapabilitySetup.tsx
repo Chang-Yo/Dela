@@ -5,10 +5,10 @@ import type { SkillView } from '../../../core/protocol/capabilities';
 import { ToastCard } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { DownloadProgressRow } from '../../../ui/download-progress';
-import { errorText } from '../../../renderer/workspace/store';
 import { StepButton } from './step-controls';
 import { ErrorText } from '../../../ui/alert';
 import { capabilitiesClient } from '../../chat/view';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const skillsQueryKey = ['onboarding', 'skills'];
 
@@ -34,7 +34,7 @@ export function CapabilitySetup({
         : false,
   });
   const skills = skillsQuery.data ?? null;
-  const error = actionError ?? (skillsQuery.error ? errorText(skillsQuery.error) : null);
+  const error = actionError ?? (skillsQuery.error ? errorMessage(skillsQuery.error) : null);
 
   const enable = async (skill: SkillView) => {
     if (busy || !window.dela) return;
@@ -48,7 +48,7 @@ export function CapabilitySetup({
           : await capabilitiesClient.installSkillDependencies(skill.name);
       queryClient.setQueryData(skillsQueryKey, next);
     } catch (cause) {
-      if (!cancelRequested.current) setActionError(errorText(cause));
+      if (!cancelRequested.current) setActionError(errorMessage(cause));
       await skillsQuery.refetch();
     } finally {
       setBusy(null);
@@ -61,7 +61,7 @@ export function CapabilitySetup({
       await capabilitiesClient.cancelSkillInstallation(name);
     } catch (cause) {
       cancelRequested.current = false;
-      setActionError(errorText(cause));
+      setActionError(errorMessage(cause));
     }
   };
 

@@ -5,8 +5,8 @@ import type { WorkspaceChat } from '../../../shared/api';
 import type { GeneralChatPulse } from '../../navigation/view';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
-import { errorText } from '../../workspace/store';
 import { ChatTab } from './ChatTab';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /**
  * 首页要打开的会话，优先级：指定历史 > 显式新对话 > 上次停留的会话 > 未发送的空会话 > 新建。
@@ -58,7 +58,7 @@ export function ChatHome() {
           .catch(() => {});
       })
       .catch((cause) => {
-        if (active) setError(errorText(cause));
+        if (active) setError(errorMessage(cause));
       });
     return () => {
       active = false;

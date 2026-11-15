@@ -33,7 +33,7 @@ import { purgeRemovedEntries } from './removed-cleanup';
 import { Workbench } from './Workbench';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
 import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
-import { errorText, useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../workspace/store';
 import { ancestorChainOf, useNavigationStore as useTreeState } from '../navigation/store';
 import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from '../navigation/view';
@@ -46,6 +46,7 @@ import { openTarget } from './open-target';
 import { ErrorText } from '../../ui/alert';
 import { referenceQueries, sourceOf, sourceOfLink } from '../../app/views';
 import { workspaceClient } from '../../modules/workspace/view';
+import { errorMessage } from '../../core/protocol/contract';
 
 /** TabId → 旧文档键（entryId 或 source:{sourceId}）；chat 无对应文档。 */
 function tabDocumentKey(tabId: TabId | null): string | null {
@@ -310,7 +311,11 @@ export function WorkbenchShell({ home = false }: { home?: boolean }) {
           .getState()
           .refresh()
           .catch((cause) =>
-            showToast({ variant: 'error', title: '刷新目录失败', description: errorText(cause) }),
+            showToast({
+              variant: 'error',
+              title: '刷新目录失败',
+              description: errorMessage(cause),
+            }),
           );
       },
     };

@@ -6,12 +6,13 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import type { RemoteConnection, RemoteDraft } from '../contract';
-import { errorText, useWorkspaceStore } from '../../../renderer/workspace/store';
+import { useWorkspaceStore } from '../../../renderer/workspace/store';
 import { remotesClient } from './client';
 import { refreshRemoteConnections } from './remote-state';
 import { Callout, ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Field } from '../../../ui/field';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** 端口上限与 ssh 自身一致；空串表示交给 ssh 按 config 解析。 */
 const MAX_PORT = 65535;
@@ -84,7 +85,7 @@ export function ConnectionForm({
       await refreshRemoteConnections(queryClient);
       onSaved(saved);
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -106,7 +107,7 @@ export function ConnectionForm({
       }
       onRemoved?.(connection.id);
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -118,7 +119,7 @@ export function ConnectionForm({
       const picked = await remotesClient.pickKey();
       if (picked) setKeyPath(picked);
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     }
   };
 

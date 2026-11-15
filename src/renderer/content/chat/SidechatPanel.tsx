@@ -22,7 +22,6 @@ import { showToast } from '../../app/toasts';
 import { cn } from '../../../ui/cn';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
-import { errorText } from '../../workspace/store';
 import { ChatComposer } from './ChatComposer';
 import { ChatThread } from './ChatThread';
 import type { ReferenceSource } from './chat-source';
@@ -31,6 +30,7 @@ import { referenceContext } from './reference-tokens';
 import { releaseChatMedia } from './media';
 import { sidechatDraftKey, useSidechats } from './sidechat-store';
 import { canSendInput } from './use-chat';
+import { errorMessage } from '../../../core/protocol/contract';
 
 // 只有新建的旁问从右边界滑入；切走标签再回来、从胶囊展开都不再滑入。
 const entered = new Set<string>();
@@ -95,7 +95,7 @@ export function SidechatPanel({
       for (const ref of references)
         if (!ref.key.startsWith('source:')) await referenceSource?.flushReference?.(ref.key);
     } catch (e) {
-      setError(errorText(e));
+      setError(errorMessage(e));
       return;
     }
     const sent = attachments;
@@ -114,7 +114,7 @@ export function SidechatPanel({
         }),
       );
     } catch (e) {
-      setError(errorText(e));
+      setError(errorMessage(e));
       // 旁问还没上屏就失败（附件读取、模型不可用）：恢复输入，免得重打。
       if (
         !useSidechats
@@ -146,7 +146,7 @@ export function SidechatPanel({
         useNavigationStore.getState().openChat(chat.sessionId!, chat.projectId);
       })
       .catch((e) =>
-        showToast({ variant: 'error', title: '保留旁问失败', description: errorText(e) }),
+        showToast({ variant: 'error', title: '保留旁问失败', description: errorMessage(e) }),
       );
   };
 

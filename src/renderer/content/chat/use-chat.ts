@@ -21,7 +21,6 @@ import { showToast } from '../../app/toasts';
 import { useNavigationStore } from '../../navigation/view';
 import { useSessions } from '../../sessions/store';
 import { runBadge, useRuns } from '../../sessions/runs';
-import { errorText } from '../../workspace/store';
 import {
   emptyDraft,
   registerChatAttachmentCheck,
@@ -31,6 +30,7 @@ import {
 import type { ReferenceSource } from './chat-source';
 import { releaseChatMedia } from './media';
 import { openSidechat } from './sidechat-store';
+import { errorMessage } from '../../../core/protocol/contract';
 
 export type { ChatReference };
 
@@ -116,7 +116,7 @@ export function useChat(
         if (active) useSessions.getState().putChat(sessionId, value);
       })
       .catch((e) => {
-        if (active) setError(errorText(e));
+        if (active) setError(errorMessage(e));
       });
     return () => {
       active = false;
@@ -200,7 +200,7 @@ export function useChat(
         }
       }
     } catch (e) {
-      showToast({ variant: 'error', title: '发送失败', description: errorText(e) });
+      showToast({ variant: 'error', title: '发送失败', description: errorMessage(e) });
       return;
     }
     setPending((count) => count + 1);
@@ -221,7 +221,7 @@ export function useChat(
     } catch (e) {
       // ask 抛错前 run 的终态推送已更新镜像：结果照常写共享缓存，其他入口不受影响。
       if (activeSession.current === requested) {
-        setError(errorText(e));
+        setError(errorMessage(e));
         // 消息未上屏（未配置模型、引用读取失败等发生在持久化前）时恢复输入，避免重打。
         const fresh = await agentClient['open-session']({ sessionId: requested }).catch(() => null);
         if (fresh) useSessions.getState().putChat(requested, fresh);
@@ -276,7 +276,7 @@ export function useChat(
       }
     } catch (e) {
       if (activeSession.current === requested) {
-        setError(errorText(e));
+        setError(errorMessage(e));
         updateDraft(requested, { prompt: text });
       }
     } finally {
@@ -308,12 +308,14 @@ export function useChat(
     const requested = sessionId;
     void agentClient['withdraw-queued']({ sessionId: requested })
       .then((queued) => restoreQueued(requested, queued))
-      .catch((e) => showToast({ variant: 'error', title: '撤回失败', description: errorText(e) }));
+      .catch((e) =>
+        showToast({ variant: 'error', title: '撤回失败', description: errorMessage(e) }),
+      );
   };
 
   const stopTask = (taskId: string) => {
     void agentClient['stop-task']({ sessionId, taskId }).catch((e) =>
-      showToast({ variant: 'error', title: '停止失败', description: errorText(e) }),
+      showToast({ variant: 'error', title: '停止失败', description: errorMessage(e) }),
     );
   };
 
@@ -338,7 +340,7 @@ export function useChat(
         if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
       } catch (e) {
         if (activeSession.current === requested)
-          showToast({ variant: 'error', title: '重新生成失败', description: errorText(e) });
+          showToast({ variant: 'error', title: '重新生成失败', description: errorMessage(e) });
       } finally {
         if (activeSession.current === requested) setPending((count) => Math.max(0, count - 1));
       }
@@ -364,7 +366,7 @@ export function useChat(
     void agentClient['set-model']({ sessionId, providerId: provider.id, model })
       .then(() => refresh())
       .catch((e) =>
-        showToast({ variant: 'error', title: '切换模型失败', description: errorText(e) }),
+        showToast({ variant: 'error', title: '切换模型失败', description: errorMessage(e) }),
       );
   };
 
@@ -374,7 +376,7 @@ export function useChat(
     void agentClient['set-effort']({ sessionId, level })
       .then(() => refresh())
       .catch((e) =>
-        showToast({ variant: 'error', title: '切换思考强度失败', description: errorText(e) }),
+        showToast({ variant: 'error', title: '切换思考强度失败', description: errorMessage(e) }),
       );
   };
 
@@ -389,7 +391,7 @@ export function useChat(
           useNavigationStore.getState().openChat(forked.sessionId!, forked.projectId);
         })
         .catch((e) =>
-          showToast({ variant: 'error', title: '分支失败', description: errorText(e) }),
+          showToast({ variant: 'error', title: '分支失败', description: errorMessage(e) }),
         );
     },
     [sessionId],

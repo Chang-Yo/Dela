@@ -4,9 +4,10 @@ import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } f
 import type { WorkspaceEntry } from '../../../shared/api';
 import { useNavigationStore } from '../../navigation/view';
 import { showToast } from '../../app/toasts';
-import { errorText, useWorkspaceStore } from '../../workspace/store';
+import { useWorkspaceStore } from '../../workspace/store';
 import type { ComposerContext } from './composer-context';
 import { workspaceClient } from '../../../modules/workspace/view';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const pill =
   'flex h-7 min-w-0 max-w-[15rem] items-center gap-1.5 rounded-control border border-line bg-surface px-2 text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink';
@@ -95,7 +96,7 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
         showToast({
           variant: 'error',
           title: '切换分支失败',
-          description: errorText(error),
+          description: errorMessage(error),
         }),
       );
   };

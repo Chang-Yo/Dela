@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 
 import { Button } from '../../../ui/button';
 import { showToast } from '../../../renderer/app/toasts';
-import { errorText } from '../../../renderer/workspace/store';
 import { parseRemoteNodeId, type TabId } from '../../workspace/contract';
 import { workspaceClient } from '../../workspace/view';
 import { DocumentToolbar } from './document-toolbar';
@@ -12,6 +11,7 @@ import { rememberNoteMode, rememberNoteScroll, useNoteViewMemory } from './view-
 import { markdownImageInsert } from './live-preview';
 import { Spinner } from '../../../ui/spinner';
 import { ConfirmDialog } from '../../../ui/dialog';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** Markdown 文件的图片粘贴/拖入：落盘到同目录 assets/，插入相对路径引用。 */
 const imageInsert = (entryId: string) =>
@@ -25,7 +25,7 @@ const imageInsert = (entryId: string) =>
       });
     },
     (cause) =>
-      showToast({ variant: 'error', title: '插入图片失败', description: errorText(cause) }),
+      showToast({ variant: 'error', title: '插入图片失败', description: errorMessage(cause) }),
   );
 
 export function parseNoteTabId(tabId: string): string | null {
@@ -53,7 +53,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
     setFailure(null);
     void source
       .acquire(id, true)
-      .catch((cause) => setFailure({ entryId: id, message: errorText(cause) }));
+      .catch((cause) => setFailure({ entryId: id, message: errorMessage(cause) }));
   };
   const unsaved = draft !== undefined && (draft.saving || draft.text !== draft.saved);
 
@@ -61,7 +61,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
     if (entryId === null) return;
     void source
       .acquire(entryId)
-      .catch((cause) => setFailure({ entryId, message: errorText(cause) }));
+      .catch((cause) => setFailure({ entryId, message: errorMessage(cause) }));
     // 卸载即释放引用：草稿先冲盘，最后一个引用才移除（note/drafts 语义）。
     return () => void source.release(entryId);
   }, [entryId, source]);
@@ -106,11 +106,13 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         <Button
           variant="secondary"
           onClick={() =>
-            void workspaceClient
-              .openFile(entryId)
-              .catch((cause) =>
-                showToast({ variant: 'error', title: '打开失败', description: errorText(cause) }),
-              )
+            void workspaceClient.openFile(entryId).catch((cause) =>
+              showToast({
+                variant: 'error',
+                title: '打开失败',
+                description: errorMessage(cause),
+              }),
+            )
           }
         >
           用默认程序打开
@@ -127,7 +129,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         showToast({
           variant: 'error',
           title: '打开所在文件夹失败',
-          description: errorText(cause),
+          description: errorMessage(cause),
         }),
       );
   };

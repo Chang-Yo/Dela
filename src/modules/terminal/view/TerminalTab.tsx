@@ -7,11 +7,11 @@ import { onTerminalEvent, terminalClient } from './client';
 import { useTerminalStore } from './store';
 import { showToast } from '../../../renderer/app/toasts';
 import { Button } from '../../../ui/button';
-import { errorText } from '../../../renderer/workspace/store';
 import { cn } from '../../../ui/cn';
 import { platform } from '../../../renderer/lib/platform';
 import '@xterm/xterm/css/xterm.css';
 import { ErrorText } from '../../../ui/alert';
+import { errorMessage } from '../../../core/protocol/contract';
 
 // xterm 的配色解析器不支持 oklch；借浏览器画布转换现有主题 token。
 function terminalColor(value: string): string {
@@ -53,7 +53,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
     try {
       await useTerminalStore.getState().create(projectId);
     } catch (cause) {
-      showToast({ variant: 'error', title: '新建终端失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '新建终端失败', description: errorMessage(cause) });
     } finally {
       setCreating(false);
     }
@@ -73,7 +73,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
   });
   const busy = desktop && (opened.isPending || creating);
   const error = desktop
-    ? (reported ?? (opened.error ? errorText(opened.error) : null))
+    ? (reported ?? (opened.error ? errorMessage(opened.error) : null))
     : '内置终端仅在桌面应用中可用';
 
   const copy = async () => {
@@ -82,7 +82,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
     try {
       await navigator.clipboard.writeText(text);
     } catch (cause) {
-      showToast({ variant: 'error', title: '复制失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '复制失败', description: errorMessage(cause) });
     }
   };
   const paste = async () => {
@@ -94,7 +94,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
       current.paste(text);
       current.focus();
     } catch (cause) {
-      showToast({ variant: 'error', title: '粘贴失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '粘贴失败', description: errorMessage(cause) });
     }
   };
 
@@ -149,7 +149,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
       }
       return true;
     });
-    const reportError = (cause: unknown) => setReported(errorText(cause));
+    const reportError = (cause: unknown) => setReported(errorMessage(cause));
     const resize = () => {
       if (!element.clientWidth || !element.clientHeight) return;
       fit.fit();
@@ -207,7 +207,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
     try {
       await useTerminalStore.getState().close(projectId, id);
     } catch (cause) {
-      showToast({ variant: 'error', title: '关闭终端失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '关闭终端失败', description: errorMessage(cause) });
     }
   };
 

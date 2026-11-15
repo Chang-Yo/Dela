@@ -6,8 +6,8 @@ import { formatBytes } from '../../../ui/format-bytes';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';
-import { errorText } from '../../../renderer/workspace/store';
 import { showToast } from '../../../renderer/app/toasts';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /**
  * 通用 › 缓存占用：占用量跟在标题后面（Chromium 的可再生缓存，本机实测数百 MB），右侧只放动作。
@@ -41,7 +41,7 @@ export function CacheUsage() {
         description: result.blocked ? '部分文件正被占用，重启应用后可再清除。' : undefined,
       });
     } catch (cause) {
-      showToast({ variant: 'error', title: '清除缓存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '清除缓存失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }

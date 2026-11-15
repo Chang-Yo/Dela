@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CircleCheck, CircleX, Eye, EyeOff, ListPlus, PlugZap } from 'lucide-react';
 import { DesktopOnlyNotice } from '../../../../ui/desktop-only-notice';
 import { SelectItem } from '../../../../ui/select';
-import { errorText } from '../../../../renderer/workspace/store';
 import { StepButton, StepSelect, type StepButtonState } from '../step-controls';
 import { StepGuide } from '../step-guide';
 import { StepModelImportDialog } from './step-model-import';
@@ -16,6 +15,7 @@ import { IconButton } from '../../../../ui/icon-button';
 import { Button } from '../../../../ui/button';
 import { Input } from '../../../../ui/input';
 import { llmClient } from '../../../chat/view';
+import { errorMessage } from '../../../../core/protocol/contract';
 
 const CUSTOM = 'custom';
 
@@ -89,7 +89,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
           : await llmClient.verify({ baseUrl: baseUrl.trim(), apiKey: apiKey || undefined }),
       );
     } catch (cause) {
-      setVerifyResult({ ok: false, message: errorText(cause) });
+      setVerifyResult({ ok: false, message: errorMessage(cause) });
     } finally {
       setVerifyBusy(false);
     }
@@ -128,7 +128,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
       );
       setState('success');
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
       setState('idle');
     }
   };

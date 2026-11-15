@@ -10,7 +10,7 @@ import { parseReviewTabId } from './tab-id';
 import { UncommittedReview } from './UncommittedReview';
 import { Centered, STATUS_TEXT, basenameOf, dirnameOf } from './view-utils';
 import { DiffView } from './DiffView';
-import { errorText } from '../../workspace/store';
+import { errorMessage } from '../../../core/protocol/contract';
 
 export function ReviewTab({ tabId }: { tabId: TabId; groupId: string }) {
   const target = parseReviewTabId(tabId);
@@ -44,7 +44,7 @@ function TurnFileReview({
         if (active) setDetail(value);
       })
       .catch((cause: unknown) => {
-        if (active) setError(errorText(cause));
+        if (active) setError(errorMessage(cause));
       });
     return () => {
       active = false;

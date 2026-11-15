@@ -6,13 +6,14 @@ import { leaveComposer } from '../../modules/mail/view';
 import { ancestorChainOf } from './store';
 import type { SettingsSectionId } from '../../modules/settings/contract';
 import type { TabId } from '../../shared/layout';
-import { errorText, useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../workspace/store';
 import { formatByName, opensInEditor } from '../../core/protocol/files';
 import { parseRemoteNodeId } from '../../modules/remotes/contract';
 import { useSessions } from '../sessions/store';
 import { showToast } from '../app/toasts';
 import type { NavTarget, NavTargets } from '../../app/module';
 import { pageOf } from '../../app/views';
+import { errorMessage } from '../../core/protocol/contract';
 
 /** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
 export type ShellView = 'home' | 'workbench' | 'settings';
@@ -261,7 +262,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         else revealInProject(`chat:${chat.sessionId}`, projectId);
         return chat.sessionId;
       } catch (cause) {
-        showToast({ variant: 'error', title: '新建会话失败', description: errorText(cause) });
+        showToast({ variant: 'error', title: '新建会话失败', description: errorMessage(cause) });
         return null;
       }
     },

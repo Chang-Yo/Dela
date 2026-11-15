@@ -8,9 +8,9 @@ import { Switch } from '../../../ui/switch';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';
-import { errorText } from '../../../renderer/workspace/store';
 import { showToast } from '../../../renderer/app/toasts';
 import { ErrorText } from '../../../ui/alert';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** 暂停期限选项与通知中心一致（同一份 workspace_settings 暂停状态）。 */
 function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
@@ -57,7 +57,7 @@ export function SystemNotifications() {
       );
     } catch (cause) {
       queryClient.setQueryData(['settings', 'campusNotifications'], previous);
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -75,7 +75,7 @@ export function SystemNotifications() {
       queryClient.setQueryData(['settings', 'taskNotifications'], saved);
     } catch (cause) {
       queryClient.setQueryData(['settings', 'taskNotifications'], previous);
-      showToast({ variant: 'error', title: '保存失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }
@@ -90,7 +90,7 @@ export function SystemNotifications() {
       showToast({
         variant: 'error',
         title: until === null ? '恢复通知失败' : '暂停通知失败',
-        description: errorText(cause),
+        description: errorMessage(cause),
       });
     } finally {
       setBusy(false);
@@ -184,7 +184,7 @@ export function SystemNotifications() {
           </div>
         </SettingRow>
       </SettingsGroup>
-      {loadError && <ErrorText>{errorText(loadError)}</ErrorText>}
+      {loadError && <ErrorText>{errorMessage(loadError)}</ErrorText>}
     </div>
   );
 }

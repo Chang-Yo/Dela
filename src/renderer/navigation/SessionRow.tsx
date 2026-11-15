@@ -7,10 +7,10 @@ import { cn } from '../../ui/cn';
 import { menuPanel } from '../../ui/menu-styles';
 import { useSessionRunStatus } from '../sessions/runs';
 import { updateSession } from '../sessions/store';
-import { errorText } from '../workspace/store';
 import { showToast } from '../app/toasts';
 import { navSubRow, rowActions } from './nav-styles';
 import { IconButton } from '../../ui/icon-button';
+import { errorMessage } from '../../core/protocol/contract';
 
 export interface NavSessionSummary {
   id: string;
@@ -80,7 +80,7 @@ export function SessionRow({
       if (archive) await onDelete?.(session.id);
       else await updateSession(session.id, { pinned: !session.pinned });
     } catch (cause) {
-      showToast({ variant: 'error', title: '会话操作失败', description: errorText(cause) });
+      showToast({ variant: 'error', title: '会话操作失败', description: errorMessage(cause) });
     } finally {
       setBusy(false);
     }

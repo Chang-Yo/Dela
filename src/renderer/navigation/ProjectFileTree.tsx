@@ -34,11 +34,12 @@ import type { EntryAction } from '../workspace/entry-actions';
 import { remoteAccent } from '../../modules/remotes/view';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../app/toasts';
-import { errorText, useWorkspaceStore } from '../workspace/store';
+import { useWorkspaceStore } from '../workspace/store';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 import { ErrorText } from '../../ui/alert';
 import { Spinner } from '../../ui/spinner';
 import { IconButton } from '../../ui/icon-button';
+import { errorMessage } from '../../core/protocol/contract';
 
 export type { EntryAction };
 
@@ -134,7 +135,7 @@ export function ProjectFileTree({
         },
         (error) => {
           if (live) {
-            setLocalError(errorText(error));
+            setLocalError(errorMessage(error));
             setSearching(false);
           }
         },
@@ -182,7 +183,7 @@ export function ProjectFileTree({
     for (const id of ownedDirectories.current) if (!next.has(id)) store.releaseDirectory(id);
     ownedDirectories.current = next;
     for (const id of next)
-      void store.ensureDirectory(id).catch((error) => setLocalError(errorText(error)));
+      void store.ensureDirectory(id).catch((error) => setLocalError(errorMessage(error)));
   }, [directoriesKey]);
   useEffect(
     () => () => {
@@ -217,7 +218,7 @@ export function ProjectFileTree({
   /** 条目级文件动作：失败统一走浮窗，不打断文件树。 */
   const runFileCommand = (title: string, command: () => Promise<void> | undefined) => {
     void Promise.resolve(command()).catch((cause: unknown) =>
-      showToast({ variant: 'error', title, description: errorText(cause) }),
+      showToast({ variant: 'error', title, description: errorMessage(cause) }),
     );
   };
   // 打开的项目工作台里项目行本身不在 visible（只有它的子条目在），远程根要单独带上。

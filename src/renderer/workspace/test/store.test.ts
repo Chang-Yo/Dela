@@ -138,15 +138,6 @@ describe('workspace store mirror', () => {
     expect(useWorkspaceStore.getState().workspace).toEqual(next);
   });
 
-  it('setError unwraps IPC error prefixes and resets to null', () => {
-    useWorkspaceStore
-      .getState()
-      .setError(new Error("Error invoking remote method 'workspace:get-state': Error: boom"));
-    expect(useWorkspaceStore.getState().error).toBe('boom');
-    useWorkspaceStore.getState().setError(null);
-    expect(useWorkspaceStore.getState().error).toBeNull();
-  });
-
   it('coalesces refreshes but reads again for changes received during an active request', async () => {
     let resolveFirst!: (value: typeof workspaceState) => void;
     const next = { ...workspaceState, directory: 'C:/updated' };

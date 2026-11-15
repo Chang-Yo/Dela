@@ -15,7 +15,7 @@ import type {
   SshConfigHost,
 } from '../../../modules/remotes/contract';
 import { usePreferences } from '../../app/preferences';
-import { errorText, useWorkspaceStore } from '../store';
+import { useWorkspaceStore } from '../store';
 import { workspaceClient } from '../../../modules/workspace/view';
 import {
   ConnectionForm,
@@ -36,6 +36,7 @@ import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Dialog, DialogContent, DialogTitle } from '../../../ui/dialog';
 import { Field } from '../../../ui/field';
+import { errorMessage } from '../../../core/protocol/contract';
 
 /** 下拉框的值：已保存连接用 id，ssh config 候选用 `config:<别名>`，新建用哨兵。 */
 const NEW_CONNECTION = '__new__';
@@ -169,7 +170,7 @@ function NewRemoteProjectPanel({
   const failure = prepare.isFetching
     ? null
     : prepare.isError
-      ? errorText(prepare.error)
+      ? errorMessage(prepare.error)
       : prepare.data && !prepare.data.ok
         ? prepare.data.message
         : null;
@@ -195,7 +196,7 @@ function NewRemoteProjectPanel({
           await refreshRemoteConnections(queryClient);
           choose(saved);
         })
-        .catch((cause: unknown) => setError(errorText(cause)));
+        .catch((cause: unknown) => setError(errorMessage(cause)));
       return;
     }
     const next = connections?.find((item) => item.id === value);
@@ -233,7 +234,7 @@ function NewRemoteProjectPanel({
       await useWorkspaceStore.getState().refresh();
       onImported(created);
     } catch (cause) {
-      setError(errorText(cause));
+      setError(errorMessage(cause));
     } finally {
       onImportingChange(false);
     }

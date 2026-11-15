@@ -5,8 +5,8 @@ import type { SidechatView } from '../../../shared/api';
 import { agentClient, onAgentEvent } from '../../../modules/chat/view';
 import { keepToolImages } from '../../sessions/store';
 import { showToast } from '../../app/toasts';
-import { errorText } from '../../workspace/store';
 import { emptyDraft, useChatDrafts } from './drafts';
+import { errorMessage } from '../../../core/protocol/contract';
 
 interface SidechatState {
   views: Record<string, SidechatView>;
@@ -52,7 +52,7 @@ export async function openSidechat(
   try {
     useSidechats.getState().put(await agentClient['open-sidechat']({ parentId }));
   } catch (error) {
-    showToast({ variant: 'error', title: '打开旁问失败', description: errorText(error) });
+    showToast({ variant: 'error', title: '打开旁问失败', description: errorMessage(error) });
   }
 }
 

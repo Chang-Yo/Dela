@@ -7,7 +7,7 @@ import { chatClient } from '../../../modules/chat/view';
 import { DiffView } from './DiffView';
 import { Centered, STATUS_TEXT, FileIcon, basenameOf, dirnameOf } from './view-utils';
 import { IconButton } from '../../../ui/icon-button';
-import { errorText } from '../../workspace/store';
+import { errorMessage } from '../../../core/protocol/contract';
 
 const REASON_TEXT = {
   'not-git': '此目录不是 Git 仓库',
@@ -53,7 +53,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
       selectedRef.current = next;
       setSelected(next);
     } catch (cause) {
-      if (version === loadVersion.current) setError(errorText(cause));
+      if (version === loadVersion.current) setError(errorMessage(cause));
     } finally {
       if (version === loadVersion.current) setBusy(false);
     }
@@ -109,7 +109,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
         setDetail(lean);
       })
       .catch((cause: unknown) => {
-        if (alive) setDetailError(errorText(cause));
+        if (alive) setDetailError(errorMessage(cause));
       });
     return () => {
       alive = false;

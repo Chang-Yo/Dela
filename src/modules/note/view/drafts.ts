@@ -1,10 +1,10 @@
 // 笔记草稿生命周期 store：同一文档多入口共享正文与版本，防抖与互斥语义是这份共享的关键。
 // acquire/release 以引用计数持有，最后一个引用释放时才冲盘并移除。
 import { create } from 'zustand';
-import { errorText } from '../../../renderer/workspace/store';
 import { parseRemoteNodeId, relocateWorkspacePath } from '../../workspace/contract';
 import { workspaceClient } from '../../workspace/view';
 import type { NoteDraft } from './draft-source';
+import { errorMessage } from '../../../core/protocol/contract';
 
 type Store = {
   drafts: Record<string, NoteDraft>;
@@ -208,7 +208,7 @@ export const useNoteDrafts = create<Store>((set, get) => {
               drafts: s.drafts[key]
                 ? {
                     ...s.drafts,
-                    [key]: { ...s.drafts[key]!, saving: false, error: errorText(error) },
+                    [key]: { ...s.drafts[key]!, saving: false, error: errorMessage(error) },
                   }
                 : s.drafts,
             }));
