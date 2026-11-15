@@ -80,10 +80,9 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
       setEntries(await capabilitiesClient.removeWebSearchEntry(id));
     } catch (cause) {
       setError(errorMessage(cause));
-    } finally {
-      setBusy(false);
-      setConfirmDeleteId(null);
     }
+    setBusy(false);
+    setConfirmDeleteId(null);
   };
 
   return (
@@ -227,7 +226,7 @@ function EntryForm({
     if (!window.dela || busy) return;
     onBusy(true);
     const base = { id: draft.id, name: name.trim() };
-    try {
+    const saveEntry = async () => {
       if (provider === 'brave')
         onSaved(
           await capabilitiesClient.saveWebSearchEntry({
@@ -270,11 +269,13 @@ function EntryForm({
           }),
         );
       }
+    };
+    try {
+      await saveEntry();
     } catch (cause) {
       onError(errorMessage(cause));
-    } finally {
-      onBusy(false);
     }
+    onBusy(false);
   };
 
   /** 从「模型服务」预填 DeepSeek 密钥；命中多个时展开选择，默认第一个（启用的排在前面）。 */
@@ -282,7 +283,7 @@ function EntryForm({
     if (!window.dela || busy) return;
     onBusy(true);
     onError(null);
-    try {
+    const importFromProvider = async () => {
       const sources = keySources ?? (await capabilitiesClient.listWebSearchKeySources());
       setKeySources(sources);
       if (sources.length === 0) {
@@ -297,11 +298,13 @@ function EntryForm({
         return;
       }
       setApiKey(key);
+    };
+    try {
+      await importFromProvider();
     } catch (cause) {
       onError(errorMessage(cause));
-    } finally {
-      onBusy(false);
     }
+    onBusy(false);
   };
 
   return (

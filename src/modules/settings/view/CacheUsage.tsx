@@ -29,7 +29,7 @@ export function CacheUsage() {
   const clear = async () => {
     if (!window.dela || busy) return;
     setBusy(true);
-    try {
+    const clearAndReport = async () => {
       const result = await settingsClient.clearCache();
       setConfirming(false);
       void size.refetch();
@@ -40,11 +40,13 @@ export function CacheUsage() {
         // 删不掉的文件是这台机器当时的状态，说明白比假装清干净好。
         description: result.blocked ? '部分文件正被占用，重启应用后可再清除。' : undefined,
       });
+    };
+    try {
+      await clearAndReport();
     } catch (cause) {
       showToast({ variant: 'error', title: '清除缓存失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (

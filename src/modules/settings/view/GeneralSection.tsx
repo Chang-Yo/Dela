@@ -23,16 +23,18 @@ export function GeneralSection({ navEntries }: { navEntries: ReactNode }) {
   const toggleOpenAtLogin = async (next: boolean) => {
     if (busy) return;
     setBusy(true);
-    try {
+    const save = async () => {
       queryClient.setQueryData(
         ['settings', 'openAtLogin'],
         window.dela ? await settingsClient.setOpenAtLogin(next) : next,
       );
+    };
+    try {
+      await save();
     } catch (cause) {
       showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (

@@ -55,7 +55,7 @@ export function McpFormDialog({
     }
     setBusy(true);
     setError(null);
-    try {
+    const saveServer = async () => {
       const views = isEdit
         ? await capabilitiesClient.updateMcpServer({
             id: editing.server.id,
@@ -64,11 +64,13 @@ export function McpFormDialog({
         : await capabilitiesClient.addMcpServer(parsed.value);
       onSaved(views);
       onClose();
+    };
+    try {
+      await saveServer();
     } catch (cause) {
       setError(errorMessage(cause));
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (

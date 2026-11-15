@@ -143,9 +143,8 @@ export function SkillsTab() {
     } catch (cause) {
       setSkills(previous);
       showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   // 目录可能已被删除，reveal 失败要经 toast 提示。
@@ -413,9 +412,8 @@ function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: Ski
       const exists = message.startsWith(REMOTE_EXISTS_PREFIX);
       setConflict(exists);
       if (!exists) showToast({ variant: 'error', title: '上传失败', description: message });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (

@@ -76,9 +76,8 @@ function useOptionSave() {
       await operation();
     } catch (cause) {
       showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
   return { busy, save };
 }

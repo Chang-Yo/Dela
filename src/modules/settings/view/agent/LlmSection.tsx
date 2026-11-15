@@ -374,9 +374,8 @@ export function LlmSection() {
       void queryClient.invalidateQueries({ queryKey: ['llm', 'providers'] });
     } catch (cause) {
       showToast({ variant: 'error', title: '供应商操作失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   if (!window.dela) {
@@ -607,7 +606,11 @@ function ProviderDetail({
     const nextConfigs = { ...modelConfigs };
     delete nextConfigs[value];
     setModelConfigs(nextConfigs);
-    setModelChecks(({ [value]: _removed, ...rest }) => rest);
+    setModelChecks((current) => {
+      const rest = { ...current };
+      delete rest[value];
+      return rest;
+    });
     const nextModels = models.filter((item) => item !== value);
     setModels(nextModels);
     void persist({ models: nextModels, modelConfigs: nextConfigs });
@@ -643,16 +646,17 @@ function ProviderDetail({
     if (!window.dela || modelChecks[id]?.result === null) return;
     const inputs = { baseUrl, apiKey, settings: modelConfigs[id] };
     setModelChecks((current) => ({ ...current, [id]: { ...inputs, result: null } }));
+    const request = {
+      id: provider?.id,
+      piProvider,
+      baseUrl: piProvider ? undefined : baseUrl,
+      apiKey: apiKey || undefined,
+      model: id,
+      settings: inputs.settings,
+    };
     let result: LlmVerifyResult;
     try {
-      result = await llmClient.verifyModel({
-        id: provider?.id,
-        piProvider,
-        baseUrl: piProvider ? undefined : baseUrl,
-        apiKey: apiKey || undefined,
-        model: id,
-        settings: inputs.settings,
-      });
+      result = await llmClient.verifyModel(request);
     } catch (cause) {
       result = { ok: false, message: errorMessage(cause) };
     }
@@ -707,9 +711,8 @@ function ProviderDetail({
       onSaved(saved);
     } catch (cause) {
       setError(errorMessage(cause));
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   };
 
   return (
@@ -1156,7 +1159,11 @@ function ProviderDetail({
           onSave={(settings) => {
             const nextConfigs = { ...modelConfigs, [editingModel]: settings };
             setModelConfigs(nextConfigs);
-            setModelChecks(({ [editingModel]: _stale, ...rest }) => rest);
+            setModelChecks((current) => {
+              const rest = { ...current };
+              delete rest[editingModel];
+              return rest;
+            });
             setEditingModel(null);
             void persist({ modelConfigs: nextConfigs });
           }}

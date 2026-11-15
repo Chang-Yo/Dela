@@ -50,17 +50,19 @@ export function SystemNotifications() {
     setBusy(true);
     const previous = campus;
     queryClient.setQueryData(['settings', 'campusNotifications'], next);
-    try {
+    const save = async () => {
       queryClient.setQueryData(
         ['settings', 'campusNotifications'],
         window.dela ? await settingsClient.setCampusNotifications(next) : next,
       );
+    };
+    try {
+      await save();
     } catch (cause) {
       queryClient.setQueryData(['settings', 'campusNotifications'], previous);
       showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const toggleTask = async (key: 'completed' | 'failed', next: boolean) => {
@@ -68,33 +70,35 @@ export function SystemNotifications() {
     setBusy(true);
     const previous = task;
     queryClient.setQueryData(['settings', 'taskNotifications'], { ...task, [key]: next });
-    try {
+    const save = async () => {
       const saved = window.dela
         ? await settingsClient.setTaskNotifications({ ...task, [key]: next })
         : ({ ...task, [key]: next } satisfies TaskNotificationPrefs);
       queryClient.setQueryData(['settings', 'taskNotifications'], saved);
+    };
+    try {
+      await save();
     } catch (cause) {
       queryClient.setQueryData(['settings', 'taskNotifications'], previous);
       showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const changeSnooze = async (until: string | null) => {
     if (!window.dela) return;
     setBusy(true);
+    const failureTitle = until === null ? '恢复通知失败' : '暂停通知失败';
     try {
       await notificationsClient.setSnooze(until);
     } catch (cause) {
       showToast({
         variant: 'error',
-        title: until === null ? '恢复通知失败' : '暂停通知失败',
+        title: failureTitle,
         description: errorMessage(cause),
       });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (

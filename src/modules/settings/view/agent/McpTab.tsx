@@ -50,9 +50,8 @@ export function McpTab() {
     } catch (cause) {
       setServers(previous);
       showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const reconnect = async (id: string) => {
@@ -62,9 +61,8 @@ export function McpTab() {
       setServers(await capabilitiesClient.refreshMcpServer(id));
     } catch (cause) {
       showToast({ variant: 'error', title: '重连失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const remove = async (id: string) => {
@@ -77,9 +75,8 @@ export function McpTab() {
       // 删除失败也要让用户看到原因：关闭确认框，错误经 toast 提示。
       setConfirmId(null);
       showToast({ variant: 'error', title: '删除失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   if (!window.dela) {

@@ -54,9 +54,8 @@ export function CommandsSection() {
       showToast({ variant: 'success', title: '已保存' });
     } catch (cause) {
       showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
-    } finally {
-      setInstructionBusy(false);
     }
+    setInstructionBusy(false);
   };
 
   const remove = async (id: string) => {
@@ -67,9 +66,8 @@ export function CommandsSection() {
       refresh();
     } catch (cause) {
       showToast({ variant: 'error', title: '删除失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (
@@ -212,9 +210,10 @@ function CommandFormDialog({
     if (!window.dela || busy) return;
     setBusy(true);
     setError(null);
+    const id = editing.mode === 'edit' ? editing.command.id : undefined;
     try {
       await chatClient.saveCommand({
-        id: editing.mode === 'edit' ? editing.command.id : undefined,
+        id,
         name,
         prompt,
       });
@@ -222,9 +221,8 @@ function CommandFormDialog({
       onClose();
     } catch (cause) {
       setError(errorMessage(cause));
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (
