@@ -78,3 +78,6 @@ export const canvasModule = defineModule({
   },
   openLink: openCanvasLink,
 });
+
+export { classroomLoginUrl } from './main/api';
+export { loadCanvasToken } from './main/credentials';

@@ -296,12 +296,38 @@
           {
             "patterns": [
               {
-                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "group": [
+                  "**/modules/*/main/**",
+                  "**/modules/*/view/*",
+                  "**/modules/*/data/**",
+                  "**/sjtu/*/main/**",
+                  "**/sjtu/*/view/*",
+                  "**/sjtu/*/data/**"
+                ],
                 "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
               },
               {
                 "group": ["**/app/*", "!**/app/module"],
                 "message": "模块只能引用 app/module.ts。"
+              },
+              {
+                "group": [
+                  "../*/main/**",
+                  "../*/data/**",
+                  "../*/view",
+                  "../*/view/**",
+                  "../../*/main/**",
+                  "../../*/data/**",
+                  "../../*/view",
+                  "../../*/view/**",
+                  "./view",
+                  "./view/**",
+                  "../view",
+                  "../view/**",
+                  "!../../main/**",
+                  "!../../../main/**"
+                ],
+                "message": "模块之间只通过对方的 index.ts 或 contract.ts 引用；主进程侧不能引用 view。"
               }
             ]
           }

@@ -2,7 +2,7 @@
 // 签名媒体地址与校园 cookie 留在 main；token 防止远程内容按可猜测的 videoId 盗播，Range 原样转发以支持拖拽。
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { getCampusSession } from '../../campus/main/session';
+import { getCampusSession } from '../../campus';
 import { getStreams } from './api';
 
 const URL_TTL_MS = 10 * 60 * 1000;

@@ -23,7 +23,7 @@ import {
   loadShuiyuanCredential,
   saveShuiyuanCredential,
 } from './credentials';
-import { createCampusLoginWindow, getCampusSession } from '../../campus/main/session';
+import { createCampusLoginWindow, getCampusSession } from '../../campus';
 import {
   noteShuiyuanResponse,
   recordShuiyuanRequest,

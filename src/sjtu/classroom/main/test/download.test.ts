@@ -22,7 +22,7 @@ vi.mock('../../../../modules/settings', () => ({
   savedVideoDownloadDirectory: () => boundary.directory,
   setVideoDownloadDirectory: (value: string) => (boundary.directory = value),
 }));
-vi.mock('../../../campus/main/session', () => ({
+vi.mock('../../../campus', () => ({
   getCampusSession: async () => Object.assign(campus, { downloadURL: boundary.download }),
 }));
 vi.mock('../api', () => ({

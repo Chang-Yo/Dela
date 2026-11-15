@@ -9,9 +9,8 @@ import {
   getCampusSession,
   hiddenCampusLogin,
   openCampusLoginWindow,
-} from '../../campus/main/session';
-import { classroomLoginUrl } from '../../canvas/main/api';
-import { loadCanvasToken } from '../../canvas/main/credentials';
+} from '../../campus';
+import { classroomLoginUrl, loadCanvasToken } from '../../canvas';
 import { parseTranscript } from './transcript';
 
 export { formatSegments, formatTranscript } from './transcript';

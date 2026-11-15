@@ -17,7 +17,7 @@ const mock = vi.hoisted(() => ({
   save: vi.fn(),
   fetch: vi.fn(),
 }));
-vi.mock('../../../campus/main/session', () => ({
+vi.mock('../../../campus', () => ({
   getCampusSession: async () => undefined,
   createCampusLoginWindow: () => {
     let closed: (() => void) | undefined;

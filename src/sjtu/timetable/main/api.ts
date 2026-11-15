@@ -19,7 +19,7 @@ import {
   flushCampusSession,
   getCampusSession,
   openCampusLoginWindow,
-} from '../../campus/main/session';
+} from '../../campus';
 
 const CAMPUS_ORIGIN = 'https://i.sjtu.edu.cn';
 const LOGIN_URL = `${CAMPUS_ORIGIN}/jaccountlogin`;

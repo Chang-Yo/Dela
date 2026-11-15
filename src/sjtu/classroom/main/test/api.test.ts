@@ -31,14 +31,14 @@ vi.mock('electron', () => ({
   },
 }));
 const canvas = vi.hoisted(() => ({ token: null as string | null, login: vi.fn() }));
-vi.mock('../../../campus/main/session', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../campus/main/session')>()),
+vi.mock('../../../campus', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../campus')>()),
   getCampusSession: async () => ({}),
   flushCampusSession: async () => {},
   hiddenCampusLogin: canvas.login,
 }));
-vi.mock('../../../canvas/main/credentials', () => ({ loadCanvasToken: () => canvas.token }));
-vi.mock('../../../canvas/main/api', () => ({
+vi.mock('../../../canvas', () => ({
+  loadCanvasToken: () => canvas.token,
   classroomLoginUrl: async () =>
     'https://oc.sjtu.edu.cn/courses/1/external_tools/2?session_token=x',
 }));

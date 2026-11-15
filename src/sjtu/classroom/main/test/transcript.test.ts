@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => ({ request: vi.fn(), watch: vi.fn() }));
-vi.mock('../../../campus/main/session', () => ({
+vi.mock('../../../campus', () => ({
   campusRequest: server.request,
   getCampusSession: async () => ({ cookies: { on: server.watch } }),
 }));
-vi.mock('../../../canvas/main/credentials', () => ({ loadCanvasToken: () => null }));
-vi.mock('../../../canvas/main/api', () => ({ classroomLoginUrl: vi.fn() }));
+vi.mock('../../../canvas', () => ({ loadCanvasToken: () => null, classroomLoginUrl: vi.fn() }));
 
 const identity = { code: '0', result: { user: { code: 'test-user' } } };
 const data = { afterAssemblyList: [{ bg: 1250, ed: 3600500, res: '测试文稿' }] };
