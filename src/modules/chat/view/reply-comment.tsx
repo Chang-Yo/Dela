@@ -1,10 +1,9 @@
 // 回复评论：在已完成回复的正文里选中文字 → 浮出「添加到对话」→ 原地变为评论输入框 → 确认后进入
 // composer 附件条上方的评论轨道，随草稿保存，发送时作为结构化评论交给主进程拼进提示词。
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { HoverCard } from 'radix-ui';
 import { Check, MessageCircleQuestion, MessageSquarePlus, TextQuote, X } from 'lucide-react';
 import type { ChatComment } from '../../../core/protocol/agent';
-import { menuPanel } from '../../../ui/menu-styles';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../../ui/hover-card';
 import { Popover, PopoverAnchor, PopoverContent } from '../../../ui/popover';
 import { cn } from '../../../ui/cn';
 import { useChatDrafts } from './drafts';
@@ -371,14 +370,9 @@ function CommentChip({
   const [peek, setPeek] = useState(false);
   return (
     <Popover onOpenChange={setEditing} open={editing}>
-      <HoverCard.Root
-        closeDelay={100}
-        onOpenChange={setPeek}
-        open={peek && !editing}
-        openDelay={300}
-      >
+      <HoverCard closeDelay={100} onOpenChange={setPeek} open={peek && !editing} openDelay={300}>
         <PopoverAnchor asChild>
-          <HoverCard.Trigger asChild>
+          <HoverCardTrigger asChild>
             <span
               className="flex h-7 min-w-0 max-w-64 items-center rounded-control bg-field pr-0.5 text-xs text-ink-2 shadow-hairline"
               style={{ animation: 'pop-in 200ms cubic-bezier(0.23,1,0.32,1) both' }}
@@ -402,23 +396,15 @@ function CommentChip({
                 <X strokeWidth={2.2} />
               </IconButton>
             </span>
-          </HoverCard.Trigger>
+          </HoverCardTrigger>
         </PopoverAnchor>
-        <HoverCard.Portal>
-          <HoverCard.Content
-            align="start"
-            className={cn(menuPanel, 'grid max-h-80 w-72 gap-2 p-3 text-xs leading-5')}
-            collisionPadding={8}
-            side="top"
-            sideOffset={6}
-          >
-            <blockquote className={cn(quoteBlock, 'line-clamp-6')}>{item.quote}</blockquote>
-            {item.comment && (
-              <p className="whitespace-pre-wrap break-words text-ink">{item.comment}</p>
-            )}
-          </HoverCard.Content>
-        </HoverCard.Portal>
-      </HoverCard.Root>
+        <HoverCardContent align="start" className="max-h-80 w-72 gap-2 leading-5" side="top">
+          <blockquote className={cn(quoteBlock, 'line-clamp-6')}>{item.quote}</blockquote>
+          {item.comment && (
+            <p className="whitespace-pre-wrap break-words text-ink">{item.comment}</p>
+          )}
+        </HoverCardContent>
+      </HoverCard>
       <PopoverContent
         align="start"
         className="grid w-80 gap-1.5"

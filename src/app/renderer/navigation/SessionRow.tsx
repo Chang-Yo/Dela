@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../../../ui/button';
-import { HoverCard } from 'radix-ui';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../../ui/hover-card';
 import { Archive, Cloud, Folder, Pin, PinOff } from 'lucide-react';
 import type { RunStatus } from '../../../core/protocol/agent';
 import { cn } from '../../../ui/cn';
-import { menuPanel } from '../../../ui/menu-styles';
 import { useSessionRunStatus, updateSession } from '../../../modules/chat/view';
 import { showToast } from '../../../ui/toast';
 import { navSubRow, rowActions } from './nav-styles';
@@ -86,8 +85,8 @@ export function SessionRow({
   };
   return (
     <div className={navSubRow(active)}>
-      <HoverCard.Root>
-        <HoverCard.Trigger asChild>
+      <HoverCard>
+        <HoverCardTrigger asChild>
           <button
             aria-current={active ? 'page' : undefined}
             className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -106,23 +105,16 @@ export function SessionRow({
             </span>
             {session.pinned && <Pin className="size-3 shrink-0 text-ink-3" aria-label="已置顶" />}
           </button>
-        </HoverCard.Trigger>
-        <HoverCard.Portal>
-          <HoverCard.Content
-            side="right"
-            align="start"
-            className={cn(menuPanel, 'grid max-w-80 gap-1.5 p-3 text-xs')}
-            sideOffset={8}
-          >
-            <span className="break-words font-medium">{title}</span>
-            <span className="flex items-center gap-1.5 text-ink-3">
-              <ProjectIcon className="size-3.5" aria-hidden="true" />
-              {projectName ?? '随聊'}
-              {visual && ` · ${visual.label}`}
-            </span>
-          </HoverCard.Content>
-        </HoverCard.Portal>
-      </HoverCard.Root>
+        </HoverCardTrigger>
+        <HoverCardContent align="start" className="max-w-80" side="right" sideOffset={8}>
+          <span className="break-words font-medium">{title}</span>
+          <span className="flex items-center gap-1.5 text-ink-3">
+            <ProjectIcon className="size-3.5" aria-hidden="true" />
+            {projectName ?? '随聊'}
+            {visual && ` · ${visual.label}`}
+          </span>
+        </HoverCardContent>
+      </HoverCard>
       {confirming ? (
         <Button
           data-archive-confirm=""
