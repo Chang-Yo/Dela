@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import type {
   ChatComment,
   ChatMediaView,
@@ -20,7 +21,7 @@ import { agentClient } from './client';
 import { showToast } from '../../../renderer/app/toasts';
 import { useChatTabSource } from './chat-source';
 import { useSessions } from './sessions';
-import { runBadge, useRuns } from './runs';
+import { isSessionViewed, useRuns } from './runs';
 import {
   emptyDraft,
   registerChatAttachmentCheck,
@@ -67,7 +68,8 @@ export function useChatDraft(sessionId: string) {
 
 /** 单个会话的对话状态：快照经 sessions 镜像共享（session-update 全局订阅，多入口同看一份）。
  *  草稿按 sessionId 持久化（drafts.ts），本 hook 不订阅（订阅在 useChatDraft）；附件 chip
- *  不持久化，切换会话即释放暂存文件；内联图片随草稿文本保留（文件由启动 GC 回收）。
+ *  不持久化，视图卸载即释放暂存文件（调用方以 sessionId 为 key，切换会话即重挂）；
+ *  内联图片随草稿文本保留（文件由启动 GC 回收）。
  *  onNewChat 是 /new 命令的落点，与会话视图里的「新对话」按钮同一个动作。 */
 export function useChat(
   sessionId: string,
@@ -82,70 +84,50 @@ export function useChat(
   const [pending, setPending] = useState(0);
   const updateDraft = useChatDrafts((state) => state.update);
   const clearDraft = useChatDrafts((state) => state.clear);
-  const activeSession = useRef(sessionId);
-  // 卸载/切换会话清理时读取最新附件，避免闭包捕获过期状态。
-  const attachmentsRef = useRef(attachments);
-  attachmentsRef.current = attachments;
-  useEffect(() => registerChatAttachmentCheck(() => attachmentsRef.current.length > 0), []);
   const flushReference = referenceSource?.flushReference;
-  const run = useRuns((state) => state.bySession[sessionId]);
 
-  // 附件 chip 不持久化，离开视图/切换会话即随状态丢弃：释放其暂存文件并清空。
-  const releaseAttachments = useCallback(() => {
-    const ids = attachmentsRef.current.map((file) => file.id);
-    releaseChatMedia(ids);
-    setAttachments([]);
-  }, []);
+  const hasAttachments = attachments.length > 0;
+  useEffect(
+    () => (hasAttachments ? registerChatAttachmentCheck(() => true) : undefined),
+    [hasAttachments],
+  );
 
-  useEffect(() => {
-    activeSession.current = sessionId;
-    releaseAttachments();
-    setError(null);
-    setPending(0);
-    return () => {
-      releaseAttachments();
-    };
-  }, [sessionId, releaseAttachments]);
-
-  // 快照种子：镜像未缓存（应用启动后首次打开）时经 open-session 读取一次，不产生执行；
-  // 缓存被清（会话在别处被删）后再次尝试读取，读到「会话不存在」即就地报错。
-  useEffect(() => {
-    if (chat || !window.dela) return;
-    let active = true;
-    void agentClient['open-session']({ sessionId })
-      .then((value) => {
-        if (active) useSessions.getState().putChat(sessionId, value);
-      })
-      .catch((e) => {
-        if (active) setError(errorMessage(e));
-      });
-    return () => {
-      active = false;
-    };
-  }, [chat, sessionId]);
-
+  const releaseAttachments = useEffectEvent(() =>
+    releaseChatMedia(attachments.map((file) => file.id)),
+  );
   // 运行结果已被本视图看到（挂载即看、终态到达即看）：清掉导航徽标；
   // 视图关闭期间到达的终态保留，供导航提示「有结果需要处理」。
   useEffect(() => {
-    if (!run) return;
-    const badge = runBadge(run.status);
-    if (badge && badge !== 'running') useRuns.getState().markSeen(sessionId);
-  }, [run, sessionId]);
+    useRuns.getState().startViewing(sessionId);
+    return () => {
+      useRuns.getState().stopViewing(sessionId);
+      releaseAttachments();
+    };
+  }, [sessionId]);
+
+  // 快照种子：镜像未缓存（应用启动后首次打开）时经 open-session 读取一次，不产生执行；
+  // 缓存被清（会话在别处被删）后再次尝试读取，读到「会话不存在」即就地报错。
+  useQuery({
+    queryKey: ['chat-session-seed', sessionId],
+    enabled: !chat && Boolean(window.dela),
+    queryFn: async () => {
+      try {
+        useSessions.getState().putChat(sessionId, await agentClient['open-session']({ sessionId }));
+      } catch (e) {
+        setError(errorMessage(e));
+      }
+      return null;
+    },
+  });
 
   const busy = pending > 0 || Boolean(chat?.running);
-  const setPrompt = useCallback(
-    (text: string) => updateDraft(sessionId, { prompt: text }),
-    [sessionId, updateDraft],
-  );
-  const setComments = useCallback(
-    (comments: ChatComment[]) => updateDraft(sessionId, { comments }),
-    [sessionId, updateDraft],
-  );
+  const setPrompt = (text: string) => updateDraft(sessionId, { prompt: text });
+  const setComments = (comments: ChatComment[]) => updateDraft(sessionId, { comments });
 
   // 附件暂存：与内联图片共用主进程通道，上限在主进程与这里各校验一次。
   const addAttachmentFile = async (file: File) => {
     if (!window.dela) throw new Error('附件仅在桌面端可用');
-    if (attachmentsRef.current.length >= CHAT_ATTACHMENT_MAX)
+    if (attachments.length >= CHAT_ATTACHMENT_MAX)
       throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
     const limit =
       (await chatFileKindOfFile(file)) === 'text'
@@ -159,7 +141,7 @@ export function useChat(
 
   // 已满时抛错让调用方（选择文件路径）把上限提示显示出来；重复 id 仍静默去重。
   const addAttachmentView = (view: ChatMediaView) => {
-    if (attachmentsRef.current.length >= CHAT_ATTACHMENT_MAX)
+    if (attachments.length >= CHAT_ATTACHMENT_MAX)
       throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
     setAttachments((current) =>
       current.some((item) => item.id === view.id) ? current : [...current, view],
@@ -221,18 +203,18 @@ export function useChat(
       if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
     } catch (e) {
       // ask 抛错前 run 的终态推送已更新镜像：结果照常写共享缓存，其他入口不受影响。
-      if (activeSession.current === requested) {
-        setError(errorMessage(e));
+      setError(errorMessage(e));
+      if (isSessionViewed(requested)) {
         // 消息未上屏（未配置模型、引用读取失败等发生在持久化前）时恢复输入，避免重打。
         const fresh = await agentClient['open-session']({ sessionId: requested }).catch(() => null);
         if (fresh) useSessions.getState().putChat(requested, fresh);
-        if (activeSession.current === requested && shouldRestoreDraft(fresh, text)) {
+        if (isSessionViewed(requested) && shouldRestoreDraft(fresh, text)) {
           updateDraft(requested, { prompt: text, comments });
           setAttachments(sentAttachments);
         }
       }
     } finally {
-      if (activeSession.current === requested) setPending((count) => Math.max(0, count - 1));
+      setPending((count) => Math.max(0, count - 1));
     }
   };
 
@@ -276,12 +258,10 @@ export function useChat(
         });
       }
     } catch (e) {
-      if (activeSession.current === requested) {
-        setError(errorMessage(e));
-        updateDraft(requested, { prompt: text });
-      }
+      setError(errorMessage(e));
+      if (isSessionViewed(requested)) updateDraft(requested, { prompt: text });
     } finally {
-      if (activeSession.current === requested) setPending((count) => Math.max(0, count - 1));
+      setPending((count) => Math.max(0, count - 1));
     }
   };
 
@@ -293,8 +273,7 @@ export function useChat(
       prompt: [queued.text, current.prompt].filter((text) => text.trim()).join('\n\n'),
       comments: [...queued.comments, ...(current.comments ?? [])],
     });
-    if (activeSession.current === requested)
-      setAttachments((list) => [...queued.attachments, ...list]);
+    if (isSessionViewed(requested)) setAttachments((list) => [...queued.attachments, ...list]);
     else releaseChatMedia(queued.attachments.map(({ id }) => id));
   };
 
@@ -322,32 +301,28 @@ export function useChat(
 
   // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
   // 编辑重发说明原提问不合适，不带回原评论；重试按原消息重发，带上原评论。
-  // useCallback 保持引用稳定：ChatThread 与消息组件 memo 后，编辑重发入口不带动整树重渲。
-  const editLast = useCallback(
-    async (text: string, comments: ChatComment[] = []) => {
-      if (!window.dela || busy) return;
-      const requested = sessionId;
-      setPending((count) => count + 1);
-      setError(null);
-      try {
-        const result = await agentClient.ask({
-          sessionId: requested,
-          text,
-          attachments: [],
-          context: [],
-          comments,
-          replaceLastUser: true,
-        });
-        if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
-      } catch (e) {
-        if (activeSession.current === requested)
-          showToast({ variant: 'error', title: '重新生成失败', description: errorMessage(e) });
-      } finally {
-        if (activeSession.current === requested) setPending((count) => Math.max(0, count - 1));
-      }
-    },
-    [busy, sessionId],
-  );
+  const editLast = async (text: string, comments: ChatComment[] = []) => {
+    if (!window.dela || busy) return;
+    const requested = sessionId;
+    setPending((count) => count + 1);
+    setError(null);
+    try {
+      const result = await agentClient.ask({
+        sessionId: requested,
+        text,
+        attachments: [],
+        context: [],
+        comments,
+        replaceLastUser: true,
+      });
+      if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
+    } catch (e) {
+      if (isSessionViewed(requested))
+        showToast({ variant: 'error', title: '重新生成失败', description: errorMessage(e) });
+    } finally {
+      setPending((count) => Math.max(0, count - 1));
+    }
+  };
 
   // 模型/思考强度切换的乐观更新直接写镜像缓存，所有入口立即看到新值。
   const optimisticChat = (patch: Partial<WorkspaceChat>) => {
@@ -382,21 +357,18 @@ export function useChat(
   };
 
   // 分支是新会话：写进镜像后在当前位置打开，原会话不变。
-  const fork = useCallback(
-    (entryId: string) => {
-      if (!window.dela) return;
-      void agentClient
-        .fork({ sessionId, entryId })
-        .then((forked) => {
-          useSessions.getState().putChat(forked.sessionId!, forked);
-          navigate({ page: 'chat', projectId: forked.projectId, sessionId: forked.sessionId! });
-        })
-        .catch((e) =>
-          showToast({ variant: 'error', title: '分支失败', description: errorMessage(e) }),
-        );
-    },
-    [navigate, sessionId],
-  );
+  const fork = (entryId: string) => {
+    if (!window.dela) return;
+    void agentClient
+      .fork({ sessionId, entryId })
+      .then((forked) => {
+        useSessions.getState().putChat(forked.sessionId!, forked);
+        navigate({ page: 'chat', projectId: forked.projectId, sessionId: forked.sessionId! });
+      })
+      .catch((e) =>
+        showToast({ variant: 'error', title: '分支失败', description: errorMessage(e) }),
+      );
+  };
 
   const refresh = () => {
     if (!window.dela) return;

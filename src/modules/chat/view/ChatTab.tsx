@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../app/module';
 import type { ChatComment, ChatSessionSummary, WorkspaceChat } from '../../../core/protocol/agent';
@@ -80,10 +81,7 @@ function ChatComposerArea({
   const { prompt, comments = noComments } = useChatDraft(sessionId);
   const referenceOptions = useReferenceOptions(referenceSource, chat);
   // 引用即文本：发送前从草稿文本解析 @token，附件与引用自此分开计数（附件维持上限 5）。
-  const references = useMemo(
-    () => referenceContext(prompt, referenceOptions),
-    [prompt, referenceOptions],
-  );
+  const references = referenceContext(prompt, referenceOptions);
   // 新对话的项目浮岛：项目名来自工作区条目，通用池显示「随聊」；分支由浮岛自己查。
   const projectId = chat?.projectId ?? null;
   const project = useWorkspaceStore(
@@ -138,16 +136,12 @@ function useReferenceOptions(source: ReferenceSource | undefined, chat: Workspac
   const sessions = useSessions((state) => state.lists[poolKey(projectId)]);
   const sessionId = chat?.sessionId ?? null;
   const ready = chat !== null;
-  return useMemo(
-    () =>
-      ready
-        ? [...(files ?? []), ...sessionReferences(sessions ?? noSessions, sessionId)]
-        : noReferences,
-    [ready, files, sessions, sessionId],
-  );
+  return ready
+    ? [...(files ?? []), ...sessionReferences(sessions ?? noSessions, sessionId)]
+    : noReferences;
 }
 
-const ChatSessionView = memo(function ChatSessionView({
+function ChatSessionView({
   active,
   projectId,
   referenceSource,
@@ -165,44 +159,27 @@ const ChatSessionView = memo(function ChatSessionView({
   const { navigate, workbench } = useChatTabSource();
   const onOpenSource = (key: string) => workbench.openDocument(key);
   // 「新对话」按钮与 /new 命令同一个动作：落在首页还是工作台焦点组由外壳决定。
-  const startNewChat = useCallback(
-    () => navigate({ page: 'chat', projectId }),
-    [navigate, projectId],
-  );
-  const openSession = useCallback(
-    (id: string) => navigate({ page: 'chat', projectId, sessionId: id }),
-    [navigate, projectId],
-  );
+  const startNewChat = () => navigate({ page: 'chat', projectId });
+  const openSession = (id: string) => navigate({ page: 'chat', projectId, sessionId: id });
   const chatState = useChat(active, referenceSource, startNewChat);
   const { chat, busy, editLast, fork } = chatState;
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const sidechatOpen = useSidechats((state) => Boolean(state.views[active]));
-  const sidechatFromQuote = useCallback(
-    (quote: string) => void openSidechat(active, { quote }),
-    [active],
-  );
+  const sidechatFromQuote = (quote: string) => void openSidechat(active, { quote });
   // 工作区改动入口的可见性：轻探测会话目录是否为可审阅的 Git 仓库
   // （非仓库、缺 Git、远程项目都不显示，随聊无项目目录同样不显示）。
-  const [reviewReady, setReviewReady] = useState(false);
-  useEffect(() => {
-    if (projectId === null || !window.dela) {
-      setReviewReady(false);
-      return;
-    }
-    let alive = true;
-    void chatClient
-      .uncommittedAvailability(active)
-      .then((value) => {
-        if (alive) setReviewReady(value.available);
-      })
-      .catch(() => {
-        if (alive) setReviewReady(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [active, projectId]);
+  const { data: reviewReady = false } = useQuery({
+    queryKey: ['chat-uncommitted-availability', active, projectId],
+    enabled: projectId !== null && Boolean(window.dela),
+    staleTime: Infinity,
+    gcTime: 0,
+    queryFn: () =>
+      chatClient
+        .uncommittedAvailability(active)
+        .then((value) => value.available)
+        .catch(() => false),
+  });
 
   // busy 涵盖「已发送但推送未到」的瞬间：点击发送立即进入会话态。
   // 不用 Boolean() 包裹，保留 TS 对 conversation 真值与 chat 非空的别名收窄。
@@ -359,4 +336,4 @@ const ChatSessionView = memo(function ChatSessionView({
       />
     </div>
   );
-});
+}

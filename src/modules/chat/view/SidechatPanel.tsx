@@ -1,6 +1,6 @@
 // 旁问面板：浮在会话视图右上角的临时对话，虚线边框与标题提示「关闭后不保留」，和主会话的标签、
 // 列表都区分开。草稿以 `sidechat:<主会话 id>` 为键（与会话草稿共用存储），附件在面板里各自暂存。
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -32,9 +32,6 @@ import { sidechatDraftKey, useSidechats } from './sidechat-store';
 import { canSendInput } from './use-chat';
 import { errorMessage } from '../../../core/protocol/contract';
 
-// 只有新建的旁问从右边界滑入；切走标签再回来、从胶囊展开都不再滑入。
-const entered = new Set<string>();
-
 type Motion = 'enter' | 'expand' | 'collapse' | 'close' | null;
 
 export function SidechatPanel({
@@ -55,35 +52,29 @@ export function SidechatPanel({
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [motion, setMotion] = useState<Motion>(() => (entered.has(parentId) ? null : 'enter'));
-  const attachmentsRef = useRef(attachments);
-  attachmentsRef.current = attachments;
+  // 只有新建的旁问从右边界滑入；切走标签再回来、从胶囊展开都不再滑入。
+  const entered = useSidechats((state) => state.entered[parentId] ?? false);
+  const [motion, setMotion] = useState<Motion>(() => (entered ? null : 'enter'));
   const options = referenceSource?.useEntries(parent?.projectId ?? null, parent?.cwd ?? null);
-  const referenceOptions = useMemo(() => (parent && options ? options : []), [parent, options]);
+  const referenceOptions = parent && options ? options : [];
 
-  useEffect(
-    () => () => {
-      const ids = attachmentsRef.current.map((item) => item.id);
-      releaseChatMedia(ids);
-    },
-    [],
+  const releaseAttachments = useEffectEvent(() =>
+    releaseChatMedia(attachments.map((item) => item.id)),
   );
+  useEffect(() => () => releaseAttachments(), []);
 
   // ChatThread 只认会话快照：借主会话的项目与 cwd，sessionId 留空（旁问没有改动记录与分支）。
-  const thread = useMemo<WorkspaceChat | null>(
-    () =>
-      view && parent
-        ? {
-            ...parent,
-            sessionId: null,
-            messages: view.messages,
-            running: view.running,
-            activeTool: view.activeTool,
-            compacting: false,
-          }
-        : null,
-    [view, parent],
-  );
+  const thread: WorkspaceChat | null =
+    view && parent
+      ? {
+          ...parent,
+          sessionId: null,
+          messages: view.messages,
+          running: view.running,
+          activeTool: view.activeTool,
+          compacting: false,
+        }
+      : null;
   if (!view || !parent || !thread) return null;
   const busy = pending || view.running;
 
@@ -131,7 +122,6 @@ export function SidechatPanel({
   };
 
   const close = () => {
-    entered.delete(parentId);
     useChatDrafts.getState().clear(key);
     void agentClient['close-sidechat']({ parentId }).catch(() => {});
     useSidechats.getState().forget(parentId);
@@ -140,7 +130,6 @@ export function SidechatPanel({
   const keep = () => {
     void agentClient['keep-sidechat']({ parentId })
       .then((chat) => {
-        entered.delete(parentId);
         useChatDrafts.getState().clear(key);
         useSidechats.getState().forget(parentId);
         useSessions.getState().putChat(chat.sessionId!, chat);
@@ -153,7 +142,7 @@ export function SidechatPanel({
 
   const addAttachmentFile = async (file: File) => {
     if (!window.dela) throw new Error('附件仅在桌面端可用');
-    if (attachmentsRef.current.length >= CHAT_ATTACHMENT_MAX)
+    if (attachments.length >= CHAT_ATTACHMENT_MAX)
       throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
     const limit =
       (await chatFileKindOfFile(file)) === 'text'
@@ -216,7 +205,7 @@ export function SidechatPanel({
         )}
         onAnimationEnd={(event) => {
           if (event.target !== event.currentTarget) return;
-          entered.add(parentId);
+          useSidechats.getState().markEntered(parentId);
           if (motion === 'collapse') useSidechats.getState().setCollapsed(parentId, true);
           if (motion === 'close') close();
           setMotion(null);

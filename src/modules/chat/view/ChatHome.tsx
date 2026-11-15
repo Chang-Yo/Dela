@@ -1,5 +1,5 @@
 // 随聊的新建、发送与历史查看留在首页聊天；会话与运行状态由 sessions 管理。
-import { useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { agentClient } from './client';
 import type { WorkspaceChat } from '../../../core/protocol/agent';
 import { useSessions } from './sessions';
@@ -38,42 +38,34 @@ async function resolveHomeChat(request: HomeChatRequest | null): Promise<Workspa
 }
 
 export function ChatHome({ request }: { request: HomeChatRequest | null }) {
-  const [session, setSession] = useState<{ id: string; seq: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const pending = useRef<{ seq: number; promise: Promise<WorkspaceChat> } | null>(null);
-  useEffect(() => {
-    if (!window.dela) return;
-    let active = true;
-    const seq = request?.seq ?? 0;
-    if (!pending.current || pending.current.seq !== seq) {
-      pending.current = { seq, promise: resolveHomeChat(request) };
-    }
-    setError(null);
-    void pending.current.promise
-      .then((chat) => {
-        if (!active) return;
-        if (!chat.sessionId) throw new Error('会话创建失败');
+  const queryClient = useQueryClient();
+  const queryKey = ['home-chat', request?.seq ?? 0];
+  const { data: sessionId, error } = useQuery({
+    queryKey,
+    enabled: Boolean(window.dela),
+    staleTime: Infinity,
+    gcTime: 0,
+    queryFn: async () => {
+      const chat = await resolveHomeChat(request);
+      if (!chat.sessionId) throw new Error('会话创建失败');
+      // 已被更新的请求取代（没有视图在看这次结果）时不写镜像，免得旧结果覆盖「上次停留」。
+      if (queryClient.getQueryCache().find({ queryKey })?.getObserversCount()) {
         useSessions.getState().putChat(chat.sessionId, chat);
         useSessions.setState({ homeSessionId: chat.sessionId });
-        setSession({ id: chat.sessionId, seq });
         void useSessions
           .getState()
           .refresh(null)
           .catch(() => {});
-      })
-      .catch((cause) => {
-        if (active) setError(errorMessage(cause));
-      });
-    return () => {
-      active = false;
-    };
-  }, [request]);
+      }
+      return chat.sessionId;
+    },
+  });
   // 新请求返回前不渲染旧会话，避免沿用旧输入状态或显示已完成的消息。
-  if (!session || session.seq !== (request?.seq ?? 0))
+  if (!sessionId)
     return (
       <div className="flex flex-1 items-center justify-center p-6 text-sm text-ink-3" role="status">
-        {error ?? '正在打开对话…'}
+        {error ? errorMessage(error) : '正在打开对话…'}
       </div>
     );
-  return <ChatTab key={session.id} tabId={`chat:${session.id}`} groupId="home" />;
+  return <ChatTab key={sessionId} tabId={`chat:${sessionId}`} groupId="home" />;
 }

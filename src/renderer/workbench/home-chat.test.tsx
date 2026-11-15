@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceChat } from '../../core/protocol/agent';
@@ -55,8 +56,12 @@ vi.mock('../../modules/chat/view/ChatThread', () => ({
   ),
 }));
 
+// 查询结果默认经 setTimeout 通知，act 等不到：改走微任务。
+notifyManager.setScheduler(queueMicrotask);
+
 let host: HTMLDivElement;
 let root: Root;
+let queryClient: QueryClient;
 
 /** 代替工作台装配层：把导航的首页请求交给首页，跳转接到真实导航 store。 */
 function Home() {
@@ -67,9 +72,11 @@ function Home() {
     opensLink: () => false,
   };
   return (
-    <ChatTabSourceProvider source={source}>
-      <ChatHome request={request} />
-    </ChatTabSourceProvider>
+    <QueryClientProvider client={queryClient}>
+      <ChatTabSourceProvider source={source}>
+        <ChatHome request={request} />
+      </ChatTabSourceProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -116,6 +123,7 @@ beforeEach(() => {
     }),
   });
   window.dela = dela;
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
