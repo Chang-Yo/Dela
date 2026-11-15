@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from 'use-debounce';
-import { Archive, MessageSquare, Search, X } from 'lucide-react';
+import { Archive, MessageSquare, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { Button } from '../../../ui/button';
 import { EmptyState } from '../../../ui/empty-state';
 import { IconButton } from '../../../ui/icon-button';
+import { SearchInput } from '../../../ui/search-input';
 import { cn } from '../../../ui/cn';
 import { poolKey, querySessions } from './sessions';
 import { drawerFromRight } from '../../../ui/motion';
@@ -183,17 +184,14 @@ export function ChatSessions({
         <h2 className="sr-only">历史对话</h2>
         <p className="sr-only">搜索并打开当前项目的会话，或进入通用对话</p>
         <div className="flex shrink-0 items-center gap-1 p-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-3" />
-            <input
-              aria-label="搜索历史对话"
-              autoFocus
-              className="h-8 w-full rounded-control bg-field pl-8 pr-2 text-sm text-ink shadow-hairline outline-none placeholder:text-ink-3 focus:shadow-btn"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索对话内容…"
-              value={query}
-            />
-          </div>
+          <SearchInput
+            aria-label="搜索历史对话"
+            autoFocus
+            className="flex-1"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜索对话内容…"
+            value={query}
+          />
           <IconButton aria-label="关闭" onClick={() => onOpenChange(false)}>
             <X strokeWidth={1.8} />
           </IconButton>

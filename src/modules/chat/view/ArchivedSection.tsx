@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Folder, Search, Trash2 } from 'lucide-react';
+import { Eye, Folder, Trash2 } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { chatClient } from './client';
 import { Button } from '../../../ui/button';
-import { Input } from '../../../ui/input';
+import { SearchInput } from '../../../ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { useWorkspaceStore } from '../../workspace/view';
 import { showToast } from '../../../ui/toast';
@@ -121,19 +121,13 @@ export function ArchivedSection({ navigate }: { navigate: Navigate }) {
         <>
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-52 flex-1">
-                <Search
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-3"
-                />
-                <Input
-                  aria-label="搜索已归档对话"
-                  className="pl-8"
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="搜索已归档对话"
-                  value={query}
-                />
-              </div>
+              <SearchInput
+                aria-label="搜索已归档对话"
+                className="min-w-52 flex-1"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜索已归档对话"
+                value={query}
+              />
               <Select onValueChange={setProjectFilter} value={projectFilter}>
                 <SelectTrigger aria-label="按项目筛选">
                   <SelectValue />

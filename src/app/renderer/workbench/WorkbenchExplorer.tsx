@@ -10,14 +10,13 @@ import {
   Globe,
   PanelLeft,
   Plus,
-  Search,
   Upload,
 } from 'lucide-react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId } from '../../../modules/remotes/contract';
 import { Button } from '../../../ui/button';
 import { CollapseChevron } from '../../../ui/collapse';
-import { Input } from '../../../ui/input';
+import { SearchInput } from '../../../ui/search-input';
 import { Resizer } from '../../../ui/resizer';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
@@ -417,16 +416,13 @@ export function WorkbenchExplorer({
             </div>
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col" id="workspace-explorer">
-            <div className="relative mx-2 mb-1">
-              <Search className="pointer-events-none absolute left-2 top-2 size-3.5 text-ink-3" />
-              <Input
-                aria-label="筛选已同步内容"
-                className="h-8 bg-surface pl-7 text-xs"
-                onChange={(e) => useTreeState.getState().setQuery(e.target.value)}
-                placeholder="筛选已同步内容…"
-                value={query}
-              />
-            </div>
+            <SearchInput
+              aria-label="筛选已同步内容"
+              className="mx-2 mb-1"
+              onChange={(e) => useTreeState.getState().setQuery(e.target.value)}
+              placeholder="筛选已同步内容…"
+              value={query}
+            />
             <div
               className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
               // 点空白处回到项目根：之后的新建落在二级，而不是沿用上次选中的子文件夹。
