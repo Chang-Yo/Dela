@@ -337,7 +337,7 @@ function CatalogModelDialog({
   );
 }
 
-/** 设置 › 模型供应商：左侧按内置厂商/自定义分组列出提供商，右侧编辑选中的那一个。 */
+/** 设置 › 模型服务：左侧按内置厂商/自定义分组列出提供商，右侧编辑选中的那一个。 */
 export function LlmSection() {
   const [providers, setProviders] = useState<LlmProviderView[] | null>(null);
   const [catalog, setCatalog] = useState<LlmCatalogProvider[]>([]);
@@ -392,8 +392,8 @@ export function LlmSection() {
   if (!window.dela) {
     return (
       <div className="grid gap-10" data-setting-id="providers">
-        <SectionHeader title="模型供应商" />
-        <p className="text-sm text-ink-3">模型供应商配置仅在桌面端可用。</p>
+        <SectionHeader title="模型服务" />
+        <p className="text-sm text-ink-3">模型服务配置仅在桌面端可用。</p>
       </div>
     );
   }
@@ -428,7 +428,7 @@ export function LlmSection() {
             添加提供商
           </Button>
         }
-        title="模型供应商"
+        title="模型服务"
       />
       {/* 主从两栏：左栏固定 15rem（w-60 档）承载列表，右栏是详情表单；中屏以下改为上下堆叠。 */}
       <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6">

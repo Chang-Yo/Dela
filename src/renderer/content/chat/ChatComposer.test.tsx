@@ -176,7 +176,7 @@ it('未配置思考强度时提供模型设置入口', async () => {
   const trigger = host.querySelector<HTMLButtonElement>('[aria-label="思考强度"]')!;
   await act(async () => trigger.click());
   const settingsButton = Array.from(document.body.querySelectorAll('button')).find(
-    (button) => button.textContent === '打开设置 › 模型供应商',
+    (button) => button.textContent === '打开设置 › 模型服务',
   )!;
   await act(async () => settingsButton.click());
   expect(openSettings).toHaveBeenCalledExactlyOnceWith('providers');

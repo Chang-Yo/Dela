@@ -280,7 +280,7 @@ function EntryForm({
     }
   };
 
-  /** 从「模型供应商」预填 DeepSeek 密钥；命中多个时展开选择，默认第一个（启用的排在前面）。 */
+  /** 从「模型服务」预填 DeepSeek 密钥；命中多个时展开选择，默认第一个（启用的排在前面）。 */
   const importKey = async (id?: string) => {
     if (!window.dela || busy) return;
     onBusy(true);
@@ -289,7 +289,7 @@ function EntryForm({
       const sources = keySources ?? (await capabilitiesClient.listWebSearchKeySources());
       setKeySources(sources);
       if (sources.length === 0) {
-        onError('没有找到已配置密钥的 DeepSeek 模型供应商，请先在「模型供应商」中添加');
+        onError('没有找到已配置密钥的 DeepSeek 模型供应商，请先在「模型服务」中添加');
         return;
       }
       const target = id ?? sources[0]!.id;

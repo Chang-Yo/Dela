@@ -696,7 +696,7 @@ export function ChatComposer({
                   ) : providers.length === 0 ? (
                     <div className="grid gap-2 px-1.5 py-2">
                       <p className="text-xs text-ink-3">
-                        还没有启用的模型供应商，可在设置 › 模型供应商 中添加或启用。
+                        还没有启用的模型供应商，可在设置 › 模型服务 中添加或启用。
                       </p>
                       <Button
                         className="w-full justify-start [&_svg]:size-3.5"
@@ -708,7 +708,7 @@ export function ChatComposer({
                         variant="outline"
                       >
                         <Settings />
-                        打开设置 › 模型供应商
+                        打开设置 › 模型服务
                       </Button>
                     </div>
                   ) : (
@@ -815,7 +815,7 @@ export function ChatComposer({
                         variant="outline"
                       >
                         <Settings />
-                        打开设置 › 模型供应商
+                        打开设置 › 模型服务
                       </Button>
                     </div>
                   ) : (

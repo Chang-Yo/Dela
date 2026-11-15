@@ -31,32 +31,37 @@ export type SettingsSectionId =
   | 'general'
   | 'appearance'
   | 'shortcuts'
-  | 'workspace'
-  | 'archived'
+  | 'notifications'
+  | 'storage'
   | 'connections'
   | 'providers'
   | 'capabilities'
   | 'commands'
   | 'skills'
   | 'mcp'
+  | 'workspace'
   | 'remotes'
+  | 'archived'
   | 'about'
   | 'privacy'
   | 'terms';
 
+/** 顺序即设置左栏与搜索结果的顺序。 */
 export const settingsSectionLabels: Record<SettingsSectionId, string> = {
   general: '通用',
   appearance: '外观',
   shortcuts: '快捷键',
-  workspace: '工作区',
-  archived: '已归档',
-  connections: '连接',
-  remotes: '远程',
-  providers: '模型供应商',
+  notifications: '通知',
+  storage: '存储',
+  connections: '凭据',
+  providers: '模型服务',
   capabilities: '内置能力',
   commands: '自定义指令',
   skills: 'Skills',
-  mcp: 'MCP Server',
+  mcp: 'MCP',
+  workspace: '工作区',
+  remotes: '远程',
+  archived: '已归档对话',
   about: '关于',
   privacy: '隐私条款',
   terms: '使用条款',

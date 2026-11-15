@@ -133,7 +133,7 @@ export function ArchivedSection() {
 
   return (
     <div className="grid gap-10">
-      <SectionHeader title="已归档" />
+      <SectionHeader title="已归档对话" />
       {!window.dela ? (
         <p className="text-sm text-ink-3">已归档对话管理仅在桌面端可用。</p>
       ) : (

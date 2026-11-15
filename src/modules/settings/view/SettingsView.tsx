@@ -7,8 +7,10 @@ import { CommandsSection } from './agent/CommandsSection';
 import { GeneralSection } from './GeneralSection';
 import { LlmSection } from './agent/LlmSection';
 import { McpSection } from './agent/McpSection';
+import { NotificationsSection } from './NotificationsSection';
 import { PrivacySection } from './PrivacySection';
 import { SkillsSection } from './agent/SkillsSection';
+import { StorageSection } from './StorageSection';
 import { TermsSection } from './TermsSection';
 import { ConnectionsSection } from './ConnectionsSection';
 import { SettingsNav, type SettingsSectionId } from './SettingsNav';
@@ -51,7 +53,7 @@ export function SettingsView({
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
         {/* 内容宽度 912px = 原 760px 增大 20%（用户裁决，2026-10-06）。 */}
         <div className="mx-auto w-full max-w-[57rem] px-4 pb-8 pt-5 md:px-10 md:pt-8">
-          {section === 'general' && <GeneralSection navEntries={navEntries} views={views} />}
+          {section === 'general' && <GeneralSection navEntries={navEntries} />}
           {section === 'appearance' && (
             <AppearanceSection
               fontSize={fontSize}
@@ -62,6 +64,8 @@ export function SettingsView({
               zoom={zoom}
             />
           )}
+          {section === 'notifications' && <NotificationsSection />}
+          {section === 'storage' && <StorageSection views={views} />}
           {shellSections[section]}
           {section === 'connections' && <ConnectionsSection navigate={navigate} views={views} />}
           {section === 'providers' && <LlmSection />}

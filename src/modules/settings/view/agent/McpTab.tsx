@@ -15,7 +15,7 @@ import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import { capabilitiesClient } from '../../../chat/view';
 
-/** 设置 › MCP Server：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
+/** 设置 › MCP：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {
   // null 表示尚未读到列表，避免闪烁出错误的空态。
   const [servers, setServers] = useState<McpServerView[] | null>(null);
@@ -102,7 +102,7 @@ export function McpTab() {
   if (!window.dela) {
     return (
       <div className="grid gap-10">
-        <SectionHeader title="MCP Server" />
+        <SectionHeader title="MCP" />
         <p className="text-sm text-ink-3">MCP 管理仅在桌面端可用。</p>
       </div>
     );
@@ -117,7 +117,7 @@ export function McpTab() {
             添加服务器
           </Button>
         }
-        title="MCP Server"
+        title="MCP"
       />
       {servers !== null && servers.length === 0 && (
         <SettingsGroup>

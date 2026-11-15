@@ -18,10 +18,9 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     title: '导航入口',
     keywords: ['通用', '侧栏', '导航', '入口', '隐藏', '显示', 'sidebar', 'nav'],
   },
-  // 通用（含系统通知子节）
   {
     id: 'video-download-directory',
-    section: 'general',
+    section: 'storage',
     title: '视频默认下载目录',
     keywords: ['课堂', '录像', '下载', '目录', '交大视频', 'vsjtu', 'classroom', 'download'],
   },
@@ -33,28 +32,28 @@ export const settingsSearchItems: SettingsSearchItem[] = [
   },
   {
     id: 'campus-notifications',
-    section: 'general',
+    section: 'notifications',
     title: '校园消息系统提醒',
-    // 不含「邮件/水源」：这两个词的首要意图是连接页的邮箱/水源卡片。
-    keywords: ['通用', '通知', '提醒', '消息', '弹窗', '桌面通知', 'notify'],
+    // 不含「邮件/水源」：这两个词的首要意图是凭据页的邮箱/水源。
+    keywords: ['通知', '提醒', '消息', '弹窗', '桌面通知', 'notify'],
   },
   {
     id: 'notify-run-failed',
-    section: 'general',
+    section: 'notifications',
     title: '任务失败时提醒',
-    keywords: ['通用', '通知', '任务', '失败', 'agent', '提醒', '错误'],
+    keywords: ['通知', '任务', '失败', 'agent', '提醒', '错误'],
   },
   {
     id: 'notify-run-completed',
-    section: 'general',
+    section: 'notifications',
     title: '任务完成时提醒',
-    keywords: ['通用', '通知', '任务', '完成', 'agent', '提醒'],
+    keywords: ['通知', '任务', '完成', 'agent', '提醒'],
   },
   {
     id: 'snooze',
-    section: 'general',
+    section: 'notifications',
     title: '暂停通知',
-    keywords: ['通用', '通知', '暂停', '免打扰', '静音', 'snooze'],
+    keywords: ['通知', '暂停', '免打扰', '静音', 'snooze'],
   },
   {
     id: 'check-update',
@@ -64,9 +63,9 @@ export const settingsSearchItems: SettingsSearchItem[] = [
   },
   {
     id: 'cache-usage',
-    section: 'general',
+    section: 'storage',
     title: '缓存占用',
-    keywords: ['通用', '缓存', '清理', '清除', '空间', '占用', '磁盘', 'cache'],
+    keywords: ['缓存', '清理', '清除', '空间', '占用', '磁盘', 'cache'],
   },
   // 外观
   {
@@ -149,10 +148,10 @@ export const settingsSearchItems: SettingsSearchItem[] = [
   {
     id: 'providers',
     section: 'providers',
-    title: '模型供应商',
+    title: '模型服务',
     keywords: ['模型', 'llm', 'ai', 'api', '提供商', '供应商', '密钥', 'key', '推理'],
   },
-  // 这些能力已并入模型分组；「插件」仍作为搜索同义词保留
+  // 这些能力已并入 Agent 分组；「插件」仍作为搜索同义词保留
   {
     id: 'capabilities',
     section: 'capabilities',
@@ -180,7 +179,7 @@ export const settingsSearchItems: SettingsSearchItem[] = [
   {
     id: 'mcp',
     section: 'mcp',
-    title: 'MCP Server',
+    title: 'MCP',
     keywords: ['插件', 'mcp', '服务器', 'server'],
   },
   {
@@ -207,18 +206,20 @@ export const settingsSearchItems: SettingsSearchItem[] = [
 
 /** 全局搜索 setting 入口的分组摘要（与设置内搜索共用同一份关键词）。 */
 export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
-  general: '开机自启动与系统通知',
+  general: '开机自启动、导航入口与软件更新',
   appearance: '主题、缩放、字号与图标',
   shortcuts: '查看与修改快捷键',
-  workspace: '工作目录与布局',
-  archived: '恢复或永久删除已归档对话',
-  connections: 'Canvas、邮箱、教务与水源连接',
-  remotes: 'SSH 远程主机与连接',
+  notifications: '系统通知、校园消息与任务提醒',
+  storage: '缓存、视频下载目录与已删除邮件保留',
+  connections: 'Canvas、邮箱、教学信息服务网与水源',
   providers: 'AI 模型与 API 提供商',
   capabilities: '内置 Agent 能力开关',
   commands: '全局指令与快捷指令模板',
   skills: '工作目录中的技能',
   mcp: 'MCP 服务器与工具',
+  workspace: '工作目录与布局',
+  remotes: 'SSH 远程主机与连接',
+  archived: '恢复或永久删除已归档对话',
   about: '版本信息',
   privacy: '数据存放与外发说明',
   terms: '使用本软件的责任划分',
