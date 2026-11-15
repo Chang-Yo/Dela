@@ -21,7 +21,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { workspaceArchiveId, type WorkspaceEntry } from '../../shared/api';
 import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
-import { Explorer, type ExplorerItem, type ExplorerPending } from '../components/explorer';
+import { Explorer, type ExplorerItem, type ExplorerPending } from '../../modules/workspace/view';
 import { sourceOf } from '../../app/views';
 import {
   DropdownMenu,

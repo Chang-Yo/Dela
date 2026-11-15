@@ -8,7 +8,7 @@ import { remoteNodeId } from '../../modules/remotes/contract';
 import { hiddenWorkspaceNames } from '../../modules/workspace/contract';
 import { onWorkspaceEvent, workspaceClient } from '../../modules/workspace/view';
 import { remoteAccent, useRemoteChannels } from '../../modules/remotes/view';
-import type { ExplorerItem } from '../components/explorer';
+import type { ExplorerItem } from '../../modules/workspace/view';
 import { errorText } from '../workspace/store';
 import { useRemoteActivity } from './remote-activity';
 import { useRemoteConnections } from './remote-connections';

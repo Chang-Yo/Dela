@@ -4,7 +4,7 @@ import { Archive, Columns2, Download, Ellipsis, FileText, FolderOpen, Link2 } fr
 import type { LibraryProps } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../renderer/app/toasts';
-import { Explorer, type ExplorerItem } from '../../../renderer/components/explorer';
+import { Explorer, type ExplorerItem } from '../../../modules/workspace/view';
 import { fileManagerName } from '../../../renderer/lib/platform';
 import { ConfirmDialog } from '../../../ui/dialog';
 import {

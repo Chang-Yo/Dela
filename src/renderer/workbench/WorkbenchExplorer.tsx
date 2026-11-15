@@ -28,7 +28,7 @@ import {
   useAfterMenuClose,
 } from '../../ui/dropdown-menu';
 import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
-import type { ExplorerPending } from '../components/explorer';
+import type { ExplorerPending } from '../../modules/workspace/view';
 import type { WorkspaceEntry } from '../../shared/api';
 import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';

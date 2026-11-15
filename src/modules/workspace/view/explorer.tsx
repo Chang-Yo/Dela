@@ -13,9 +13,9 @@ import {
 } from 'react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, FileText, Folder, FolderKanban } from 'lucide-react';
-import { cn } from '../../ui/cn';
+import { cn } from '../../../ui/cn';
 import { fileIconUrl } from './file-icons';
-import { ErrorText } from '../../ui/alert';
+import { ErrorText } from '../../../ui/alert';
 
 export interface ExplorerItem {
   gitIgnored?: boolean;
