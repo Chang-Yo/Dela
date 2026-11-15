@@ -80,7 +80,7 @@ type MailViewProps = {
 function MailUnavailable() {
   return (
     <div className="grid h-full place-items-center p-8">
-      <div className="grid w-full max-w-[28.75rem] gap-2">
+      <div className="grid w-full max-w-115 gap-2">
         <p className="text-xs font-medium text-ink-3">浏览器预览</p>
         <h2 className="text-lg font-semibold tracking-tight">邮箱仅在 Dela 桌面端可用</h2>
         <p className="text-sm leading-relaxed text-ink-3">

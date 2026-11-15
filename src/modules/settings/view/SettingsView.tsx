@@ -52,7 +52,7 @@ export function SettingsView({
       <SettingsNav onSectionChange={onSectionChange} value={section} />
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
         {/* 内容宽度 912px = 原 760px 增大 20%（用户裁决，2026-10-06）。 */}
-        <div className="mx-auto w-full max-w-[57rem] px-4 pb-8 pt-5 md:px-10 md:pt-8">
+        <div className="mx-auto w-full max-w-228 px-4 pb-8 pt-5 md:px-10 md:pt-8">
           {section === 'general' && <GeneralSection navEntries={navEntries} />}
           {section === 'appearance' && (
             <AppearanceSection

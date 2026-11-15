@@ -633,7 +633,7 @@ export function MailComposer({
 
       <div
         className={cn(
-          'mx-auto mt-3 flex min-h-0 w-full max-w-[47.5rem] flex-1 flex-col rounded-card border border-line bg-surface px-4 pt-5 @min-[520px]:px-8 max-md:pt-3',
+          'mx-auto mt-3 flex min-h-0 w-full max-w-190 flex-1 flex-col rounded-card border border-line bg-surface px-4 pt-5 @min-[520px]:px-8 max-md:pt-3',
           embedded && 'mt-0 max-w-none rounded-none border-0',
         )}
       >
@@ -755,7 +755,7 @@ export function MailComposer({
         <div
           aria-label="邮件正文"
           // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
-          className="min-h-0 flex-1 overflow-y-auto py-4 text-sm leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-[32.5rem] [&_img]:max-w-full [&_img]:rounded-control"
+          className="min-h-0 flex-1 overflow-y-auto py-4 text-sm leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-130 [&_img]:max-w-full [&_img]:rounded-control"
           contentEditable
           style={{ fontSynthesis: 'weight style' }}
           onInput={handleEditorInput}

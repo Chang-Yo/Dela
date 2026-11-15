@@ -59,7 +59,7 @@ export function WizardShell({
         <div
           // 顶部锚定保证各步标题起点一致；矮窗口下收缩留白，给表单内容让出高度。
           className={cn(
-            'w-full max-w-[26.25rem] pt-16 motion-reduce:animate-none [@media(max-height:560px)]:pt-6',
+            'w-full max-w-105 pt-16 motion-reduce:animate-none [@media(max-height:560px)]:pt-6',
             direction > 0 && 'animate-step-in-next',
             direction < 0 && 'animate-step-in-prev',
           )}

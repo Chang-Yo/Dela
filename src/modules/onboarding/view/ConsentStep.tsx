@@ -125,7 +125,7 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
       {/* 文本框没有确定高度就不会滚：minmax(0,1fr) 与 min-h-0 让它在矮窗口里被压缩，
        * 而不是把页面撑高。 */}
       <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] justify-items-center gap-4 px-6 pt-8">
-        <header className="grid w-full max-w-[42rem] gap-2">
+        <header className="grid w-full max-w-168 gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">{current.title}</h1>
           <p className="text-sm leading-relaxed text-ink-3">
             第 {index + 1} 份，共 {documents.length} 份 · 阅读至底部后即可继续
@@ -134,7 +134,7 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
         {/* key 让换条款时重建元素：滚动位置在提交前就归零，不必等 effect。 */}
         <div
           aria-label={`${current.title}正文`}
-          className="w-full max-w-[42rem] min-h-0 overflow-y-auto overscroll-contain rounded-card border border-line bg-page px-5 py-4 text-sm leading-relaxed text-ink-2"
+          className="w-full max-w-168 min-h-0 overflow-y-auto overscroll-contain rounded-card border border-line bg-page px-5 py-4 text-sm leading-relaxed text-ink-2"
           data-consent-text=""
           key={current.key}
           onScroll={(event) => {
@@ -153,14 +153,11 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
 
       <div className="grid gap-3 px-6 pb-6 pt-5">
         {offersBackup ? (
-          <p
-            className="mx-auto w-full max-w-[42rem] text-sm leading-relaxed text-ink-3"
-            role="status"
-          >
+          <p className="mx-auto w-full max-w-168 text-sm leading-relaxed text-ink-3" role="status">
             {hint}
           </p>
         ) : null}
-        <div className="mx-auto flex w-full max-w-[42rem] items-center justify-between gap-4">
+        <div className="mx-auto flex w-full max-w-168 items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {offersBackup ? (
               <Button

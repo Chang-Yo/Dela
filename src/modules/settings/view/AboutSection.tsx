@@ -86,7 +86,7 @@ function SponsorDialog({ person, trigger }: { person: CreditPerson; trigger: Rea
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="w-[23.75rem] max-w-[calc(100vw-2rem)]">
+      <DialogContent className="w-95 max-w-[calc(100vw-2rem)]">
         <DialogTitle className="tracking-tight">赞赏</DialogTitle>
         {sponsor.note ? <DialogDescription>{sponsor.note}</DialogDescription> : null}
         <div className="mt-5 grid grid-cols-2 gap-3">

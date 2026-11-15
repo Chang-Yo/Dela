@@ -44,7 +44,7 @@ export function CredentialRow({
         {/* 状态用颜色说话：绿点=已连接，灰点=未连接；文字只补充细节。 */}
         <span
           className={cn(
-            'flex min-w-[4.5rem] max-w-40 items-center gap-1.5 text-xs max-md:min-w-0',
+            'flex min-w-18 max-w-40 items-center gap-1.5 text-xs max-md:min-w-0',
             connected ? 'text-ink' : 'text-ink-3',
           )}
           title={status}
