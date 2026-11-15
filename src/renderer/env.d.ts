@@ -1,4 +1,4 @@
-import type { DelaApi } from '../shared/api';
+import type { DelaApi } from '../preload/api';
 
 declare global {
   interface Window {

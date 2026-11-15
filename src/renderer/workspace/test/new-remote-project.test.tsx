@@ -5,7 +5,7 @@ import { act, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi } from '../../../shared/api';
+import type { DelaApi } from '../../../preload/api';
 import type { WorkspaceEntry, WorkspaceState } from '../../../modules/workspace/contract';
 import type {
   RemoteBrowseResult,

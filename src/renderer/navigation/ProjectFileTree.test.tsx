@@ -4,7 +4,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi } from '../../shared/api';
+import type { DelaApi } from '../../preload/api';
 import type { WorkspaceEntry } from '../../modules/workspace/contract';
 import type { RemoteChannelState, RemoteDirectoryEntry } from '../../modules/remotes/contract';
 

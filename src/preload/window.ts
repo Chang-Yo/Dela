@@ -1,4 +1,4 @@
-import type { TrayAction, WindowApi, WindowState } from '../shared/api';
+import type { TrayAction, WindowApi, WindowState } from './api';
 import { on, invoke, send } from './lib';
 
 export const windowApi = {
