@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // 新建远程项目面板：选中服务器就连（失败时原样给出原因、能重试），连上后从主目录起浏览，
 // 单击选中 / 双击进入，名称跟着目录走、改过就不再跟；ssh config 里的主机选中即保存为连接。
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { DelaApi, WorkspaceEntry, WorkspaceState } from '../../../shared/api';
@@ -42,6 +43,7 @@ vi.mock('../../app/toasts', () => ({ showToast: vi.fn() }));
 
 let container: HTMLDivElement;
 let root: Root;
+let queryClient: QueryClient;
 
 const emptyState: WorkspaceState = { entries: [], directory: '/tmp/dela' };
 
@@ -82,17 +84,12 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   localStorage.clear();
   Element.prototype.scrollIntoView ??= () => {};
   useWorkspaceStore.setState({ workspace: emptyState, loaded: true, error: null });
   usePreferences.setState({ remoteLastDirectory: {} });
-  useRemoteState.setState({
-    connections: null,
-    candidates: [],
-    channels: {},
-    homes: {},
-    listings: {},
-  });
+  useRemoteState.setState({ pushedChannels: null, homes: {}, setupLog: [] });
 });
 
 afterEach(async () => {
@@ -118,7 +115,15 @@ function setValue(target: HTMLInputElement, value: string) {
   target.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-const flush = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+const Providers = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+);
+
+// 查询的通知按宏任务派发：连接、读目录各占一拍。
+const flush = () =>
+  act(async () => {
+    for (let tick = 0; tick < 3; tick++) await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 
 function api(overrides: Record<string, unknown> = {}, workspace = {}) {
   const remotes = {
@@ -142,7 +147,11 @@ function api(overrides: Record<string, unknown> = {}, workspace = {}) {
 
 async function render(onImported = vi.fn()) {
   await act(async () =>
-    root.render(<NewRemoteProjectDialog onClose={() => {}} onImported={onImported} open />),
+    root.render(
+      <Providers>
+        <NewRemoteProjectDialog onClose={() => {}} onImported={onImported} open />
+      </Providers>,
+    ),
   );
   await flush();
   return onImported;
@@ -304,7 +313,11 @@ it('stays open when a toast is clicked, but closes on a real outside click', asy
   api();
   const onClose = vi.fn();
   await act(async () =>
-    root.render(<NewRemoteProjectDialog onClose={onClose} onImported={() => {}} open />),
+    root.render(
+      <Providers>
+        <NewRemoteProjectDialog onClose={onClose} onImported={() => {}} open />
+      </Providers>,
+    ),
   );
   await flush();
   // toast 与对话框不在同一个 portal：关掉它不能被当成点了对话框外面。
@@ -341,7 +354,6 @@ it('saves an ~/.ssh/config host as a connection when it is picked', async () => 
     save,
   });
   await render();
-  expect(useRemoteState.getState().candidates.map((host) => host.alias)).toEqual(['lab']);
 
   // Radix Select 在 jsdom 里用键盘展开（与 entry-dialogs-link 的测试同一种方式）。
   await act(async () =>

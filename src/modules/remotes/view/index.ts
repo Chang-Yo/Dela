@@ -5,4 +5,11 @@ export { DirectoryBrowser, tildePath } from './DirectoryBrowser';
 export { RemoteSection } from './RemoteSection';
 export { SetupProgress } from './SetupProgress';
 export { remoteAccent } from './remote-color';
-export { channelDot, useRemoteState } from './remote-state';
+export {
+  channelDot,
+  refreshRemoteConnections,
+  remoteConnectionsQuery,
+  sshConfigHostsQuery,
+  useRemoteChannels,
+  useRemoteState,
+} from './remote-state';

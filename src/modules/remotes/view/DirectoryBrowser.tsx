@@ -1,18 +1,18 @@
 // 远端目录选择器：只列目录。单击选中、双击（或 →）进入、← / Backspace 返回上一级；
 // 路径栏平时是面包屑，点一下变成输入框，可粘贴路径回车跳转。
-// 已读过的目录走 remote-state 的缓存：返回上一级、再进来都是即时的，后台再静默刷新一次。
+// 已读过的目录走查询缓存：返回上一级、再进来都是即时的，后台再静默刷新一次。
 // 读取中不禁用任何东西：路径栏立刻变，列表显示占位，用户可以继续往别处点。
 // 底栏「新建文件夹」在当前目录下建一层，建好后重读清单并选中它，可直接作为项目目录；
 // 失败是瞬时结果，走 toast，输入框保留原名方便改了再试。
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Clock, Folder, FolderPlus, House, Search } from 'lucide-react';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/cn';
-import type { RemoteBrowseResult, RemoteDraft } from '../contract';
+import type { RemoteDraft } from '../contract';
 import { showToast } from '../../../renderer/app/toasts';
 import { errorText } from '../../../renderer/workspace/store';
 import { remotesClient } from './client';
-import { useRemoteState } from './remote-state';
 import { IconButton } from '../../../ui/icon-button';
 
 function crumbs(path: string): { name: string; path: string }[] {
@@ -30,9 +30,21 @@ export function tildePath(path: string, home: string | null): string {
   return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
 }
 
+interface Scratch {
+  path: string;
+  filter: string;
+  typed: string;
+  /** 新建文件夹的名字；null 表示没在新建。 */
+  creating: string | null;
+}
+
+const scratchOf = (path: string): Scratch => ({ path, filter: '', typed: path, creating: null });
+
+const scrollIntoView = (element: HTMLElement | null) =>
+  element?.scrollIntoView({ block: 'nearest' });
+
 export function DirectoryBrowser({
   draft,
-  destination,
   home,
   recent,
   path,
@@ -41,7 +53,6 @@ export function DirectoryBrowser({
   onSelect,
 }: {
   draft: RemoteDraft;
-  destination: string;
   home: string | null;
   /** 这台服务器上已登记过的项目目录：一键跳过去。 */
   recent: string[];
@@ -51,49 +62,32 @@ export function DirectoryBrowser({
   onNavigate: (path: string) => void;
   onSelect: (path: string | null) => void;
 }) {
-  const cached = useRemoteState((state) => state.listings[`${destination}|${path}`]);
-  const cacheListing = useRemoteState((state) => state.cacheListing);
-  const [filter, setFilter] = useState('');
+  const queryClient = useQueryClient();
   const [showHidden, setShowHidden] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [typed, setTyped] = useState(path);
-  /** 新建文件夹的名字；null 表示没在新建。 */
-  const [creating, setCreating] = useState<string | null>(null);
-  const listRef = useRef<HTMLUListElement | null>(null);
-  // draft 每次渲染都是新对象：读取只跟着连接参数与路径走。
-  const request = `${draft.host}|${draft.port ?? ''}|${draft.keyPath ?? ''}|${path}`;
-  /** 最近读完的一次请求及其错误；不是当前请求就算读取中。 */
-  const [settled, setSettled] = useState<{ request: string; error: string | null } | null>(null);
-  const loading = settled?.request !== request;
-  const error = loading ? null : settled.error;
-
+  // 筛选、路径输入与新建行只属于当前目录：记下它们属于哪个路径，换目录就回到初值。
+  const [stored, setStored] = useState(() => scratchOf(path));
+  const scratch = stored.path === path ? stored : scratchOf(path);
+  const { filter, typed, creating } = scratch;
+  const edit = (patch: Partial<Scratch>) => setStored({ ...scratch, ...patch });
   // 进到一个目录就读一次：有缓存先显示缓存，同时静默刷新，远端在 Dela 之外改过也看得到。
-  useEffect(() => {
-    if (!window.dela) return;
-    let live = true;
-    void remotesClient.browse({ draft, path }).then(
-      (result: RemoteBrowseResult) => {
-        if (!live) return;
-        cacheListing(destination, result);
-        setSettled({ request, error: null });
-      },
-      (cause: unknown) => {
-        if (live) setSettled({ request, error: errorText(cause) });
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [request, cacheListing]);
-
-  // 换目录时在渲染期清掉筛选、路径输入与新建行。
-  const [shownPath, setShownPath] = useState(path);
-  if (shownPath !== path) {
-    setShownPath(path);
-    setFilter('');
-    setTyped(path);
-    setCreating(null);
-  }
+  // draft 每次渲染都是新对象：读取只跟着连接参数与路径走。
+  const browseKey = [
+    'remotes',
+    'browse',
+    draft.host,
+    draft.port ?? null,
+    draft.keyPath ?? null,
+    path,
+  ];
+  const browse = useQuery({
+    queryKey: browseKey,
+    queryFn: () => remotesClient.browse({ draft, path }),
+    gcTime: Infinity,
+  });
+  const cached = browse.data;
+  const loading = browse.isFetching;
+  const error = !loading && browse.error ? errorText(browse.error) : null;
 
   const createFolder = async () => {
     const name = creating?.trim();
@@ -110,22 +104,23 @@ export function DirectoryBrowser({
     }
     try {
       const created = await remotesClient.mkdir({ draft, parent: path, name });
-      cacheListing(destination, await remotesClient.browse({ draft, path }));
-      setCreating(null);
+      await queryClient.refetchQueries(
+        { queryKey: browseKey, exact: true },
+        { throwOnError: true },
+      );
+      edit({ creating: null });
       onSelect(created);
     } catch (cause) {
       showToast({ variant: 'error', title: '新建文件夹失败', description: errorText(cause) });
     }
   };
 
-  const directories = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
-    return (cached?.directories ?? []).filter(
-      (entry) =>
-        (showHidden || !entry.name.startsWith('.')) &&
-        (!needle || entry.name.toLowerCase().includes(needle)),
-    );
-  }, [cached, filter, showHidden]);
+  const needle = filter.trim().toLowerCase();
+  const directories = (cached?.directories ?? []).filter(
+    (entry) =>
+      (showHidden || !entry.name.startsWith('.')) &&
+      (!needle || entry.name.toLowerCase().includes(needle)),
+  );
 
   const parent =
     cached?.parent ?? (path === '/' ? null : path.slice(0, path.lastIndexOf('/')) || '/');
@@ -149,14 +144,6 @@ export function DirectoryBrowser({
     }
   };
 
-  // 选中项跟着键盘移动时滚进视野。
-  useEffect(() => {
-    if (!selected) return;
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-path="${CSS.escape(selected)}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
-  }, [selected]);
-
   return (
     <div className="grid min-h-0 grid-rows-[auto_auto_1fr_auto] overflow-hidden rounded-card border border-line">
       <div className="flex items-center gap-1.5 border-b border-line px-2 py-1.5">
@@ -176,7 +163,7 @@ export function DirectoryBrowser({
             autoFocus
             className="h-7 font-mono text-xs"
             onBlur={() => setEditing(false)}
-            onChange={(event) => setTyped(event.target.value)}
+            onChange={(event) => edit({ typed: event.target.value })}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
@@ -228,7 +215,7 @@ export function DirectoryBrowser({
           <Input
             aria-label="过滤目录"
             className="h-7 pl-7 text-xs"
-            onChange={(event) => setFilter(event.target.value)}
+            onChange={(event) => edit({ filter: event.target.value })}
             placeholder="过滤"
             value={filter}
           />
@@ -260,7 +247,6 @@ export function DirectoryBrowser({
         aria-label="远端目录"
         className="min-h-48 overflow-y-auto py-1 outline-none focus-visible:bg-hover/40"
         onKeyDown={onListKey}
-        ref={listRef}
         role="listbox"
         tabIndex={0}
       >
@@ -272,7 +258,7 @@ export function DirectoryBrowser({
                 aria-label="新文件夹名称"
                 autoFocus
                 className="h-7 text-xs"
-                onChange={(event) => setCreating(event.target.value)}
+                onChange={(event) => edit({ creating: event.target.value })}
                 onKeyDown={(event) => {
                   event.stopPropagation();
                   if (event.key === 'Enter') {
@@ -280,7 +266,7 @@ export function DirectoryBrowser({
                     void createFolder();
                   } else if (event.key === 'Escape') {
                     event.preventDefault();
-                    setCreating(null);
+                    edit({ creating: null });
                   }
                 }}
                 placeholder="新文件夹名称，回车创建"
@@ -305,8 +291,8 @@ export function DirectoryBrowser({
         {directories.map((entry) => (
           <li
             aria-selected={entry.path === selected}
-            data-path={entry.path}
             key={entry.path}
+            ref={entry.path === selected ? scrollIntoView : undefined}
             role="option"
           >
             <button
@@ -367,9 +353,7 @@ export function DirectoryBrowser({
         <span className="flex-1" />
         <button
           className="mr-3 flex items-center gap-1 rounded-chip px-1 py-0.5 hover:bg-hover hover:text-ink"
-          onClick={() => {
-            setCreating('');
-          }}
+          onClick={() => edit({ creating: '' })}
           type="button"
         >
           <FolderPlus className="size-3" />

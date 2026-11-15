@@ -1,12 +1,14 @@
 // 新建 / 编辑 SSH 连接的表单：「新建远程项目」面板与「设置 › 远程」共用这一份。
 // Dela 只存目的地、端口与私钥路径；密码与密钥内容都交给 ssh 自己读取。
 import { useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import type { RemoteConnection, RemoteDraft } from '../contract';
 import { errorText, useWorkspaceStore } from '../../../renderer/workspace/store';
 import { remotesClient } from './client';
+import { refreshRemoteConnections } from './remote-state';
 import { Callout, ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';
 import { Field } from '../../../ui/field';
@@ -34,6 +36,7 @@ export function ConnectionForm({
   /** 名下项目被级联移除后的工作台清场，参数为仍存活的条目 id 全集。 */
   onProjectsRemoved: (liveIds: Set<string>) => void;
 }) {
+  const queryClient = useQueryClient();
   const start = connection ?? initial;
   const [label, setLabel] = useState(start?.label ?? '');
   const [host, setHost] = useState(start?.host ?? '');
@@ -71,15 +74,15 @@ export function ConnectionForm({
     setBusy(true);
     setError(null);
     try {
-      onSaved(
-        await remotesClient.save({
-          id: connection?.id ?? null,
-          label: label.trim() || undefined,
-          host: host.trim(),
-          port: port.trim() ? Number(port) : null,
-          keyPath: keyPath.trim() || null,
-        }),
-      );
+      const saved = await remotesClient.save({
+        id: connection?.id ?? null,
+        label: label.trim() || undefined,
+        host: host.trim(),
+        port: port.trim() ? Number(port) : null,
+        keyPath: keyPath.trim() || null,
+      });
+      await refreshRemoteConnections(queryClient);
+      onSaved(saved);
     } catch (cause) {
       setError(errorText(cause));
     } finally {
@@ -93,6 +96,7 @@ export function ConnectionForm({
     setError(null);
     try {
       await remotesClient.remove(connection.id);
+      await refreshRemoteConnections(queryClient);
       // 名下项目随连接被级联移除，主进程不单推工作区变更：拉一次镜像后交外壳清场。
       if (projects.length) {
         await useWorkspaceStore.getState().refresh();

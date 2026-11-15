@@ -2,6 +2,7 @@
 // 设置 › 远程：列出已保存连接与实时通道状态（不可用时给出原因）；编辑走共用的连接表单，
 // 表单列出随连接删除的项目并可跳转打开；删除需原地二次确认，确认条写明连带移除的后果。
 import { act } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { WorkspaceEntry } from '../../../workspace/contract';
@@ -51,16 +52,24 @@ const project: WorkspaceEntry = {
 const onOpenProject = vi.fn();
 const onProjectsRemoved = vi.fn();
 
-const render = () =>
-  act(async () =>
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+const flush = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+const render = async () => {
+  await act(async () =>
     root.render(
-      <RemoteSection
-        NewProjectDialog={() => null}
-        onOpenProject={onOpenProject}
-        onProjectsRemoved={onProjectsRemoved}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <RemoteSection
+          NewProjectDialog={() => null}
+          onOpenProject={onOpenProject}
+          onProjectsRemoved={onProjectsRemoved}
+        />
+      </QueryClientProvider>,
     ),
   );
+  await flush();
+};
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -73,7 +82,8 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  useRemoteState.setState({ connections: null, candidates: [], channels: {} });
+  queryClient.clear();
+  useRemoteState.setState({ pushedChannels: null });
   useWorkspaceStore.setState({
     workspace: { entries: [], directory: '' },
     loaded: true,

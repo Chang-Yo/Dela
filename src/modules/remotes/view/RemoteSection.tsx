@@ -1,14 +1,15 @@
 // 设置 › 远程：已保存的 SSH 连接与它们的实时通道状态。编辑与新建用「新建远程项目」面板里同一份表单，
 // 状态点读 helper 通道的推送，不再是一次性的「测试连接」结果。
 // Dela 不保存密码与密钥，凭据由 ssh 从 ~/.ssh 与 agent 读取。
-import { useEffect, useState, type ComponentType } from 'react';
+import { useState, type ComponentType } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Cloud, Plus } from 'lucide-react';
 import type { RemoteConnection } from '../contract';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { remoteAccent } from './remote-color';
 import { ConnectionForm } from './ConnectionForm';
-import { channelDot, useRemoteState } from './remote-state';
+import { channelDot, remoteConnectionsQuery, useRemoteChannels } from './remote-state';
 import { SectionHeader, SettingRow, SettingsGroup } from '../../settings/view';
 
 type Editing = { connection?: RemoteConnection } | null;
@@ -28,15 +29,10 @@ export function RemoteSection({
   onOpenProject: (projectId: string) => void;
   onProjectsRemoved: (liveIds: Set<string>) => void;
 }) {
-  const connections = useRemoteState((state) => state.connections);
-  const channels = useRemoteState((state) => state.channels);
-  const load = useRemoteState((state) => state.load);
+  const connections = useQuery(remoteConnectionsQuery).data ?? null;
+  const channels = useRemoteChannels();
   const [editing, setEditing] = useState<Editing>(null);
   const [projectFor, setProjectFor] = useState<string | null>(null);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   if (editing)
     return (
@@ -46,14 +42,8 @@ export function RemoteSection({
           onBack={() => setEditing(null)}
           onOpenProject={onOpenProject}
           onProjectsRemoved={onProjectsRemoved}
-          onRemoved={() => {
-            setEditing(null);
-            void load();
-          }}
-          onSaved={() => {
-            setEditing(null);
-            void load();
-          }}
+          onRemoved={() => setEditing(null)}
+          onSaved={() => setEditing(null)}
         />
       </div>
     );

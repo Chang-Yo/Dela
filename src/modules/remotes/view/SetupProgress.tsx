@@ -1,7 +1,7 @@
 // 连接一台服务器时的过程展示：上面一排步骤标签（探测 → 校验 → 上传 → 启动 → 隧道 → 握手），
 // 上传时一条真实的字节进度条，下面是逐行日志（默认展开，可折叠）。失败时标题说清楚卡在哪，
 // 并给出「重试 / 编辑连接」。产物已在服务器上时整个过程一两秒，不会出现上传那一步。
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Check, ChevronDown, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
@@ -67,6 +67,11 @@ function failureTitle(step: RemoteSetupStep | undefined): string {
   }
 }
 
+/** 日志区固定高度：每来一行新日志，末尾的锚点重新挂载，借此把阅读位置贴到底。 */
+const stickToBottom = (anchor: HTMLElement | null) => {
+  if (anchor?.parentElement) anchor.parentElement.scrollTop = anchor.parentElement.scrollHeight;
+};
+
 export function SetupProgress({
   log,
   running,
@@ -82,19 +87,12 @@ export function SetupProgress({
   onEdit?: () => void;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const logRef = useRef<HTMLDivElement | null>(null);
   const done = !running;
   const failedLine = log.findLast((line) => line.ok === false);
   const upload = log.findLast((line) => line.step === 'upload' && line.bytes);
   const uploading = upload?.bytes && upload.ok === undefined && running;
   // 进度更新是同一步的重复行：日志里只留开始与结束，不刷几十行百分比。
   const lines = log.filter((line) => !(line.step === 'upload' && line.bytes && !line.detail));
-
-  // 新行进来就贴底：日志区固定高度，阅读位置跟着输出往前走。
-  useEffect(() => {
-    const node = logRef.current;
-    if (node) node.scrollTop = node.scrollHeight;
-  }, [lines.length]);
 
   return (
     <div className="grid gap-3 rounded-card border border-line bg-field p-3.5">
@@ -209,7 +207,6 @@ export function SetupProgress({
         {expanded && (
           <div
             className="grid max-h-36 content-start gap-0.5 overflow-y-auto rounded-control bg-surface px-2.5 py-2 font-mono text-xs leading-[1.7]"
-            ref={logRef}
             role="log"
           >
             {lines.length === 0 ? (
@@ -229,6 +226,7 @@ export function SetupProgress({
                 </p>
               ))
             )}
+            <span aria-hidden="true" className="absolute" key={lines.length} ref={stickToBottom} />
           </div>
         )}
       </div>
