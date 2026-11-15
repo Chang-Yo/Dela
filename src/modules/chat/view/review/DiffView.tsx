@@ -1,6 +1,6 @@
 // unified patch 的只读呈现：双侧行号 + 增删着色。行级数据来自 core/protocol/diff 的解析，
 // 长 diff 分页，避免小体积、多行文件一次创建大量 DOM；长行横向滚动。
-import { memo, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { parseUnifiedPatch } from '../../../../core/protocol/diff';
 import { Button } from '../../../../ui/button';
 
@@ -21,12 +21,12 @@ const rowText: Record<string, string> = {
   context: '',
 };
 
-export const DiffView = memo(function DiffView({ patch }: { patch: string }) {
+export function DiffView({ patch }: { patch: string }) {
   return <PagedDiff key={patch} patch={patch} />;
-});
+}
 
 function PagedDiff({ patch }: { patch: string }) {
-  const rows = useMemo(() => parseUnifiedPatch(patch), [patch]);
+  const rows = parseUnifiedPatch(patch);
   const [page, setPage] = useState(0);
   const pages = Math.ceil(rows.length / PAGE_ROWS);
   const start = page * PAGE_ROWS;

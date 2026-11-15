@@ -1,8 +1,8 @@
 // 改动审阅标签的分发：轮次单文件 diff（数据冻结，读一次）与未提交改动聚合审阅
 // （按请求时点重算，手动刷新）共用一个标签类型，载荷由 tab-id 区分。
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { FileCode2, TriangleAlert } from 'lucide-react';
-import type { FileChangeDetail } from '../../../../core/protocol/agent';
 import type { TabId } from '../../../../app/module';
 import { diffStatOf } from '../../../../core/protocol/diff';
 import { agentClient } from '../client';
@@ -14,9 +14,16 @@ import { errorMessage } from '../../../../core/protocol/contract';
 
 export function ReviewTab({ tabId }: { tabId: TabId; groupId: string }) {
   const target = parseReviewTabId(tabId);
-  if (target?.kind === 'uncommitted') return <UncommittedReview sessionId={target.sessionId} />;
+  if (target?.kind === 'uncommitted')
+    return <UncommittedReview key={target.sessionId} sessionId={target.sessionId} />;
+  if (target?.kind === 'turn')
+    return (
+      <TurnFileReview path={target.path} sessionId={target.sessionId} turnId={target.turnId} />
+    );
   return (
-    <TurnFileReview path={target?.path} sessionId={target?.sessionId} turnId={target?.turnId} />
+    <Shell>
+      <Centered>无效的审阅标签</Centered>
+    </Shell>
   );
 }
 
@@ -27,42 +34,22 @@ function TurnFileReview({
   turnId,
   path,
 }: {
-  sessionId?: string;
-  turnId?: string;
-  path?: string;
+  sessionId: string;
+  turnId: string;
+  path: string;
 }) {
-  const [detail, setDetail] = useState<FileChangeDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: detail, error } = useQuery({
+    queryKey: ['chat', 'turn-file-change', sessionId, turnId, path],
+    queryFn: () => agentClient['read-turn-file-change']({ sessionId, turnId, path }),
+    staleTime: Infinity,
+  });
 
-  useEffect(() => {
-    if (!sessionId || !turnId || !path) return;
-    let active = true;
-    setDetail(null);
-    setError(null);
-    void agentClient['read-turn-file-change']({ sessionId, turnId, path })
-      .then((value) => {
-        if (active) setDetail(value);
-      })
-      .catch((cause: unknown) => {
-        if (active) setError(errorMessage(cause));
-      });
-    return () => {
-      active = false;
-    };
-  }, [sessionId, turnId, path]);
-
-  if (!sessionId || !turnId || !path)
-    return (
-      <Shell>
-        <Centered>无效的审阅标签</Centered>
-      </Shell>
-    );
   if (error)
     return (
       <Shell>
         <Centered>
           <TriangleAlert aria-hidden className="size-4 text-ink-3" />
-          {error}
+          {errorMessage(error)}
         </Centered>
       </Shell>
     );

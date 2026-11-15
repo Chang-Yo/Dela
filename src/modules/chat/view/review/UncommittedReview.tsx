@@ -1,9 +1,9 @@
 // 未提交改动聚合审阅：会话工作目录相对 Git HEAD 的净变化（含未跟踪文件）。
 // 数据按请求时点重算、会随工作区过期，因此提供手动刷新而不轮询；已查看文件仅在当前面板缓存，刷新后失效。
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitCompare, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { FileChangeDetail } from '../../../../core/protocol/agent';
-import type { UncommittedChanges } from '../../../../core/protocol/changes';
 import { chatClient } from '../client';
 import { DiffView } from './DiffView';
 import { Centered, STATUS_TEXT, FileIcon, basenameOf, dirnameOf } from './view-utils';
@@ -17,111 +17,68 @@ const REASON_TEXT = {
 } as const;
 
 type ReviewDetail = Omit<FileChangeDetail, 'before' | 'after'>;
+type CachedDetail = { detail: ReviewDetail; bytes: number };
 // 按 UTF-16 序列化长度估算缓存体积，控制反复切换大文件时保留的文本量。
 const CACHE_BYTE_LIMIT = 16 * 1024 * 1024;
 
 export function UncommittedReview({ sessionId }: { sessionId: string }) {
-  const [summary, setSummary] = useState<UncommittedChanges | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [detail, setDetail] = useState<ReviewDetail | null>(null);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  // load 只刷新列表；当前选中项经 ref 参与「刷新后尽量保持选中」的判定，
-  // 选文件的动作不进入 load 的依赖——换选不能触发整表重扫。
-  const selectedRef = useRef<string | null>(null);
-  const cacheRef = useRef({
-    files: new Map<string, { detail: ReviewDetail; bytes: number }>(),
-    bytes: 0,
+  const queryClient = useQueryClient();
+  const [picked, setPicked] = useState<string | null>(null);
+  const changes = useQuery({
+    queryKey: ['chat', 'uncommitted', sessionId],
+    // 每次挂载与手动刷新都重读；列表重读即作废所有已查看的详情。
+    queryFn: () => {
+      queryClient.removeQueries({ queryKey: ['chat', 'uncommitted-file', sessionId] });
+      return chatClient.readUncommittedChanges(sessionId);
+    },
+    gcTime: 0,
   });
-  const loadVersion = useRef(0);
-
-  const load = useCallback(async () => {
-    const version = ++loadVersion.current;
-    cacheRef.current = { files: new Map(), bytes: 0 };
-    setSummary(null);
-    setBusy(true);
-    setError(null);
-    try {
-      const value = await chatClient.readUncommittedChanges(sessionId);
-      if (version !== loadVersion.current) return;
-      setSummary(value);
-      const alive = new Set(value.files.map((file) => file.path));
-      const next =
-        selectedRef.current && alive.has(selectedRef.current)
-          ? selectedRef.current
-          : (value.files[0]?.path ?? null);
-      selectedRef.current = next;
-      setSelected(next);
-    } catch (cause) {
-      if (version === loadVersion.current) setError(errorMessage(cause));
-    } finally {
-      if (version === loadVersion.current) setBusy(false);
-    }
-  }, [sessionId]);
-
-  useEffect(() => {
-    selectedRef.current = null;
-    setSelected(null);
-    setSummary(null);
-    void load();
-    return () => {
-      loadVersion.current += 1;
-      cacheRef.current = { files: new Map(), bytes: 0 };
-    };
-  }, [load]);
-
-  // 选中文件按请求时点读取 diff；换选或刷新列表后重取。
-  useEffect(() => {
-    if (!summary?.available || !selected) {
-      setDetail(null);
-      setDetailError(null);
-      return;
-    }
-    let alive = true;
-    const cache = cacheRef.current;
-    const cached = cache.files.get(selected)?.detail;
-    setDetail(cached ?? null);
-    setDetailError(null);
-    if (cached) return;
-    void chatClient
-      .readUncommittedFileChange({ sessionId, path: selected })
-      .then((value) => {
-        if (!alive) return;
-        const lean: ReviewDetail = {
-          path: value.path,
-          status: value.status,
-          beforeBytes: value.beforeBytes,
-          afterBytes: value.afterBytes,
-          textDiff: value.textDiff,
-          patch: value.patch,
-          note: value.note,
-        };
-        const bytes = JSON.stringify(lean).length * 2;
-        if (bytes <= CACHE_BYTE_LIMIT) {
-          while (cache.bytes + bytes > CACHE_BYTE_LIMIT && cache.files.size > 0) {
-            const oldest = cache.files.keys().next().value!;
-            cache.bytes -= cache.files.get(oldest)!.bytes;
-            cache.files.delete(oldest);
-          }
-          cache.files.set(selected, { detail: lean, bytes });
-          cache.bytes += bytes;
-        }
-        setDetail(lean);
-      })
-      .catch((cause: unknown) => {
-        if (alive) setDetailError(errorMessage(cause));
-      });
-    return () => {
-      alive = false;
-    };
-  }, [sessionId, selected, summary]);
-
+  const busy = changes.isFetching;
+  const summary = busy ? undefined : changes.data;
   const files = summary?.files ?? [];
-  const select = (path: string) => {
-    selectedRef.current = path;
-    setSelected(path);
-  };
+  const selected = files.some((file) => file.path === picked) ? picked : (files[0]?.path ?? null);
+  const detailRead = useQuery({
+    queryKey: ['chat', 'uncommitted-file', sessionId, selected],
+    queryFn:
+      summary?.available && selected
+        ? async () => {
+            const value = await chatClient.readUncommittedFileChange({
+              sessionId,
+              path: selected,
+            });
+            const detail: ReviewDetail = {
+              path: value.path,
+              status: value.status,
+              beforeBytes: value.beforeBytes,
+              afterBytes: value.afterBytes,
+              textDiff: value.textDiff,
+              patch: value.patch,
+              note: value.note,
+            };
+            const bytes = JSON.stringify(detail).length * 2;
+            const queryCache = queryClient.getQueryCache();
+            const cached = queryCache
+              .findAll({ queryKey: ['chat', 'uncommitted-file', sessionId] })
+              .filter((query) => query.state.data !== undefined)
+              .sort((a, b) => a.state.dataUpdatedAt - b.state.dataUpdatedAt);
+            let total = cached.reduce(
+              (sum, query) => sum + (query.state.data as CachedDetail).bytes,
+              0,
+            );
+            for (const query of cached) {
+              if (total + bytes <= CACHE_BYTE_LIMIT) break;
+              total -= (query.state.data as CachedDetail).bytes;
+              queryCache.remove(query);
+            }
+            return { detail, bytes };
+          }
+        : skipToken,
+    select: (cached) => cached.detail,
+    staleTime: Infinity,
+  });
+  const detail = detailRead.data;
+  const detailError = detailRead.error ? errorMessage(detailRead.error) : null;
+
   const shell = (children: ReactNode) => (
     <section aria-label="工作区改动" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
@@ -137,7 +94,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
           aria-label="刷新改动"
           className="ml-auto"
           disabled={busy}
-          onClick={() => void load()}
+          onClick={() => void changes.refetch()}
           title="重新读取工作区改动"
         >
           <RefreshCw className={busy ? 'animate-spin' : undefined} />
@@ -159,11 +116,11 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
     </section>
   );
 
-  if (error)
+  if (changes.error && !busy)
     return shell(
       <Centered>
         <TriangleAlert aria-hidden className="size-4 text-ink-3" />
-        {error}
+        {errorMessage(changes.error)}
       </Centered>,
     );
   if (!summary) return shell(<Centered role="status">正在读取改动…</Centered>);
@@ -191,7 +148,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
               selected === file.path ? 'bg-hover' : ''
             }`}
             key={file.path}
-            onClick={() => select(file.path)}
+            onClick={() => setPicked(file.path)}
             title={file.path}
             type="button"
           >

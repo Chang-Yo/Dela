@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { FileChangeDetail } from '../../../../core/protocol/agent';
@@ -57,17 +58,29 @@ function summaryFixture(overrides: Partial<UncommittedChanges> = {}): Uncommitte
 let host: HTMLDivElement;
 let root: Root;
 
+let queryClient: QueryClient;
+
+// 查询结果经 notifyManager 在下一个宏任务才通知组件。
+const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
 async function render() {
-  await act(async () => root.render(<UncommittedReview sessionId={sessionId} />));
-  // 列表读取与首文件详情是两段链路，多轮微任务落定。
-  await act(async () => {});
-  await act(async () => {});
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <UncommittedReview sessionId={sessionId} />
+      </QueryClientProvider>,
+    ),
+  );
+  // 列表读取与首文件详情是两段链路，各自落定一次。
+  await settle();
+  await settle();
 }
 
 beforeEach(() => {
   api.readUncommittedChanges.mockImplementation(async () => summaryFixture());
   api.readUncommittedFileChange.mockImplementation(async ({ path }) => detailOf(path));
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   window.dela = dela;
   host = document.createElement('div');
   document.body.append(host);
@@ -107,7 +120,7 @@ it('刷新重读列表；选中文件被移除时回落到第一个', async () =
       .querySelector<HTMLButtonElement>('[aria-label="改动文件列表"] button:nth-child(2)')!
       .click();
   });
-  await act(async () => {});
+  await settle();
   expect(api.readUncommittedFileChange).toHaveBeenLastCalledWith({ sessionId, path: 'new.py' });
 
   api.readUncommittedChanges.mockResolvedValue(
@@ -118,8 +131,8 @@ it('刷新重读列表；选中文件被移除时回落到第一个', async () =
     }),
   );
   await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="刷新改动"]')!.click());
-  await act(async () => {});
-  await act(async () => {});
+  await settle();
+  await settle();
   // 原选中项已不在列表：回落到第一个文件，而不是停留在一个无详情的失效选择上。
   expect(host.querySelector('[aria-current="true"]')?.textContent).toContain('gone.log');
   expect(api.readUncommittedFileChange).toHaveBeenLastCalledWith({ sessionId, path: 'gone.log' });
@@ -134,7 +147,8 @@ it('刷新后选中文件不变也重新读取详情', async () => {
   });
 
   await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="刷新改动"]')!.click());
-  await act(async () => {});
+  await settle();
+  await settle();
   expect(api.readUncommittedFileChange).toHaveBeenCalledTimes(calls + 1);
   expect(host.querySelector('[aria-current="true"]')?.textContent).toContain('app.ts');
   expect(host.textContent).toContain('刷新后的内容');
@@ -173,6 +187,7 @@ it('切回已查看文件使用缓存，刷新清空所有缓存', async () => {
   expect(api.readUncommittedChanges).toHaveBeenCalledTimes(1);
   expect(host.textContent).toContain('+src/app.ts');
   await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="刷新改动"]')!.click());
+  await settle();
   expect(api.readUncommittedFileChange).toHaveBeenCalledTimes(3);
   await selectFile(2);
   expect(api.readUncommittedFileChange).toHaveBeenCalledTimes(4);
