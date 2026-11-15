@@ -6,9 +6,10 @@
 // 失败是瞬时结果，走 toast，输入框保留原名方便改了再试。
 import { useState, type KeyboardEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Clock, Folder, FolderPlus, House, Search } from 'lucide-react';
+import { ChevronRight, Clock, Folder, FolderPlus, House } from 'lucide-react';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
+import { SearchInput } from '../../../ui/search-input';
 import { Skeleton } from '../../../ui/skeleton';
 import { cn } from '../../../ui/cn';
 import type { RemoteDraft } from '../contract';
@@ -212,16 +213,13 @@ export function DirectoryBrowser({
             </span>
           </button>
         )}
-        <label className="relative w-32 shrink-0">
-          <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-ink-3" />
-          <Input
-            aria-label="过滤目录"
-            className="h-7 pl-7 text-xs"
-            onChange={(event) => edit({ filter: event.target.value })}
-            placeholder="过滤"
-            value={filter}
-          />
-        </label>
+        <SearchInput
+          aria-label="过滤目录"
+          className="w-32 shrink-0"
+          onChange={(event) => edit({ filter: event.target.value })}
+          placeholder="过滤"
+          value={filter}
+        />
       </div>
 
       {recent.length > 0 ? (
