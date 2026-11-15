@@ -14,7 +14,7 @@
     "scripts/runtime-smoke.ts",
     "scripts/verify-macos-package.ts",
     "scripts/workspace-smoke.ts",
-    "src/main/modules.d.ts",
+    "src/app/main/modules.d.ts",
     "src/modules/workspace/contract.ts"
   ]
 }

@@ -10,10 +10,11 @@ import { locateSsh } from '../src/core/remote/transport';
 import { loadPi } from '../src/core/agent/pi';
 import { closeDomainBridge, domainBridge } from '../src/core/agent/environment';
 import { COMMAND_BRIDGE } from '../src/core/capabilities/command-server';
-import { closeDatabase } from '../src/main/database';
+import { closeDatabase } from '../src/app/main/database';
 import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/main/host-electron';
 import { previewModule } from '../src/modules/preview';
+import { todoModule } from '../src/modules/todo';
 import { workspaceModule } from '../src/modules/workspace';
 
 const root = resolve('.');
@@ -38,6 +39,7 @@ app.whenReady().then(async () => {
   let exitCode = 1;
   try {
     provideHostPorts(electronPorts);
+    todoModule.register?.();
     workspaceModule.register?.();
     previewModule.register?.();
     prependRuntimePath();

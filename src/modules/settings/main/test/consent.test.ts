@@ -11,7 +11,7 @@ vi.mock('electron', () => ({
   app: { getPath: () => state.root, getVersion: () => '1.1.0', isPackaged: false },
 }));
 
-import { closeDatabase, getDatabase } from '../../../../main/database';
+import { closeDatabase, getDatabase } from '../../../../app/main/database';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { settingsContract } from '../../contract';
 import { hasConsented, recordConsent } from '../consent';

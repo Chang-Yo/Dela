@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/main/host-electron';
-import { closeDatabase, getDatabase } from '../src/main/database';
+import { closeDatabase, getDatabase } from '../src/app/main/database';
 import { mailModule, prepareEmail } from '../src/modules/mail';
 import {
   canvasNextPage,

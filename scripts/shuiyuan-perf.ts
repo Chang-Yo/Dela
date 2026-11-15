@@ -18,7 +18,7 @@ import {
   handleShuiyuanSnapshotRequest,
 } from '../src/sjtu/shuiyuan/main/snapshot-files';
 import { queueShuiyuanSnapshot } from '../src/sjtu/shuiyuan/main/snapshot';
-import { getDatabase } from '../src/main/database';
+import { getDatabase } from '../src/app/main/database';
 import { saveShuiyuanCredential } from '../src/sjtu/shuiyuan/main/credentials';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-shuiyuan-perf-'));

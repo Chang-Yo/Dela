@@ -47,7 +47,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 import type { BackupResult } from '../../contract';
 import { exportUserData } from '../backup';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
-import { closeDatabase, getDatabase, SCHEMA_VERSION } from '../../../../main/database';
+import { closeDatabase, getDatabase, SCHEMA_VERSION } from '../../../../app/main/database';
 
 let base: string;
 let userData: string;

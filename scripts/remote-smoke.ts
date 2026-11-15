@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/main/host-electron';
-import { closeDatabase, getDatabase } from '../src/main/database';
+import { closeDatabase, getDatabase } from '../src/app/main/database';
 import { registerModuleIpc } from '../src/app/main/ipc';
 import { modules } from '../src/app/modules';
 import { registerAgentIpc } from '../src/app/main/agent-ipc';

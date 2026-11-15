@@ -15,22 +15,22 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { closeDatabase, getDatabase, SCHEMA_VERSION } from './database';
 import { runMigrations } from './migrations';
-import { checkWorkspaceSender } from './ipc';
-import type { TrayAction } from '../app/preload/api';
+import { checkWorkspaceSender } from './window';
+import type { TrayAction } from '../preload/api';
 import {
   attachContextMenu,
   registerPreviewProtocol,
   registerPreviewScheme,
-} from '../modules/workspace';
-import { closeAllTerminals, locateBash, prependRuntimePath } from '../modules/terminal';
-import { closeHelper } from '../core/remote/helper';
-import { closeAllPortTunnels, closeRemoteOpens } from '../modules/remotes';
-import { closeRemoteWatch } from '../core/remote/watch';
-import { registerSearchProvider } from '../modules/search';
-import { registerModuleIpc } from '../app/main/ipc';
-import { modules } from '../app/modules';
-import { hasMailComposer } from '../modules/mail';
-import { mailContract } from '../modules/mail/contract';
+} from '../../modules/workspace';
+import { closeAllTerminals, locateBash, prependRuntimePath } from '../../modules/terminal';
+import { closeHelper } from '../../core/remote/helper';
+import { closeAllPortTunnels, closeRemoteOpens } from '../../modules/remotes';
+import { closeRemoteWatch } from '../../core/remote/watch';
+import { registerSearchProvider } from '../../modules/search';
+import { registerModuleIpc } from './ipc';
+import { modules } from '../modules';
+import { hasMailComposer } from '../../modules/mail';
+import { mailContract } from '../../modules/mail/contract';
 import {
   closeDomainBridge,
   gcChatMedia,
@@ -38,10 +38,16 @@ import {
   loadPi,
   registerAgentIpc,
   shutdownSessions,
-} from '../app/main/agent-ipc';
-import { emit, provideHostPorts } from '../core/ports';
-import { electronPorts } from '../app/main/host-electron';
-import { applyTheme, savedIcon, savedTheme, savedZoom, settingsSearch } from '../modules/settings';
+} from './agent-ipc';
+import { emit, provideHostPorts } from '../../core/ports';
+import { electronPorts } from './host-electron';
+import {
+  applyTheme,
+  savedIcon,
+  savedTheme,
+  savedZoom,
+  settingsSearch,
+} from '../../modules/settings';
 
 import Database from 'better-sqlite3';
 import { spawn as spawnPty } from 'node-pty';

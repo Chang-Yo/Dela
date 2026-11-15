@@ -10,8 +10,8 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { electronPorts } from '../../app/main/host-electron';
-import { CredentialDecryptionError, provideHostPorts } from '../../core/ports';
+import { electronPorts } from '../host-electron';
+import { CredentialDecryptionError, provideHostPorts } from '../../../core/ports';
 
 const storage = vi.hoisted(() => ({ directory: '', available: true }));
 vi.mock('electron', () => ({

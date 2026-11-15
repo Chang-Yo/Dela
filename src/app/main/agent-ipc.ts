@@ -1,7 +1,7 @@
 // agent 域入口：注册 Agent 协议与桌面私有的 llm、capabilities 契约；会话的桌面操作在 modules/chat。
 import { ipcMain } from 'electron';
 import { z } from 'zod';
-import { checkWorkspaceSender } from '../../main/ipc';
+import { checkWorkspaceSender } from './window';
 import {
   listLlmProviders,
   removeLlmProvider,

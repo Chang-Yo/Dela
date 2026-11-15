@@ -10,7 +10,7 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
 }));
 
-import { closeDatabase, getDatabase } from '../../../../main/database';
+import { closeDatabase, getDatabase } from '../../../../app/main/database';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { courseFileSearch } from '../search';
 

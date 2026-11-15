@@ -12,11 +12,11 @@ vi.mock('electron', () => ({
 vi.mock('../todo', () => ({ getTodoState: () => ({ items: [] }) }));
 
 import { closeDatabase, getDatabase } from '../database';
-import type { SearchGroup } from '../../modules/search/contract';
-import { registerSearchProvider, searchModule } from '../../modules/search';
-import { workspaceModule } from '../../modules/workspace';
-import { mailSearch } from '../../modules/mail';
-import { provideTestHostPorts } from '../../core/test/host-mock';
+import type { SearchGroup } from '../../../modules/search/contract';
+import { registerSearchProvider, searchModule } from '../../../modules/search';
+import { workspaceModule } from '../../../modules/workspace';
+import { mailSearch } from '../../../modules/mail';
+import { provideTestHostPorts } from '../../../core/test/host-mock';
 
 const timestamp = '2026-09-16T12:00:00.000Z';
 const run = (sql: string, ...values: unknown[]) =>

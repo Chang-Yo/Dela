@@ -102,6 +102,6 @@ MarkItDown 自身的 Magika 识别依赖及 ONNX Runtime 已计入上述体积�
 
 ## 记录保留范围
 
-正式实现接入后，已移除一次性评测脚本、重复的实验 skill、依赖清单与统计 JSON。本报告保留选型依据；当前脚本与固定依赖见 `src/main/documents/skill`，安装和使用流程见开发文档。以上测量是当时的实验结果，不代表当前完整 Agent 链路的验收。
+正式实现接入后，已移除一次性评测脚本、重复的实验 skill、依赖清单与统计 JSON。本报告保留选型依据；当前脚本与固定依赖见 `src/modules/preview/main/agent/skill`，安装和使用流程见开发文档。以上测量是当时的实验结果，不代表当前完整 Agent 链路的验收。
 
 参考：[MarkItDown](https://github.com/microsoft/markitdown)、[Docling](https://github.com/docling-project/docling)、[Agent Skills 脚本实践](https://agentskills.io/skill-creation/using-scripts)、[Python Windows embeddable runtime](https://docs.python.org/3.12/using/windows.html#the-embeddable-package)。skill 与实验脚本是 Dela 自编实现，没有复制 Anthropic 文档 skills。

@@ -27,10 +27,10 @@ import {
   type HostPorts,
   type SecretNamespace,
 } from '../../core/ports';
-import { getDatabase } from '../../main/database';
-import { workspaceWindow } from '../../main/ipc';
+import { getDatabase } from './database';
+import { workspaceWindow } from './window';
 import { notifyRunFinished } from '../../modules/settings';
-import { storageDirectory } from '../../main/storage';
+import { storageDirectory } from './storage';
 import { locateBash } from '../../modules/terminal';
 import { workspaceProjects } from '../../modules/workspace';
 

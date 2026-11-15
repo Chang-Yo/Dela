@@ -12,7 +12,7 @@ vi.mock('../credentials', () => ({
   saveCanvasToken: vi.fn(),
 }));
 
-import { closeDatabase, getDatabase } from '../../../../main/database';
+import { closeDatabase, getDatabase } from '../../../../app/main/database';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { syncCanvasCourse } from '../api';
 
