@@ -1,5 +1,6 @@
 // 主题/缩放/字号的应用与 localStorage 镜像。
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fontSizeDefault,
   fontSizeMax,
@@ -27,11 +28,22 @@ function initialFontSize(): number {
   return fontSizeDefault;
 }
 
-/** 桌面端主题/缩放事实在主进程 DB；这里持视图状态、应用 CSS 效果并镜像到 localStorage。 */
+/** 桌面端主题/缩放事实在主进程 DB；这里读进查询缓存、应用 CSS 效果并镜像到 localStorage。 */
 export function useAppearance() {
-  const [theme, setTheme] = useState<ThemePreference>(initialTheme);
-  const [zoom, setZoom] = useState<ZoomPreference>(1);
-  const [fontSize, setFontSize] = useState<number>(initialFontSize);
+  const queryClient = useQueryClient();
+  const enabled = Boolean(window.dela);
+  const theme =
+    useQuery({ queryKey: ['settings', 'theme'], queryFn: () => settingsClient.theme(), enabled })
+      .data ?? initialTheme();
+  const zoom =
+    useQuery({ queryKey: ['settings', 'zoom'], queryFn: () => settingsClient.zoom(), enabled })
+      .data ?? 1;
+  const fontSize =
+    useQuery({
+      queryKey: ['settings', 'fontSize'],
+      queryFn: () => settingsClient.fontSize(),
+      enabled,
+    }).data ?? initialFontSize();
 
   // 生效主题只由 .dark / .light 表达：跟随系统时按媒体查询解析，让所有 token（含 beautiful-ui
   // 只认 .dark 的那套）走同一条路径。
@@ -61,44 +73,26 @@ export function useAppearance() {
     if (!window.dela) document.documentElement.style.zoom = String(zoom);
   }, [zoom]);
 
-  useEffect(() => {
-    if (!window.dela) return;
-    void settingsClient
-      .theme()
-      .then(setTheme)
-      .catch(() => {});
-    void settingsClient
-      .zoom()
-      .then(setZoom)
-      .catch(() => {});
-    void settingsClient
-      .fontSize()
-      .then(setFontSize)
-      .catch(() => {});
-  }, []);
-
+  // 浏览器预览没有主进程，直接写缓存；桌面端以主进程回写的规范值为准。
   const changeTheme = async (next: ThemePreference) => {
-    if (!window.dela) {
-      setTheme(next);
-      return;
-    }
-    setTheme(await settingsClient.setTheme(next));
+    queryClient.setQueryData(
+      ['settings', 'theme'],
+      window.dela ? await settingsClient.setTheme(next) : next,
+    );
   };
 
   const changeZoom = async (next: ZoomPreference) => {
-    if (!window.dela) {
-      setZoom(next);
-      return;
-    }
-    setZoom(await settingsClient.setZoom(next));
+    queryClient.setQueryData(
+      ['settings', 'zoom'],
+      window.dela ? await settingsClient.setZoom(next) : next,
+    );
   };
 
   const changeFontSize = async (next: number) => {
-    if (!window.dela) {
-      setFontSize(clampFontSize(next));
-      return;
-    }
-    setFontSize(await settingsClient.setFontSize(next));
+    queryClient.setQueryData(
+      ['settings', 'fontSize'],
+      window.dela ? await settingsClient.setFontSize(next) : clampFontSize(next),
+    );
   };
 
   return { theme, zoom, fontSize, changeTheme, changeZoom, changeFontSize };
