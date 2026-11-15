@@ -5,7 +5,14 @@ import { formatSegments, formatTranscript, getTranscript, listCourses, listVideo
 import { safeFileName } from '../transcript';
 import type { CommandDomain } from '../../../../core/capabilities/commands';
 import skill from './skill/SKILL.md?raw';
-import { limit, match, offset, page, query, tool } from '../../../../main/agent/domain/shared';
+import {
+  limit,
+  match,
+  offset,
+  page,
+  query,
+  tool,
+} from '../../../../core/capabilities/domain-tools';
 
 const id = z.number().int().positive();
 

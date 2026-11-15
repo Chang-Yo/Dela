@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getShuiyuanSiteStructure } from '../api';
-import { freshness, tool } from '../../../../main/agent/domain/shared';
+import { freshness, tool } from '../../../../core/capabilities/domain-tools';
 import { requireShuiyuanBound, withShuiyuanErrors } from './helpers';
 
 export const listShuiyuanCategoriesTool = tool(

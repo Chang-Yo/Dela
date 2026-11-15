@@ -1,6 +1,7 @@
 import { saveTodo } from '../../../../modules/todo';
 import { todoSaveSchema } from '../../../../modules/todo/contract';
-import { slimTodo, tool, toolError } from '../shared';
+import { tool, toolError } from '../../../../core/capabilities/domain-tools';
+import { slimTodo } from './slim';
 
 export const saveTodoTool = tool(
   '新建或修改个人待办（本地写）。提供 id 时更新已有条目；不能修改 Canvas 作业（其状态由同步更新），不会提交作业。completed 控制完成状态；dueAt 为 UTC ISO 8601；calendar+color 控制是否在日历中按截止时间显示。',

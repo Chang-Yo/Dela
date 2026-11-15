@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { querySchedule } from '../api';
-import { coverage, freshness, tool } from '../../../../main/agent/domain/shared';
+import { coverage, freshness, tool } from '../../../../core/capabilities/domain-tools';
 
 const semesterPattern = /^\d{4}-\d{4}-[123]$/;
 const dateSchema = z

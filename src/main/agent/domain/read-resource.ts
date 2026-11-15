@@ -5,7 +5,7 @@ import { readWorkspaceResource, withAttachmentFile, type ResourceContent } from 
 import { workspaceFilePath } from '../../../modules/workspace';
 import type { CommandDomain } from '../../../core/capabilities/commands';
 import { resourceResolver, type ResourceResolver } from '../../../core/capabilities/resources';
-import { freshness, offset, tool, toolError } from './shared';
+import { freshness, offset, tool, toolError } from '../../../core/capabilities/domain-tools';
 
 type MailRef = Extract<ResourceRef, { type: 'mail' }>;
 

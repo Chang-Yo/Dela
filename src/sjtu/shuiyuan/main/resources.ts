@@ -1,5 +1,5 @@
 import { hostPorts } from '../../../core/ports';
-import { freshness } from '../../../main/agent/domain/shared';
+import { freshness } from '../../../core/capabilities/domain-tools';
 import type { WorkspaceSource } from '../../../modules/workspace';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
 import type { ResourceRef } from '../../../modules/workspace/contract';

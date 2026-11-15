@@ -5,7 +5,7 @@ import { prepareDocumentResource, releaseDocumentResource } from '../../resource
 import { resourceRefSchema } from '../../../modules/workspace/contract';
 import skill from '../skills/document-reading/SKILL.md?raw';
 import script from '../skills/document-reading/scripts/read.py?raw';
-import { tool } from './shared';
+import { tool } from '../../../core/capabilities/domain-tools';
 
 export const documentDomain = {
   name: 'document',

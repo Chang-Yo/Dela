@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { publishCanvasState } from '../actions';
 import { syncCanvasCourse } from '../api';
-import { freshness, tool, toolError } from '../../../../main/agent/domain/shared';
+import { freshness, tool, toolError } from '../../../../core/capabilities/domain-tools';
 import { canvasSyncBranches, requireCanvasConfigured, withCanvasErrors } from './helpers';
 
 /** 从 course.error（branch() 以「标签：消息」逐行拼接）解析各分支的错误。 */

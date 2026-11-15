@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { addShuiyuanSourceRef } from '../sources';
 import { createWorkspaceEntry } from '../../../../modules/workspace';
-import { tool, toolError, uuid } from '../../../../main/agent/domain/shared';
+import { tool, toolError, uuid } from '../../../../core/capabilities/domain-tools';
 import { requireShuiyuanBound, withShuiyuanErrors } from './helpers';
 
 export const linkShuiyuanTopicTool = tool(

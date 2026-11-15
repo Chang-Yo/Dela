@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { publishCanvasState } from '../actions';
 import { syncCanvasCourses } from '../api';
-import { freshness, tool } from '../../../../main/agent/domain/shared';
+import { freshness, tool } from '../../../../core/capabilities/domain-tools';
 import { courseSummary, requireCanvasConfigured, withCanvasErrors } from './helpers';
 
 export const refreshCanvasCoursesTool = tool(

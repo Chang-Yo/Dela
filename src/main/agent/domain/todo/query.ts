@@ -10,10 +10,10 @@ import {
   offset,
   page,
   query,
-  slimTodo,
   tool,
   toolError,
-} from '../shared';
+} from '../../../../core/capabilities/domain-tools';
+import { slimTodo } from './slim';
 
 /** 两个查询工具共用的完成语义：unknown/offline 既不算已完成也不算未完成。 */
 function matchesCompleted(item: TodoItem, completed: boolean | undefined) {

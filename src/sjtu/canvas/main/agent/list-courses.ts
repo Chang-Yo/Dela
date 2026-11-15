@@ -10,7 +10,7 @@ import {
   query,
   tool,
   toolError,
-} from '../../../../main/agent/domain/shared';
+} from '../../../../core/capabilities/domain-tools';
 import { courseSummary, requireCanvasConfigured } from './helpers';
 
 export const listCanvasCoursesTool = tool(

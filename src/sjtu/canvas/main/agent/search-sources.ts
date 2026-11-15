@@ -9,7 +9,7 @@ import {
   page,
   query,
   tool,
-} from '../../../../main/agent/domain/shared';
+} from '../../../../core/capabilities/domain-tools';
 import { requireCanvasConfigured } from './helpers';
 
 export const searchCanvasSourcesTool = tool(

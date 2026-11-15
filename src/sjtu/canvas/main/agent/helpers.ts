@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { CanvasCourse, CanvasState } from '../../contract';
 import { getCanvasState } from '../api';
-import { ToolError, toolError } from '../../../../main/agent/domain/shared';
+import { ToolError, toolError } from '../../../../core/capabilities/domain-tools';
 
 /** syncCourse 各分支的标识与中文标签（与 canvas/api.ts branch() 写入 course.error 的前缀一致）。 */
 export const canvasSyncBranches = [

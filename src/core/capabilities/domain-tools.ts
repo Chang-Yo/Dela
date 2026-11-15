@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { TodoItem } from '../../../modules/todo/contract';
 
 export const uuid = z.string().uuid();
 export const query = z.string().max(500).default('');
@@ -14,12 +13,6 @@ export function page<T>(items: T[], start: number, count: number) {
     nextOffset: start + count < items.length ? start + count : null,
   };
 }
-
-// 作业描述 HTML 体积大且面向渲染，不进入模型上下文；需要正文时经 readCanvasSource 读取。
-export const slimTodo = ({
-  description: _omit,
-  ...item
-}: TodoItem): Omit<TodoItem, 'description'> => item;
 
 export function tool<T extends z.ZodType>(
   description: string,
@@ -36,7 +29,30 @@ export function match(value: string, keyword: string) {
   return value.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
 }
 
-export { ToolError, toolError } from './tool-errors';
+/** 工具执行错误的跨层契约：细分错误码由边界抛出方携带，统一映射为模型与渲染侧可读的结果。 */
+export type ToolErrorCode =
+  | 'INVALID_INPUT'
+  | 'NOT_CONFIGURED'
+  | 'AUTH_EXPIRED'
+  | 'NOT_FOUND'
+  | 'VERSION_CONFLICT'
+  | 'RATE_LIMITED'
+  | 'NETWORK_ERROR'
+  | 'UPSTREAM_ERROR'
+  | 'OPERATION_FAILED';
+
+export class ToolError extends Error {
+  constructor(
+    public code: ToolErrorCode,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export function toolError(code: ToolErrorCode, message: string): ToolError {
+  return new ToolError(code, message);
+}
 
 /** cached=本地缓存查询；realtime=当次联网（水源、fetch_page、按需拉取的邮件正文）。 */
 export function freshness(kind: 'cached' | 'realtime', syncedAt?: string | null) {

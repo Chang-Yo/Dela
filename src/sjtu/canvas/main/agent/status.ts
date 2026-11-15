@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getCanvasState } from '../api';
-import { tool } from '../../../../main/agent/domain/shared';
+import { tool } from '../../../../core/capabilities/domain-tools';
 import { courseSummary } from './helpers';
 
 export const getCanvasStatusTool = tool(

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ShuiyuanFeed } from '../../contract';
 import { listShuiyuanTopics } from '../api';
-import { cursorPage, freshness, tool } from '../../../../main/agent/domain/shared';
+import { cursorPage, freshness, tool } from '../../../../core/capabilities/domain-tools';
 import { requireShuiyuanBound, slimTopicSummary, withShuiyuanErrors } from './helpers';
 
 const listTopicsInput = z

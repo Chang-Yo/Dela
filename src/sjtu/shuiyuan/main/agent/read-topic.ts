@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getShuiyuanTopic } from '../api';
 import { shuiyuanTopicUrl } from '../sources';
-import { freshness, tool } from '../../../../main/agent/domain/shared';
+import { freshness, tool } from '../../../../core/capabilities/domain-tools';
 import { requireShuiyuanBound, slimPost, withShuiyuanErrors } from './helpers';
 
 /** read_shuiyuan_posts 单次接受的楼层数上限（控制单次工具结果体积）。 */

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { deleteCalendarEvent, getCalendarEvent } from '../api';
-import { tool, toolError } from '../../../../main/agent/domain/shared';
+import { tool, toolError } from '../../../../core/capabilities/domain-tools';
 
 export const deleteEventTool = tool(
   '删除个人日程（本地写，仅自建日历事件）。课程与由个人待办派生的事件不经此删除；不删除任何文件。',

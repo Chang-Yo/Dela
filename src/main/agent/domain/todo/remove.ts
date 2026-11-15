@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getTodoState, removeTodo } from '../../../../modules/todo';
-import { slimTodo, tool, toolError } from '../shared';
+import { tool, toolError } from '../../../../core/capabilities/domain-tools';
+import { slimTodo } from './slim';
 
 export const removeTodoTool = tool(
   '删除个人待办（本地写，仅个人待办；Canvas 作业由同步管理，不可删除）。删除前做存在性检查，未知 id 返回 NOT_FOUND。',

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getTodoState, refreshTodos } from '../../../../modules/todo';
-import { coverage, freshness, slimTodo, tool, toolError } from '../shared';
+import { coverage, freshness, tool, toolError } from '../../../../core/capabilities/domain-tools';
+import { slimTodo } from './slim';
 
 export const refreshTodosTool = tool(
   '从 Canvas 刷新作业与提交状态缓存（联网写缓存；覆盖在读未归档课程）。次级副作用：已知课程出现新作业时会触发系统桌面通知。不会提交作业。',
