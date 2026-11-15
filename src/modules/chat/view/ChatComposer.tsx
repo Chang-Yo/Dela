@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Popover } from 'radix-ui';
 import {
   ArrowUp,
   AtSign,
@@ -28,6 +27,7 @@ import { formatDuration } from './ToolTimeline';
 import { openSubagent } from './tool-views';
 import { Button } from '../../../ui/button';
 import { IconButton } from '../../../ui/icon-button';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { ProgressRing } from '../../../ui/progress-ring';
 import { useChatTabSource } from './chat-source';
 import type {
@@ -110,7 +110,6 @@ export function cacheHitRateText(usage: ContextUsageView): string {
 // beautiful-ui PromptBar 的控件样式：选择器触发钮与弹层容器（图标钮用 IconButton atom）。
 const triggerButton =
   'flex h-7 min-w-0 shrink items-center gap-1 rounded-control px-1.5 text-xs font-medium text-ink-2 transition-colors duration-base hover:bg-hover hover:text-ink';
-const menuPanel = 'rounded-card bg-surface p-1 shadow-raised';
 const webSearchOptionsKey = ['capabilities', 'webSearchOptions'];
 // 候选行固定 h-9（9 个 spacing 单位），滑动高亮据此定位。
 const MENU_ROW_UNITS = 9;
@@ -522,8 +521,8 @@ export function ChatComposer({
             <AtSign />
           </IconButton>
           {!sidechat && (
-            <Popover.Root onOpenChange={openSearchPicker} open={searchPickerOpen}>
-              <Popover.Trigger asChild>
+            <Popover onOpenChange={openSearchPicker} open={searchPickerOpen}>
+              <PopoverTrigger asChild>
                 <IconButton
                   aria-label={
                     selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'
@@ -532,100 +531,86 @@ export function ChatComposer({
                 >
                   <Globe className={selectedSearch ? 'text-success' : undefined} />
                 </IconButton>
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content
-                  align="start"
-                  className={cn('z-overlay w-64', menuPanel)}
-                  side="bottom"
-                  sideOffset={6}
-                  style={{
-                    animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-                    transformOrigin: 'top center',
-                  }}
-                >
-                  {searchEntries === null ? (
-                    <p className="px-2 py-3 text-xs text-ink-3">
-                      {searchFailed ? '搜索配置加载失败' : '正在加载搜索配置…'}
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64" side="bottom">
+                {searchEntries === null ? (
+                  <p className="px-2 py-3 text-xs text-ink-3">
+                    {searchFailed ? '搜索配置加载失败' : '正在加载搜索配置…'}
+                  </p>
+                ) : searchEntries.length === 0 ? (
+                  <div className="grid gap-2 px-1.5 py-2">
+                    <p className="text-xs text-ink-3">
+                      还没有搜索服务配置，可在设置 › 内置能力 的「网络」分组中添加。
                     </p>
-                  ) : searchEntries.length === 0 ? (
-                    <div className="grid gap-2 px-1.5 py-2">
-                      <p className="text-xs text-ink-3">
-                        还没有搜索服务配置，可在设置 › 内置能力 的「网络」分组中添加。
-                      </p>
-                      <Button
-                        className="w-full justify-start [&_svg]:size-3.5"
-                        onClick={() => {
-                          setSearchPickerOpen(false);
-                          navigate({ page: 'settings', section: 'capabilities' });
-                        }}
-                        size="sm"
-                        variant="outline"
+                    <Button
+                      className="w-full justify-start [&_svg]:size-3.5"
+                      onClick={() => {
+                        setSearchPickerOpen(false);
+                        navigate({ page: 'settings', section: 'capabilities' });
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Settings />
+                      打开设置 › 内置能力
+                    </Button>
+                  </div>
+                ) : (
+                  <ul aria-label="联网搜索">
+                    <li>
+                      <button
+                        aria-checked={searchSelectedId === null}
+                        className={cn(
+                          'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-sm transition-colors',
+                          searchSelectedId === null
+                            ? 'bg-hover font-medium text-ink'
+                            : 'text-ink-2 hover:bg-hover hover:text-ink',
+                        )}
+                        onClick={() => void selectSearchEntry(null)}
+                        role="radio"
+                        type="button"
                       >
-                        <Settings />
-                        打开设置 › 内置能力
-                      </Button>
-                    </div>
-                  ) : (
-                    <ul aria-label="联网搜索">
-                      <li>
+                        <span className="truncate">关闭</span>
+                        {searchSelectedId === null && (
+                          <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
+                        )}
+                      </button>
+                    </li>
+                    {searchEntries.map((entry) => (
+                      <li key={entry.id}>
                         <button
-                          aria-checked={searchSelectedId === null}
+                          aria-checked={entry.id === searchSelectedId}
                           className={cn(
                             'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-sm transition-colors',
-                            searchSelectedId === null
+                            entry.id === searchSelectedId
                               ? 'bg-hover font-medium text-ink'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
                           )}
-                          onClick={() => void selectSearchEntry(null)}
+                          onClick={() => void selectSearchEntry(entry.id)}
                           role="radio"
                           type="button"
                         >
-                          <span className="truncate">关闭</span>
-                          {searchSelectedId === null && (
+                          <span className="truncate">{entry.name}</span>
+                          {entry.provider === 'deepseek' && (
+                            <span className="shrink-0 text-xs text-ink-3">按次计费</span>
+                          )}
+                          {entry.id === searchSelectedId && (
                             <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
                           )}
                         </button>
                       </li>
-                      {searchEntries.map((entry) => (
-                        <li key={entry.id}>
-                          <button
-                            aria-checked={entry.id === searchSelectedId}
-                            className={cn(
-                              'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-sm transition-colors',
-                              entry.id === searchSelectedId
-                                ? 'bg-hover font-medium text-ink'
-                                : 'text-ink-2 hover:bg-hover hover:text-ink',
-                            )}
-                            onClick={() => void selectSearchEntry(entry.id)}
-                            role="radio"
-                            type="button"
-                          >
-                            <span className="truncate">{entry.name}</span>
-                            {entry.provider === 'deepseek' && (
-                              <span className="shrink-0 text-xs text-ink-3">按次计费</span>
-                            )}
-                            {entry.id === searchSelectedId && (
-                              <Check
-                                className="ms-auto size-3 shrink-0 text-ink"
-                                strokeWidth={2.5}
-                              />
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
+                    ))}
+                  </ul>
+                )}
+              </PopoverContent>
+            </Popover>
           )}
           <div className="flex-1" />
           {tasks.length > 0 && onStopTask && <BackgroundTasks onStop={onStopTask} tasks={tasks} />}
           {configured && contextUsage && <ContextIndicator usage={contextUsage} />}
           {configured && !sidechat && (
-            <Popover.Root onOpenChange={openModelPicker} open={modelPickerOpen}>
-              <Popover.Trigger asChild>
+            <Popover onOpenChange={openModelPicker} open={modelPickerOpen}>
+              <PopoverTrigger asChild>
                 <button
                   aria-label="模型服务"
                   className={cn(
@@ -642,108 +627,97 @@ export function ChatComposer({
                   <Bot className="hidden size-3.5 @max-[220px]:block" />
                   <ChevronDown className="size-3 @max-[220px]:hidden" />
                 </button>
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content
-                  align="end"
-                  className={cn('z-overlay w-80', menuPanel)}
-                  side="bottom"
-                  sideOffset={6}
-                  style={{
-                    animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-                    transformOrigin: 'top center',
-                  }}
-                >
-                  {providers === null ? (
-                    providersFailed ? (
-                      <p className="px-2 py-3 text-xs text-ink-3">模型列表加载失败</p>
-                    ) : (
-                      <p className="px-2 py-3 text-xs text-ink-3">正在加载模型列表…</p>
-                    )
-                  ) : providers.length === 0 ? (
-                    <div className="grid gap-2 px-1.5 py-2">
-                      <p className="text-xs text-ink-3">
-                        还没有启用的模型供应商，可在设置 › 模型服务 中添加或启用。
-                      </p>
-                      <Button
-                        className="w-full justify-start [&_svg]:size-3.5"
-                        onClick={() => {
-                          setModelPickerOpen(false);
-                          navigate({ page: 'settings', section: 'providers' });
-                        }}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Settings />
-                        打开设置 › 模型服务
-                      </Button>
-                    </div>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80" side="bottom">
+                {providers === null ? (
+                  providersFailed ? (
+                    <p className="px-2 py-3 text-xs text-ink-3">模型列表加载失败</p>
                   ) : (
-                    <div className="flex gap-0.5">
-                      <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
-                        {providers.map((provider) => (
-                          <li key={provider.id}>
-                            <button
-                              className={cn(
-                                'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
-                                provider.id === focused?.id
-                                  ? 'bg-hover font-medium text-ink'
-                                  : 'text-ink-2 hover:bg-hover hover:text-ink',
-                              )}
-                              onClick={() => setFocusedId(provider.id)}
-                              type="button"
-                            >
-                              <span className="truncate">{provider.name}</span>
-                              {provider.id === providerId && (
-                                <span
-                                  aria-label="本会话使用"
-                                  className="ms-auto size-1.5 shrink-0 rounded-full bg-success"
-                                  title="本会话使用"
-                                />
-                              )}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                      <ul
-                        aria-label="模型"
-                        className="max-h-64 min-w-0 flex-1 overflow-y-auto border-l border-line pl-1.5"
-                      >
-                        {focused?.models.map((item) => (
-                          <li key={item}>
-                            <button
-                              className={cn(
-                                'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
-                                focused.id === providerId && model === item
-                                  ? 'bg-hover font-medium text-ink'
-                                  : 'text-ink-2 hover:bg-hover hover:text-ink',
-                              )}
-                              onClick={() => {
-                                setModelPickerOpen(false);
-                                onModelSelect(focused, item);
-                              }}
-                              type="button"
-                            >
-                              <span className="truncate">{item}</span>
-                              {focused.id === providerId && model === item && (
-                                <Check
-                                  className="ms-auto size-3 shrink-0 text-ink"
-                                  strokeWidth={2.5}
-                                />
-                              )}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
+                    <p className="px-2 py-3 text-xs text-ink-3">正在加载模型列表…</p>
+                  )
+                ) : providers.length === 0 ? (
+                  <div className="grid gap-2 px-1.5 py-2">
+                    <p className="text-xs text-ink-3">
+                      还没有启用的模型供应商，可在设置 › 模型服务 中添加或启用。
+                    </p>
+                    <Button
+                      className="w-full justify-start [&_svg]:size-3.5"
+                      onClick={() => {
+                        setModelPickerOpen(false);
+                        navigate({ page: 'settings', section: 'providers' });
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Settings />
+                      打开设置 › 模型服务
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-0.5">
+                    <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
+                      {providers.map((provider) => (
+                        <li key={provider.id}>
+                          <button
+                            className={cn(
+                              'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
+                              provider.id === focused?.id
+                                ? 'bg-hover font-medium text-ink'
+                                : 'text-ink-2 hover:bg-hover hover:text-ink',
+                            )}
+                            onClick={() => setFocusedId(provider.id)}
+                            type="button"
+                          >
+                            <span className="truncate">{provider.name}</span>
+                            {provider.id === providerId && (
+                              <span
+                                aria-label="本会话使用"
+                                className="ms-auto size-1.5 shrink-0 rounded-full bg-success"
+                                title="本会话使用"
+                              />
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <ul
+                      aria-label="模型"
+                      className="max-h-64 min-w-0 flex-1 overflow-y-auto border-l border-line pl-1.5"
+                    >
+                      {focused?.models.map((item) => (
+                        <li key={item}>
+                          <button
+                            className={cn(
+                              'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
+                              focused.id === providerId && model === item
+                                ? 'bg-hover font-medium text-ink'
+                                : 'text-ink-2 hover:bg-hover hover:text-ink',
+                            )}
+                            onClick={() => {
+                              setModelPickerOpen(false);
+                              onModelSelect(focused, item);
+                            }}
+                            type="button"
+                          >
+                            <span className="truncate">{item}</span>
+                            {focused.id === providerId && model === item && (
+                              <Check
+                                className="ms-auto size-3 shrink-0 text-ink"
+                                strokeWidth={2.5}
+                              />
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
           )}
           {configured && !sidechat && (
-            <Popover.Root onOpenChange={setEffortPickerOpen} open={effortPickerOpen}>
-              <Popover.Trigger asChild>
+            <Popover onOpenChange={setEffortPickerOpen} open={effortPickerOpen}>
+              <PopoverTrigger asChild>
                 <button
                   aria-label="思考强度"
                   // 中窄容器（≤260px）收成图标而非整颗消失，极窄（≤160px）才随次要按钮退场。
@@ -755,68 +729,58 @@ export function ChatComposer({
                   <Sparkles className="hidden size-3.5 @max-[260px]:block" />
                   <ChevronDown className="size-3 @max-[260px]:hidden" />
                 </button>
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content
-                  align="end"
-                  className={cn('z-overlay', effortLevels.length ? 'w-32' : 'w-80', menuPanel)}
-                  side="bottom"
-                  sideOffset={6}
-                  style={{
-                    animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-                    transformOrigin: 'top center',
-                  }}
-                >
-                  {effortLevels.length === 0 ? (
-                    <div className="grid gap-2 px-1.5 py-2">
-                      <p className="text-xs text-ink-3">
-                        当前模型尚未配置可选的思考强度档位。在设置中编辑当前模型，勾选其支持的档位并保存。
-                      </p>
-                      <Button
-                        className="w-full justify-start [&_svg]:size-3.5"
-                        onClick={() => {
-                          setEffortPickerOpen(false);
-                          navigate({ page: 'settings', section: 'providers' });
-                        }}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Settings />
-                        打开设置 › 模型服务
-                      </Button>
-                    </div>
-                  ) : (
-                    <ul aria-label="思考强度">
-                      {effortLevels.map((level) => (
-                        <li key={level}>
-                          <button
-                            className={cn(
-                              'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
-                              level === effort
-                                ? 'bg-hover font-medium text-ink'
-                                : 'text-ink-2 hover:bg-hover hover:text-ink',
-                            )}
-                            onClick={() => {
-                              setEffortPickerOpen(false);
-                              onEffortSelect(level);
-                            }}
-                            type="button"
-                          >
-                            <span className="truncate">{level}</span>
-                            {level === effort && (
-                              <Check
-                                className="ms-auto size-3 shrink-0 text-ink"
-                                strokeWidth={2.5}
-                              />
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className={effortLevels.length ? 'w-32' : 'w-80'}
+                side="bottom"
+              >
+                {effortLevels.length === 0 ? (
+                  <div className="grid gap-2 px-1.5 py-2">
+                    <p className="text-xs text-ink-3">
+                      当前模型尚未配置可选的思考强度档位。在设置中编辑当前模型，勾选其支持的档位并保存。
+                    </p>
+                    <Button
+                      className="w-full justify-start [&_svg]:size-3.5"
+                      onClick={() => {
+                        setEffortPickerOpen(false);
+                        navigate({ page: 'settings', section: 'providers' });
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Settings />
+                      打开设置 › 模型服务
+                    </Button>
+                  </div>
+                ) : (
+                  <ul aria-label="思考强度">
+                    {effortLevels.map((level) => (
+                      <li key={level}>
+                        <button
+                          className={cn(
+                            'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
+                            level === effort
+                              ? 'bg-hover font-medium text-ink'
+                              : 'text-ink-2 hover:bg-hover hover:text-ink',
+                          )}
+                          onClick={() => {
+                            setEffortPickerOpen(false);
+                            onEffortSelect(level);
+                          }}
+                          type="button"
+                        >
+                          <span className="truncate">{level}</span>
+                          {level === effort && (
+                            <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </PopoverContent>
+            </Popover>
           )}
           {stoppable ? (
             <button
@@ -854,10 +818,6 @@ export function ChatComposer({
             className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-card bg-surface p-1 shadow-raised @max-[260px]:min-w-0"
             id={menuListId}
             role="listbox"
-            style={{
-              animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-              transformOrigin: 'bottom center',
-            }}
           >
             <span
               aria-hidden
@@ -1035,8 +995,8 @@ function BackgroundTasks({
   onStop: (taskId: string) => void;
 }) {
   return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
+    <Popover>
+      <PopoverTrigger asChild>
         <button
           aria-label={`后台任务（${tasks.length} 个运行中）`}
           className="flex h-7 shrink-0 items-center gap-1 rounded-control px-1.5 text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink"
@@ -1046,23 +1006,11 @@ function BackgroundTasks({
           <Layers className="size-4" />
           <span className="text-xs tabular-nums">{tasks.length}</span>
         </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          align="end"
-          aria-label="后台任务"
-          className={cn('z-overlay w-72', menuPanel)}
-          side="top"
-          sideOffset={6}
-          style={{
-            animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-            transformOrigin: 'bottom center',
-          }}
-        >
-          <BackgroundTaskList onStop={onStop} tasks={tasks} />
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+      </PopoverTrigger>
+      <PopoverContent align="end" aria-label="后台任务" className="w-72" side="top">
+        <BackgroundTaskList onStop={onStop} tasks={tasks} />
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -1130,8 +1078,8 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
   const color =
     tone === 'red' ? 'var(--danger)' : tone === 'orange' ? 'var(--warning)' : 'var(--ink-2)';
   return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
+    <Popover>
+      <PopoverTrigger asChild>
         <button
           aria-label="上下文占用"
           className="flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-base hover:bg-hover"
@@ -1140,46 +1088,39 @@ function ContextIndicator({ usage }: { usage: ContextUsageView }) {
         >
           <ProgressRing progress={(usage.percent ?? 0) / 100} size={18} tone={tone} />
         </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          align="center"
-          aria-label="上下文占用"
-          className="z-overlay w-60 rounded-card bg-surface px-3 py-2.5 shadow-raised"
-          side="top"
-          sideOffset={6}
-          style={{
-            animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-            transformOrigin: 'bottom center',
-          }}
-        >
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-sm font-medium text-ink">上下文</span>
-            <span className="text-xs tabular-nums text-ink-3">
-              {usage.tokens === null
-                ? '—'
-                : `${usage.estimated ? '约 ' : ''}${formatTokens(usage.tokens)}`}{' '}
-              / {formatTokens(usage.contextWindow)}
-              {usage.percent !== null && ` (${usage.percent.toFixed(1).replace(/\.0$/, '')}%)`}
-            </span>
-          </div>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-field">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${Math.min(100, usage.percent ?? 0)}%`,
-                background: color,
-                transition: 'width 400ms cubic-bezier(0.23,1,0.32,1)',
-              }}
-            />
-          </div>
-          {/* 按本会话累计显示（不是最近一轮）：单轮命中率受该轮是否新建缓存影响，波动大、看不出趋势。 */}
-          <div className="mt-2 flex items-baseline justify-between gap-3">
-            <span className="text-sm text-ink-2">缓存命中率</span>
-            <span className="text-xs tabular-nums text-ink-3">{cacheHitRateText(usage)}</span>
-          </div>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+      </PopoverTrigger>
+      <PopoverContent
+        align="center"
+        aria-label="上下文占用"
+        className="w-60 px-3 py-2.5"
+        side="top"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-sm font-medium text-ink">上下文</span>
+          <span className="text-xs tabular-nums text-ink-3">
+            {usage.tokens === null
+              ? '—'
+              : `${usage.estimated ? '约 ' : ''}${formatTokens(usage.tokens)}`}{' '}
+            / {formatTokens(usage.contextWindow)}
+            {usage.percent !== null && ` (${usage.percent.toFixed(1).replace(/\.0$/, '')}%)`}
+          </span>
+        </div>
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-field">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.min(100, usage.percent ?? 0)}%`,
+              background: color,
+              transition: 'width 400ms cubic-bezier(0.23,1,0.32,1)',
+            }}
+          />
+        </div>
+        {/* 按本会话累计显示（不是最近一轮）：单轮命中率受该轮是否新建缓存影响，波动大、看不出趋势。 */}
+        <div className="mt-2 flex items-baseline justify-between gap-3">
+          <span className="text-sm text-ink-2">缓存命中率</span>
+          <span className="text-xs tabular-nums text-ink-3">{cacheHitRateText(usage)}</span>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

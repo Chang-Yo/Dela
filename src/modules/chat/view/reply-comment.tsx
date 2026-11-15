@@ -1,10 +1,11 @@
 // 回复评论：在已完成回复的正文里选中文字 → 浮出「添加到对话」→ 原地变为评论输入框 → 确认后进入
 // composer 附件条上方的评论轨道，随草稿保存，发送时作为结构化评论交给主进程拼进提示词。
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { HoverCard, Popover } from 'radix-ui';
+import { HoverCard } from 'radix-ui';
 import { Check, MessageCircleQuestion, MessageSquarePlus, TextQuote, X } from 'lucide-react';
 import type { ChatComment } from '../../../core/protocol/agent';
 import { menuPanel } from '../../../ui/menu-styles';
+import { Popover, PopoverAnchor, PopoverContent } from '../../../ui/popover';
 import { cn } from '../../../ui/cn';
 import { useChatDrafts } from './drafts';
 import { IconButton } from '../../../ui/icon-button';
@@ -369,14 +370,14 @@ function CommentChip({
   const [editing, setEditing] = useState(false);
   const [peek, setPeek] = useState(false);
   return (
-    <Popover.Root onOpenChange={setEditing} open={editing}>
+    <Popover onOpenChange={setEditing} open={editing}>
       <HoverCard.Root
         closeDelay={100}
         onOpenChange={setPeek}
         open={peek && !editing}
         openDelay={300}
       >
-        <Popover.Anchor asChild>
+        <PopoverAnchor asChild>
           <HoverCard.Trigger asChild>
             <span
               className="flex h-7 min-w-0 max-w-64 items-center rounded-control bg-field pr-0.5 text-xs text-ink-2 shadow-hairline"
@@ -402,7 +403,7 @@ function CommentChip({
               </IconButton>
             </span>
           </HoverCard.Trigger>
-        </Popover.Anchor>
+        </PopoverAnchor>
         <HoverCard.Portal>
           <HoverCard.Content
             align="start"
@@ -418,29 +419,26 @@ function CommentChip({
           </HoverCard.Content>
         </HoverCard.Portal>
       </HoverCard.Root>
-      <Popover.Portal>
-        <Popover.Content
-          align="start"
-          className={cn(menuPanel, 'grid w-80 gap-1.5 p-1')}
-          collisionPadding={8}
-          // 焦点交给评论输入框自己（光标放到末尾）。
-          onOpenAutoFocus={(event) => event.preventDefault()}
-          side="top"
-          sideOffset={6}
-        >
-          <blockquote className={cn(quoteBlock, 'mx-2 mt-1.5 line-clamp-3 text-xs leading-5')}>
-            {item.quote}
-          </blockquote>
-          <CommentInput
-            initial={item.comment}
-            onCancel={() => setEditing(false)}
-            onSubmit={(comment) => {
-              onSave(comment);
-              setEditing(false);
-            }}
-          />
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+      <PopoverContent
+        align="start"
+        className="grid w-80 gap-1.5"
+        // 焦点交给评论输入框自己（光标放到末尾）。
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        side="top"
+        sideOffset={6}
+      >
+        <blockquote className={cn(quoteBlock, 'mx-2 mt-1.5 line-clamp-3 text-xs leading-5')}>
+          {item.quote}
+        </blockquote>
+        <CommentInput
+          initial={item.comment}
+          onCancel={() => setEditing(false)}
+          onSubmit={(comment) => {
+            onSave(comment);
+            setEditing(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }

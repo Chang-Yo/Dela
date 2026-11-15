@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Popover } from 'radix-ui';
 import { Check, ChevronDown, Cloud, Folder, GitBranch, MessageSquare, Search } from 'lucide-react';
 import type { WorkspaceEntry } from '../../workspace/contract';
 import { useChatTabSource } from './chat-source';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { showToast } from '../../../ui/toast';
 import type { ComposerContext } from './composer-context';
 import { workspaceClient, useWorkspaceStore } from '../../workspace/view';
@@ -11,17 +11,12 @@ import { errorMessage } from '../../../core/protocol/contract';
 
 const pill =
   'flex h-7 min-w-0 max-w-[15rem] items-center gap-1.5 rounded-control border border-line bg-surface px-2 text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink';
-const panel = 'z-overlay w-64 rounded-card bg-surface p-1 shadow-raised';
 const searchRow = 'mb-1 flex items-center gap-2 rounded-control px-2 py-1.5 text-ink-3';
 const searchInput =
   'min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3';
 const option =
   'flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-sm text-ink transition-colors duration-fast hover:bg-hover';
 const empty = 'px-2 py-2 text-xs text-ink-3';
-const contentStyle = {
-  animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both',
-  transformOrigin: 'bottom left',
-} as const;
 
 const matches = (value: string, query: string) =>
   value.toLowerCase().includes(query.trim().toLowerCase());
@@ -91,8 +86,8 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
 
   return (
     <div className="mb-2 flex min-w-0 items-center gap-1.5">
-      <Popover.Root onOpenChange={setProjectOpen} open={projectOpen}>
-        <Popover.Trigger asChild>
+      <Popover onOpenChange={setProjectOpen} open={projectOpen}>
+        <PopoverTrigger asChild>
           <button aria-label="切换项目" className={pill} type="button">
             {context.remote ? (
               <Cloud aria-hidden className="size-3.5 shrink-0" />
@@ -102,103 +97,87 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
             <span className="truncate text-ink-2">{context.name}</span>
             <ChevronDown aria-hidden className="size-3 shrink-0 opacity-60" />
           </button>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            align="start"
-            className={panel}
-            side="top"
-            sideOffset={6}
-            style={contentStyle}
-          >
-            <label className={searchRow}>
-              <Search aria-hidden className="size-3.5 shrink-0" />
-              <input
-                aria-label="搜索项目"
-                className={searchInput}
-                onChange={(event) => setProjectQuery(event.target.value)}
-                placeholder="搜索项目"
-                value={projectQuery}
-              />
-            </label>
-            <div className="max-h-64 overflow-y-auto">
-              {visibleProjects.map((entry) => (
-                <button
-                  className={option}
-                  key={entry.id}
-                  onClick={() => chooseProject(entry.id)}
-                  type="button"
-                >
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    {local(entry)}
-                    <span className="truncate">{entry.name}</span>
-                  </span>
-                  {entry.id === projectId && <Check aria-hidden className="size-3.5 shrink-0" />}
-                </button>
-              ))}
-              {visibleProjects.length === 0 && <p className={empty}>没有匹配的项目</p>}
-            </div>
-            <div className="my-1 h-px bg-line" />
-            <button className={option} onClick={() => chooseProject(null)} type="button">
-              <span className="flex min-w-0 flex-1 items-center gap-2">
-                <MessageSquare aria-hidden className="size-3.5 shrink-0" />
-                <span className="truncate">不在项目里（随聊）</span>
-              </span>
-              {projectId === null && <Check aria-hidden className="size-3.5 shrink-0" />}
-            </button>
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-64" side="top">
+          <label className={searchRow}>
+            <Search aria-hidden className="size-3.5 shrink-0" />
+            <input
+              aria-label="搜索项目"
+              className={searchInput}
+              onChange={(event) => setProjectQuery(event.target.value)}
+              placeholder="搜索项目"
+              value={projectQuery}
+            />
+          </label>
+          <div className="max-h-64 overflow-y-auto">
+            {visibleProjects.map((entry) => (
+              <button
+                className={option}
+                key={entry.id}
+                onClick={() => chooseProject(entry.id)}
+                type="button"
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  {local(entry)}
+                  <span className="truncate">{entry.name}</span>
+                </span>
+                {entry.id === projectId && <Check aria-hidden className="size-3.5 shrink-0" />}
+              </button>
+            ))}
+            {visibleProjects.length === 0 && <p className={empty}>没有匹配的项目</p>}
+          </div>
+          <div className="my-1 h-px bg-line" />
+          <button className={option} onClick={() => chooseProject(null)} type="button">
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <MessageSquare aria-hidden className="size-3.5 shrink-0" />
+              <span className="truncate">不在项目里（随聊）</span>
+            </span>
+            {projectId === null && <Check aria-hidden className="size-3.5 shrink-0" />}
+          </button>
+        </PopoverContent>
+      </Popover>
 
       {current && (
-        <Popover.Root onOpenChange={setBranchOpen} open={branchOpen}>
-          <Popover.Trigger asChild>
+        <Popover onOpenChange={setBranchOpen} open={branchOpen}>
+          <PopoverTrigger asChild>
             <button aria-label="切换分支" className={pill} type="button">
               <GitBranch aria-hidden className="size-3.5 shrink-0" />
               <span className="truncate">{current}</span>
               <ChevronDown aria-hidden className="size-3 shrink-0 opacity-60" />
             </button>
-          </Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Content
-              align="start"
-              className={panel}
-              side="top"
-              sideOffset={6}
-              style={contentStyle}
-            >
-              <label className={searchRow}>
-                <Search aria-hidden className="size-3.5 shrink-0" />
-                <input
-                  aria-label="搜索分支"
-                  className={searchInput}
-                  onChange={(event) => setBranchQuery(event.target.value)}
-                  placeholder="搜索分支"
-                  value={branchQuery}
-                />
-              </label>
-              <div className="max-h-64 overflow-y-auto">
-                {visibleBranches.map((branch) => (
-                  <button
-                    className={option}
-                    key={branch}
-                    onClick={() => switchBranch(branch)}
-                    type="button"
-                  >
-                    <GitBranch aria-hidden className="size-3.5 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">{branch}</span>
-                    {branch === current && <Check aria-hidden className="size-3.5 shrink-0" />}
-                  </button>
-                ))}
-                {branchesFailed ? (
-                  <p className={empty}>分支列表加载失败</p>
-                ) : (
-                  visibleBranches.length === 0 && <p className={empty}>没有匹配的分支</p>
-                )}
-              </div>
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64" side="top">
+            <label className={searchRow}>
+              <Search aria-hidden className="size-3.5 shrink-0" />
+              <input
+                aria-label="搜索分支"
+                className={searchInput}
+                onChange={(event) => setBranchQuery(event.target.value)}
+                placeholder="搜索分支"
+                value={branchQuery}
+              />
+            </label>
+            <div className="max-h-64 overflow-y-auto">
+              {visibleBranches.map((branch) => (
+                <button
+                  className={option}
+                  key={branch}
+                  onClick={() => switchBranch(branch)}
+                  type="button"
+                >
+                  <GitBranch aria-hidden className="size-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{branch}</span>
+                  {branch === current && <Check aria-hidden className="size-3.5 shrink-0" />}
+                </button>
+              ))}
+              {branchesFailed ? (
+                <p className={empty}>分支列表加载失败</p>
+              ) : (
+                visibleBranches.length === 0 && <p className={empty}>没有匹配的分支</p>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );
