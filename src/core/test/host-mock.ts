@@ -54,6 +54,7 @@ const testPorts: HostPorts = {
   database: () => {
     throw new Error('用例未提供数据库：provideTestHostPorts({ database })');
   },
+  workspaceClient: () => null,
   projects: { find: () => null, local: () => [], remoteOf: () => null },
 };
 

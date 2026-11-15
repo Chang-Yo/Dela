@@ -16,8 +16,10 @@ vi.mock('electron', () => ({
   dialog: { showSaveDialog: boundary.choose, showOpenDialog: boundary.choose },
   shell: { showItemInFolder: boundary.reveal },
 }));
-vi.mock('../../../../main/ipc', () => ({ workspaceWindow: () => null }));
-vi.mock('../../../../core/ports', () => ({ emit: boundary.notify }));
+vi.mock('../../../../core/ports', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../core/ports')>()),
+  emit: boundary.notify,
+}));
 vi.mock('../../../../modules/settings', () => ({
   savedVideoDownloadDirectory: () => boundary.directory,
   setVideoDownloadDirectory: (value: string) => (boundary.directory = value),

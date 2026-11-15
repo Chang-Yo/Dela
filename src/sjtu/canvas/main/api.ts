@@ -5,8 +5,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
-import { getDatabase } from '../../../main/database';
-import { availablePath, diskName, storageDirectory } from '../../../main/storage';
+import { hostPorts } from '../../../core/ports';
+import { availablePath, diskName } from '../../../modules/workspace';
 import { latestTermOf } from '../contract';
 import type {
   CachedCourseFile,
@@ -81,11 +81,12 @@ async function list(path: string): Promise<Row[]> {
 }
 
 export function getCanvasState(): CanvasState {
-  const rows = getDatabase().prepare('SELECT data, items FROM canvas_courses').all() as {
+  const rows = hostPorts().database().prepare('SELECT data, items FROM canvas_courses').all() as {
     data: string;
     items: string;
   }[];
-  const synced = getDatabase()
+  const synced = hostPorts()
+    .database()
     .prepare("SELECT value FROM workspace_settings WHERE key = 'canvas-sync'")
     .get() as { value: string } | undefined;
   return {
@@ -124,7 +125,7 @@ export async function classroomLoginUrl(): Promise<string> {
 
 export async function syncCanvasCourses(): Promise<CanvasState> {
   const courses = await list('courses?include[]=term&per_page=50');
-  const db = getDatabase();
+  const db = hostPorts().database();
   const old = new Map(getCanvasState().courses.map((c) => [c.id, c]));
   db.transaction(() => {
     const insert = db.prepare(
@@ -381,7 +382,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
         if (
           sourceId &&
           !sources.has(sourceId) &&
-          !getDatabase().prepare('SELECT 1 FROM canvas_sources WHERE id=?').get(sourceId)
+          !hostPorts().database().prepare('SELECT 1 FROM canvas_sources WHERE id=?').get(sourceId)
         )
           sources.set(sourceId, {
             id: sourceId,
@@ -403,7 +404,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
       }
     }
   });
-  const db = getDatabase();
+  const db = hostPorts().database();
   course.syncedAt = new Date().toISOString();
   course.error = errors.length ? errors.join('\n') : null;
   db.transaction(() => {
@@ -429,7 +430,7 @@ export async function syncCanvasCourseTrees(): Promise<CanvasState> {
 
 /** 归档后不参与自动同步，仅保留本地已同步数据。 */
 export function archiveCanvasCourse(id: number, archived: boolean): CanvasState {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const rowById = db.prepare('SELECT data FROM canvas_courses WHERE id=?').get(id) as
     { data: string } | undefined;
   if (!rowById) throw new Error('课程不存在，请刷新课程列表');
@@ -439,8 +440,10 @@ export function archiveCanvasCourse(id: number, archived: boolean): CanvasState 
 }
 
 export function getSource(id: string): StoredSource {
-  const stored = getDatabase().prepare('SELECT data FROM canvas_sources WHERE id=?').get(id) as
-    { data: string } | undefined;
+  const stored = hostPorts()
+    .database()
+    .prepare('SELECT data FROM canvas_sources WHERE id=?')
+    .get(id) as { data: string } | undefined;
   if (!stored) throw new Error('资料尚未同步，请刷新所属课程');
   return JSON.parse(stored.data);
 }
@@ -456,7 +459,7 @@ export function cachedFile(source: StoredSource): Promise<{ path: string; mime: 
 }
 
 /** 课件根目录，与 workspace 平级；资料库会话以它为工作目录。 */
-export const coursesDirectory = () => join(storageDirectory(), 'courses');
+export const coursesDirectory = () => join(hostPorts().paths.storage(), 'courses');
 
 function courseTermDirectory(term: string | undefined) {
   const value = term ?? '';
@@ -517,7 +520,7 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
   const key = createHash('sha256')
     .update(`${source.fileId}:${source.updatedAt ?? ''}`)
     .digest('hex');
-  const db = getDatabase();
+  const db = hostPorts().database();
   const cacheKey = `canvas-file:${key}`;
   const cached = db.prepare('SELECT value FROM workspace_settings WHERE key=?').get(cacheKey) as
     { value: string } | undefined;
@@ -679,7 +682,8 @@ export async function readCanvasPage(id: string) {
     const detail = row(await (await request(`courses/${source.courseId}/${path}`)).json());
     source.html = str(detail.body ?? detail.description ?? detail.message);
     source.url = str(detail.html_url);
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare('UPDATE canvas_sources SET data=? WHERE id=?')
       .run(JSON.stringify(source), source.id);
   }
@@ -716,7 +720,9 @@ export async function listCanvasAnnouncements(courseId: number) {
   const rows = await list(
     `courses/${courseId}/discussion_topics?per_page=50&only_announcements=true`,
   );
-  const insert = getDatabase().prepare('INSERT OR REPLACE INTO canvas_sources VALUES (?, ?, ?)');
+  const insert = hostPorts()
+    .database()
+    .prepare('INSERT OR REPLACE INTO canvas_sources VALUES (?, ?, ?)');
   return rows.map((d) => {
     const source: StoredSource = {
       id: `discussion:${courseId}:${num(d.id)}`,
@@ -762,7 +768,8 @@ export function cachedCourseFiles(): CachedCourseFile[] {
       ),
     }));
   if (!roots.length) return [];
-  const rows = getDatabase()
+  const rows = hostPorts()
+    .database()
     .prepare("SELECT value FROM workspace_settings WHERE key LIKE 'canvas-file:%'")
     .all() as { value: string }[];
   return pickCourseFiles(

@@ -1,7 +1,6 @@
 import type { WebContents } from 'electron';
 import { z } from 'zod';
-import { emit } from '../../../core/ports';
-import { getDatabase } from '../../../main/database';
+import { emit, hostPorts } from '../../../core/ports';
 import { calendarEventColors } from '../../../modules/todo/contract';
 import {
   semesterSchema,
@@ -128,7 +127,8 @@ export function currentSemester(now = new Date()): string {
 function syncRow(
   semester: string,
 ): { last_synced_at: string; semester_start: string | null } | undefined {
-  return getDatabase()
+  return hostPorts()
+    .database()
     .prepare('SELECT last_synced_at, semester_start FROM timetable_sync WHERE semester = ?')
     .get(semester) as { last_synced_at: string; semester_start: string | null } | undefined;
 }
@@ -274,7 +274,7 @@ export async function syncTimetable(semester: string): Promise<TimetableResult> 
       ];
     });
 
-    const db = getDatabase();
+    const db = hostPorts().database();
     const insert = db.prepare(
       `INSERT INTO timetable_lessons
        (semester, source_id, course_code, course_name, class_name, teacher, campus, classroom,
@@ -305,7 +305,8 @@ export async function syncTimetable(semester: string): Promise<TimetableResult> 
 }
 
 export function listLessons(semester: string): TimetableLesson[] {
-  const rows = getDatabase()
+  const rows = hostPorts()
+    .database()
     .prepare(
       `SELECT * FROM timetable_lessons WHERE semester = ?
        ORDER BY weekday, start_period, course_name`,
@@ -358,7 +359,8 @@ export function querySchedule(input: unknown) {
 
 export function listCalendarEvents(startAt: string, endAt: string) {
   return (
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare(
         `SELECT id, title, start_at, end_at, location, color FROM calendar_events
          WHERE end_at > ? AND start_at < ? ORDER BY start_at`,
@@ -368,7 +370,8 @@ export function listCalendarEvents(startAt: string, endAt: string) {
 }
 
 export function createCalendarEvent(event: z.output<typeof calendarEventInput>) {
-  const result = getDatabase()
+  const result = hostPorts()
+    .database()
     .prepare(
       `INSERT INTO calendar_events (title, start_at, end_at, location, color, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -380,7 +383,7 @@ export function createCalendarEvent(event: z.output<typeof calendarEventInput>) 
       event.location || null,
       event.color || null,
       new Date().toISOString(),
-    );
+    ) as { lastInsertRowid: number | bigint };
   emit(timetableContract, 'events', undefined);
   return mapEvent({
     id: Number(result.lastInsertRowid),
@@ -394,13 +397,14 @@ export function createCalendarEvent(event: z.output<typeof calendarEventInput>) 
 
 export function deleteCalendarEvent(id: number) {
   // 只删自建事件；课程在 timetable_lessons 表，不经此入口。
-  getDatabase().prepare('DELETE FROM calendar_events WHERE id = ?').run(id);
+  hostPorts().database().prepare('DELETE FROM calendar_events WHERE id = ?').run(id);
   emit(timetableContract, 'events', undefined);
 }
 
 /** calendar_events 表只读视图；不存在返回 null。 */
 export function getCalendarEvent(id: number): CalendarEvent | null {
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare(
       'SELECT id, title, start_at, end_at, location, color FROM calendar_events WHERE id = ?',
     )
@@ -419,7 +423,8 @@ export function getTimetableState(semester = currentSemester()): TimetableState 
 
 export function setSemesterStart(semester: string, value: string) {
   // 手动补设学期日期时可能还没有同步记录，先落到空串以满足 NOT NULL。
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare(
       `INSERT INTO timetable_sync (semester, last_synced_at, semester_start) VALUES (?, '', ?)
        ON CONFLICT(semester) DO UPDATE SET semester_start = excluded.semester_start`,

@@ -1,6 +1,6 @@
 import { statSync } from 'node:fs';
 import { basename } from 'node:path';
-import { getDatabase } from '../database';
+import { hostPorts } from '../../core/ports';
 import type { OfficeExportInfo } from '../../modules/workspace/contract';
 
 /** pptx 导出 PDF 的关联记录，按资源引用（type + id）存取；version 为导出时源文件的 mtime-size。 */
@@ -16,7 +16,8 @@ const officeExportKey = (kind: string, id: string) => `preview-export:${kind}:${
 /** 读取关联；键不存在或存储损坏时返回 null，文件是否仍存在由调用方判断。 */
 export function readOfficeExportLink(kind: string, id: string): OfficeExportLink | null {
   try {
-    const row = getDatabase()
+    const row = hostPorts()
+      .database()
       .prepare('SELECT value FROM workspace_settings WHERE key=?')
       .get(officeExportKey(kind, id)) as { value: string } | undefined;
     const link = row ? (JSON.parse(row.value) as OfficeExportLink) : null;
@@ -27,7 +28,8 @@ export function readOfficeExportLink(kind: string, id: string): OfficeExportLink
 }
 
 export function writeOfficeExportLink(kind: string, id: string, link: OfficeExportLink): void {
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
     .run(officeExportKey(kind, id), JSON.stringify(link));
 }
@@ -40,7 +42,12 @@ export function officeExportPreviewInfo(
   try {
     // 条目可能已被用户删除（仓库约定删除条目不删磁盘文件）：此时协议按条目 id 解析会 404，
     // 返回 null 让读取方回退到导出确认卡片。
-    if (!getDatabase().prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(link.entryId))
+    if (
+      !hostPorts()
+        .database()
+        .prepare('SELECT 1 FROM workspace_entries WHERE id=?')
+        .get(link.entryId)
+    )
       return null;
     const stats = statSync(link.path);
     return {

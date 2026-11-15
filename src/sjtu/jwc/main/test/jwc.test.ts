@@ -1,14 +1,13 @@
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
 vi.mock('electron', () => ({ app: { isPackaged: true }, dialog: { showSaveDialog: vi.fn() } }));
-vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../../../../modules/notifications', () => ({ systemNotifyItem: vi.fn() }));
 vi.mock('node:fs/promises', () => ({ writeFile: vi.fn() }));
 
 import { app, dialog } from 'electron';
 import { writeFile } from 'node:fs/promises';
-import { getDatabase } from '../../../../main/database';
 import { systemNotifyItem } from '../../../../modules/notifications';
 import {
   parseJwcList,
@@ -39,7 +38,7 @@ beforeEach(() => {
   db.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT, account_key TEXT, title TEXT, body TEXT, created_at TEXT, read_at TEXT, source_unread INTEGER, href TEXT);
     CREATE TABLE notification_refreshes (source TEXT, account_key TEXT, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));`);
-  vi.mocked(getDatabase).mockReturnValue(db);
+  provideTestHostPorts({ database: () => db });
 });
 afterEach(() => {
   db.close();

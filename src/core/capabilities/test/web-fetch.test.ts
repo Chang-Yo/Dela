@@ -17,7 +17,6 @@ vi.mock('../../../main/documents/runtime', () => ({
   documentPython: () => 'component/python.exe',
 }));
 vi.mock('../../../modules/mail', () => ({}));
-vi.mock('../../../main/storage', () => ({}));
 
 provideTestHostPorts({ paths: { userData: () => profile.root, temp: () => profile.root } });
 registerDocumentReader({

@@ -1,5 +1,5 @@
 import { likePattern, type SearchProvider } from '../../search';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 
 export const projectSearch: SearchProvider = {
   id: 'project',
@@ -7,7 +7,8 @@ export const projectSearch: SearchProvider = {
   icon: 'folder',
   search(query, limit) {
     const filter = query ? "AND name LIKE ? ESCAPE '!'" : '';
-    const rows = getDatabase()
+    const rows = hostPorts()
+      .database()
       .prepare(
         `SELECT id, name FROM workspace_entries WHERE kind='project' ${filter} ORDER BY updated_at DESC LIMIT ?`,
       )
@@ -28,7 +29,8 @@ export const chatSearch: SearchProvider = {
   icon: 'message',
   search(query, limit) {
     const filter = query ? "AND sessions.title LIKE ? ESCAPE '!'" : '';
-    const rows = getDatabase()
+    const rows = hostPorts()
+      .database()
       .prepare(
         `SELECT sessions.id, sessions.project_id AS projectId, sessions.title,
            coalesce(project.name, '首页') AS projectName

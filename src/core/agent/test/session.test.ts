@@ -41,7 +41,6 @@ const state = vi.hoisted(() => ({
   modelSwitches: [] as string[],
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));
-vi.mock('../../../main/database', () => ({ getDatabase: () => state.db }));
 vi.mock('../providers', () => ({
   llmProviders: () => (state.configured ? state.providers : []),
   usableLlmProviders: () =>

@@ -2,10 +2,9 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { basename, extname } from 'node:path';
-import { getDatabase } from '../database';
+import { hostPorts } from '../../core/ports';
 import { resourceResolver } from '../../core/capabilities/resources';
-import { createWorkspaceEntry } from '../../modules/workspace';
-import { availablePath } from '../storage';
+import { availablePath, createWorkspaceEntry } from '../../modules/workspace';
 import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
 import { classifyOfficeFile } from './parse';
 import {
@@ -108,7 +107,7 @@ function friendlyPowerShellError(stderr: string, code: number | null): string {
 }
 
 function ensureExportFolder(): { id: string; path: string } {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const row = (id: string) =>
     db
       .prepare("SELECT id, local_path AS path FROM workspace_entries WHERE id=? AND kind='folder'")
@@ -146,7 +145,7 @@ function registerExportEntry(
   previousEntryId: string | undefined,
   path: string,
 ): string {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const now = new Date().toISOString();
   if (
     previousEntryId &&

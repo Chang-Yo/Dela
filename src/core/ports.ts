@@ -15,6 +15,8 @@ export interface HostPorts {
   network: Network;
   /** 宿主打开并迁移好的数据库；表结构与迁移归宿主（core 只读写 sessions 与自己的设置键）。 */
   database(): SqlDatabase;
+  /** 主窗口（工作台）的渲染进程句柄；窗口尚未创建时为 null。 */
+  workspaceClient(): ClientHandle | null;
   projects: Projects;
 }
 
@@ -41,6 +43,10 @@ export interface SqlStatement {
 
 export interface SqlDatabase {
   prepare(sql: string): SqlStatement;
+  exec(sql: string): unknown;
+  transaction<Args extends unknown[], Result>(
+    fn: (...args: Args) => Result,
+  ): (...args: Args) => Result;
 }
 
 export interface RemoteProject {

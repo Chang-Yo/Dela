@@ -1,8 +1,7 @@
 import { mkdir, readdir, stat } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { basename, dirname, join, relative, resolve, isAbsolute, sep } from 'node:path';
-import { getDatabase } from '../../../main/database';
-import { storageDirectory } from '../../../main/storage';
+import { hostPorts } from '../../../core/ports';
 import { entry, prepareStorage, remoteProjectOf } from './api';
 import {
   workspaceArchiveId,
@@ -12,7 +11,8 @@ import {
 } from '../contract';
 
 function storedEntries(): WorkspaceEntry[] {
-  return getDatabase()
+  return hostPorts()
+    .database()
     .prepare(
       `SELECT id, parent_id AS parentId, name, kind,
     source_id AS sourceId, local_path AS path, remote_id AS remoteId,
@@ -101,7 +101,7 @@ export async function listLocalDirectory(id: string | null): Promise<WorkspaceEn
   const parent = id ? entry(id) : null;
   if (parent && parent.kind !== 'project' && parent.kind !== 'folder')
     throw new Error('请选择目录');
-  const path = parent?.path ?? join(storageDirectory(), 'workspace');
+  const path = parent?.path ?? join(hostPorts().paths.storage(), 'workspace');
   return markGitIgnored(await readDirectory(resolve(path), id, storedEntries()), path);
 }
 
@@ -111,7 +111,7 @@ export async function localEntryAncestors(id: string): Promise<WorkspaceEntry[]>
   const stored = storedEntries();
   const item = entry(id);
   if (!item.path) return [item];
-  const root = join(storageDirectory(), 'workspace');
+  const root = join(hostPorts().paths.storage(), 'workspace');
   const project = stored
     .filter(
       (candidate) =>
@@ -140,7 +140,7 @@ export async function localEntryAncestors(id: string): Promise<WorkspaceEntry[]>
 /** 导入只返回根清单和已登记身份；目录后代由展开、检索分别读取。 */
 export async function getLocalWorkspaceState(): Promise<WorkspaceState> {
   prepareStorage();
-  const directory = storageDirectory();
+  const directory = hostPorts().paths.storage();
   const root = join(directory, 'workspace');
   const stored = storedEntries();
   // prepareStorage 不保证无归档种子行的测试库已有 workspace。
@@ -245,7 +245,7 @@ export async function searchLocalWorkspace(
         .filter((root) => root.path)
         .map((root) => (root.kind === 'file' ? dirname(root.path!) : root.path!))
     : [
-        join(storageDirectory(), 'workspace'),
+        join(hostPorts().paths.storage(), 'workspace'),
         ...stored
           .filter((item) => item.kind === 'project' && item.path && !item.remoteId)
           .map((item) => item.path!),

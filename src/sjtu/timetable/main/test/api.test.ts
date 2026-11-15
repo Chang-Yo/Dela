@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Database } from 'better-sqlite3';
 import { parseSemesterStart, parseWeekNumbers } from '../api';
 import { timetableModule } from '../..';
-import { getDatabase } from '../../../../main/database';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
 vi.mock('electron', () => ({
   BrowserWindow: {},
@@ -10,7 +9,6 @@ vi.mock('electron', () => ({
   session: {},
   net: { request: vi.fn() },
 }));
-vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 
 describe('parseWeekNumbers', () => {
   it('expands ranges and comma-separated weeks', () => {
@@ -37,7 +35,7 @@ describe('deleteEvent', () => {
   it('deletes only from calendar_events with a validated id', () => {
     const run = vi.fn();
     const prepare = vi.fn(() => ({ run }));
-    vi.mocked(getDatabase).mockReturnValue({ prepare } as unknown as Database);
+    provideTestHostPorts({ database: () => ({ prepare }) as never });
     const deleteEvent = (id: unknown) => timetableModule.ipc!.call('deleteEvent', id);
     deleteEvent(7);
     expect(prepare).toHaveBeenCalledWith('DELETE FROM calendar_events WHERE id = ?');

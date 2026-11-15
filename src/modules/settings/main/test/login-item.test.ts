@@ -15,7 +15,6 @@ vi.mock('electron', () => ({
     getLoginItemSettings: state.getLogin,
   },
 }));
-vi.mock('../../../../main/ipc', () => ({ workspaceWindow: () => undefined }));
 vi.mock('../prefs', () => ({ writeSetting: state.write, savedOpenAtLogin: () => false }));
 import { openAtLogin, setOpenAtLogin } from '../system';
 

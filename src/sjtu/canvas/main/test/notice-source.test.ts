@@ -5,7 +5,6 @@ vi.mock('../../../../modules/todo', () => ({
   getTodoState: () => ({ syncedAt: null, error: null }),
   todoNotifications: () => [],
 }));
-vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../../../../modules/notifications', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../modules/notifications')>()),
   systemNotifyItem: vi.fn(),
@@ -20,7 +19,6 @@ import {
   systemNotifyItem,
 } from '../../../../modules/notifications';
 import type { NotificationState } from '../../../../modules/notifications/contract';
-import { getDatabase } from '../../../../main/database';
 import { listCanvasAnnouncements, listTodoCanvasCourses } from '../api';
 import { canvasNoticeSource } from '../notice-source';
 
@@ -44,7 +42,6 @@ describe('Canvas notice source', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const db = createDb();
-    vi.mocked(getDatabase).mockReturnValue(db);
     provideTestHostPorts({ database: () => db as never });
   });
 

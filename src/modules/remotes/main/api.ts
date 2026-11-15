@@ -3,7 +3,7 @@
  * 真正的凭据始终由 ssh 自己从 ~/.ssh 与 agent 读取，Dela 不落任何密码。
  */
 import { randomUUID } from 'node:crypto';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import type {
   RemoteBrowseResult,
   RemoteConnection,
@@ -38,14 +38,15 @@ const fromRow = (row: RemoteRow): RemoteConnection => ({
 });
 
 export function listRemotes(): RemoteConnection[] {
-  const rows = getDatabase()
+  const rows = hostPorts()
+    .database()
     .prepare('SELECT * FROM remotes ORDER BY created_at')
     .all() as RemoteRow[];
   return rows.map(fromRow);
 }
 
 export function remoteById(id: string): RemoteConnection {
-  const row = getDatabase().prepare('SELECT * FROM remotes WHERE id=?').get(id) as
+  const row = hostPorts().database().prepare('SELECT * FROM remotes WHERE id=?').get(id) as
     RemoteRow | undefined;
   if (!row) throw new Error('远程连接不存在');
   return fromRow(row);
@@ -59,7 +60,7 @@ export function targetOf(draft: RemoteDraft): RemoteTarget {
 export function saveRemote(draft: RemoteDraft & { id?: string | null }): RemoteConnection {
   const parsed = remoteDraftSchema.parse(draft);
   const label = parsed.label?.trim() || parsed.host;
-  const database = getDatabase();
+  const database = hostPorts().database();
   if (draft.id) {
     remoteById(draft.id);
     database
@@ -87,14 +88,15 @@ export function saveRemote(draft: RemoteDraft & { id?: string | null }): RemoteC
  *  想删服务器的用户不该被逼着先逐个清理项目。动态导入避开工作区模块 → 本模块的既有环。 */
 export async function removeRemote(id: string): Promise<void> {
   remoteById(id);
-  const projects = getDatabase()
+  const projects = hostPorts()
+    .database()
     .prepare(`SELECT id FROM workspace_entries WHERE remote_id=? AND kind='project'`)
     .all(id) as { id: string }[];
   if (projects.length) {
     const { removeWorkspaceEntry } = await import('../../workspace');
     for (const project of projects) await removeWorkspaceEntry(project.id);
   }
-  getDatabase().prepare('DELETE FROM remotes WHERE id=?').run(id);
+  hostPorts().database().prepare('DELETE FROM remotes WHERE id=?').run(id);
 }
 
 /** 本机 ssh config 里还没保存为连接的主机：向导下拉框里作为候选。 */

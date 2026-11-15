@@ -3,8 +3,8 @@ import { cp, lstat, mkdir, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, isAbsolute, join, relative } from 'node:path';
 import { builtinSkillsDirectory } from '../../../core/capabilities/skills';
-import { getDatabase } from '../../../main/database';
-import { availablePath, storageDirectory } from '../../../main/storage';
+import { hostPorts } from '../../../core/ports';
+import { availablePath } from '../../workspace';
 import type { BackupResult } from '../contract';
 import { cacheDirectoryNames } from './cache';
 
@@ -53,7 +53,7 @@ export async function exportUserData(window: BrowserWindow | null): Promise<Back
   if (picked.canceled || !parent) return { status: 'cancelled' };
 
   const dataDirectory = app.getPath('userData');
-  const workspace = storageDirectory();
+  const workspace = hostPorts().paths.storage();
   const skills = builtinSkillsDirectory();
   // 目标落在源目录里面会让导出边写边读自己（复制到一半才发现，还会留下半个文件夹）。
   for (const source of [dataDirectory, workspace, skills]) {
@@ -65,7 +65,9 @@ export async function exportUserData(window: BrowserWindow | null): Promise<Back
   const destination = availablePath(parent, backupFolderName(new Date()), true);
   const backupData = join(destination, '应用数据');
   await mkdir(backupData, { recursive: true });
-  getDatabase().exec(`VACUUM INTO '${join(backupData, 'dela.db').replaceAll("'", "''")}'`);
+  hostPorts()
+    .database()
+    .exec(`VACUUM INTO '${join(backupData, 'dela.db').replaceAll("'", "''")}'`);
 
   const skipped: string[] = [];
   for (const entry of await readdir(dataDirectory)) {

@@ -96,7 +96,9 @@ beforeEach(() => {
       userData: () => state.root,
       home: () => state.home,
       documents: () => state.documents,
+      storage: () => join(state.documents, 'Dela'),
     },
+    database: getDatabase,
   });
   mkdirSync(join(state.home, '.dela', 'skills', 'mine'), { recursive: true });
   writeFileSync(join(state.home, '.dela', 'skills', 'mine', 'SKILL.md'), 'keep');

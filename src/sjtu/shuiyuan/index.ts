@@ -1,11 +1,10 @@
 // 水源社区：阅读、通知与帖子快照；水源链接在应用内打开。
-import { shell } from 'electron';
+import { shell, type WebContents } from 'electron';
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
 import { registerResourceResolver } from '../../core/capabilities/resources';
-import { registerSecretLabel } from '../../core/ports';
+import { hostPorts, registerSecretLabel } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
-import { workspaceWindow } from '../../main/ipc';
 import { registerNoticeSource } from '../../modules/notifications';
 import { registerPreviewHost, registerWorkspaceSource } from '../../modules/workspace';
 import { shuiyuanContract } from './contract';
@@ -48,7 +47,7 @@ export const shuiyuanModule = defineModule({
   id: 'shuiyuan',
   ipc: implement(shuiyuanContract, {
     state: () => getShuiyuanState(),
-    startAuth: () => startShuiyuanAuth(workspaceWindow()!.webContents),
+    startAuth: () => startShuiyuanAuth(hostPorts().workspaceClient() as WebContents),
     bind: (payload) => bindShuiyuan(payload),
     unbind: () => unbindShuiyuan(),
     siteStructure: () => getShuiyuanSiteStructure(),

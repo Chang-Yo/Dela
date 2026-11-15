@@ -11,7 +11,6 @@ vi.mock('electron', () => ({
   app: { getPath: () => state.root, getAppPath: () => process.cwd(), isPackaged: false },
   shell: { openPath: vi.fn() },
 }));
-vi.mock('../../../../main/database', () => ({ getDatabase: () => state.db }));
 
 import {
   browseRemote,

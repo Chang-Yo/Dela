@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import { readDocument } from '../../../main/agent/domain/read-resource';
 import { previewFileResponse, type WorkspaceSource } from '../../../modules/workspace';
 import type { ResourceContent } from '../../../main/resources';
@@ -36,7 +36,7 @@ async function readCanvasResource(id: string): Promise<ResourceContent> {
 export const canvasWorkspaceSource: WorkspaceSource = {
   owns: (sourceId) => /^(?:file|assignment|discussion|page|module-item):/.test(sourceId),
   validate(sourceId) {
-    if (!getDatabase().prepare('SELECT 1 FROM canvas_sources WHERE id=?').get(sourceId))
+    if (!hostPorts().database().prepare('SELECT 1 FROM canvas_sources WHERE id=?').get(sourceId))
       throw new Error('资料不存在，请先同步课程');
   },
   filePath: canvasFilePath,

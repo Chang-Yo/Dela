@@ -14,9 +14,7 @@ import { watchRemoteProject } from '../../../core/remote/watch';
 import { getLocalWorkspaceState, searchLocalWorkspace } from './local-tree';
 import { resourceRefSchema, workspaceContract, type WorkspaceState } from '../contract';
 import { dialog, shell } from 'electron';
-import { emit } from '../../../core/ports';
-import { getDatabase } from '../../../main/database';
-import { storageDirectory as directory } from '../../../main/storage';
+import { emit, hostPorts } from '../../../core/ports';
 import { watch, type FSWatcher } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 
@@ -254,13 +252,14 @@ export async function openFile(id: string) {
 export async function chooseDirectory() {
   const result = await dialog.showOpenDialog({
     title: '新建工作区与课程资料的保存位置（已有文件不迁移）',
-    defaultPath: directory(),
+    defaultPath: hostPorts().paths.storage(),
     properties: ['openDirectory', 'createDirectory'],
   });
   const path = result.filePaths[0];
   if (!result.canceled && path)
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)")
       .run(path);
-  return directory();
+  return hostPorts().paths.storage();
 }

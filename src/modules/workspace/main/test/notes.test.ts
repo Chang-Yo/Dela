@@ -18,9 +18,7 @@ import { EventEmitter } from 'node:events';
 
 const state = vi.hoisted(() => ({ root: '', execFile: vi.fn(), spawn: vi.fn() }));
 vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.spawn }));
-vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 
-import { getDatabase } from '../../../../main/database';
 import { workspaceArchiveId } from '../../contract';
 import {
   createWorkspaceEntry,
@@ -92,7 +90,7 @@ function insertFileEntry(db: Database.Database, path: string, kind: 'file') {
   return id;
 }
 
-/** 工作区根目录（storageDirectory() 无自定义设置时为 <root>/Dela/workspace）。 */
+/** 工作区根目录（存储目录为 <root>/Dela）。 */
 const workspaceRoot = () => join(state.root, 'Dela', 'workspace');
 const localPathOf = (id: string) => entry(id).path!;
 
@@ -136,9 +134,11 @@ beforeEach(() => {
     return { stdin: { on() {}, end() {} } };
   });
   state.root = mkdtempSync(join(tmpdir(), 'dela-notes-'));
-  provideTestHostPorts({ paths: { documents: () => state.root }, database: () => db });
+  provideTestHostPorts({
+    paths: { documents: () => state.root, storage: () => join(state.root, 'Dela') },
+    database: () => db,
+  });
   db = createDb();
-  vi.mocked(getDatabase).mockReturnValue(db);
 });
 
 afterEach(() => {

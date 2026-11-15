@@ -19,7 +19,6 @@ import { archivedSessions, preloadPi } from '../../core/agent/session/store';
 import { exportSession } from '../../core/agent/session-export';
 import { hostPorts } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
-import { workspaceWindow } from '../../main/ipc';
 import { openInVsCode } from '../workspace';
 import { chatContract } from './contract';
 
@@ -37,14 +36,14 @@ export const chatModule = defineModule({
     archived: withPi(() => archivedSessions()),
     update: withPi(({ id, patch }) => updateSessionVisibility(id, patch)),
     archiveProject: withPi(archiveProjectSessions),
-    export: (id) => exportSession(id, workspaceWindow()?.webContents ?? null),
+    export: (id) => exportSession(id, hostPorts().workspaceClient()),
     remove: withPi(async (id) => {
       if (!archivedSessions().some((session) => session.id === id))
         throw new Error('请先归档，再从设置中永久删除');
       await deleteSession(id);
     }),
     pickMedia: async () => {
-      const owner = workspaceWindow()?.webContents;
+      const owner = hostPorts().workspaceClient();
       return owner ? stageChatMediaFiles(await hostPorts().desktop.pickFiles(owner)) : [];
     },
     saveCommand: saveChatCommand,

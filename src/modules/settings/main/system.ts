@@ -1,6 +1,6 @@
 // 要作用到系统或窗口的偏好：主题、页面缩放与开机启动。
-import { app, nativeTheme } from 'electron';
-import { workspaceWindow } from '../../../main/ipc';
+import { app, nativeTheme, type WebContents } from 'electron';
+import { hostPorts } from '../../../core/ports';
 import type { ThemePreference, ZoomPreference } from '../contract';
 import { savedOpenAtLogin, writeSetting } from './prefs';
 
@@ -16,7 +16,7 @@ export function setTheme(theme: ThemePreference): ThemePreference {
 
 export function setZoom(zoom: ZoomPreference): ZoomPreference {
   writeSetting('zoom', String(zoom));
-  workspaceWindow()?.webContents.setZoomFactor(zoom);
+  (hostPorts().workspaceClient() as WebContents | null)?.setZoomFactor(zoom);
   return zoom;
 }
 

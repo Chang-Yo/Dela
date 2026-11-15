@@ -1,8 +1,9 @@
 // 设置：偏好读写、条款接受记录、导出本机数据与缓存清理。设置页在 view/，依赖外壳的分区由 renderer/features/settings 注入。
+import { BrowserWindow, type WebContents } from 'electron';
 import { defineModule } from '../../app/module';
 import { getAgentInstruction, setAgentInstruction } from '../../core/agent/instruction';
+import { hostPorts } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
-import { workspaceWindow } from '../../main/ipc';
 import { settingsContract } from './contract';
 import { exportUserData } from './main/backup';
 import { cacheSize, clearCaches } from './main/cache';
@@ -70,7 +71,10 @@ export const settingsModule = defineModule({
     instruction: getAgentInstruction,
     setInstruction: setAgentInstruction,
     recordConsent: ({ document, revision }) => recordConsent(document, revision),
-    exportData: () => exportUserData(workspaceWindow()),
+    exportData: () => {
+      const client = hostPorts().workspaceClient();
+      return exportUserData(client && BrowserWindow.fromWebContents(client as WebContents));
+    },
     cacheSize,
     clearCache: clearCaches,
   }),

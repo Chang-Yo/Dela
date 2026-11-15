@@ -6,7 +6,6 @@ vi.mock('../../../../modules/todo', () => ({
   todoNotifications: () => [],
   markTodoRead: vi.fn(),
 }));
-vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../credentials', () => ({ loadShuiyuanCredential: vi.fn() }));
 vi.mock('../../../../modules/notifications', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../modules/notifications')>()),
@@ -21,7 +20,6 @@ import {
   systemNotifyItem,
 } from '../../../../modules/notifications';
 import type { NotificationState } from '../../../../modules/notifications/contract';
-import { getDatabase } from '../../../../main/database';
 import { loadShuiyuanCredential } from '../credentials';
 import { listShuiyuanNotifications } from '../api';
 import { shuiyuanNoticeSource } from '../notice-source';
@@ -88,7 +86,6 @@ describe('Shuiyuan notice source', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const db = createDb();
-    vi.mocked(getDatabase).mockReturnValue(db);
     provideTestHostPorts({ database: () => db as never });
     bindShuiyuan();
   });

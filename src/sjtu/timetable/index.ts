@@ -1,8 +1,9 @@
 // 课表：从教学信息网同步个人课表；日历事件的读写暂时也在这里。
+import type { WebContents } from 'electron';
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
+import { hostPorts } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
-import { workspaceWindow } from '../../main/ipc';
 import { timetableContract } from './contract';
 import { timetableDomain } from './main/agent';
 import {
@@ -28,7 +29,7 @@ export const timetableModule = defineModule({
     setSemesterStart: ({ semester, value }) => setSemesterStart(semester, value),
     sync: (semester = currentSemester()) => syncTimetable(semester),
     // 契约调用只来自工作区窗口，登录窗以它为父窗口。
-    connect: () => openLoginWindow(workspaceWindow()!.webContents),
+    connect: () => openLoginWindow(hostPorts().workspaceClient() as WebContents),
   }),
   register() {
     registerCommandDomain(timetableDomain);

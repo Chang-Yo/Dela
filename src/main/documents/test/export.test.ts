@@ -7,10 +7,12 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
-vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
-vi.mock('../../../modules/workspace', () => ({ createWorkspaceEntry: vi.fn() }));
+vi.mock('../../../modules/workspace', () => ({
+  createWorkspaceEntry: vi.fn(),
+  availablePath: (parent: string, name: string) => join(parent, name),
+}));
 vi.mock('../parse', () => ({ classifyOfficeFile: vi.fn(async () => 'pptx') }));
-import { getDatabase } from '../../database';
+import { provideTestHostPorts } from '../../../core/test/host-mock';
 import { createWorkspaceEntry } from '../../../modules/workspace';
 import { registerResourceResolver } from '../../../core/capabilities/resources';
 import { exportOfficePdf } from '../export';
@@ -22,6 +24,7 @@ registerResourceResolver('workspace', { read: vi.fn(), path: workspacePath });
 let directory: string;
 let source: string;
 let db: Database.Database;
+const database = vi.fn(() => db);
 beforeEach(() => {
   vi.clearAllMocks();
   directory = mkdtempSync(join(tmpdir(), 'dela-export-test-'));
@@ -32,7 +35,7 @@ beforeEach(() => {
   db.exec(
     'CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT, kind TEXT, source_id TEXT, local_path TEXT, updated_at TEXT)',
   );
-  vi.mocked(getDatabase).mockReturnValue(db);
+  provideTestHostPorts({ database });
   workspacePath.mockResolvedValue(source);
   vi.mocked(createWorkspaceEntry).mockImplementation(() => {
     const path = join(directory, '预览导出');
@@ -67,7 +70,7 @@ it('Mac 拒绝转换，且不解析源文件或写入导出数据', async () => 
   );
   expect(progress).not.toHaveBeenCalled();
   expect(workspacePath).not.toHaveBeenCalled();
-  expect(getDatabase).not.toHaveBeenCalled();
+  expect(database).not.toHaveBeenCalled();
   expect(createWorkspaceEntry).not.toHaveBeenCalled();
   expect(spawn).not.toHaveBeenCalled();
 });

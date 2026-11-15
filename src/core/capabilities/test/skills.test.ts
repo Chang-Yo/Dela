@@ -11,7 +11,6 @@ const home = mkdtempSync(join(tmpdir(), 'dela-skills-'));
 const projects = mkdtempSync(join(tmpdir(), 'dela-skill-projects-'));
 let database: DatabaseSync;
 vi.mock('electron', () => ({ app: { getPath: () => home }, shell: {} }));
-vi.mock('../../../main/database', () => ({ getDatabase: () => database }));
 
 import { provideTestHostPorts } from '../../test/host-mock';
 import { workspaceProjects } from '../../../modules/workspace';
@@ -73,7 +72,7 @@ const byName = async (name: string) => (await listSkills()).filter((skill) => sk
 beforeEach(() => {
   provideTestHostPorts({
     paths: { userData: () => home, home: () => home },
-    database: () => database,
+    database: () => database as never,
     projects: workspaceProjects,
   });
   database = new DatabaseSync(':memory:');
@@ -159,7 +158,7 @@ it('restores user-edited builtin skills to the bundled version', async () => {
   const { provideTestHostPorts: provideAfterReset } = await import('../../test/host-mock');
   provideAfterReset({
     paths: { userData: () => home, home: () => home },
-    database: () => database,
+    database: () => database as never,
     projects: workspaceProjects,
   });
   registerBuiltins((await import('../commands')).registerCommandDomain);

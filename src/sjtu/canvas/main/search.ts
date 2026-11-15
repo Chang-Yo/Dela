@@ -1,5 +1,5 @@
 import { likePattern, type SearchProvider } from '../../../modules/search';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 
 // 只匹配已缓存的课件文件名，搜索时不下载任何文件。
 export const courseFileSearch: SearchProvider = {
@@ -10,7 +10,8 @@ export const courseFileSearch: SearchProvider = {
     const filter = query
       ? "AND json_extract(canvas_sources.data, '$.title') LIKE ? ESCAPE '!'"
       : '';
-    const rows = getDatabase()
+    const rows = hostPorts()
+      .database()
       .prepare(
         `SELECT canvas_sources.id, json_extract(canvas_sources.data, '$.title') AS title,
            json_extract(canvas_courses.data, '$.name') AS courseName

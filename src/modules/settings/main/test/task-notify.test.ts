@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 let database: DatabaseSync;
 
-vi.mock('../../../../main/database', () => ({ getDatabase: () => database }));
 vi.mock('../../../notifications', () => ({ systemNotifyToast: vi.fn() }));
 
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { systemNotifyToast } from '../../../notifications';
 import { notifyRunFinished } from '../task-notify';
 import { setTaskNotificationPrefs } from '../prefs';
@@ -14,6 +14,8 @@ import { setTaskNotificationPrefs } from '../prefs';
 function insert(sql: string, ...values: SQLInputValue[]) {
   database.prepare(sql).run(...values);
 }
+
+provideTestHostPorts({ database: () => database as never });
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');

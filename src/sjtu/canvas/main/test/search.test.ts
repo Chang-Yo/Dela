@@ -11,7 +11,10 @@ vi.mock('electron', () => ({
 }));
 
 import { closeDatabase, getDatabase } from '../../../../main/database';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { courseFileSearch } from '../search';
+
+provideTestHostPorts({ database: getDatabase });
 
 const run = (sql: string, ...values: unknown[]) =>
   getDatabase()

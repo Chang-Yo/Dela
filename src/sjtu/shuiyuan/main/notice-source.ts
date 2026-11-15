@@ -1,6 +1,6 @@
 import type { ShuiyuanNotificationItem } from '../contract';
 import { loadShuiyuanCredential } from './credentials';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import type { NotificationCategory } from '../../../modules/notifications/contract';
 import {
   existingNotifications,
@@ -28,7 +28,8 @@ function shuiyuanCategory(type: number): NotificationCategory {
 function unreadLikes(key: string): Map<string, number> {
   return new Map(
     (
-      getDatabase()
+      hostPorts()
+        .database()
         .prepare(
           `SELECT id, json_extract(href, '$.topicId') AS topicId FROM notifications
            WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like' AND read_at IS NULL`,
@@ -131,7 +132,8 @@ export const shuiyuanNoticeSource: NoticeSource = {
         : null,
   // 点赞按主题成组展示与弹窗，打开或标记其中一条即视为读完该主题的全部点赞。
   markRead(id, key) {
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare(
         `UPDATE notifications SET read_at = COALESCE(read_at, ?)
          WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like'

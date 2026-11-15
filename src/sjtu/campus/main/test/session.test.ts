@@ -79,7 +79,7 @@ vi.mock('electron', () => {
     },
   };
 });
-vi.mock('../../../../main/ipc', () => ({ attachContextMenu: () => {} }));
+vi.mock('../../../../modules/workspace', () => ({ attachContextMenu: () => {} }));
 
 import {
   CampusAuthError,

@@ -177,5 +177,6 @@ export const electronPorts: HostPorts = {
   desktop,
   network: { fetch: (url, init) => net.fetch(url, init) },
   database: getDatabase,
+  workspaceClient: () => workspaceWindow()?.webContents ?? null,
   projects: workspaceProjects,
 };

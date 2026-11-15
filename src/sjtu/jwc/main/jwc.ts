@@ -2,7 +2,7 @@ import { dialog } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { load } from 'cheerio';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import { systemNotifyItem, type NoticeSource } from '../../../modules/notifications';
 import type { JwcNotice } from '../contract';
 
@@ -66,7 +66,7 @@ export function parseJwcList(html: string, pageUrl: string) {
 }
 
 export async function refreshJwc(force = false): Promise<void> {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(syncKey) as
     { value: string } | undefined;
   const previous: JwcSync | null = saved ? JSON.parse(saved.value) : null;
@@ -159,7 +159,8 @@ export async function refreshJwc(force = false): Promise<void> {
 export async function getJwcNotice(id: string): Promise<JwcNotice> {
   const cached = notices.get(id);
   if (cached) return cached;
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare("SELECT title, created_at, href FROM notifications WHERE id = ? AND source = 'jwc'")
     .get(id) as { title: string; created_at: string; href: string } | undefined;
   if (!row) throw new Error('通知不存在');

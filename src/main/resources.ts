@@ -22,7 +22,7 @@ import {
   imageMimeOf,
   isTextContent,
 } from '../core/protocol/files';
-import { diskName } from './storage';
+import { diskName } from '../modules/workspace';
 import { hostPorts } from '../core/ports';
 import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from './documents/runtime';
 

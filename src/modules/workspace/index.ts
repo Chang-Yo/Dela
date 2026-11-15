@@ -73,6 +73,8 @@ export {
   workspaceFilePath,
   workspaceProjects,
 } from './main/api';
+export { attachContextMenu } from './main/context-menu';
+export { availablePath, diskName } from './main/disk-name';
 export { localFileFormat, textRevision } from './main/files';
 export { openInVsCode } from './main/project';
 export {

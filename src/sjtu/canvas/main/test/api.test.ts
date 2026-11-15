@@ -13,6 +13,7 @@ vi.mock('../credentials', () => ({
 }));
 
 import { closeDatabase, getDatabase } from '../../../../main/database';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { syncCanvasCourse } from '../api';
 
 const course = {
@@ -54,6 +55,7 @@ function stubCanvas(topics: unknown[], announcements: unknown[]) {
 
 beforeEach(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-canvas-'));
+  provideTestHostPorts({ database: getDatabase });
   getDatabase()
     .prepare('INSERT INTO canvas_courses(id, data, items) VALUES (?, ?, ?)')
     .run(1, JSON.stringify(course), '[]');

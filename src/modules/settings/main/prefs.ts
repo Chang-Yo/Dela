@@ -1,6 +1,6 @@
 // workspace_settings 中的设置读写：读取时缺失或损坏的值回退默认，不向调用方抛错。
 import { z } from 'zod';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import { isAccelerator, isShortcutActionId, type KeybindingOverrides } from '../keybindings';
 import {
   fontSizeDefault,
@@ -22,13 +22,18 @@ const openAtLoginSchema = z
   .catch(false);
 
 export function readSetting(key: string): string | undefined {
-  const row = getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
-    { value: string } | undefined;
+  const row = hostPorts()
+    .database()
+    .prepare('SELECT value FROM workspace_settings WHERE key=?')
+    .get(key) as { value: string } | undefined;
   return row?.value;
 }
 
 export function writeSetting(key: string, value: string): void {
-  getDatabase().prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(key, value);
+  hostPorts()
+    .database()
+    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
+    .run(key, value);
 }
 
 export function savedTheme(): ThemePreference {

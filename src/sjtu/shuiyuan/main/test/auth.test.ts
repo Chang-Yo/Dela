@@ -55,7 +55,6 @@ vi.mock('../credentials', () => ({
   saveShuiyuanCredential: mock.save,
   clearShuiyuanCredential: vi.fn(),
 }));
-vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 import { bindShuiyuan, startShuiyuanAuth, unbindShuiyuan } from '../api';
 
 const sender = { id: 1 } as WebContents;

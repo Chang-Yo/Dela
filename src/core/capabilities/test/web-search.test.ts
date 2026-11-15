@@ -48,7 +48,7 @@ import {
 } from '../web-search';
 import { provideTestHostPorts } from '../../test/host-mock';
 
-provideTestHostPorts({ database: () => database });
+provideTestHostPorts({ database: () => database as never });
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');

@@ -1,7 +1,7 @@
 // 水源帖子作为工作区来源：引用行（shuiyuan_topics）的写入与读取，来源正文读本地快照（snapshot-files.ts）。
 // 站点请求复用 api.ts。
 import { z } from 'zod';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import type { DocumentContent } from '../../../modules/workspace/contract';
 import type { ShuiyuanSourceRef } from '../contract';
 import { getShuiyuanSiteStructure, getShuiyuanTopic, SHUIYUAN_ORIGIN } from './api';
@@ -77,7 +77,8 @@ export async function addShuiyuanSourceRef(topicIdInput: unknown): Promise<Shuiy
     addedAt: new Date().toISOString(),
     snapshot: shuiyuanSnapshotState(topicId),
   };
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare(
       `INSERT INTO shuiyuan_topics (topic_id, title, url, excerpt, category_name, author, posts_count, added_at)
        VALUES (@topicId, @title, @url, @excerpt, @categoryName, @author, @postsCount, @addedAt)
@@ -98,7 +99,8 @@ export function shuiyuanTopicUrl(topicIdInput: unknown): string {
 
 export function getShuiyuanSourceRef(topicIdInput: unknown): ShuiyuanSourceRef | null {
   const topicId = z.number().int().positive().parse(topicIdInput);
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare('SELECT * FROM shuiyuan_topics WHERE topic_id = ?')
     .get(topicId) as SourceRefRow | undefined;
   return row ? mapRefRow(row) : null;

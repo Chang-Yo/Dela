@@ -18,7 +18,7 @@ import { hasConsented, recordConsent } from '../consent';
 
 beforeEach(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-consent-'));
-  provideTestHostPorts({ paths: { userData: () => state.root } });
+  provideTestHostPorts({ paths: { userData: () => state.root }, database: getDatabase });
 });
 
 function rows() {

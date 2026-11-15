@@ -1,10 +1,8 @@
 // settings/prefs 的偏好读写：默认值回退、JSON 键损坏容错与部分合并语义。
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 let database: DatabaseSync;
-
-vi.mock('../../../../main/database', () => ({ getDatabase: () => database }));
 
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { getAgentInstruction, setAgentInstruction } from '../../../../core/agent/instruction';
@@ -26,7 +24,7 @@ import {
   setVideoDownloadDirectory,
 } from '../prefs';
 
-provideTestHostPorts({ database: () => database });
+provideTestHostPorts({ database: () => database as never });
 
 function insert(sql: string, ...values: SQLInputValue[]) {
   database.prepare(sql).run(...values);

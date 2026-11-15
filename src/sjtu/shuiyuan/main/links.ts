@@ -1,5 +1,4 @@
-import { emit } from '../../../core/ports';
-import { workspaceWindow } from '../../../main/ipc';
+import { emit, hostPorts } from '../../../core/ports';
 import { shuiyuanContract, shuiyuanTopicFromUrl } from '../contract';
 import { getShuiyuanState } from './api';
 
@@ -9,7 +8,7 @@ import { getShuiyuanState } from './api';
  */
 export function openShuiyuanLinkInApp(url: string): boolean {
   const topic = shuiyuanTopicFromUrl(url);
-  if (!topic || !getShuiyuanState().connected || !workspaceWindow()) return false;
+  if (!topic || !getShuiyuanState().connected || !hostPorts().workspaceClient()) return false;
   emit(shuiyuanContract, 'openTopic', topic);
   return true;
 }

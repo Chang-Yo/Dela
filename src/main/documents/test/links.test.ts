@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getDatabase } from '../../database';
+import { provideTestHostPorts } from '../../../core/test/host-mock';
 import {
   officeExportPreviewInfo,
   readOfficeExportLink,
@@ -11,7 +11,6 @@ import {
   type OfficeExportLink,
 } from '../links';
 
-vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('electron', () => ({ app: { getPath: vi.fn(() => tmpdir()) } }));
 
 const db = new Database(':memory:');
@@ -34,7 +33,7 @@ beforeEach(() => {
     link.entryId,
     'imported',
   );
-  vi.mocked(getDatabase).mockReturnValue(db);
+  provideTestHostPorts({ database: () => db });
 });
 
 describe('office export links', () => {

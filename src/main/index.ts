@@ -15,9 +15,13 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { closeDatabase, getDatabase, SCHEMA_VERSION } from './database';
 import { runMigrations } from './migrations';
-import { attachContextMenu, checkWorkspaceSender } from './ipc';
+import { checkWorkspaceSender } from './ipc';
 import type { TrayAction } from '../app/preload/api';
-import { registerPreviewProtocol, registerPreviewScheme } from '../modules/workspace';
+import {
+  attachContextMenu,
+  registerPreviewProtocol,
+  registerPreviewScheme,
+} from '../modules/workspace';
 import { closeAllTerminals, locateBash, prependRuntimePath } from '../modules/terminal';
 import { closeHelper } from '../core/remote/helper';
 import { closeAllPortTunnels, closeRemoteOpens } from '../modules/remotes';

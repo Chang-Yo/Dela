@@ -1,11 +1,12 @@
 import { app } from 'electron';
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import type { ConsentDocument } from '../contract';
 
 /** 条款接受记录只追加：条款改版、用户再次同意时写新行，不改写历史。 */
 export function recordConsent(document: ConsentDocument, revision: string): void {
   try {
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare(
         `INSERT INTO consent_records (document, revision, app_version, accepted_at)
          VALUES (?, ?, ?, ?)`,
@@ -18,7 +19,8 @@ export function recordConsent(document: ConsentDocument, revision: string): void
 }
 
 export function hasConsented(): boolean {
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare(
       `SELECT COUNT(DISTINCT document) AS count FROM consent_records
        WHERE document IN ('terms', 'privacy')`,

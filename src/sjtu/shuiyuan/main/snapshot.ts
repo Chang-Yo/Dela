@@ -11,7 +11,7 @@ import { appendFile, copyFile, mkdir, readdir, rename, rm } from 'node:fs/promis
 import { join } from 'node:path';
 import { setImmediate } from 'node:timers/promises';
 import { z } from 'zod';
-import { emit } from '../../../core/ports';
+import { emit, hostPorts } from '../../../core/ports';
 import {
   SHUIYUAN_HOST,
   shuiyuanContract,
@@ -19,7 +19,6 @@ import {
   type ShuiyuanSnapshotState,
 } from '../contract';
 import { loadShuiyuanCredential } from './credentials';
-import { getDatabase } from '../../../main/database';
 import { systemNotifyToast } from '../../../modules/notifications';
 import { getShuiyuanTopic, loadShuiyuanPosts, SHUIYUAN_ORIGIN } from './api';
 import { noteShuiyuanResponse, waitForShuiyuanBackgroundSlot } from './budget';
@@ -54,11 +53,12 @@ let running: { topicId: number; controller: AbortController } | null = null;
 const progress = new Map<number, Progress>();
 let progressSentAt = 0;
 
-const referencedTopics = `SELECT CAST(substr(source_id, 16) AS INTEGER) FROM workspace_entries
+const referencedTopics = `SELECT CAST(substr(source_id, 16) AS INTEGER) AS topic_id FROM workspace_entries
   WHERE kind = 'source' AND source_id LIKE 'shuiyuan-topic:%'`;
 
 export function shuiyuanSnapshotState(topicId: number): ShuiyuanSnapshotState | null {
-  const row = getDatabase()
+  const row = hostPorts()
+    .database()
     .prepare(
       'SELECT snapshot_status, snapshot_at, snapshot_error FROM shuiyuan_topics WHERE topic_id = ?',
     )
@@ -96,7 +96,8 @@ function reportProgress(topicId: number, value: Progress): void {
 export function queueShuiyuanSnapshot(topicId: number): void {
   if (queue.includes(topicId)) return;
   if (running?.topicId === topicId && !running.controller.signal.aborted) return;
-  getDatabase()
+  hostPorts()
+    .database()
     .prepare(
       "UPDATE shuiyuan_topics SET snapshot_status = 'saving', snapshot_error = NULL WHERE topic_id = ?",
     )
@@ -115,7 +116,8 @@ export function ensureShuiyuanSnapshot(topicId: number): void {
 
 export function refreshShuiyuanSnapshot(topicIdInput: unknown): void {
   const topicId = z.number().int().positive().parse(topicIdInput);
-  const referenced = getDatabase()
+  const referenced = hostPorts()
+    .database()
     .prepare(
       `SELECT 1 FROM shuiyuan_topics WHERE topic_id = ? AND topic_id IN (${referencedTopics})`,
     )
@@ -131,7 +133,8 @@ async function drainQueue(): Promise<void> {
     running = { topicId, controller };
     try {
       const savedAt = await saveSnapshot(topicId, controller.signal);
-      getDatabase()
+      hostPorts()
+        .database()
         .prepare(
           "UPDATE shuiyuan_topics SET snapshot_status = 'done', snapshot_at = ?, snapshot_error = NULL WHERE topic_id = ?",
         )
@@ -139,12 +142,14 @@ async function drainQueue(): Promise<void> {
     } catch (error) {
       if (!controller.signal.aborted) {
         const message = error instanceof Error ? error.message : String(error);
-        getDatabase()
+        hostPorts()
+          .database()
           .prepare(
             "UPDATE shuiyuan_topics SET snapshot_status = 'failed', snapshot_error = ? WHERE topic_id = ?",
           )
           .run(message, topicId);
-        const { title } = getDatabase()
+        const { title } = hostPorts()
+          .database()
           .prepare('SELECT title FROM shuiyuan_topics WHERE topic_id = ?')
           .get(topicId) as { title: string };
         systemNotifyToast(
@@ -158,7 +163,8 @@ async function drainQueue(): Promise<void> {
     }
     if (controller.signal.aborted) continue;
     broadcast();
-    const ended = getDatabase()
+    const ended = hostPorts()
+      .database()
       .prepare(
         'SELECT title, snapshot_status AS status, snapshot_error AS error FROM shuiyuan_topics WHERE topic_id = ?',
       )
@@ -414,9 +420,11 @@ async function downloadImage(
 
 /** 帖子从所有项目移除后：取消保存、删除快照文件、清空状态列（引用行保留，重新添加时直接复用）。 */
 export async function collectShuiyuanSnapshots(): Promise<void> {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const referenced = new Set(
-    (db.prepare(referencedTopics).pluck().all() as number[]).filter(Number.isInteger),
+    (db.prepare(referencedTopics).all() as { topic_id: number }[])
+      .map((row) => row.topic_id)
+      .filter(Number.isInteger),
   );
   for (let index = queue.length - 1; index >= 0; index--)
     if (!referenced.has(queue[index]!)) queue.splice(index, 1);
@@ -437,12 +445,12 @@ export async function collectShuiyuanSnapshots(): Promise<void> {
 export async function resumeShuiyuanSnapshots(): Promise<void> {
   await collectShuiyuanSnapshots();
   if (!loadShuiyuanCredential()) return;
-  const topicIds = getDatabase()
+  const topicIds = hostPorts()
+    .database()
     .prepare(
       `SELECT topic_id FROM shuiyuan_topics
        WHERE topic_id IN (${referencedTopics}) AND snapshot_status IS NOT 'failed'`,
     )
-    .pluck()
-    .all() as number[];
-  for (const topicId of topicIds) ensureShuiyuanSnapshot(topicId);
+    .all() as { topic_id: number }[];
+  for (const { topic_id: topicId } of topicIds) ensureShuiyuanSnapshot(topicId);
 }

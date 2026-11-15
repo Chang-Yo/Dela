@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
 let userData = '';
 vi.mock('electron', () => ({
@@ -33,11 +34,13 @@ vi.mock('electron', () => ({
     }),
   },
 }));
-vi.mock('../../../../main/database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../credentials', () => ({
   loadShuiyuanCredential: () => ({ key: 'user-key', clientId: 'client' }),
 }));
-vi.mock('../../../../core/ports', () => ({ emit: vi.fn() }));
+vi.mock('../../../../core/ports', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../core/ports')>()),
+  emit: vi.fn(),
+}));
 vi.mock('../../../../modules/notifications', () => ({ systemNotifyToast: vi.fn() }));
 vi.mock('../api', () => ({
   SHUIYUAN_ORIGIN: 'https://shuiyuan.sjtu.edu.cn',
@@ -49,7 +52,6 @@ vi.mock('../budget', () => ({
   noteShuiyuanResponse: () => {},
 }));
 
-import { getDatabase } from '../../../../main/database';
 import { nativeImage, safeStorage } from 'electron';
 import { systemNotifyToast } from '../../../../modules/notifications';
 import { getShuiyuanTopic, loadShuiyuanPosts } from '../api';
@@ -126,7 +128,7 @@ beforeEach(() => {
     INSERT INTO shuiyuan_topics (topic_id, title) VALUES (42, '长帖');
     INSERT INTO workspace_entries VALUES ('e1', 'source', 'shuiyuan-topic:42');
   `);
-  vi.mocked(getDatabase).mockReturnValue(db);
+  provideTestHostPorts({ database: () => db });
   fetch = vi.fn(async () => image());
   vi.stubGlobal('fetch', fetch);
 });

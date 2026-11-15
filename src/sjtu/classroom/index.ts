@@ -1,8 +1,9 @@
 // 课堂视频回看（v.sjtu.edu.cn）：复用校园登录会话，已连接 Canvas 时可免手动登录。
+import type { WebContents } from 'electron';
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
+import { hostPorts } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
-import { workspaceWindow } from '../../main/ipc';
 import { registerPreviewHost } from '../../modules/workspace';
 import { savedVideoDownloadDirectory } from '../../modules/settings';
 import { classroomContract } from './contract';
@@ -21,7 +22,7 @@ import { handleVsjtuMediaRequest, issuePlayback } from './main/playback';
 export const classroomModule = defineModule({
   id: 'classroom',
   ipc: implement(classroomContract, {
-    connect: () => connectClassroom(workspaceWindow()!.webContents),
+    connect: () => connectClassroom(hostPorts().workspaceClient() as WebContents),
     courses: listCourses,
     videos: listVideos,
     streams: issuePlayback,

@@ -13,12 +13,11 @@ import {
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { getDatabase } from '../../../main/database';
 import { hostPorts, type Projects } from '../../../core/ports';
 import { remoteById, targetOf } from '../../remotes';
 import { locateRemote } from '../../../core/remote/operations';
 import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from './sources';
-import { availablePath, diskName, storageDirectory as directory } from '../../../main/storage';
+import { availablePath, diskName } from './disk-name';
 import { officeExportPreviewInfo, readOfficeExportLink } from '../../../main/documents/links';
 import { officeZipMime } from '../../../main/documents/parse';
 import {
@@ -49,7 +48,8 @@ const IMAGE_READ_MAX_BYTES = 50 * 1024 * 1024;
 
 function entryLocalPath(item: WorkspaceEntry): string {
   if (item.path) return item.path;
-  const stored = getDatabase()
+  const stored = hostPorts()
+    .database()
     .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
     .get(item.id) as { path: string | null };
   if (!stored.path) throw new Error('文件不存在');
@@ -59,7 +59,8 @@ function entryLocalPath(item: WorkspaceEntry): string {
 type RemoteRoot = { id: string; path: string; remoteId: string };
 
 function remoteRoots(): RemoteRoot[] {
-  return getDatabase()
+  return hostPorts()
+    .database()
     .prepare(
       `SELECT id, local_path AS path, remote_id AS remoteId FROM workspace_entries
        WHERE remote_id IS NOT NULL AND kind='project' AND local_path IS NOT NULL`,
@@ -94,13 +95,15 @@ export function remoteProjectOf(id: string): RemoteRoot | null {
 
 export const workspaceProjects: Projects = {
   find: (id) =>
-    (getDatabase()
+    (hostPorts()
+      .database()
       .prepare(
         "SELECT name, local_path AS path FROM workspace_entries WHERE id=? AND kind='project'",
       )
       .get(id) as { name: string; path: string | null } | undefined) ?? null,
   local: () =>
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare(
         "SELECT id, name, local_path AS path FROM workspace_entries WHERE kind='project' AND remote_id IS NULL AND local_path IS NOT NULL ORDER BY name",
       )
@@ -133,7 +136,7 @@ export async function importRemoteProject(
   const projectName = nameSchema.optional().parse(name || undefined);
   const location = await locateRemote(targetOf(connection), remotePath);
   if (location.kind !== 'directory') throw new Error(`远端目录不存在：${remotePath}`);
-  const database = getDatabase();
+  const database = hostPorts().database();
   // 同一远端目录只登记一次：重复导入返回已有项目。
   const existing = database
     .prepare(
@@ -194,7 +197,7 @@ function carryNoteAssets(fromFile: string, toFile: string, text: string): void {
   const fromDir = dirname(fromFile);
   const toDir = dirname(toFile);
   if (fromDir === toDir) return;
-  const root = join(directory(), 'workspace');
+  const root = join(hostPorts().paths.storage(), 'workspace');
   const inside = (path: string) => {
     const within = relative(root, path);
     return !within.startsWith('..') && !isAbsolute(within);
@@ -239,14 +242,16 @@ export function projectLocation(
 function setting(key: string): string | null {
   return (
     (
-      getDatabase().prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
-        { value: string } | undefined
+      hostPorts()
+        .database()
+        .prepare('SELECT value FROM workspace_settings WHERE key=?')
+        .get(key) as { value: string } | undefined
     )?.value ?? null
   );
 }
 
 export function workspaceRootDirectory(): string {
-  const root = join(directory(), 'workspace');
+  const root = join(hostPorts().paths.storage(), 'workspace');
   mkdirSync(root, { recursive: true });
   return root;
 }
@@ -258,7 +263,8 @@ function containerPath(parentId: string | null): string {
 function managedPath(item: WorkspaceEntry): string | null {
   if (item.path) return item.path;
   if (item.kind !== 'project' && item.kind !== 'source') return null;
-  const stored = getDatabase()
+  const stored = hostPorts()
+    .database()
     .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
     .get(item.id) as { path: string | null };
   return stored.path;
@@ -266,7 +272,7 @@ function managedPath(item: WorkspaceEntry): string | null {
 
 /** 根目录迁移/移动后，把库里记录的所有受管路径改写到新位置之下；须在调用方事务内执行。 */
 function rewriteStoredPaths(from: string, to: string) {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const relocate = (path: string) => {
     const suffix = relative(from, path);
     return !isAbsolute(suffix) && suffix !== '..' && !suffix.startsWith(`..${sep}`)
@@ -293,7 +299,7 @@ type PendingMove = {
 };
 
 function finishMove(move: PendingMove) {
-  const db = getDatabase();
+  const db = hostPorts().database();
   db.transaction(() => {
     rewriteStoredPaths(move.from, move.to);
     db.prepare(
@@ -306,7 +312,7 @@ function finishMove(move: PendingMove) {
 /** 归档文件夹身份：种子行 local_path 缺失或目录丢失时重新落定（复用根目录已有「归档」，否则创建）。
  *  只在行存在时生效（内存测试库无种子行）。路径落定一次后只读，改名/移除另有守卫。 */
 function ensureArchiveFolder() {
-  const db = getDatabase();
+  const db = hostPorts().database();
   const stored = db
     .prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?')
     .get(workspaceArchiveId) as { path: string | null } | undefined;
@@ -324,14 +330,18 @@ export function prepareStorage() {
     const move: PendingMove = JSON.parse(pending);
     if (!existsSync(move.from) && existsSync(move.to)) finishMove(move);
     else if (existsSync(move.from) && !existsSync(move.to))
-      getDatabase().prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
+      hostPorts()
+        .database()
+        .prepare("DELETE FROM workspace_settings WHERE key='storage-move'")
+        .run();
     else throw new Error('文件移动尚未恢复，请检查原路径和目标路径，暂不继续修改文件。');
   }
 }
 
 export function getWorkspaceState(): WorkspaceState {
   prepareStorage();
-  const stored = getDatabase()
+  const stored = hostPorts()
+    .database()
     .prepare(`SELECT ${entryColumns}, local_path AS path FROM workspace_entries`)
     .all() as WorkspaceEntry[];
   const root = containerPath(null);
@@ -390,7 +400,7 @@ export function getWorkspaceState(): WorkspaceState {
   return {
     // 归档文件夹自身不进条目列表（资料树只经归档区呈现它，子条目仍带其 parentId）。
     entries: entries.filter((item) => item.id !== workspaceArchiveId),
-    directory: directory(),
+    directory: hostPorts().paths.storage(),
   };
 }
 
@@ -402,14 +412,16 @@ export function entry(id: string): WorkspaceEntry {
     // 路径条目可能有数据库身份（升格的项目、资料引用、旧 UUID 行）：按 local_path 匹配，
     // 命中时沿用其 id 与 kind，未命中即纯磁盘文件夹/文件。source 行的 local_path 是其
     // 容器目录路径（去重键），不代表该目录的身份，必须排除，否则容器会被误判成 source。
-    const stored = getDatabase()
+    const stored = hostPorts()
+      .database()
       .prepare(
         `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind != 'source' AND remote_id IS NULL`,
       )
       .get(resolve(id)) as WorkspaceEntry | undefined;
     return fileEntry(resolve(id), stored?.parentId ?? null, stored);
   }
-  const item = getDatabase()
+  const item = hostPorts()
+    .database()
     .prepare(`SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE id=?`)
     .get(id) as WorkspaceEntry | undefined;
   if (!item) throw new Error('内容不存在');
@@ -499,7 +511,7 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   prepareStorage();
   if (parsed.parentId && remoteProjectOf(parsed.parentId))
     throw new Error('远程项目内暂不支持新建文件与文件夹');
-  const db = getDatabase();
+  const db = hostPorts().database();
   let source: WorkspaceSource | null = null;
   if (parsed.kind === 'source') {
     if (!parsed.sourceId) throw new Error('请指定资料来源');
@@ -549,7 +561,7 @@ export function linkProjectFolder(path: unknown): WorkspaceEntry {
     throw new Error('请选择一个文件夹');
   if (resolved === resolve(containerPath(null)))
     throw new Error('这是 Dela 的工作区目录本身，请在其中新建项目');
-  const db = getDatabase();
+  const db = hostPorts().database();
   // 同一目录只登记一次：重复导入返回已有项目，不产生两个身份。
   const existing = db
     .prepare(
@@ -589,7 +601,8 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
   if (remoteProjectOf(id)) {
     if (parsed.parentId !== undefined || parsed.kind) throw new Error('远程项目不能移动');
     if (parsed.name !== undefined)
-      getDatabase()
+      hostPorts()
+        .database()
         .prepare('UPDATE workspace_entries SET name=?, updated_at=? WHERE id=?')
         .run(parsed.name, new Date().toISOString(), id);
     return { id };
@@ -601,7 +614,8 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
   // 降格同样删除项目行：名下还有子项目时与移除一样拒绝。
   if (parsed.kind === 'folder' && current.kind === 'project') assertNoChildProjects(current.id);
   if (current.kind === 'source') {
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare(
         'UPDATE workspace_entries SET name=?, parent_id=NULL, local_path=?, updated_at=? WHERE id=?',
       )
@@ -631,7 +645,8 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       parentId: parentId && !isAbsolute(parentId) ? parentId : null,
       kind: parsed.kind ?? current.kind,
     };
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)")
       .run(JSON.stringify(move));
     try {
@@ -643,13 +658,17 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       if (from !== to) renameSync(from, to);
       if (noteText !== null) carryNoteAssets(from, to, noteText);
     } catch (error) {
-      getDatabase().prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
+      hostPorts()
+        .database()
+        .prepare("DELETE FROM workspace_settings WHERE key='storage-move'")
+        .run();
       throw error;
     }
     finishMove(move);
   }
   if (!isAbsolute(id))
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare('UPDATE workspace_entries SET name=?, parent_id=?, kind=?, updated_at=? WHERE id=?')
       .run(
         name,
@@ -665,11 +684,14 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       nextId = linkProjectFolder(to).id;
     } else {
       nextId = current.id;
-      getDatabase().prepare("UPDATE workspace_entries SET kind='project' WHERE id=?").run(nextId);
+      hostPorts()
+        .database()
+        .prepare("UPDATE workspace_entries SET kind='project' WHERE id=?")
+        .run(nextId);
     }
   } else if (parsed.kind === 'folder' && current.kind === 'project') {
     // 降格：删除条目行（项目会话经 FK 转为通用），目录回到纯路径身份。
-    getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
+    hostPorts().database().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
     void collectWorkspaceSources();
     nextId = to;
   }
@@ -781,7 +803,8 @@ export function saveWorkspaceNote(id: string, text: string, revision: string): s
   if (format !== 'markdown' && format !== 'text') throw new Error('只有文本文件可以编辑');
   const next = writeLocalText(path, text, revision);
   if (!isAbsolute(id))
-    getDatabase()
+    hostPorts()
+      .database()
       .prepare('UPDATE workspace_entries SET updated_at=? WHERE id=?')
       .run(new Date().toISOString(), id);
   return next;
@@ -790,7 +813,8 @@ export function saveWorkspaceNote(id: string, text: string, revision: string): s
 /** 删除/降格项目行之前的守卫：外键级联会带走子项目的登记行，却删不掉它们的会话
  *  （残留成随聊）。拒绝并点名，让用户逐个处理。 */
 function assertNoChildProjects(projectId: string): void {
-  const children = getDatabase()
+  const children = hostPorts()
+    .database()
     .prepare("SELECT name FROM workspace_entries WHERE parent_id=? AND kind='project'")
     .all(projectId) as { name: string }[];
   if (children.length)
@@ -809,17 +833,18 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     // 动态导入避开 agent/session → workspace/api 的既有环；deleteSession 负责中止运行与清理 JSONL。
     const { deleteSession } = await import('../../../core/agent/session/commands');
     const { invalidateSessions } = await import('../../../core/agent/session/run');
-    const ids = getDatabase()
+    const ids = hostPorts()
+      .database()
       .prepare('SELECT id FROM sessions WHERE project_id=? AND parent_id IS NULL')
       .all(item.id) as { id: string }[];
     for (const row of ids) await deleteSession(row.id);
     invalidateSessions();
-    getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
+    hostPorts().database().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
     await collectWorkspaceSources();
     return;
   }
   if (item.kind === 'source') {
-    getDatabase().prepare('DELETE FROM workspace_entries WHERE id=?').run(id);
+    hostPorts().database().prepare('DELETE FROM workspace_entries WHERE id=?').run(id);
     await collectWorkspaceSources();
     return;
   }

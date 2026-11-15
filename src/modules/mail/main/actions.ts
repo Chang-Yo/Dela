@@ -1,9 +1,14 @@
-import { dialog } from 'electron';
+import { BrowserWindow, dialog, type WebContents } from 'electron';
 import { basename } from 'node:path';
-import { workspaceWindow } from '../../../main/ipc';
+import { hostPorts } from '../../../core/ports';
 import type { MailComposeFileKind, MailResult } from '../contract';
 import { friendlyError, mailAttachment, saveMailAttachment } from './api';
 import { pickComposeFiles } from './send';
+
+function workspaceWindow() {
+  const client = hostPorts().workspaceClient();
+  return client ? BrowserWindow.fromWebContents(client as WebContents) : null;
+}
 
 // 只有一个工作窗口，写信中的状态用一个布尔记录。
 let composing = false;

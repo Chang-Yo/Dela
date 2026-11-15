@@ -1,4 +1,4 @@
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import { freshness } from '../../../main/agent/domain/shared';
 import type { WorkspaceSource } from '../../../modules/workspace';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
@@ -23,7 +23,7 @@ export const shuiyuanWorkspaceSource: WorkspaceSource = {
     if (
       !Number.isInteger(topicId) ||
       topicId <= 0 ||
-      !getDatabase().prepare('SELECT 1 FROM shuiyuan_topics WHERE topic_id=?').get(topicId)
+      !hostPorts().database().prepare('SELECT 1 FROM shuiyuan_topics WHERE topic_id=?').get(topicId)
     )
       throw new Error('水源帖子引用不存在，请回到水源页重新添加');
   },

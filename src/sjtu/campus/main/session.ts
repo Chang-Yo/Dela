@@ -11,7 +11,7 @@ import {
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { attachContextMenu } from '../../../main/ipc';
+import { attachContextMenu } from '../../../modules/workspace';
 
 export const CAMPUS_PARTITION = 'persist:dela-campus';
 let ready: Promise<Session> | undefined;

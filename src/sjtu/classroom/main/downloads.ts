@@ -1,9 +1,16 @@
 // 录像下载与文稿导出：都经原生保存对话框写到用户选的位置；对话框挂在工作区窗口上。
-import { app, dialog, shell, type DownloadItem, type SaveDialogOptions } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  shell,
+  type DownloadItem,
+  type SaveDialogOptions,
+  type WebContents,
+} from 'electron';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
-import { emit } from '../../../core/ports';
-import { workspaceWindow } from '../../../main/ipc';
+import { emit, hostPorts } from '../../../core/ports';
 import { savedVideoDownloadDirectory, setVideoDownloadDirectory } from '../../../modules/settings';
 import { getCampusSession } from '../../campus';
 import { classroomContract, type VideoDownload } from '../contract';
@@ -14,7 +21,8 @@ const downloads = new Map<string, { info: VideoDownload; item: DownloadItem; pat
 const pending = new Set<string>();
 
 function showSaveDialog(options: SaveDialogOptions) {
-  const parent = workspaceWindow();
+  const client = hostPorts().workspaceClient();
+  const parent = client && BrowserWindow.fromWebContents(client as WebContents);
   return parent ? dialog.showSaveDialog(parent, options) : dialog.showSaveDialog(options);
 }
 

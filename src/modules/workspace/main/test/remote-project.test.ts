@@ -12,13 +12,11 @@ const state = vi.hoisted(() => ({
   locate: vi.fn(),
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: { openPath: vi.fn() } }));
-vi.mock('../../../../main/database', () => ({ getDatabase: () => state.db }));
 vi.mock('../../../../core/remote/operations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../core/remote/operations')>()),
   locateRemote: state.locate,
 }));
 
-import { getDatabase } from '../../../../main/database';
 import {
   parentOf,
   remoteJoin,
@@ -77,8 +75,8 @@ beforeEach(() => {
   provideTestHostPorts({ database: () => state.db!, projects: workspaceProjects });
   state.locate.mockReset();
   state.locate.mockResolvedValue({ path: '/root/proj', kind: 'directory', entries: [] });
-  getDatabase()
-    .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)")
+  state
+    .db!.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)")
     .run(state.root);
 });
 
@@ -181,36 +179,36 @@ describe('远程条目的本地入口', () => {
     const created = await importRemoteProject(remoteId, '/root/proj');
     await removeWorkspaceEntry(created.id);
     expect(
-      getDatabase().prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(created.id),
+      state.db!.prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(created.id),
     ).toBeUndefined();
     expect(state.locate).toHaveBeenCalled();
   });
 
   it('移除远程项目删除条目与会话，连接保留，重新导入得到新身份', async () => {
     const created = await importRemoteProject(remoteId, '/root/proj');
-    getDatabase()
-      .prepare(
+    state
+      .db!.prepare(
         'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)',
       )
       .run(crypto.randomUUID(), created.id, '', 'now', 'now');
     await removeWorkspaceEntry(created.id);
     expect(getWorkspaceState().entries.some((item) => item.id === created.id)).toBe(false);
-    expect(getDatabase().prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+    expect(state.db!.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
     const reborn = await importRemoteProject(remoteId, '/root/proj');
     expect(reborn.id).not.toBe(created.id);
   });
 
   it('删除连接时名下项目与会话一并移除', async () => {
     const created = await importRemoteProject(remoteId, '/root/proj');
-    getDatabase()
-      .prepare(
+    state
+      .db!.prepare(
         'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)',
       )
       .run(crypto.randomUUID(), created.id, '', 'now', 'now');
     await removeRemote(remoteId);
     expect(listRemotes()).toEqual([]);
     expect(getWorkspaceState().entries.some((item) => item.id === created.id)).toBe(false);
-    expect(getDatabase().prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+    expect(state.db!.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
   });
 });
 
@@ -219,8 +217,8 @@ describe('远端条目身份', () => {
   const nodePath = '/root/proj/src/a.ts';
 
   it('同路径的两台连接不会互相认领', async () => {
-    getDatabase()
-      .prepare('INSERT INTO remotes VALUES (?, ?, ?, ?, ?, ?)')
+    state
+      .db!.prepare('INSERT INTO remotes VALUES (?, ?, ?, ?, ?, ?)')
       .run(secondRemoteId, 'another', 'root@10.0.0.6', null, null, new Date().toISOString());
     const first = await importRemoteProject(remoteId, '/root/proj');
     const second = await importRemoteProject(secondRemoteId, '/root/proj');

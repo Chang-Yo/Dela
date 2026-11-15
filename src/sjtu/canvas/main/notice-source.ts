@@ -1,4 +1,4 @@
-import { getDatabase } from '../../../main/database';
+import { hostPorts } from '../../../core/ports';
 import {
   existingNotifications,
   saveNotificationRefresh,
@@ -17,7 +17,7 @@ export const canvasNoticeSource: NoticeSource = {
   async refresh(key, force) {
     if (!force && Date.now() < nextCheckAt) return;
     nextCheckAt = Date.now() + 20 * 60_000;
-    const db = getDatabase();
+    const db = hostPorts().database();
     // 按课程记录首次成功同步：新学期新增课程的存量公告与首次同步一样只进列表，不弹系统通知。
     const knownKey = `canvas-announcement-courses:${key}`;
     const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(knownKey) as
