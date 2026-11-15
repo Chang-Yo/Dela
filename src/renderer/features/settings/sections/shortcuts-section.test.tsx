@@ -12,7 +12,7 @@ const { invoke } = vi.hoisted(() => {
   >;
   return { invoke };
 });
-import { defaultKeybindings } from '../../../../shared/keybindings';
+import { defaultKeybindings } from '../../../../modules/settings/contract';
 import { useShortcuts } from '../../../app/shortcuts';
 import { ShortcutsSection } from './ShortcutsSection';
 

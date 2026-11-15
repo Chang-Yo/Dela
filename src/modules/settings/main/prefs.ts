@@ -1,11 +1,7 @@
 // workspace_settings 中的设置读写：读取时缺失或损坏的值回退默认，不向调用方抛错。
 import { z } from 'zod';
 import { getDatabase } from '../../../main/database';
-import {
-  isAccelerator,
-  isShortcutActionId,
-  type KeybindingOverrides,
-} from '../../../shared/keybindings';
+import { isAccelerator, isShortcutActionId, type KeybindingOverrides } from '../keybindings';
 import {
   fontSizeDefault,
   fontSizeMax,
@@ -103,7 +99,7 @@ export function setTaskNotificationPrefs(prefs: TaskNotificationPrefs): TaskNoti
 }
 
 // ---------------------------------------------------------------------------
-// 快捷键覆盖项（只存用户改过的动作；默认键位留在 shared/keybindings.ts，
+// 快捷键覆盖项（只存用户改过的动作；默认键位留在 settings/keybindings.ts，
 // 后续调整默认值仍能到达既有用户）。
 // ---------------------------------------------------------------------------
 

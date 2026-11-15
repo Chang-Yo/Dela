@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { defaultKeybindings } from '../../../shared/keybindings';
+import { defaultKeybindings } from '../../../modules/settings/contract';
 
 const state = vi.hoisted(() => ({ platform: 'mac', closeTab: vi.fn() }));
 vi.mock('../../lib/platform', () => ({

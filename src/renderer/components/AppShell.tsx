@@ -44,7 +44,7 @@ import {
   type SessionRunBadge,
 } from '../navigation/ProjectSessionNav';
 import { zoomLevels, type ZoomPreference } from '../../modules/settings/contract';
-import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../shared/keybindings';
+import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../modules/settings/contract';
 import {
   DropdownMenu,
   DropdownMenuContent,

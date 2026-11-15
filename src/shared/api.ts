@@ -30,15 +30,6 @@ export interface DelaApi {
 export type { WindowState, TrayAction, WindowApi } from './window';
 
 export type {
-  KeybindingMap,
-  KeybindingOverrides,
-  ShortcutAction,
-  ShortcutActionId,
-  ShortcutConflict,
-  ShortcutScope,
-} from './keybindings';
-
-export type {
   LlmCatalogModel,
   LlmCatalogProvider,
   LlmModelSettings,

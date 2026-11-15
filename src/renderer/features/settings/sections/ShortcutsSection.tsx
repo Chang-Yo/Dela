@@ -9,7 +9,7 @@ import {
   shortcutActions,
   shortcutGroups,
   type ShortcutActionId,
-} from '../../../../shared/keybindings';
+} from '../../../../modules/settings/contract';
 import { useShortcuts } from '../../../app/shortcuts';
 import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { errorText } from '../../../workspace/store';

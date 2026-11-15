@@ -19,8 +19,7 @@ import { formatSize } from './mail-format';
 import { showToast } from '../../../renderer/app/toasts';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
 import { draftsKey, mailClient } from './use-mail';
-// oxlint-disable-next-line no-restricted-imports -- 过渡：键位解析尚未移入 ui 或 renderer/lib
-import { acceleratorFromEvent } from '../../../shared/keybindings';
+import { acceleratorFromEvent } from '../../settings/contract';
 import { platform } from '../../../renderer/lib/platform';
 import { ErrorText } from '../../../ui/alert';
 import { Spinner } from '../../../ui/spinner';

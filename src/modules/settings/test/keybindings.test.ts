@@ -9,7 +9,7 @@ import {
   matchShortcut,
   mergeKeybindings,
   type KeyEventLike,
-} from './keybindings';
+} from '../keybindings';
 
 function key(value: string, modifiers: Partial<Omit<KeyEventLike, 'key'>> = {}): KeyEventLike {
   return {

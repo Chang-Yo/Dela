@@ -1,11 +1,9 @@
 // 设置契约：偏好、条款接受记录、导出本机数据与缓存清理。偏好的事实在主进程数据库。
 import { z } from 'zod';
 import { defineContract } from '../../core/protocol/contract';
-import {
-  isAccelerator,
-  isShortcutActionId,
-  type KeybindingOverrides,
-} from '../../shared/keybindings';
+import { isAccelerator, isShortcutActionId, type KeybindingOverrides } from './keybindings';
+
+export * from './keybindings';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
