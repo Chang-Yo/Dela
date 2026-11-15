@@ -2,9 +2,10 @@
 // 上传时一条真实的字节进度条，下面是逐行日志（默认展开，可折叠）。失败时标题说清楚卡在哪，
 // 并给出「重试 / 编辑连接」。产物已在服务器上时整个过程一两秒，不会出现上传那一步。
 import { useState } from 'react';
-import { Check, ChevronDown, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
+import { Collapse, CollapseChevron } from '../../../ui/collapse';
 import type { RemoteSetupProgress, RemoteSetupStep } from '../contract';
 import { Spinner } from '../../../ui/spinner';
 
@@ -196,15 +197,10 @@ export function SetupProgress({
           onClick={() => setExpanded((value) => !value)}
           type="button"
         >
-          <ChevronDown
-            className={cn(
-              'size-3.5 transition-transform duration-base motion-reduce:transition-none',
-              !expanded && '-rotate-90',
-            )}
-          />
+          <CollapseChevron open={expanded} />
           详细日志
         </button>
-        {expanded && (
+        <Collapse open={expanded}>
           <div
             className="grid max-h-36 content-start gap-0.5 overflow-y-auto rounded-control bg-surface px-2.5 py-2 font-mono text-xs leading-[1.7]"
             role="log"
@@ -228,7 +224,7 @@ export function SetupProgress({
             )}
             <span aria-hidden="true" className="absolute" key={lines.length} ref={stickToBottom} />
           </div>
-        )}
+        </Collapse>
       </div>
     </div>
   );
