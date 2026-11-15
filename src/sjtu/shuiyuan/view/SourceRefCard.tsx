@@ -41,7 +41,7 @@ function SnapshotStatus({
   const latest = savedAt ?? progress?.cachedAt ?? null;
   const behind = latest !== null && latest !== content.updatedAt;
   const reading = content.format === 'html';
-  // TODO(v3 P5 预览迁移)：正文首次可读时自动重读，待预览按查询缓存读取后改为失效驱动。
+  // 正文首次可读时自动重读。触发点是 sourceRef 查询数据到达，要改成失效驱动须动 use-shuiyuan。
   useEffect(() => {
     if (behind && !reading) onReload();
   }, [behind, reading, onReload]);

@@ -10,6 +10,7 @@ import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
 import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
+import { rememberPreviewScroll, usePreviewScroll } from './scroll-memory';
 import { parsePreviewTabId } from './tab-id';
 import { Spinner } from '../../../ui/spinner';
 
@@ -43,9 +44,6 @@ export function previewBranchOf(doc: LoadedDocument): PreviewBranch {
   return 'text';
 }
 
-/* 阅读位置按 标签+组 在会话内记忆，切换标签不丢。 */
-const scrollMemory = new Map<string, number>();
-
 /** 文件预览标签内容：按 DocumentContent.format 分流到各预览器。文档加载经注入的
  *  ContentLoader，本域不感知条目树与读取 IPC。 */
 export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
@@ -61,8 +59,8 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   // 首次加载失败用占位错误（带重试）；已加载后的重读失败走浮窗，不打断当前内容。
   const error = query.isError && !doc && !query.isFetching ? errorText(query.error) : null;
   const scrollKey = `${tabId}:${groupId}`;
-  const scroll = scrollMemory.get(scrollKey) ?? 0;
-  const onScroll = (top: number) => scrollMemory.set(scrollKey, top);
+  const scroll = usePreviewScroll.getState()[scrollKey] ?? 0;
+  const onScroll = (top: number) => rememberPreviewScroll(scrollKey, top);
 
   const load = () =>
     void query.refetch().then((result) => {

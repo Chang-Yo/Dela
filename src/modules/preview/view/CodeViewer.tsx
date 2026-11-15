@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import { defaultKeymap } from '@codemirror/commands';
 import { LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
@@ -61,6 +61,7 @@ export function CodeViewer({
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const wordWrap = useEditorSettings((state) => state.wordWrap);
+  const reportScroll = useEffectEvent((top: number) => onScroll(top));
 
   useEffect(() => {
     const element = host.current!;
@@ -83,7 +84,7 @@ export function CodeViewer({
       }),
     });
     view.scrollDOM.scrollTop = scroll;
-    const handleScroll = () => onScroll(view.scrollDOM.scrollTop);
+    const handleScroll = () => reportScroll(view.scrollDOM.scrollTop);
     view.scrollDOM.addEventListener('scroll', handleScroll);
     viewRef.current = view;
     const language = languageForFilename(filename);
