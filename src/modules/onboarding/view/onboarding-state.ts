@@ -1,5 +1,5 @@
-import type { OnboardingState } from '../../../modules/onboarding/contract';
-import { onboardingClient } from '../../../modules/onboarding/view';
+import type { OnboardingState } from '../contract';
+import { onboardingClient } from './client';
 
 // 冒烟与自动化由 main 或各 smoke 脚本在页面 URL 上注入该参数，整个引导直接短路。
 export const isSmokeTest = new URLSearchParams(window.location.search).has('smoke-test');

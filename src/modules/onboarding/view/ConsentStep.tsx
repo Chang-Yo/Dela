@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import privacy from '../../../../docs/privacy.md?raw';
 import terms from '../../../../docs/terms.md?raw';
-import { LegalMarkdown } from '../../../modules/settings/view';
+import { LegalMarkdown } from '../../settings/view';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 import { Button } from '../../../ui/button';
-import { settingsClient } from '../../../modules/settings/view';
+import { settingsClient } from '../../settings/view';
 
 /** 正文顶部的「最后更新」就是这一版的日期，接受记录据此回溯同意的是哪一版。 */
 function revisionOf(markdown: string) {

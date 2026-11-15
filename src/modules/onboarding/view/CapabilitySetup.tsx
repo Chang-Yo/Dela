@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FileText } from 'lucide-react';
-import type { SkillView } from '../../../shared/capabilities';
+import type { SkillView } from '../../../core/protocol/capabilities';
 import { ToastCard } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { DownloadProgressRow } from '../../../ui/download-progress';
-import { errorText } from '../../workspace/store';
-import { StepButton } from '../../../modules/onboarding/view';
+import { errorText } from '../../../renderer/workspace/store';
+import { StepButton } from './step-controls';
 import { ErrorText } from '../../../ui/alert';
-import { capabilitiesClient } from '../../../modules/chat/view';
+import { capabilitiesClient } from '../../chat/view';
+
+const skillsQueryKey = ['onboarding', 'skills'];
 
 /** 首次引导的最后一步：安装并启用需要额外组件的 Skill。 */
 export function CapabilitySetup({
@@ -17,53 +20,38 @@ export function CapabilitySetup({
   onDone: () => void;
   children: (content: ReactNode, footer: ReactNode) => ReactNode;
 }) {
-  const [skills, setSkills] = useState<SkillView[] | null>(null);
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const active = useRef(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const cancelRequested = useRef(false);
 
-  const refresh = useCallback(async () => {
-    try {
-      const next = await capabilitiesClient.listSkills();
-      if (active.current) setSkills(next);
-    } catch (cause) {
-      if (active.current) setError(errorText(cause));
-    }
-  }, []);
-
-  useEffect(() => {
-    active.current = true;
-    void refresh();
-    return () => {
-      active.current = false;
-    };
-  }, [refresh]);
-
-  const installing =
-    busy !== null || skills?.some((skill) => skill.dependency?.status === 'installing');
-  useEffect(() => {
-    if (!installing) return;
-    const timer = window.setInterval(() => void refresh(), 1000);
-    return () => window.clearInterval(timer);
-  }, [installing, refresh]);
+  const skillsQuery = useQuery({
+    queryKey: skillsQueryKey,
+    queryFn: () => capabilitiesClient.listSkills(),
+    refetchInterval: (query) =>
+      busy !== null || query.state.data?.some((skill) => skill.dependency?.status === 'installing')
+        ? 1000
+        : false,
+  });
+  const skills = skillsQuery.data ?? null;
+  const error = actionError ?? (skillsQuery.error ? errorText(skillsQuery.error) : null);
 
   const enable = async (skill: SkillView) => {
     if (busy || !window.dela) return;
     setBusy(skill.name);
-    setError(null);
+    setActionError(null);
     cancelRequested.current = false;
     try {
       const next =
         skill.dependency?.status === 'ready'
           ? await capabilitiesClient.setSkillEnabled({ id: skill.id, enabled: true })
           : await capabilitiesClient.installSkillDependencies(skill.name);
-      if (active.current) setSkills(next);
+      queryClient.setQueryData(skillsQueryKey, next);
     } catch (cause) {
-      if (active.current && !cancelRequested.current) setError(errorText(cause));
-      await refresh();
+      if (!cancelRequested.current) setActionError(errorText(cause));
+      await skillsQuery.refetch();
     } finally {
-      if (active.current) setBusy(null);
+      setBusy(null);
     }
   };
 
@@ -73,7 +61,7 @@ export function CapabilitySetup({
       await capabilitiesClient.cancelSkillInstallation(name);
     } catch (cause) {
       cancelRequested.current = false;
-      if (active.current) setError(errorText(cause));
+      setActionError(errorText(cause));
     }
   };
 
@@ -168,8 +156,8 @@ export function CapabilitySetup({
               size="sm"
               variant="ghost"
               onClick={() => {
-                setError(null);
-                void refresh();
+                setActionError(null);
+                void skillsQuery.refetch();
               }}
             >
               重试

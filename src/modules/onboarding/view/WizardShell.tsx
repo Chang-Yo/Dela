@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { cn } from '../../../ui/cn';
@@ -28,11 +28,11 @@ export function WizardShell({
   children,
 }: WizardShellProps) {
   // 进退方向决定内容滑入/滑出的水平朝向：前进从右进、后退从左回，与移动方向一致。
-  const prevStepRef = useRef(step);
-  const direction = step >= prevStepRef.current ? 1 : -1;
-  useEffect(() => {
-    prevStepRef.current = step;
-  }, [step]);
+  const [motionStep, setMotionStep] = useState({ step, direction: 1 });
+  if (motionStep.step !== step) {
+    setMotionStep({ step, direction: step > motionStep.step ? 1 : -1 });
+  }
+  const { direction } = motionStep;
 
   return (
     <MotionConfig reducedMotion="user">

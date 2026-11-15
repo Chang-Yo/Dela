@@ -2,3 +2,6 @@
 export { StepButton, StepSelect, type StepButtonState } from './step-controls';
 export { StepGuide } from './step-guide';
 export { onboardingClient } from './client';
+export { OnboardingFlow } from './OnboardingFlow';
+export { CompletionOverlay } from './CompletionOverlay';
+export { isSmokeTest, readOnboardingState } from './onboarding-state';

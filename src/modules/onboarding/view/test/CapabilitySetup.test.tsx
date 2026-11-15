@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { DelaApi, SkillView } from '../../../shared/api';
+import type { SkillView } from '../../../../core/protocol/capabilities';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好；按过程名分派到下面的 mock。
 const { api, bridge } = vi.hoisted(() => {
@@ -20,7 +21,7 @@ const { api, bridge } = vi.hoisted(() => {
   window.dela = { bridge } as unknown as NonNullable<typeof window.dela>;
   return { api, bridge };
 });
-import { CapabilitySetup } from './CapabilitySetup';
+import { CapabilitySetup } from '../CapabilitySetup';
 
 let host: HTMLDivElement;
 let root: Root;
@@ -45,7 +46,7 @@ beforeEach(() => {
   window.dela = {
     bridge,
     window: { minimize: vi.fn(), close: vi.fn() },
-  } as unknown as DelaApi;
+  } as unknown as NonNullable<typeof window.dela>;
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -56,19 +57,25 @@ afterEach(async () => {
   delete window.dela;
   vi.unstubAllGlobals();
 });
-const render = () =>
-  act(async () =>
+const render = async () => {
+  await act(async () =>
     root.render(
-      <CapabilitySetup onDone={done}>
-        {(content, footer) => (
-          <>
-            {content}
-            {footer}
-          </>
-        )}
-      </CapabilitySetup>,
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <CapabilitySetup onDone={done}>
+          {(content, footer) => (
+            <>
+              {content}
+              {footer}
+            </>
+          )}
+        </CapabilitySetup>
+      </QueryClientProvider>,
     ),
   );
+  await vi.waitFor(() => expect(host.textContent).not.toContain('正在检查组件'));
+};
 
 it('does not automatically install; allows completing with every component skipped', async () => {
   await render();

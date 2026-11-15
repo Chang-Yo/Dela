@@ -2,8 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import privacy from '../../../../docs/privacy.md?raw';
-import terms from '../../../../docs/terms.md?raw';
+import privacy from '../../../../../docs/privacy.md?raw';
+import terms from '../../../../../docs/terms.md?raw';
 
 // 契约客户端在模块加载时取 bridge，须先于导入页面装好；各用例替换 invoke 的实现。
 const invoke = vi.hoisted(() => {
@@ -13,7 +13,7 @@ const invoke = vi.hoisted(() => {
   } as unknown as NonNullable<typeof window.dela>;
   return invoke;
 });
-import { ConsentStep } from './ConsentStep';
+import { ConsentStep } from '../ConsentStep';
 
 let container: HTMLDivElement;
 let root: Root;

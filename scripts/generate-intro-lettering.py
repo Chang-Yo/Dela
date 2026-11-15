@@ -17,7 +17,7 @@ from fontTools.pens.basePen import BasePen
 from fontTools.ttLib import TTFont
 
 FONT_PATH = Path('assets/fonts/Italianno.woff2')
-OUT_PATH = Path('src/renderer/features/onboarding/intro-lettering.ts')
+OUT_PATH = Path('src/modules/onboarding/view/intro-lettering.ts')
 LINES = {
     'name': 'Dela',
     'quote': 'In a shallow age, refuse to float.',

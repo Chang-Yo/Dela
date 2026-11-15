@@ -36,14 +36,12 @@ const leaveSeconds = 0.35;
 export function IntroSequence({ onStart }: { onStart: () => void }) {
   // 动画期间就提供「跳过」，CTA 出现前不响应点击（避免隐 form 中误触、无可见反馈）。
   const reduced = useReducedMotion() ?? false;
-  const [ctaReady, setCtaReady] = useState(false);
+  const [ctaTimerDone, setCtaTimerDone] = useState(false);
+  const ctaReady = reduced || ctaTimerDone;
   const [leaving, setLeaving] = useState(false);
   useEffect(() => {
-    if (reduced) {
-      setCtaReady(true);
-      return;
-    }
-    const timer = setTimeout(() => setCtaReady(true), ctaAtSeconds * 1000);
+    if (reduced) return;
+    const timer = setTimeout(() => setCtaTimerDone(true), ctaAtSeconds * 1000);
     return () => clearTimeout(timer);
   }, [reduced]);
 

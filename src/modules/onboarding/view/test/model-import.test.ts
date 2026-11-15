@@ -1,6 +1,6 @@
 // 向导导入模型的纯逻辑：勾选结果按检测列表顺序回传，超出上限的勾选不写入配置。
 import { describe, expect, it } from 'vitest';
-import { capModels, selectedModels } from './model-import';
+import { capModels, selectedModels } from '../steps/model-import';
 
 describe('模型导入选择', () => {
   it('按检测列表顺序回传勾选结果，列表外的勾选被丢掉', () => {

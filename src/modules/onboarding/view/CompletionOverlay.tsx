@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { MotionConfig, motion } from 'framer-motion';
 
 // 时间线（秒）：两行大标题错峰淡入 → 停留 → 整层淡出交还主界面。
@@ -12,14 +12,10 @@ const fadeSeconds = 1;
 /** 引导完成的收尾动画：居中大标题显现后整层淡出，交还其下已挂载的主界面。
  *  点击或按任意键可立即跳过，不必等动画播完。 */
 export function CompletionOverlay({ onFinished }: { onFinished: () => void }) {
-  const finishedRef = useRef(onFinished);
-  finishedRef.current = onFinished;
+  const finish = useEffectEvent(onFinished);
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => finishedRef.current(),
-      (fadeAtSeconds + fadeSeconds) * 1000,
-    );
-    const skip = () => finishedRef.current();
+    const timer = window.setTimeout(() => finish(), (fadeAtSeconds + fadeSeconds) * 1000);
+    const skip = () => finish();
     window.addEventListener('pointerdown', skip);
     window.addEventListener('keydown', skip);
     return () => {

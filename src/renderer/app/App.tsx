@@ -5,9 +5,12 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { CompletionOverlay } from '../features/onboarding/CompletionOverlay';
-import { OnboardingFlow } from '../features/onboarding/OnboardingFlow';
-import { isSmokeTest, readOnboardingState } from '../features/onboarding/onboarding-state';
+import {
+  CompletionOverlay,
+  OnboardingFlow,
+  isSmokeTest,
+  readOnboardingState,
+} from '../../modules/onboarding/view';
 import { leaveComposer } from '../../modules/mail/view';
 import { SettingsPage } from '../features/settings';
 import { ReleaseNotesDialog, UpdatePrompt, useUpdateState } from '../../modules/update/view';
@@ -15,7 +18,7 @@ import { GlobalSearchDialog } from '../../modules/search/view';
 import type { ChatSessionSummary } from '../../shared/api';
 import type { SearchHit } from '../../modules/search/contract';
 import type { NavTarget } from '../../app/module';
-import { pageOf } from '../../app/views';
+import { pageOf, views } from '../../app/views';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
 import { useRuns } from '../sessions/runs';
 import { useSessions, updateSession } from '../sessions/store';
@@ -295,6 +298,7 @@ export default function App() {
       )}
       {launchStage === 'flow' && (
         <OnboardingFlow
+          views={views}
           completed={onboarding.data?.completed ?? false}
           onConsentDone={() => setLaunchStage('app')}
           onWizardDone={() => setLaunchStage('completion')}
