@@ -134,21 +134,20 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
 
   const connectAndSync = async () => {
     setBusy(true);
-    try {
+    const connect = async () => {
       const failure = await connectAndSyncTimetable(state?.semester);
       if (failure) {
         showToast({ variant: 'error', title: '登录同步失败', description: failure });
         return;
       }
       await reload();
-    } finally {
-      setBusy(false);
-    }
+    };
+    await connect().finally(() => setBusy(false));
   };
 
   const sync = async () => {
     setBusy(true);
-    try {
+    const syncTimetable = async () => {
       const result = await timetableClient.sync(state?.semester);
       if (!result.ok) {
         // 会话过期是唯一需要登录介入的同步失败：直接转入登录并同步流程。
@@ -164,15 +163,15 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
         return;
       }
       await reload();
-    } finally {
-      setBusy(false);
-    }
+    };
+    await syncTimetable().finally(() => setBusy(false));
   };
 
-  const openNewEvent = (start: Date = startOfDay(new Date()), end: Date = start) => {
+  const openNewEvent = (start?: Date, end?: Date) => {
+    const startDay = start ?? startOfDay(new Date());
     // 月历拖拽给出的是整天，统一落在 9:00–10:00，弹窗内可再改。
-    const startAt = new Date(start);
-    const endAt = new Date(end);
+    const startAt = new Date(startDay);
+    const endAt = new Date(end ?? startDay);
     startAt.setHours(9, 0, 0, 0);
     endAt.setHours(10, 0, 0, 0);
     setEventDraft({ start: startAt, end: endAt });

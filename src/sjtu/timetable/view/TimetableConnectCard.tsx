@@ -13,16 +13,15 @@ export function TimetableConnectCard({ semester }: { semester: string }) {
 
   const connectAndSync = async () => {
     setBusy(true);
-    try {
+    const connect = async () => {
       const failure = await connectAndSyncTimetable(semester);
       if (failure) {
         showToast({ variant: 'error', title: '登录同步失败', description: failure });
         return;
       }
       await queryClient.invalidateQueries({ queryKey: ['timetable'] });
-    } finally {
-      setBusy(false);
-    }
+    };
+    await connect().finally(() => setBusy(false));
   };
 
   return (

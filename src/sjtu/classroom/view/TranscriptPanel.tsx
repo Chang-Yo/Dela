@@ -44,9 +44,8 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
       if (saved) showToast({ variant: 'success', title: '文稿已导出' });
     } catch (cause) {
       showToast({ variant: 'error', title: '导出失败', description: errorMessage(cause) });
-    } finally {
-      setExporting(false);
     }
+    setExporting(false);
   };
 
   return (

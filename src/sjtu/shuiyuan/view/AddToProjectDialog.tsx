@@ -44,7 +44,7 @@ export function AddToProjectDialog({
     if (busy || topicId === null) return;
     setBusy(true);
     setErrorLocal(null);
-    try {
+    const addToProject = async () => {
       const ref = await shuiyuanClient.addSourceRef(topicId);
       if (
         ref.snapshot?.status !== 'done' &&
@@ -81,11 +81,13 @@ export function AddToProjectDialog({
       onClose();
       setTarget('');
       setName('');
+    };
+    try {
+      await addToProject();
     } catch (reason) {
       setErrorLocal(errorMessage(reason));
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const containers = entries.filter((entry) => entry.kind === 'folder' || entry.kind === 'project');

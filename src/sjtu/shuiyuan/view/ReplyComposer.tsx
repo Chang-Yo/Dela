@@ -88,9 +88,8 @@ export function ReplyComposer({
       await onSubmit();
     } catch (reason) {
       showToast({ variant: 'error', title: '回复发送失败', description: errorMessage(reason) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const editorView = () => {
@@ -151,9 +150,8 @@ export function ReplyComposer({
       } catch (reason) {
         replacePlaceholder(view, placeholder, '');
         showToast({ variant: 'error', title: '附件上传失败', description: errorMessage(reason) });
-      } finally {
-        setUploads((current) => current.filter((item) => item.key !== key));
       }
+      setUploads((current) => current.filter((item) => item.key !== key));
     }
   };
 

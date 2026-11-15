@@ -24,9 +24,8 @@ export function BindCard() {
       await shuiyuanClient.startAuth();
     } catch (reason) {
       showToast({ variant: 'error', title: '打开授权页面失败', description: errorMessage(reason) });
-    } finally {
-      setAuthBusy(false);
     }
+    setAuthBusy(false);
   };
 
   const bind = async (event: FormEvent) => {
@@ -39,9 +38,8 @@ export function BindCard() {
       void queryClient.invalidateQueries({ queryKey: ['shuiyuan'] });
     } catch (reason) {
       setError(errorMessage(reason));
-    } finally {
-      setBindBusy(false);
     }
+    setBindBusy(false);
   };
 
   return (

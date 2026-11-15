@@ -33,7 +33,7 @@ export function CanvasExportDialog({ onClose }: { onClose: () => void }) {
   const exportSelected = async () => {
     if (exporting || selected.size === 0) return;
     setExporting(true);
-    try {
+    const exportCourses = async () => {
       const result = await canvasClient.exportCourseFiles([...selected]);
       // 取消选择目录（null）不算结果：弹窗保持打开，用户可重选。
       if (result) {
@@ -48,11 +48,13 @@ export function CanvasExportDialog({ onClose }: { onClose: () => void }) {
         });
         onClose();
       }
+    };
+    try {
+      await exportCourses();
     } catch (cause) {
       showToast({ variant: 'error', title: '批量导出失败', description: errorMessage(cause) });
-    } finally {
-      setExporting(false);
     }
+    setExporting(false);
   };
 
   return (

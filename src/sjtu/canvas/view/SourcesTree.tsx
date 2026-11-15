@@ -106,9 +106,8 @@ export function SourcesTree({
       queryClient.setQueryData(stateKey, await canvasClient.syncCourse(id));
     } catch (cause) {
       showToast({ variant: 'error', title: '同步课程资料失败', description: errorMessage(cause) });
-    } finally {
-      setLoading((ids) => ids.filter((value) => value !== id));
     }
+    setLoading((ids) => ids.filter((value) => value !== id));
   };
   const expand = (id: string, open: boolean) => {
     onExpand(id, open);

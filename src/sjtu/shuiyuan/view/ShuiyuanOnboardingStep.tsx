@@ -33,9 +33,8 @@ export function ShuiyuanOnboardingStep({ onDone }: { onDone: () => void }) {
       await shuiyuanClient.startAuth();
     } catch (cause) {
       setError(errorMessage(cause));
-    } finally {
-      setAuthBusy(false);
     }
+    setAuthBusy(false);
   };
 
   const bind = async () => {

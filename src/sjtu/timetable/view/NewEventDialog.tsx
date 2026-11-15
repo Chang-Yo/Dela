@@ -59,9 +59,8 @@ export function NewEventDialog({
       onCreated();
     } catch (reason) {
       setError(errorMessage(reason));
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   };
 
   // 底部滑出面板与新建待办共用同一套结构与动画。

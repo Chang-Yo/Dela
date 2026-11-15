@@ -58,9 +58,8 @@ export function NewMessageDialog({
       void queryClient.invalidateQueries({ queryKey: ['shuiyuan', 'counts'] });
     } catch (reason) {
       showToast({ variant: 'error', title: '发送私信失败', description: errorMessage(reason) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (

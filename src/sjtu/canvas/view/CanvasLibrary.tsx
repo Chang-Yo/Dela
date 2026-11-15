@@ -32,7 +32,7 @@ export function CanvasLibrary(props: LibraryProps) {
   const refresh = async () => {
     if (syncing) return;
     setSyncing(true);
-    try {
+    const syncAll = async () => {
       // 先刷新课程列表，新学期的课程才拿得到；再逐门同步最新学期，顺序执行以免并发轰炸 Canvas。
       const state = await canvasClient.syncCourses();
       queryClient.setQueryData(stateKey, state);
@@ -40,11 +40,13 @@ export function CanvasLibrary(props: LibraryProps) {
       for (const course of state.courses)
         if (course.term === latest && !course.archived)
           queryClient.setQueryData(stateKey, await canvasClient.syncCourse(course.id));
+    };
+    try {
+      await syncAll();
     } catch (cause) {
       showToast({ variant: 'error', title: '同步课程资料失败', description: errorMessage(cause) });
-    } finally {
-      setSyncing(false);
     }
+    setSyncing(false);
   };
 
   return (
