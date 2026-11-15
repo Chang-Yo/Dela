@@ -183,6 +183,7 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
   const [sampleTitle, setSampleTitle] = useState('');
   const [preview, setPreview] = useState<NoticePreview | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState(0);
+  const [expandedCandidates, setExpandedCandidates] = useState<number[]>([]);
   const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null);
 
   const loadSubscriptions = async () => {
@@ -225,6 +226,7 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
       );
       setPreview(result);
       setSelectedCandidate(0);
+      setExpandedCandidates([]);
     } catch (cause) {
       setPanelError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -407,38 +409,69 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
                 ) : (
                   <>
                     <div className="flex flex-col gap-1.5">
-                      {preview.candidates.map((candidate, index) => (
-                        <button
-                          className={cn(
-                            'flex flex-col gap-1 rounded-control px-3 py-2 text-left transition-colors duration-150',
-                            selectedCandidate === index ? 'bg-inset' : 'hover:bg-hover',
-                          )}
-                          key={`${candidate.label}-${index}`}
-                          onClick={() => setSelectedCandidate(index)}
-                          type="button"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-13 font-medium text-ink">{candidate.label}</span>
-                            <span className="text-xs tabular-nums text-ink-3">
-                              {candidate.entries.length} 条
-                              {candidate.reasons.length > 0
-                                ? ` · ${candidate.reasons.join('、')}`
-                                : ''}
-                            </span>
-                          </div>
-                          {candidate.entries.slice(0, 3).map((entry) => (
-                            <div
-                              className="flex items-baseline justify-between gap-2 text-xs text-ink-3"
-                              key={entry.url}
+                      {preview.candidates.map((candidate, index) => {
+                        const expanded = expandedCandidates.includes(index);
+                        const label = candidate.label.replace(/\s*查看更多\s*$/, '');
+                        return (
+                          <div
+                            className={cn(
+                              'rounded-control transition-colors duration-150',
+                              selectedCandidate === index ? 'bg-inset' : 'hover:bg-hover',
+                            )}
+                            key={`${candidate.label}-${index}`}
+                          >
+                            <button
+                              aria-label={`选择栏目：${label}`}
+                              aria-pressed={selectedCandidate === index}
+                              className="flex w-full flex-col gap-1 rounded-control px-3 py-2 text-left"
+                              onClick={() => setSelectedCandidate(index)}
+                              type="button"
                             >
-                              <span className="truncate">{entry.title}</span>
-                              <span className="shrink-0 tabular-nums">
-                                {entry.publishedAt ?? '日期未知'}
-                              </span>
-                            </div>
-                          ))}
-                        </button>
-                      ))}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-13 font-medium text-ink">{label}</span>
+                                <span className="text-xs tabular-nums text-ink-3">
+                                  {candidate.entries.length} 条
+                                  {candidate.reasons.length > 0
+                                    ? ` · ${candidate.reasons.join('、')}`
+                                    : ''}
+                                </span>
+                              </div>
+                              {(expanded ? candidate.entries : candidate.entries.slice(0, 3)).map(
+                                (entry) => (
+                                  <div
+                                    className="flex items-baseline justify-between gap-2 text-xs text-ink-3"
+                                    key={entry.url}
+                                  >
+                                    <span className="truncate">{entry.title}</span>
+                                    <span className="shrink-0 tabular-nums">
+                                      {entry.publishedAt ?? '日期未知'}
+                                    </span>
+                                  </div>
+                                ),
+                              )}
+                            </button>
+                            {candidate.entries.length > 3 ? (
+                              <div className="flex justify-end px-3 pb-2">
+                                <Button
+                                  aria-expanded={expanded}
+                                  aria-label={`${expanded ? '收起' : '查看更多'}：${label}`}
+                                  onClick={() =>
+                                    setExpandedCandidates((current) =>
+                                      current.includes(index)
+                                        ? current.filter((value) => value !== index)
+                                        : [...current, index],
+                                    )
+                                  }
+                                  size="sm"
+                                  variant="ghost"
+                                >
+                                  {expanded ? '收起' : '查看更多'}
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="flex justify-end gap-2 pt-1">
                       <Button
