@@ -16,14 +16,16 @@ type Store = {
   load: () => Promise<void>;
   refresh: (paths?: string[]) => Promise<void>;
   setError: (error: unknown) => void;
+  // 请求去重：并发调用共享在途请求，刷新期间到达的变化排进队列再读一轮。
+  loading: Promise<void> | null;
+  refreshing: Promise<void> | null;
+  refreshQueue: { all: boolean; paths: string[] } | null;
+  directoryRequests: Record<string, Promise<void>>;
+  watchingChanges: boolean;
 };
 
-let loadPromise: Promise<void> | null = null;
-let refreshPromise: Promise<void> | null = null;
-let refreshPending = false;
-let refreshAll = false;
-const refreshPaths = new Set<string>();
-const directoryRequests = new Map<string, Promise<void>>();
+const without = <T>(record: Record<string, T>, id: string) =>
+  Object.fromEntries(Object.entries(record).filter(([key]) => key !== id));
 const normalized = (path: string) =>
   /^[a-z]:[\\/]/i.test(path) ? path.replaceAll('\\', '/').toLowerCase() : path;
 const affected = (directory: string, path: string) => {
@@ -71,10 +73,6 @@ function mergeDirectories(
     next.every((item, index) => item === previous.entries[index]);
   return { ...overview, entries: unchanged ? previous.entries : next };
 }
-// 磁盘为准的文件树：外部文件变化经 main 的 fs.watch 推送 workspace:changed，
-// 这里刷新条目镜像；编辑中的草稿独立持有，不受刷新影响。
-let subscribedChanges = false;
-
 export const useWorkspaceStore = create<Store>((set, get) => ({
   workspace: { entries: [], directory: '' },
   overview: null,
@@ -91,12 +89,13 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
   },
   ensureDirectory: (id, force = false) => {
     if (!window.dela) return Promise.resolve();
-    if (!force && directoryRequests.has(id)) return directoryRequests.get(id)!;
+    const pending = get().directoryRequests[id];
+    if (!force && pending) return pending;
     if (!force && get().directories[id]) return Promise.resolve();
     const request = workspaceClient
       .listLocalDirectory(id)
       .then((items) => {
-        if (directoryRequests.get(id) !== request) return;
+        if (get().directoryRequests[id] !== request) return;
         const directories = { ...get().directories, [id]: items };
         set({
           directories,
@@ -108,13 +107,14 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
         });
       })
       .finally(() => {
-        if (directoryRequests.get(id) === request) directoryRequests.delete(id);
+        if (get().directoryRequests[id] === request)
+          set({ directoryRequests: without(get().directoryRequests, id) });
       });
-    directoryRequests.set(id, request);
+    set({ directoryRequests: { ...get().directoryRequests, [id]: request } });
     return request;
   },
   releaseDirectory: (id) => {
-    directoryRequests.delete(id);
+    set({ directoryRequests: without(get().directoryRequests, id) });
     const { [id]: removed, ...directories } = get().directories;
     if (!removed) return;
     set({
@@ -124,11 +124,18 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
   },
   loaded: false,
   error: null,
+  loading: null,
+  refreshing: null,
+  refreshQueue: null,
+  directoryRequests: {},
+  watchingChanges: false,
   setError: (error) => set({ error: error === null ? null : errorMessage(error) }),
   load: () => {
     if (get().loaded || !window.dela) return Promise.resolve();
-    if (!subscribedChanges) {
-      subscribedChanges = true;
+    // 磁盘为准的文件树：外部文件变化经 main 的 fs.watch 推送 workspace:changed，
+    // 这里刷新条目镜像；编辑中的草稿独立持有，不受刷新影响。
+    if (!get().watchingChanges) {
+      set({ watchingChanges: true });
       onWorkspaceEvent('changed', (paths) => {
         // 推送驱动的后台刷新失败不打扰用户，下一轮变更推送会重试。
         void get()
@@ -138,65 +145,63 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
     }
     // Concurrent callers (StrictMode double-invocation included) share one request;
     // cleared on settle so a failed load can be retried.
-    if (!loadPromise) {
-      loadPromise = (async () => {
-        try {
-          const workspace = await workspaceClient.state();
-          set({ workspace, overview: workspace, loaded: true });
-        } catch (cause) {
-          set({ error: errorMessage(cause) });
-        }
-      })().finally(() => {
-        loadPromise = null;
-      });
-    }
-    return loadPromise;
+    const pending = get().loading;
+    if (pending) return pending;
+    const loading = (async () => {
+      try {
+        const workspace = await workspaceClient.state();
+        set({ workspace, overview: workspace, loaded: true });
+      } catch (cause) {
+        set({ error: errorMessage(cause) });
+      }
+    })().finally(() => set({ loading: null }));
+    set({ loading });
+    return loading;
   },
   refresh: (paths) => {
     if (!window.dela) return Promise.resolve();
-    refreshPending = true;
-    if (!paths) refreshAll = true;
-    else for (const path of paths) refreshPaths.add(path);
-    if (!refreshPromise) {
-      refreshPromise = (async () => {
-        while (refreshPending) {
-          refreshPending = false;
-          const all =
-            refreshAll ||
-            [...refreshPaths].some((path) =>
-              /(?:^|[\\/])\.gitignore$|\.git[\\/]info[\\/]exclude$/.test(path),
-            );
-          const changes = [...refreshPaths];
-          refreshAll = false;
-          refreshPaths.clear();
-          const overview = await workspaceClient.state();
-          set({
-            overview,
-            workspace: mergeDirectories(overview, get().directories, get().workspace),
-          });
-          for (const id of new Set([
-            ...Object.keys(get().directories),
-            ...directoryRequests.keys(),
-          ])) {
-            const item = get().workspace.entries.find((entry) => entry.id === id);
-            const path =
-              item?.path ??
-              (id === workspaceArchiveId
-                ? (overview.archivePath ?? `${overview.directory}/workspace/归档`)
-                : id);
-            if (all || changes.some((change) => affected(path, change))) {
-              try {
-                await get().ensureDirectory(id, true);
-              } catch {
-                get().releaseDirectory(id);
-              }
+    const queued = get().refreshQueue;
+    set({
+      refreshQueue: {
+        all: Boolean(queued?.all) || !paths,
+        paths: [...(queued?.paths ?? []), ...(paths ?? [])],
+      },
+    });
+    const running = get().refreshing;
+    if (running) return running;
+    const refreshing = (async () => {
+      for (let queue = get().refreshQueue; queue; queue = get().refreshQueue) {
+        set({ refreshQueue: null });
+        const changes = [...new Set(queue.paths)];
+        const all =
+          queue.all ||
+          changes.some((path) => /(?:^|[\\/])\.gitignore$|\.git[\\/]info[\\/]exclude$/.test(path));
+        const overview = await workspaceClient.state();
+        set({
+          overview,
+          workspace: mergeDirectories(overview, get().directories, get().workspace),
+        });
+        for (const id of new Set([
+          ...Object.keys(get().directories),
+          ...Object.keys(get().directoryRequests),
+        ])) {
+          const item = get().workspace.entries.find((entry) => entry.id === id);
+          const path =
+            item?.path ??
+            (id === workspaceArchiveId
+              ? (overview.archivePath ?? `${overview.directory}/workspace/归档`)
+              : id);
+          if (all || changes.some((change) => affected(path, change))) {
+            try {
+              await get().ensureDirectory(id, true);
+            } catch {
+              get().releaseDirectory(id);
             }
           }
         }
-      })().finally(() => {
-        refreshPromise = null;
-      });
-    }
-    return refreshPromise;
+      }
+    })().finally(() => set({ refreshing: null }));
+    set({ refreshing });
+    return refreshing;
   },
 }));
