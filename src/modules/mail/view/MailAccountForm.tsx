@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import type { MailConfigureInput } from '../contract';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/cn';
+import { Collapse } from '../../../ui/collapse';
 import { ErrorText } from '../../../ui/alert';
 
 const modes = ['交大邮箱', '第三方 IMAP'] as const;
@@ -68,56 +68,47 @@ export function MailAccountForm({
           value={address}
         />
       </label>
-      <label className="grid gap-2">
-        <span className={label}>密码</span>
-        <Input
-          autoComplete="current-password"
-          className={field}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder={custom ? '邮箱密码或授权码' : 'jAccount 密码'}
-          required
-          type="password"
-          value={password}
-        />
-      </label>
-      <AnimatePresence initial={false}>
-        {custom && (
-          <motion.div
-            animate={{ height: 'auto', opacity: 1 }}
-            className="overflow-hidden"
-            exit={{ height: 0, opacity: 0 }}
-            initial={{ height: 0, opacity: 0 }}
-            key="custom-server"
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-          >
-            <div className="grid gap-4">
-              <ServerRow
-                field={field}
-                host={imapHost}
-                label={label}
-                name="IMAP 服务器"
-                onHost={setImapHost}
-                onPort={setImapPort}
-                placeholder="imap.example.com"
-                port={imapPort}
-              />
-              <ServerRow
-                field={field}
-                host={smtpHost}
-                label={label}
-                name="SMTP 服务器"
-                onHost={setSmtpHost}
-                onPort={setSmtpPort}
-                placeholder="smtp.example.com"
-                port={smtpPort}
-              />
-              <p className="text-xs leading-relaxed text-ink-3">
-                固定使用 SSL/TLS 加密；用户名即邮箱地址。发信走 SMTP，收信走 IMAP。
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div>
+        <label className="grid gap-2">
+          <span className={label}>密码</span>
+          <Input
+            autoComplete="current-password"
+            className={field}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder={custom ? '邮箱密码或授权码' : 'jAccount 密码'}
+            required
+            type="password"
+            value={password}
+          />
+        </label>
+        <Collapse className={wizard ? 'pt-5' : 'pt-4'} open={custom}>
+          <div className="grid gap-4">
+            <ServerRow
+              field={field}
+              host={imapHost}
+              label={label}
+              name="IMAP 服务器"
+              onHost={setImapHost}
+              onPort={setImapPort}
+              placeholder="imap.example.com"
+              port={imapPort}
+            />
+            <ServerRow
+              field={field}
+              host={smtpHost}
+              label={label}
+              name="SMTP 服务器"
+              onHost={setSmtpHost}
+              onPort={setSmtpPort}
+              placeholder="smtp.example.com"
+              port={smtpPort}
+            />
+            <p className="text-xs leading-relaxed text-ink-3">
+              固定使用 SSL/TLS 加密；用户名即邮箱地址。发信走 SMTP，收信走 IMAP。
+            </p>
+          </div>
+        </Collapse>
+      </div>
       {error && <ErrorText size="sm">{error}</ErrorText>}
       {submit}
     </form>

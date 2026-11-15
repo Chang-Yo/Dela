@@ -24,7 +24,7 @@ vi.mock('../markdown', () => ({
     </span>
   ),
 }));
-vi.mock('framer-motion', () => ({ useReducedMotion: () => motion.reduced }));
+vi.mock('../../../../ui/use-media-query', () => ({ useMediaQuery: () => motion.reduced }));
 vi.mock('../TurnChangesCard', () => ({
   TurnChangesCard: ({ turnId }: { turnId: string }) => <div data-turn-card={turnId} />,
 }));

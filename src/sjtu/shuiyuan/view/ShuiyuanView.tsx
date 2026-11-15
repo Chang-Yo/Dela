@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { PencilLine } from 'lucide-react';
 import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/cn';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
+import { drawerFromRight } from '../../../ui/motion';
 import { BindCard } from './BindCard';
 import { NewMessageDialog } from './NewMessageDialog';
 import { BookmarkList, ListBackButton, NotificationList } from './PersonalLists';
@@ -63,21 +64,15 @@ function DesktopShuiyuanView() {
             </>
           )}
         </div>
-        <AnimatePresence initial={false}>
-          {reading ? (
-            // key 随 topicId 变化：切帖重挂载阅读器，草稿与回复目标按帖子从会话内记忆恢复。
-            <motion.div
-              animate={{ opacity: 1, x: 0 }}
-              className="absolute inset-0 z-10 bg-surface"
-              exit={{ opacity: 0, x: 24 }}
-              initial={{ opacity: 0, x: 24 }}
-              key={reading.topicId}
-              transition={{ duration: 0.16 }}
-            >
-              <TopicReader reading={reading} />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        {reading ? (
+          // key 随 topicId 变化：切帖重挂载阅读器，草稿与回复目标按帖子从会话内记忆恢复。
+          <div
+            className={cn('absolute inset-0 z-10 bg-surface', drawerFromRight)}
+            key={reading.topicId}
+          >
+            <TopicReader reading={reading} />
+          </div>
+        ) : null}
       </div>
       <NewMessageDialog onOpenChange={setMessageOpen} open={messageOpen} />
     </div>

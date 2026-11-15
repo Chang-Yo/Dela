@@ -21,12 +21,12 @@ import {
   X,
 } from 'lucide-react';
 import { Shimmer } from '../../../ui/shimmer';
-import { useReducedMotion } from 'framer-motion';
 import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';
 import { IconButton } from '../../../ui/icon-button';
+import { useMediaQuery } from '../../../ui/use-media-query';
 import { useChatTabSource, type MailDraftDialog } from './chat-source';
 import { formatDuration, ReplyTrace } from './ToolTimeline';
 import { openSubagent } from './tool-views';
@@ -374,7 +374,7 @@ function AssistantMessage({
   /** 仅最后一条回复可重试。 */
   onRetry: (() => void) | undefined;
 }) {
-  const reduced = useReducedMotion();
+  const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
   const split = splitInterrupt(message.parts ?? []);
   const parts = split.parts;
   const reason = message.interrupted ? (split.reason ?? '未知错误') : null;
