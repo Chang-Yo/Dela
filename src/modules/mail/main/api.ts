@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
 import type { MailMessageDetail, MailMessageSummary, MailResult, MailTrashItem } from '../contract';
 import { hostPorts, type SqlDatabase } from '../../../core/ports';
-import { loadMailCredentials } from '../../../main/credentials';
+import { loadMailCredentials } from './credentials';
 import {
   downloadMessageBody,
   makeSnippet,

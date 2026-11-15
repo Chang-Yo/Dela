@@ -1,4 +1,4 @@
-import { hostPorts } from '../core/ports';
+import { hostPorts } from '../../../core/ports';
 
 export interface MailCredential {
   address: string;

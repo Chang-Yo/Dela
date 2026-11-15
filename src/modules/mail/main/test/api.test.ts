@@ -22,12 +22,12 @@ import {
 } from '../api';
 import { mailSyncStatus } from '../sync';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
-import { loadMailCredentials } from '../../../../main/credentials';
+import { loadMailCredentials } from '../credentials';
 import { storedMailServer } from '../server';
 import { SJTU_MAIL_SERVER } from '../../contract';
 
 vi.mock('electron', () => ({ ipcMain: {}, shell: {} }));
-vi.mock('../../../../main/credentials', () => ({
+vi.mock('../credentials', () => ({
   clearMailCredentials: vi.fn(),
   loadMailCredentials: vi.fn(),
   saveMailCredentials: vi.fn(),

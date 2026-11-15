@@ -4,7 +4,7 @@ import { basename, extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { MailComposeFile, MailComposeFileKind, MailResult } from '../contract';
-import type { MailCredential } from '../../../main/credentials';
+import type { MailCredential } from './credentials';
 import { storedMailServer } from './server';
 
 import nodemailer from 'nodemailer';

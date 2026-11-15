@@ -11,11 +11,7 @@ import {
   type MailResult,
   type MailSyncStatus,
 } from '../contract';
-import {
-  clearMailCredentials,
-  loadMailCredentials,
-  saveMailCredentials,
-} from '../../../main/credentials';
+import { clearMailCredentials, loadMailCredentials, saveMailCredentials } from './credentials';
 import {
   addressJson,
   collectAttachments,
