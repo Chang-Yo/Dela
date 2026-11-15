@@ -69,11 +69,13 @@ type Store = {
   setRatio(path: number[], ratio: number): void;
   focusGroup(groupId: string): void;
   relocatePaths(from: string, to: string): void;
+  /** 内部字段：落盘去抖计时器、在途保存与 init 竞态令牌。 */
+  persistTimer: ReturnType<typeof setTimeout> | null;
+  pendingSaves: Promise<boolean>[];
+  initToken: number;
 };
 
 // 拖拽中高频变化的 ratio 延迟落盘；只有最后一次变更会真正发出 layout:save。
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
-const pendingSaves = new Set<Promise<boolean>>();
 function saveLayoutNow() {
   if (typeof window === 'undefined' || !window.dela) return Promise.resolve(false);
   const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
@@ -81,15 +83,20 @@ function saveLayoutNow() {
     .saveLayout({ projectId, layout: { root, focus, maximized } })
     .then(() => true)
     .catch(() => false);
-  pendingSaves.add(pending);
-  void pending.then(() => pendingSaves.delete(pending));
+  useWorkbenchLayout.setState((state) => ({ pendingSaves: [...state.pendingSaves, pending] }));
+  void pending.then(() =>
+    useWorkbenchLayout.setState((state) => ({
+      pendingSaves: state.pendingSaves.filter((save) => save !== pending),
+    })),
+  );
   return pending;
 }
 
 export async function saveWorkbenchLayout(): Promise<boolean> {
+  const { persistTimer } = useWorkbenchLayout.getState();
   if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = null;
-  const previous = await Promise.all(pendingSaves);
+  useWorkbenchLayout.setState({ persistTimer: null });
+  const previous = await Promise.all(useWorkbenchLayout.getState().pendingSaves);
   if (previous.some((saved) => !saved)) return false;
   if (!useWorkbenchLayout.getState().ready) return true;
   return saveLayoutNow();
@@ -102,22 +109,24 @@ export function closeTabEverywhere(tabId: TabId): void {
 }
 
 function schedulePersist() {
+  const { persistTimer } = useWorkbenchLayout.getState();
   if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    saveLayoutNow();
-  }, PERSIST_DEBOUNCE_MS);
+  useWorkbenchLayout.setState({
+    persistTimer: setTimeout(() => {
+      useWorkbenchLayout.setState({ persistTimer: null });
+      saveLayoutNow();
+    }, PERSIST_DEBOUNCE_MS),
+  });
 }
 
 /** 去抖窗口内项目切换时冲刷在途保存：此刻快照仍属旧项目（init 尚未覆盖状态），立即落库。 */
 function flushPersist() {
+  const { persistTimer } = useWorkbenchLayout.getState();
   if (!persistTimer) return;
   clearTimeout(persistTimer);
-  persistTimer = null;
+  useWorkbenchLayout.setState({ persistTimer: null });
   saveLayoutNow();
 }
-
-let initToken = 0;
 
 export const useWorkbenchLayout = create<Store>((set, get) => ({
   projectId: null,
@@ -125,6 +134,9 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
   focus: 'primary',
   maximized: null,
   ready: false,
+  persistTimer: null,
+  pendingSaves: [],
+  initToken: 0,
 
   relocatePaths: (from, to) => {
     const remapTab = (tab: TabId): TabId => {
@@ -150,8 +162,8 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     if (get().ready && get().projectId === projectId) return;
     // 先冲刷上个项目在途的布局保存（快照仍属旧项目），否则 800ms 内切项目会丢该次变更。
     flushPersist();
-    const token = ++initToken;
-    set({ ready: false });
+    const token = get().initToken + 1;
+    set({ initToken: token, ready: false });
     let saved: WorkbenchLayout | null = null;
     // 读取失败时保留磁盘上的已存布局：把默认布局写回会覆盖掉实际存在的保存。
     let loadFailed = false;
@@ -163,7 +175,7 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
         showToast({ variant: 'error', title: '布局载入失败', description: errorMessage(cause) });
       }
     }
-    if (token !== initToken) return;
+    if (token !== get().initToken) return;
     const next = collapseEmptyGroups(parseWorkbenchLayout(saved) ?? createDefaultLayout());
     set({ projectId, root: next.root, focus: next.focus, maximized: next.maximized, ready: true });
     // 读取失败时不覆盖已存布局。
