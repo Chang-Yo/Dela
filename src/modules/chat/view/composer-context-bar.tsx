@@ -10,7 +10,7 @@ import { workspaceClient, useWorkspaceStore } from '../../workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
 const pill =
-  'flex h-7 min-w-0 max-w-[15rem] items-center gap-1.5 rounded-control border border-line bg-surface px-2 text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink';
+  'flex h-7 min-w-0 max-w-60 items-center gap-1.5 rounded-control border border-line bg-surface px-2 text-xs text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink';
 const searchRow = 'mb-1 flex items-center gap-2 rounded-control px-2 py-1.5 text-ink-3';
 const searchInput =
   'min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3';

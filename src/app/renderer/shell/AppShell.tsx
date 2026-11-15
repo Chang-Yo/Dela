@@ -610,7 +610,7 @@ export function AppShell({
           narrow
             ? cn(
                 drawerFromLeft,
-                'absolute bottom-0 left-0 top-10 z-overlay w-[17.5rem] max-w-[85vw] px-2 shadow-overlay',
+                'absolute bottom-0 left-0 top-10 z-overlay w-70 max-w-[85vw] px-2 shadow-overlay',
                 !navDrawerOpen && 'hidden',
               )
             : cn(
@@ -632,7 +632,7 @@ export function AppShell({
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
             {/* 纯品牌展示；回首页由下方「首页」行承担，避免相邻双入口。 */}
             <div className="flex min-w-0 items-center gap-2 px-1 py-0.5">
-              <DelaBrand className="h-[1.125rem] w-auto" />
+              <DelaBrand className="h-4.5 w-auto" />
               <span
                 className={cn(
                   'text-base font-semibold tracking-tight text-ink',
