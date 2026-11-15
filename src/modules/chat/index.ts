@@ -1,4 +1,4 @@
-// 会话：Agent 交互由 app/agent-ipc 注册的 agentContract 承载，本模块提供桌面私有的会话操作与聊天界面。
+// 会话：Agent 交互由 app/main/agent-ipc 注册的 agentContract 承载，本模块提供桌面私有的会话操作与聊天界面。
 import { defineModule } from '../../app/module';
 import { deleteChatCommand, saveChatCommand } from '../../core/agent/chat-commands';
 import { stageChatMediaFiles } from '../../core/agent/media';

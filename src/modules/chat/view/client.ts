@@ -1,4 +1,4 @@
-// 会话、模型服务与能力配置的契约客户端（后两者的主进程实现由 app/agent-ipc 注册）。
+// 会话、模型服务与能力配置的契约客户端（后两者的主进程实现由 app/main/agent-ipc 注册）。
 import { agentContract } from '../../../core/protocol/agent';
 import { capabilitiesContract } from '../../../core/protocol/capabilities';
 import { createClient, subscribe, type EventPayload } from '../../../core/protocol/contract';
