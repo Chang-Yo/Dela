@@ -16,8 +16,8 @@ import {
   documentPython,
   documentRuntimeDirectory,
   installDocumentDependency,
-} from '../src/main/documents/runtime';
-import { prepareDocumentFile, releaseDocumentResource } from '../src/main/resources';
+} from '../src/modules/preview';
+import { prepareDocumentFile, releaseDocumentResource } from '../src/modules/workspace';
 
 const exec = promisify(execFile);
 const profile = mkdtempSync(join(tmpdir(), 'dela-document-中文 '));

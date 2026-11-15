@@ -2,16 +2,16 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { basename, extname } from 'node:path';
-import { hostPorts } from '../../core/ports';
-import { resourceResolver } from '../../core/capabilities/resources';
-import { availablePath, createWorkspaceEntry } from '../../modules/workspace';
+import { hostPorts } from '../../../core/ports';
+import { resourceResolver } from '../../../core/capabilities/resources';
+import { availablePath, createWorkspaceEntry } from '../../workspace';
 import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
 import { classifyOfficeFile } from './parse';
 import {
   resourceRefSchema,
   type ResourceRef,
   type OfficeExportProgress,
-} from '../../modules/workspace/contract';
+} from '../../workspace/contract';
 
 // 我的资料下集中存放导出 PDF 的固定文件夹；id 记在 settings，重命名后仍能找回。
 const EXPORT_FOLDER_NAME = '预览导出';

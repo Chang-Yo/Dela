@@ -7,14 +7,14 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
-vi.mock('../../../modules/workspace', () => ({
+vi.mock('../../../workspace', () => ({
   createWorkspaceEntry: vi.fn(),
   availablePath: (parent: string, name: string) => join(parent, name),
 }));
 vi.mock('../parse', () => ({ classifyOfficeFile: vi.fn(async () => 'pptx') }));
-import { provideTestHostPorts } from '../../../core/test/host-mock';
-import { createWorkspaceEntry } from '../../../modules/workspace';
-import { registerResourceResolver } from '../../../core/capabilities/resources';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import { createWorkspaceEntry } from '../../../workspace';
+import { registerResourceResolver } from '../../../../core/capabilities/resources';
 import { exportOfficePdf } from '../export';
 import { readOfficeExportLink } from '../links';
 

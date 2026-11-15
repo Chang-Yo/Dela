@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { provideTestHostPorts } from '../../../core/test/host-mock';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import {
   officeExportPreviewInfo,
   readOfficeExportLink,

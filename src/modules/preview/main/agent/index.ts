@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import type { CommandDomain } from '../../../core/capabilities/commands';
-import { DOCUMENT_SKILL } from '../../documents/runtime';
-import { prepareDocumentResource, releaseDocumentResource } from '../../resources';
-import { resourceRefSchema } from '../../../modules/workspace/contract';
-import skill from '../skills/document-reading/SKILL.md?raw';
-import script from '../skills/document-reading/scripts/read.py?raw';
-import { tool } from '../../../core/capabilities/domain-tools';
+import type { CommandDomain } from '../../../../core/capabilities/commands';
+import { DOCUMENT_SKILL } from '../runtime';
+import { prepareDocumentResource, releaseDocumentResource } from '../../../workspace';
+import { resourceRefSchema } from '../../../workspace/contract';
+import skill from './skill/SKILL.md?raw';
+import script from './skill/scripts/read.py?raw';
+import { tool } from '../../../../core/capabilities/domain-tools';
 
 export const documentDomain = {
   name: 'document',

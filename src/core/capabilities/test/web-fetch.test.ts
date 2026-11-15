@@ -4,19 +4,21 @@ import { readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fetchWebPage } from '../web-fetch';
-import { prepareDocumentFile, releaseDocumentResource } from '../../../main/resources';
-import { assertDocumentDependency } from '../../../main/documents/runtime';
+import {
+  prepareDocumentFile,
+  releaseDocumentResource,
+} from '../../../modules/workspace/main/resources';
+import { assertDocumentDependency } from '../../../modules/preview';
 import { provideTestHostPorts } from '../../test/host-mock';
 import { registerDocumentReader } from '../documents';
 
 const profile = vi.hoisted(() => ({ root: '' }));
 profile.root = mkdtempSync(join(tmpdir(), 'dela-web-document-'));
-vi.mock('../../../main/documents/runtime', () => ({
+vi.mock('../../../modules/preview', () => ({
   DOCUMENT_SKILL: 'document-reading',
   assertDocumentDependency: vi.fn(),
   documentPython: () => 'component/python.exe',
 }));
-vi.mock('../../../modules/mail', () => ({}));
 
 provideTestHostPorts({ paths: { userData: () => profile.root, temp: () => profile.root } });
 registerDocumentReader({

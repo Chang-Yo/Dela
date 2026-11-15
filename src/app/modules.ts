@@ -4,6 +4,7 @@ import { chatModule } from '../modules/chat';
 import { mailModule } from '../modules/mail';
 import { notificationsModule } from '../modules/notifications';
 import { onboardingModule } from '../modules/onboarding';
+import { previewModule } from '../modules/preview';
 import { remotesModule } from '../modules/remotes';
 import { searchModule } from '../modules/search';
 import { settingsModule } from '../modules/settings';
@@ -19,6 +20,7 @@ import { timetableModule } from '../sjtu/timetable';
 
 export const modules: ModuleDefinition[] = [
   workspaceModule,
+  previewModule,
   remotesModule,
   terminalModule,
   chatModule,

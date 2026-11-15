@@ -37,7 +37,7 @@ import {
   DOCUMENT_SKILL,
   cancelDocumentInstallation,
   installDocumentDependency,
-} from '../../main/documents/runtime';
+} from '../../modules/preview';
 import { remoteById, targetOf } from '../../modules/remotes';
 import { uploadSkillToRemote } from '../../core/remote/context';
 import { remoteProjectOf } from '../../modules/workspace';
