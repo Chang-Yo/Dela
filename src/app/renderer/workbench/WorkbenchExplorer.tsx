@@ -16,6 +16,7 @@ import { workspaceArchiveId, type WorkspaceEntry } from '../../../modules/worksp
 import { parseRemoteNodeId } from '../../../modules/remotes/contract';
 import { Button } from '../../../ui/button';
 import { CollapseChevron } from '../../../ui/collapse';
+import { PanelHeader } from '../../../ui/panel-header';
 import { SearchInput } from '../../../ui/search-input';
 import { Resizer } from '../../../ui/resizer';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
@@ -287,7 +288,7 @@ export function WorkbenchExplorer({
           )}
           style={narrow ? undefined : { width: effectiveWidth }}
         >
-          <div className="flex h-10 shrink-0 items-center gap-1 px-2">
+          <PanelHeader variant="plain">
             <IconButton
               aria-controls="workspace-explorer"
               aria-expanded={visible}
@@ -414,7 +415,7 @@ export function WorkbenchExplorer({
                 <ChevronsDownUp />
               </Button>
             </div>
-          </div>
+          </PanelHeader>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col" id="workspace-explorer">
             <SearchInput
               aria-label="筛选已同步内容"

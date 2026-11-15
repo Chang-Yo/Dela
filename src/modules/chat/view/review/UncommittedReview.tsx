@@ -8,6 +8,7 @@ import { chatClient } from '../client';
 import { DiffView } from './DiffView';
 import { Centered, STATUS_TEXT, FileIcon, basenameOf, dirnameOf } from './view-utils';
 import { IconButton } from '../../../../ui/icon-button';
+import { PanelHeader } from '../../../../ui/panel-header';
 import { errorMessage } from '../../../../core/protocol/contract';
 
 const REASON_TEXT = {
@@ -81,7 +82,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
 
   const shell = (children: ReactNode) => (
     <section aria-label="工作区改动" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
-      <header className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
+      <PanelHeader>
         <GitCompare aria-hidden className="size-4 shrink-0 text-ink-3" />
         <span className="shrink-0 text-sm font-medium">工作区改动</span>
         <span
@@ -99,7 +100,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
         >
           <RefreshCw className={busy ? 'animate-spin' : undefined} />
         </IconButton>
-      </header>
+      </PanelHeader>
       {summary && summary.warnings.length > 0 && (
         <div
           aria-label="读取警告"

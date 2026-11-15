@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FileCode2, TriangleAlert } from 'lucide-react';
 import type { TabId } from '../../../../app/module';
 import { diffStatOf } from '../../../../core/protocol/diff';
+import { PanelHeader } from '../../../../ui/panel-header';
 import { agentClient } from '../client';
 import { parseReviewTabId } from './tab-id';
 import { UncommittedReview } from './UncommittedReview';
@@ -63,7 +64,7 @@ function TurnFileReview({
   const stat = diffStatOf(detail.patch);
   return (
     <Shell>
-      <header className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
+      <PanelHeader>
         <FileCode2 aria-hidden className="size-4 shrink-0 text-ink-3" />
         <span className="shrink-0 text-sm font-medium">{basenameOf(detail.path)}</span>
         <span className="min-w-0 truncate text-xs text-ink-3" title={detail.path}>
@@ -74,7 +75,7 @@ function TurnFileReview({
           {stat && stat.added > 0 && <span className="text-success">+{stat.added}</span>}
           {stat && stat.deleted > 0 && <span className="text-danger">-{stat.deleted}</span>}
         </span>
-      </header>
+      </PanelHeader>
       {detail.note && (
         <p className="flex shrink-0 items-start gap-1.5 border-b border-line px-3 py-1.5 text-xs leading-5 text-ink-3">
           <TriangleAlert aria-hidden className="mt-0.5 size-3 shrink-0" />
