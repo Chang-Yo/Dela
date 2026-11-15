@@ -107,24 +107,29 @@ export function MailReader({
 }: Props) {
   // 按邮件记下载中的附件：切到别的邮件后不再显示旧邮件的下载态。
   const [downloading, setDownloading] = useState<{ messageId: number; part: string } | null>(null);
-  const downloadingPart = downloading?.messageId === detail?.id ? downloading?.part : null;
+  const detailId = detail?.id;
+  const downloadingMessageId = downloading?.messageId;
+  const downloadingPart = downloadingMessageId === detailId ? downloading?.part : null;
 
   const saveAttachment = async (attachment: MailAttachmentInfo) => {
     if (!detail || !attachment.part) return;
-    setDownloading({ messageId: detail.id, part: attachment.part });
-    try {
-      const result = await downloadAttachment(detail.id, attachment.part);
+    const part = attachment.part;
+    setDownloading({ messageId: detail.id, part });
+    const download = async () => {
+      const result = await downloadAttachment(detail.id, part);
       if (!result.ok)
         showToast({
           variant: 'error',
           title: '保存附件失败',
           description: result.error ?? '附件下载失败',
         });
+    };
+    try {
+      await download();
     } catch (reason) {
       showToast({ variant: 'error', title: '保存附件失败', description: errorMessage(reason) });
-    } finally {
-      setDownloading(null);
     }
+    setDownloading(null);
   };
 
   return (

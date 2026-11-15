@@ -90,7 +90,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
             style={{
               animationDelay: `${logoAtSeconds}s`,
               animationDuration: `${logoSeconds}s`,
-              ['--rise-distance' as string]: '14px',
+              ...{ '--rise-distance': '14px' },
             }}
           />
           <HandwritingLine

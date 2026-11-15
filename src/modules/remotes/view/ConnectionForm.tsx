@@ -75,21 +75,21 @@ export function ConnectionForm({
     }
     setBusy(true);
     setError(null);
+    const input = {
+      id: connection?.id ?? null,
+      label: label.trim() || undefined,
+      host: host.trim(),
+      port: port.trim() ? Number(port) : null,
+      keyPath: keyPath.trim() || null,
+    };
     try {
-      const saved = await remotesClient.save({
-        id: connection?.id ?? null,
-        label: label.trim() || undefined,
-        host: host.trim(),
-        port: port.trim() ? Number(port) : null,
-        keyPath: keyPath.trim() || null,
-      });
+      const saved = await remotesClient.save(input);
       await refreshRemoteConnections(queryClient);
       onSaved(saved);
     } catch (cause) {
       setError(errorMessage(cause));
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const remove = async () => {
@@ -106,12 +106,11 @@ export function ConnectionForm({
           new Set(useWorkspaceStore.getState().workspace.entries.map((entry) => entry.id)),
         );
       }
-      onRemoved?.(connection.id);
+      if (onRemoved) onRemoved(connection.id);
     } catch (cause) {
       setError(errorMessage(cause));
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const pickKey = async () => {

@@ -41,18 +41,20 @@ export function CapabilitySetup({
     setBusy(skill.name);
     setActionError(null);
     cancelRequested.current = false;
-    try {
+    const install = async () => {
       const next =
         skill.dependency?.status === 'ready'
           ? await capabilitiesClient.setSkillEnabled({ id: skill.id, enabled: true })
           : await capabilitiesClient.installSkillDependencies(skill.name);
       queryClient.setQueryData(skillsQueryKey, next);
+    };
+    try {
+      await install();
     } catch (cause) {
       if (!cancelRequested.current) setActionError(errorMessage(cause));
       await skillsQuery.refetch();
-    } finally {
-      setBusy(null);
     }
+    setBusy(null);
   };
 
   const cancel = async (name: string) => {

@@ -78,7 +78,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     setVerifyBusy(true);
     setVerifyResult(null);
     setImportNotice(null);
-    try {
+    const check = async () => {
       setVerifyResult(
         vendor
           ? await llmClient.verifyModel({
@@ -88,11 +88,13 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
             })
           : await llmClient.verify({ baseUrl: baseUrl.trim(), apiKey: apiKey || undefined }),
       );
+    };
+    try {
+      await check();
     } catch (cause) {
       setVerifyResult({ ok: false, message: errorMessage(cause) });
-    } finally {
-      setVerifyBusy(false);
     }
+    setVerifyBusy(false);
   };
 
   const importModels = (picked: string[]) => {
@@ -108,24 +110,23 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
     if (state === 'busy' || !window.dela || !selected) return;
     setState('busy');
     setError(null);
+    // 引导里选的模型排到列表首位：还没有会话可以沿用时，新会话取第一个可用提供商的首个模型。
+    const provider = vendor
+      ? {
+          name: vendor.name,
+          apiKey: apiKey || undefined,
+          models: [selected],
+          piProvider: vendor.id,
+        }
+      : {
+          name: name.trim(),
+          baseUrl: baseUrl.trim(),
+          apiKey: apiKey || undefined,
+          models: [selected, ...models.filter((item) => item !== selected)],
+          piProvider: null,
+        };
     try {
-      // 引导里选的模型排到列表首位：还没有会话可以沿用时，新会话取第一个可用提供商的首个模型。
-      await llmClient.save(
-        vendor
-          ? {
-              name: vendor.name,
-              apiKey: apiKey || undefined,
-              models: [selected],
-              piProvider: vendor.id,
-            }
-          : {
-              name: name.trim(),
-              baseUrl: baseUrl.trim(),
-              apiKey: apiKey || undefined,
-              models: [selected, ...models.filter((item) => item !== selected)],
-              piProvider: null,
-            },
-      );
+      await llmClient.save(provider);
       setState('success');
     } catch (cause) {
       setError(errorMessage(cause));

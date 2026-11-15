@@ -264,18 +264,19 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
     options?: { after?: () => void; failTitle?: string },
   ) => {
     setBusy(true);
+    const after = options?.after;
+    const failTitle = options?.failTitle ?? '待办操作失败';
     try {
       await operation();
-      options?.after?.();
+      if (after) after();
     } catch (reason) {
       showToast({
         variant: 'error',
-        title: options?.failTitle ?? '待办操作失败',
+        title: failTitle,
         description: errorMessage(reason),
       });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
   const detail = state?.items.find((item) => item.id === detailId);
   const editing = state?.items.find((item) => item.id === editingId);

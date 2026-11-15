@@ -28,7 +28,10 @@ export function DocxPreview({ url }: { url: string }) {
     void (async () => {
       try {
         const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          if (!controller.signal.aborted) setResult({ run, error: `HTTP ${response.status}` });
+          return;
+        }
         const container = host.current;
         if (!container) return;
         container.replaceChildren();

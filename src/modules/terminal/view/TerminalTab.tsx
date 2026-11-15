@@ -53,9 +53,8 @@ export function TerminalTab({ tabId }: { tabId: string }) {
       await useTerminalStore.getState().create(projectId);
     } catch (cause) {
       showToast({ variant: 'error', title: '新建终端失败', description: errorMessage(cause) });
-    } finally {
-      setCreating(false);
     }
+    setCreating(false);
   };
 
   // 打开标签时读一次清单；没有会话就新建一个。离开标签即丢弃，下次打开重读。

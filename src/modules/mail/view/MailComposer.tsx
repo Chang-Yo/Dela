@@ -247,6 +247,7 @@ export function MailComposer({
     if (sending || saving) return null;
     setSaving(true);
     setError(null);
+    let savedSnapshot: string | null = null;
     try {
       const content = snapshot();
       const result = await mailClient.saveDraft({ ...content, id: savedId });
@@ -255,14 +256,13 @@ export function MailComposer({
       setSavedContent(saved);
       void queryClient.invalidateQueries({ queryKey: draftsKey });
       showToast({ variant: 'success', title: '草稿已保存' });
-      return saved;
+      savedSnapshot = saved;
     } catch (reason) {
       showToast({ variant: 'error', title: '保存草稿失败', description: errorMessage(reason) });
-      return null;
-    } finally {
-      setSaving(false);
-      setLeaveBlocked(false);
     }
+    setSaving(false);
+    setLeaveBlocked(false);
+    return savedSnapshot;
   };
   const confirmClose = useEffectEvent(async () => {
     if (sending || saving) {
@@ -273,7 +273,8 @@ export function MailComposer({
     try {
       const choice = await mailClient.confirmDraftClose();
       if (choice === 'cancel') return false;
-      return choice === 'discard' || (await saveDraft()) !== null;
+      if (choice === 'discard') return true;
+      return (await saveDraft()) !== null;
     } catch (reason) {
       showToast({ variant: 'error', title: '保存草稿失败', description: errorMessage(reason) });
       return false;
@@ -341,8 +342,12 @@ export function MailComposer({
     }
     try {
       const inside = editor.contains(range.commonAncestorContainer);
-      const bold = inside && document.queryCommandState('bold');
-      const italic = inside && document.queryCommandState('italic');
+      let bold = false;
+      let italic = false;
+      if (inside) {
+        bold = document.queryCommandState('bold');
+        italic = document.queryCommandState('italic');
+      }
       setFormatState((current) =>
         current.bold === bold && current.italic === italic ? current : { bold, italic },
       );
@@ -546,7 +551,7 @@ export function MailComposer({
     if (!editor) return;
     setSending(true);
     setError(null);
-    try {
+    const sendMail = async () => {
       const body = serializeBody(editor);
       const result = await mailClient.send({
         to: recipients,
@@ -570,12 +575,14 @@ export function MailComposer({
         void queryClient.invalidateQueries({ queryKey: draftsKey });
       }
       onSent(result.warning);
+    };
+    try {
+      await sendMail();
     } catch (sendError) {
       showToast({ variant: 'error', title: '发送邮件失败', description: errorMessage(sendError) });
-    } finally {
-      setSending(false);
-      setLeaveBlocked(false);
     }
+    setSending(false);
+    setLeaveBlocked(false);
   };
 
   return (
