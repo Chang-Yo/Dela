@@ -175,9 +175,7 @@ Dela/
 │  ├─ renderer/               React 界面
 │  │  ├─ app/                 应用外壳、主题与全局状态
 │  │  ├─ workbench/           标签工作台
-│  │  ├─ content/             聊天、审阅内容区
 │  │  ├─ navigation/          侧栏与导航
-│  │  ├─ sessions/            会话管理
 │  │  ├─ workspace/           工作区条目动作与对话框（条目镜像、目录树组件与主进程部分已在 modules/workspace）
 │  │  ├─ features/            设置页的外壳分区装配
 │  │  ├─ components/          应用外壳与错误边界
