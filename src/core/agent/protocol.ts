@@ -31,7 +31,7 @@ export const agentProtocol = implement(agentContract, {
     return { protocolVersion: AGENT_PROTOCOL_VERSION };
   },
   'list-sessions': ({ projectId, query }) => listSessions(projectId, query),
-  'create-session': ({ projectId, scope }) => newSession(projectId, scope),
+  'create-session': ({ projectId }) => newSession(projectId),
   'open-session': ({ sessionId }) => openSession(sessionId),
   ask: ({ sessionId, ...input }) => askSession(sessionId, input),
   'cancel-run': ({ sessionId }) => cancelRun(sessionId),

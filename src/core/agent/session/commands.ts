@@ -1,6 +1,6 @@
 // 会话命令：新建、分支、归档、删除、换模型与 /compact、/reload、/name。
 import { existsSync } from 'node:fs';
-import type { ChatScope, WorkspaceChat, MainSessionCommand } from '../../protocol/agent';
+import type { WorkspaceChat, MainSessionCommand } from '../../protocol/agent';
 import { hostPorts } from '../../ports';
 import * as changes from '../changes';
 import { forkSessionFile, loadPi, resolveModel } from '../pi';
@@ -26,11 +26,11 @@ import {
 } from './store';
 
 /** 每个项目只保留一个空会话入口；正在运行的空会话不复用。 */
-export function newSession(projectId: string | null, scope: ChatScope): WorkspaceChat {
+export function newSession(projectId: string | null): WorkspaceChat {
   if (projectId !== null) sessionCwd(projectId, null);
-  const empty = emptySessionId(projectId, scope);
+  const empty = emptySessionId(projectId);
   if (empty && !live.get(empty)?.run) return snapshot(empty);
-  return snapshot(insertSession(projectId, scope));
+  return snapshot(insertSession(projectId));
 }
 
 /**

@@ -119,7 +119,7 @@ afterAll(async () => {
 });
 
 it('父会话空闲时自动开一轮处理通知，界面显示运行中；只投递一次，会话读取里自成一轮', async () => {
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   const requests: RecordedRequest[] = [];
   let runningAtWake = false;
   const stop = server.onRequest((request) => {
@@ -158,7 +158,7 @@ it('父会话空闲时自动开一轮处理通知，界面显示运行中；只�
 });
 
 it('父会话运行中插进本轮；撤回插队消息时一并清掉的通知会重新插进去，仍只送达一次', async () => {
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   const { requests, stop } = recorded();
   server.enqueue(backgroundBash('sleep 0.2; echo 很快'));
   server.enqueue(reply('先等等', 1500));
@@ -182,7 +182,7 @@ it('父会话运行中插进本轮；撤回插队消息时一并清掉的通知�
 });
 
 it('用户手动停止的任务只把通知追加进记录，不唤醒父会话', async () => {
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   const { requests, stop } = recorded();
   server.enqueue(backgroundBash('sleep 30'));
   server.enqueue(reply('跑起来了'));
@@ -199,7 +199,7 @@ it('用户手动停止的任务只把通知追加进记录，不唤醒父会话'
 });
 
 it('主对话停止不影响后台任务，之后正常结束的任务仍会唤醒父会话', async () => {
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   const { requests, stop } = recorded();
   server.enqueue(backgroundBash('sleep 1; echo 迟到的结果'));
   server.enqueue(reply('慢慢说', 3000));

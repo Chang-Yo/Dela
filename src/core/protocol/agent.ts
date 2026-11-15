@@ -10,8 +10,6 @@ const uuid = z.string().uuid();
 const sessionId = uuid;
 const projectId = uuid.nullable();
 
-export const chatScopeSchema = z.enum(['chat', 'library']);
-
 export const chatCommentSchema = z.object({
   quote: z.string().trim().min(1).max(20000),
   comment: z.string().max(20000),
@@ -258,8 +256,6 @@ export type RunEvent = z.infer<typeof runEventSchema>;
 export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
 export type ChatQueueEvent = z.infer<typeof chatQueueEventSchema>;
 export type SidechatView = z.infer<typeof sidechatViewSchema>;
-/** 'chat' 是首页随聊的私有目录，'library' 是资料页的课程目录；项目会话忽略它。 */
-export type ChatScope = z.infer<typeof chatScopeSchema>;
 
 /** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
 export interface SubagentDetails {
@@ -328,7 +324,7 @@ export const agentContract = defineContract(
       output: z.array(chatSessionSummarySchema),
     },
     'create-session': {
-      input: z.object({ projectId, scope: chatScopeSchema }),
+      input: z.object({ projectId }),
       output: workspaceChatSchema,
     },
     'open-session': { input: z.object({ sessionId }), output: workspaceChatSchema },

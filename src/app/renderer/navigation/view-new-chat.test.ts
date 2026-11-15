@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 // 「新建对话」与「打开会话」的落位：工作台里（项目或资料）就地在焦点组开标签，不跳页、不分屏；
-// 只有首页发起的随聊留在首页。通用会话的工作目录归属跟着发起页走（资料页 library、首页 chat）。
+// 只有首页发起的随聊留在首页。
 import { beforeEach, expect, it, vi } from 'vitest';
-import type { ChatScope, WorkspaceChat } from '../../../core/protocol/agent';
+import type { WorkspaceChat } from '../../../core/protocol/agent';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好。
 const creates = vi.hoisted(() => {
-  /** 每次 create-session 的入参（通用会话的工作目录归属由它决定）。 */
-  const creates: Array<{ projectId: string | null; scope: ChatScope }> = [];
+  /** 每次 create-session 的入参。 */
+  const creates: Array<{ projectId: string | null }> = [];
   const handlers: Record<string, (input: never) => unknown> = {
-    'agent:create-session': (input: { projectId: string | null; scope: ChatScope }) => {
+    'agent:create-session': (input: { projectId: string | null }) => {
       creates.push(input);
       return emptyChat('new');
     },
@@ -131,14 +131,11 @@ it('在首页或项目工作台打开随聊：回首页聊天', () => {
   expect(useNavigationStore.getState().generalChat?.sessionId).toBe('old');
 });
 
-it('通用会话的归属跟着发起页走：资料页 library，首页 chat', async () => {
+it('资料页与首页新建通用会话，入参相同', async () => {
   useNavigationStore.setState({ view: 'workbench', projectId: null });
   await useNavigationStore.getState().newChat(null);
   useNavigationStore.setState({ view: 'home' });
   await useNavigationStore.getState().newChat(null);
 
-  expect(creates).toEqual([
-    { projectId: null, scope: 'library' },
-    { projectId: null, scope: 'chat' },
-  ]);
+  expect(creates).toEqual([{ projectId: null }, { projectId: null }]);
 });

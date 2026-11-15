@@ -219,7 +219,7 @@ it('回到首页接着上次会话，清空运行内存（重启）后才是新�
   await act(async () => useNavigationStore.getState().openGeneralChat(false));
   expect(create).toHaveBeenCalledTimes(1);
   // 首页发起的通用会话落在随聊私有目录，不认资料页那一档。
-  expect(create).toHaveBeenCalledWith({ projectId: null, scope: 'chat' });
+  expect(create).toHaveBeenCalledWith({ projectId: null });
 });
 
 it('打开随聊历史留在首页，展示指定会话而不是创建空会话或资料标签', async () => {
@@ -315,7 +315,7 @@ describe('会话命令', () => {
     await act(async () => root.render(<Home />));
     const create = vi.spyOn(api, 'agent:create-session').mockResolvedValue(emptyChat('second'));
     await sendText('/new');
-    expect(create).toHaveBeenCalledWith({ projectId: null, scope: 'chat' });
+    expect(create).toHaveBeenCalledWith({ projectId: null });
     expect(ask).not.toHaveBeenCalled();
     expect(runCommand).not.toHaveBeenCalled();
   });
@@ -364,7 +364,7 @@ it('归档首页当前对话后通过导航创建新会话，不沿用归档会�
       .click();
   });
   expect(update).toHaveBeenCalledWith({ id: 'first', patch: { archived: true } });
-  expect(create).toHaveBeenCalledWith({ projectId: null, scope: 'chat' });
+  expect(create).toHaveBeenCalledWith({ projectId: null });
   expect(useSessions.getState().homeSessionId).toBe('second');
   await act(async () => useChatDrafts.getState().update('second', { prompt: '归档之后的新草稿' }));
   expect(host.querySelector<HTMLInputElement>('[aria-label="消息输入"]')?.value).toBe(

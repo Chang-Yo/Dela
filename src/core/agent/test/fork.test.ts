@@ -80,7 +80,7 @@ afterAll(async () => {
 });
 
 it('从中间一条回复分支：新会话只含到那里为止的历史，原会话照常继续', async () => {
-  const source = newSession(null, 'chat').sessionId!;
+  const source = newSession(null).sessionId!;
   server.enqueue(reply('first answer'));
   await ask(source, '第一问');
   server.enqueue(reply('second answer'));
@@ -124,7 +124,7 @@ it('从中间一条回复分支：新会话只含到那里为止的历史，原�
 });
 
 it('运行中的回复没有分支锚点', async () => {
-  const id = newSession(null, 'chat').sessionId!;
+  const id = newSession(null).sessionId!;
   server.enqueue({
     kind: 'sse',
     frames: [

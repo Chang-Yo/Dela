@@ -20,7 +20,7 @@ export interface HomeChatRequest {
  */
 async function resolveHomeChat(request: HomeChatRequest | null): Promise<WorkspaceChat> {
   if (request?.sessionId) return agentClient['open-session']({ sessionId: request.sessionId });
-  if (request?.create) return agentClient['create-session']({ projectId: null, scope: 'chat' });
+  if (request?.create) return agentClient['create-session']({ projectId: null });
   const remembered = useSessions.getState().homeSessionId;
   if (remembered) {
     const reopened = await agentClient['open-session']({ sessionId: remembered }).catch(() => null);
@@ -34,7 +34,7 @@ async function resolveHomeChat(request: HomeChatRequest | null): Promise<Workspa
       chat.messages.length === 0 &&
       (useSessions.getState().lists.general ?? []).some((row) => row.id === chat.sessionId),
   );
-  return empty ?? agentClient['create-session']({ projectId: null, scope: 'chat' });
+  return empty ?? agentClient['create-session']({ projectId: null });
 }
 
 export function ChatHome({ request }: { request: HomeChatRequest | null }) {

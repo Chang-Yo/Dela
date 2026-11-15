@@ -229,11 +229,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       const onHome = projectId === null && get().view !== 'workbench';
       if (!window.dela || !get().navigate(onHome ? 'home' : 'workbench')) return null;
       try {
-        // 通用会话的工作目录跟着落位走：首页随聊用私有目录，资料页用资料树里的课程目录。
-        const chat = await agentClient['create-session']({
-          projectId,
-          scope: onHome ? 'chat' : 'library',
-        });
+        const chat = await agentClient['create-session']({ projectId });
         if (!chat.sessionId) throw new Error('会话创建失败');
         useSessions.getState().putChat(chat.sessionId, chat);
         void useSessions

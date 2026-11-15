@@ -129,7 +129,7 @@ afterAll(async () => {
 });
 
 it('子 Agent 历史为空、没有 task 工具，只把最终回复交回父会话；续接时保留它自己的对话', async () => {
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   const { requests, stop } = recorded();
   server.enqueue(taskCalls({ description: '整理笔记', prompt: '列出第三章要点' }));
   server.enqueue(reply('要点：极限、连续'));
@@ -175,7 +175,7 @@ it('子 Agent 历史为空、没有 task 工具，只把最终回复交回父会
 });
 
 it('父会话停止时连带中止子 Agent，子会话保留并记为停止', async () => {
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   server.enqueue(taskCalls({ description: '慢任务', prompt: '慢慢做' }));
   server.enqueue(reply('做到一半', 3000));
   let childAsked!: () => void;
@@ -202,7 +202,7 @@ it('父会话停止时连带中止子 Agent，子会话保留并记为停止', a
 
 it('在内置能力里关掉 task 后，新会话没有 task 工具，后台 bash 照常可用', async () => {
   state.disabledTools = ['task'];
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   const { requests, stop } = recorded();
   server.enqueue(reply('好的'));
   await askSession(parent, input('你好'));
@@ -219,7 +219,7 @@ it('同时运行的子 Agent 超出上限时直接报错，不排队', async () 
   state
     .db!.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('subagent-limit', '1')")
     .run();
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   const { requests, stop } = recorded();
   server.enqueue(
     taskCalls({ description: '甲', prompt: '做甲' }, { description: '乙', prompt: '做乙' }),
@@ -241,7 +241,7 @@ it('后台子 Agent 立即返回并占用并发名额，结束时把最终回复
   state
     .db!.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('subagent-limit', '1')")
     .run();
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   const parentRequests: RecordedRequest[] = [];
   const stop = server.onRequest((request) => {
     if (!JSON.stringify(request.body).includes('派个后台的')) {
@@ -279,7 +279,7 @@ it('后台子 Agent 立即返回并占用并发名额，结束时把最终回复
 });
 
 it('归档父会话时子会话一并归档，删除时一并删除', async () => {
-  const parent = newSession(null, 'chat').sessionId!;
+  const parent = newSession(null).sessionId!;
   server.enqueue(taskCalls({ description: '随手', prompt: '做一下' }));
   server.enqueue(reply('好了'));
   server.enqueue(reply('完成'));

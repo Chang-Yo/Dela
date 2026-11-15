@@ -2,12 +2,11 @@
 // 完整记录是 Pi 的会话文件。cwd 解析失败直接报错，不静默换目录。
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import type { ChatScope, ChatSessionSummary } from '../../protocol/agent';
+import { join, sep } from 'node:path';
+import type { ChatSessionSummary } from '../../protocol/agent';
 import { llmModelSettings } from '../../protocol/llm-models';
 import type { StoredLlmProvider } from '../llm-config';
 import { hostPorts } from '../../ports';
-import { sessionScope, sessionScopes, type SessionScope } from '../scopes';
 import { llmProviders, usableLlmProviders } from '../providers';
 import type { SessionModel } from '../pi';
 
@@ -45,13 +44,6 @@ function workspaceRoot() {
 /** 通用会话的私有工作目录：与 workspace 平级的 chat-sessions/<会话 id>，建会话时建好。 */
 function chatSessionDirectory(id: string) {
   const dir = join(hostPorts().paths.storage(), 'chat-sessions', id);
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-/** 作用域会话共用的工作目录：缺失时建好，会话因此直接看到其中的全部文件。 */
-function scopeDirectory(scope: SessionScope) {
-  const dir = scope.directory();
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -222,27 +214,23 @@ export function archivedSessions(): ChatSessionSummary[] {
     .map((row) => toSummary(row as SummaryRow));
 }
 
-/** 通用池的空会话入口：cwd 是某个作用域目录的归该作用域，其余非 NULL 的是随聊，互不复用；
- *  cwd 为 NULL 的旧会话哪边都不认，免得新会话落在别人的工作目录里。 */
-function emptyGeneralSessionId(scope: ChatScope): string | undefined {
-  const scoped = sessionScope(scope);
-  const directories = scoped
-    ? [scoped.directory()]
-    : sessionScopes().map((item) => item.directory());
+/** 通用池的空会话入口：只复用 cwd 在 chat-sessions 之下的；cwd 为 NULL 或建在别处的旧会话不认。 */
+function emptyGeneralSessionId(): string | undefined {
+  const privateRoot = join(hostPorts().paths.storage(), 'chat-sessions', sep);
   const row = hostPorts()
     .database()
     .prepare(
       `SELECT id FROM sessions WHERE project_id IS NULL AND archived = 0 AND message_count = 0
-       AND parent_id IS NULL AND cwd IS NOT NULL AND cwd ${scoped ? '' : 'NOT '}IN (${directories.map(() => '?').join(', ')})
+       AND parent_id IS NULL AND substr(cwd, 1, ?) = ?
        ORDER BY updated_at DESC LIMIT 1`,
     )
-    .get(...directories) as { id: string } | undefined;
+    .get(privateRoot.length, privateRoot) as { id: string } | undefined;
   return row?.id;
 }
 
 /** 每个项目只保留一个空会话入口，没有时返回 undefined。 */
-export function emptySessionId(projectId: string | null, scope: ChatScope): string | undefined {
-  if (projectId === null) return emptyGeneralSessionId(scope);
+export function emptySessionId(projectId: string | null): string | undefined {
+  if (projectId === null) return emptyGeneralSessionId();
   return (
     hostPorts()
       .database()
@@ -253,13 +241,10 @@ export function emptySessionId(projectId: string | null, scope: ChatScope): stri
   )?.id;
 }
 
-/** 文件在首条消息后由 Pi 写出。通用会话建自己的私有目录（随聊）或作用域目录并写进 cwd 列，
- *  项目会话留 NULL 继续按项目目录解析。 */
-export function insertSession(projectId: string | null, scope: ChatScope): string {
+/** 文件在首条消息后由 Pi 写出。通用会话建自己的私有目录并写进 cwd 列，项目会话留 NULL 继续按项目目录解析。 */
+export function insertSession(projectId: string | null): string {
   const id = randomUUID();
-  const scoped = sessionScope(scope);
-  const cwd =
-    projectId !== null ? null : scoped ? scopeDirectory(scoped) : chatSessionDirectory(id);
+  const cwd = projectId !== null ? null : chatSessionDirectory(id);
   const now = new Date().toISOString();
   hostPorts()
     .database()
