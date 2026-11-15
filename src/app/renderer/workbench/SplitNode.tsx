@@ -14,12 +14,12 @@ const GROUP_MIN_HEIGHT = 64;
 
 interface SplitNodeProps {
   node: LayoutNode;
-  path?: number[];
+  path: number[];
   /** 空组空态的「新建对话」，由装配层注入。 */
   onNewChat: () => void;
 }
 
-export function SplitNodeView({ node, path = [], onNewChat }: SplitNodeProps) {
+export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
   const setRatio = useWorkbenchLayout((s) => s.setRatio);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimension, setDimension] = useState(0);
