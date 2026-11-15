@@ -122,18 +122,20 @@ export function EntryDialogs({
     if (!window.dela || busy) return;
     setBusy(true);
     setModalError(null);
-    try {
+    const importAndOpen = async () => {
       const created = await workspaceClient.importProjectFolder();
       if (!created) return;
       await useWorkspaceStore.getState().refresh();
       onClose();
       onOpenProject?.(created.id);
       onCreated?.(created);
+    };
+    try {
+      await importAndOpen();
     } catch (error) {
       setModalError(errorMessage(error));
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const submit = async (event: FormEvent) => {
@@ -143,7 +145,7 @@ export function EntryDialogs({
       return; // 类型上仍可能出现（壳的 openDialog 入参未收窄），但表单对它们没有意义。
     setBusy(true);
     setModalError(null);
-    try {
+    const save = async () => {
       let created: WorkspaceEntry | undefined;
       if (request.action === 'rename') await updateEntry(request.id!, { name });
       else if (request.action === 'move')
@@ -184,11 +186,13 @@ export function EntryDialogs({
         if (created.kind === 'project') onOpenProject?.(created.id);
         onCreated?.(created);
       }
+    };
+    try {
+      await save();
     } catch (error) {
       setModalError(errorMessage(error));
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (

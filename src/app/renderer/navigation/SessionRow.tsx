@@ -75,13 +75,13 @@ export function SessionRow({
     setConfirming(false);
     setBusy(true);
     try {
-      if (archive) await onDelete?.(session.id);
-      else await updateSession(session.id, { pinned: !session.pinned });
+      if (archive) {
+        if (onDelete) await onDelete(session.id);
+      } else await updateSession(session.id, { pinned: !session.pinned });
     } catch (cause) {
       showToast({ variant: 'error', title: '会话操作失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
   return (
     <div className={navSubRow(active)}>

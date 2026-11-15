@@ -137,21 +137,21 @@ export function useRemoteTree(
         if (root) setPhase(projectId, 'connecting');
         try {
           const items = await workspaceClient.listRemoteDirectory({ projectId, path });
-          if (root && !signal.aborted) setPhase(projectId, 'ready');
+          if (root) if (!signal.aborted) setPhase(projectId, 'ready');
           return items;
         } catch (cause) {
           const reason = `读取失败 ${path}：${errorMessage(cause)}`;
-          if (root && !signal.aborted) setPhase(projectId, 'failed', reason);
+          if (root) if (!signal.aborted) setPhase(projectId, 'failed', reason);
           throw new Error(reason);
         }
       },
     })),
   });
   const listings: Record<string, RemoteDirectoryEntry[]> = {};
-  for (const [index, { key }] of openDirectories.entries()) {
+  openDirectories.forEach(({ key }, index) => {
     const data = results[index]?.data;
     if (data) listings[key] = data;
-  }
+  });
 
   const watchKey = openDirectories
     .map(({ projectId, path }) => `${projectId}\t${path}`)

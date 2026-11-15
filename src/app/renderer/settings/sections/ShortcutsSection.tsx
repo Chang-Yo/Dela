@@ -48,21 +48,21 @@ export function ShortcutsSection() {
     }
     setBusy(true);
     setError(null);
+    const failureTitle =
+      shortcutActions.find((item) => item.id === id)?.defaultKeys === accelerator
+        ? '恢复默认失败'
+        : '保存快捷键失败';
     try {
       await useShortcuts.getState().setBinding(id, accelerator);
       setRecording(null);
     } catch (cause) {
       showToast({
         variant: 'error',
-        title:
-          shortcutActions.find((item) => item.id === id)?.defaultKeys === accelerator
-            ? '恢复默认失败'
-            : '保存快捷键失败',
+        title: failureTitle,
         description: errorMessage(cause),
       });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const recordKey = useEffectEvent((event: KeyboardEvent) => {

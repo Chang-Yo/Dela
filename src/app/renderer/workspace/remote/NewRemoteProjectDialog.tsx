@@ -229,20 +229,21 @@ function NewRemoteProjectPanel({
     if (!window.dela || !connectionId || !target || importing) return;
     onImportingChange(true);
     setError(null);
+    const projectName = name.trim() || undefined;
+    const rememberedPath = path ?? target;
     try {
       const created = await workspaceClient.importRemoteProject({
         remoteId: connectionId,
         path: target,
-        name: name.trim() || undefined,
+        name: projectName,
       });
-      rememberDirectory(destination, path ?? target);
+      rememberDirectory(destination, rememberedPath);
       await useWorkspaceStore.getState().refresh();
       onImported(created);
     } catch (cause) {
       setError(errorMessage(cause));
-    } finally {
-      onImportingChange(false);
     }
+    onImportingChange(false);
   };
 
   const ready = Boolean(connection) && !connecting && !failure && path !== null;

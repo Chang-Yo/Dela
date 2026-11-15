@@ -51,9 +51,8 @@ export function RemotePortsDialog({
       await reload();
     } catch (cause) {
       setActionError(errorMessage(cause));
-    } finally {
-      setBusyPort(null);
     }
+    setBusyPort(null);
   };
 
   const stopPort = async (port: number) => {
@@ -64,9 +63,8 @@ export function RemotePortsDialog({
       await reload();
     } catch (cause) {
       setActionError(errorMessage(cause));
-    } finally {
-      setBusyPort(null);
     }
+    setBusyPort(null);
   };
 
   const tunnelOf = (port: number) => state?.tunnels.find((tunnel) => tunnel.remotePort === port);

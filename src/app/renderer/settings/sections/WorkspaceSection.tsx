@@ -47,9 +47,8 @@ export function WorkspaceSection() {
       showToast({ variant: 'success', title: '布局已重置', description: '下次进入该项目时生效。' });
     } catch (cause) {
       showToast({ variant: 'error', title: '重置失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   return (

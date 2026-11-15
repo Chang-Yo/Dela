@@ -335,12 +335,14 @@ export function ProjectSessionNav({
                   setArchiving(true);
                   try {
                     const ids = await chatClient.archiveProject(key);
-                    for (const id of ids) closeTabEverywhere(`chat:${id}`);
+                    ids.forEach((id) => closeTabEverywhere(`chat:${id}`));
                     await refreshSessionLists();
                     setConfirmArchive(null);
-                  } finally {
+                  } catch (cause) {
                     setArchiving(false);
+                    throw cause;
                   }
+                  setArchiving(false);
                 })
               }
             >
