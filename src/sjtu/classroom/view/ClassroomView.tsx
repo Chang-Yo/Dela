@@ -3,6 +3,7 @@ import { KeyRound, LogIn, MonitorPlay, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { ConnectCard } from '../../../ui/connect-card';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
+import { PanelHeader } from '../../../ui/panel-header';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
 import { Resizer, useResizerWidth } from '../../../ui/resizer';
 import { useViewportWidth } from '../../../ui/use-viewport-width';
@@ -83,7 +84,7 @@ function DesktopClassroomView() {
               )}
               style={collapsed ? undefined : { width: effectiveWidth }}
             >
-              <div className="flex h-10 shrink-0 items-center gap-1 px-2">
+              <PanelHeader variant="plain">
                 <PanelToggleButton
                   collapsed={collapsed}
                   controlsId="classroom-courses"
@@ -119,7 +120,7 @@ function DesktopClassroomView() {
                     <RefreshCw className={cn('size-4', courses.isFetching && 'animate-spin')} />
                   </Button>
                 </div>
-              </div>
+              </PanelHeader>
               <CoursePicker />
               <div className="px-3 pb-3">
                 <SegmentedControl
