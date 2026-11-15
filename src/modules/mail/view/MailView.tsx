@@ -23,6 +23,7 @@ import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
 import { Resizer } from '../../../ui/resizer';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
+import { ConnectCard } from '../../../ui/connect-card';
 import { useMediaQuery } from '../../../ui/use-media-query';
 import { useMailPreferences } from './store';
 import { draftsKey, mailBoxKey, mailClient, mailStateKey, useMailState } from './use-mail';
@@ -601,23 +602,23 @@ function DesktopMailView({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
-          <div className="m-auto grid w-full max-w-[25rem] gap-4 rounded-window border border-line bg-surface p-8 shadow-hairline">
-            <div className="grid gap-1.5">
-              <h2 className="text-lg font-semibold tracking-tight">连接邮箱</h2>
-              <p className="text-sm leading-relaxed text-ink-3">
-                交大邮箱用 jAccount 账号与密码；也可改用第三方 IMAP 服务器。凭据加密保存在本机。
-              </p>
+          <ConnectCard
+            className="m-auto"
+            description="交大邮箱用 jAccount 账号与密码；也可改用第三方 IMAP 服务器。凭据加密保存在本机。"
+            title="连接邮箱"
+          >
+            <div className="w-full">
+              <MailAccountForm
+                error={configureError}
+                onSubmit={(input) => void handleConfigure(input)}
+                submit={
+                  <Button disabled={configuring} type="submit">
+                    {configuring ? '正在验证…' : '连接并同步'}
+                  </Button>
+                }
+              />
             </div>
-            <MailAccountForm
-              error={configureError}
-              onSubmit={(input) => void handleConfigure(input)}
-              submit={
-                <Button disabled={configuring} type="submit">
-                  {configuring ? '正在验证…' : '连接并同步'}
-                </Button>
-              }
-            />
-          </div>
+          </ConnectCard>
         </div>
       </div>
     );
