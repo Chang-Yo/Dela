@@ -3,6 +3,7 @@ import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { Bell, Bookmark, Mail, RefreshCw } from 'lucide-react';
 import { CountBadge } from '../../../ui/count-badge';
 import { SearchInput } from '../../../ui/search-input';
+import { SegmentedControl } from '../../../ui/segmented-control';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { cn } from '../../../ui/cn';
 import { useShuiyuan, type ListSelection } from './store';
@@ -10,6 +11,8 @@ import { IconButton } from '../../../ui/icon-button';
 import { listKey, useCounts, useSelectList, useSiteStructure } from './use-shuiyuan';
 
 const SEARCH_DEBOUNCE_MS = 400;
+const feedKinds = ['latest', 'featured'] as const;
+const feedLabels = { latest: '最新', featured: '精品' };
 
 function PersonalButton({
   active,
@@ -126,39 +129,13 @@ export function ShuiyuanHeader() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 lg:col-start-2 lg:row-start-1 lg:justify-self-center">
-          {/* 分段控件：底槽 + 浮起的活动段，替代描边按钮组。 */}
-          <div
+          <SegmentedControl
             aria-label="信息流类型"
-            className="flex items-center gap-0.5 rounded-card bg-inset p-0.5"
-            role="group"
-          >
-            <button
-              aria-pressed={feedKind === 'latest'}
-              className={cn(
-                'h-7 rounded-control px-3 text-xs font-medium transition-all',
-                feedKind === 'latest'
-                  ? 'bg-surface text-ink shadow-hairline'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-              onClick={() => selectList({ kind: 'latest' })}
-              type="button"
-            >
-              最新
-            </button>
-            <button
-              aria-pressed={feedKind === 'featured'}
-              className={cn(
-                'h-7 rounded-control px-3 text-xs font-medium transition-all',
-                feedKind === 'featured'
-                  ? 'bg-surface text-ink shadow-hairline'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-              onClick={() => selectList({ kind: 'featured' })}
-              type="button"
-            >
-              精品
-            </button>
-          </div>
+            labels={feedLabels}
+            onChange={(kind) => selectList({ kind })}
+            options={feedKinds}
+            value={feedKind === 'latest' || feedKind === 'featured' ? feedKind : null}
+          />
           {/* 切换与筛选分属两组操作，用细线隔开避免连成一簇。 */}
           <span aria-hidden="true" className="h-4 w-px shrink-0 bg-line" />
           <Select
