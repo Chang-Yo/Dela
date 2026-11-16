@@ -27,15 +27,13 @@ import { SidechatPanel } from './SidechatPanel';
 import { openSidechat, useSidechats } from './sidechat-store';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
 function parseChatTabId(tabId: string): string | null {
   if (!tabId.startsWith('chat:')) return null;
   const sessionId = tabId.slice('chat:'.length);
   return sessionId || null;
 }
 
-/** 会话作为标签内容。会话身份来自 tabId（chat:{sessionId}），项目归属来自会话快照；
- *  引用候选与邮件草稿弹窗经 ChatTabSourceProvider 注入。 */
+/** 会话身份来自 tabId（chat:{sessionId}），项目归属来自会话快照。 */
 export function ChatTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const sessionId = parseChatTabId(tabId);
   const source = useChatTabSource();
@@ -64,9 +62,7 @@ export function ChatTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   );
 }
 
-/** 输入区容器：输入草稿（prompt）只在本层经 useChatDraft 订阅——打字每键仅重渲
- *  本层与 ChatComposer，不再带动 ChatSessionView 与 ChatThread 的整棵消息树；
- *  发送与失败恢复草稿仍由 useChat 在调用时读取，引用在发送前从文本解析。 */
+/** 输入草稿只在本层订阅：打字每键只重渲本层与 ChatComposer，不带动整棵消息树。 */
 function ChatComposerArea({
   chat,
   chatState,
@@ -78,7 +74,6 @@ function ChatComposerArea({
   /** 会话快照；IPC 返回前为 null，模型信息按空值降级。 */
   chat: WorkspaceChat | null;
   chatState: ReturnType<typeof useChat>;
-  /** 会话层错误（快照读取失败、发送失败）；null = 无。 */
   error: string | null;
   files: ReferenceEntry[];
   sessionId: string;
@@ -88,7 +83,6 @@ function ChatComposerArea({
   const referenceOptions = useReferenceOptions(files, chat);
   // 引用即文本：发送前从草稿文本解析 @token，附件与引用自此分开计数（附件维持上限 5）。
   const references = referenceContext(prompt, referenceOptions);
-  // 新对话的项目浮岛：项目名来自工作区条目，通用池显示「随聊」；分支由浮岛自己查。
   const projectId = chat?.projectId ?? null;
   const project = useWorkspaceStore(
     (state) => state.workspace.entries.find((entry) => entry.id === projectId) ?? null,
@@ -161,7 +155,6 @@ function ChatSessionView({
 }) {
   const { navigate, workbench } = useChatTabSource();
   const onOpenSource = (key: string) => workbench.openDocument(key);
-  // 「新对话」按钮与 /new 命令同一个动作：落在首页还是工作台焦点组由外壳决定。
   const startNewChat = () => navigate({ page: 'chat', projectId });
   const openSession = (id: string) => navigate({ page: 'chat', projectId, sessionId: id });
   const chatState = useChat(active, referenceSource, startNewChat);
@@ -233,9 +226,6 @@ function ChatSessionView({
       aria-label="对话"
       className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-surface @container"
     >
-      {/* @container 宿主：空态标题的 @max-[…] 按此宽度生效；ChatComposer 自身另有
-          @container 宿主，其内部降级断点测量 composer 实宽（外层 p-3 会造成 24px 死区）。 */}
-      {/* 标签标题由 workbench 标签栏承载。 */}
       <div className="flex h-10 shrink-0 items-center gap-1 px-3">
         <IconButton aria-label="历史对话" onClick={() => setSessionsOpen(true)} title="历史对话">
           <History />
@@ -302,7 +292,6 @@ function ChatSessionView({
           onSaveNote={onSaveNote}
         />
       ) : (
-        // my-auto 而非 justify-center：内容高于容器（矮窗+大字号）时顶部仍可滚动到达。
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-10">
           <div className="my-auto">
             <h1 className="mb-6 text-center text-3xl font-semibold tracking-tight @max-[400px]:text-2xl">

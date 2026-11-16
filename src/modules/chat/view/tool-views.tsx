@@ -17,7 +17,6 @@ function Caption({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-ink-3">{children}</p>;
 }
 
-/** 视图公共入参：failed 让工具卡带失败态（CodeBlock 左侧色条），输入输出结构不变。 */
 type ViewProps = { result: AgentToolResult; failed: boolean };
 
 function outputText(result: AgentToolResult): string {
@@ -56,7 +55,6 @@ function buildDiffRows(oldText: string, newText: string): DiffRow[] {
         pieces,
       });
     }
-    // 配对的 add 块行数更多时，余下行单独入表（上方循环已消耗同序前缀）。
     if (pairLines && pairLines.length > lines.length && pair?.added) {
       for (let index = lines.length; index < pairLines.length; index += 1) {
         newNo += 1;
@@ -81,7 +79,6 @@ function BashView({ result, failed }: ViewProps) {
   const command = (result.input as { command?: string } | null)?.command ?? '';
   const stdout = outputText(result);
   if (!command && !stdout) return null;
-  // 命令与输出合入一张卡：行首 $ 提示符 + 空行分隔；复制取原始文本（不带提示符）。
   const lines = [
     ...(command ? [`$ ${command.split('\n')[0]!}`, ...command.split('\n').slice(1)] : []),
     ...(command && stdout ? [''] : []),
@@ -102,7 +99,6 @@ function BashView({ result, failed }: ViewProps) {
   );
 }
 
-/** read/grep/find/ls：路径或模式做标题，文本输出原样展示。 */
 function TextView({ result, title, failed }: ViewProps & { title: string }) {
   const text = outputText(result);
   if (!text) return null;
@@ -120,7 +116,6 @@ function TextView({ result, title, failed }: ViewProps & { title: string }) {
   );
 }
 
-/** read 读到图片：图片本体随工具结果投影过来，直接预览，占位文本不再展示。 */
 function ImageView({ result }: ViewProps) {
   const image = result.output?.image;
   if (!image) return null;
@@ -192,7 +187,6 @@ export async function openSubagent(taskId: string, navigate: Navigate) {
   navigate({ page: 'chat', projectId: chat.projectId, sessionId: taskId });
 }
 
-/** 子 Agent：任务说明、步数与最终回复；完整过程在子会话里看。 */
 function SubagentView({ result }: ViewProps) {
   const { navigate } = useChatTabSource();
   const details = result.output?.details as SubagentDetails | undefined;
@@ -225,7 +219,6 @@ function SubagentView({ result }: ViewProps) {
   );
 }
 
-/** 兜底视图（MCP、联网等自定义工具）：输入键值对 + 文本输出。 */
 function GenericView({ result, failed }: ViewProps) {
   const input = result.input;
   const entries =
@@ -255,7 +248,6 @@ function GenericView({ result, failed }: ViewProps) {
   );
 }
 
-/** 工具视图的主体：按工具把输入与输出渲染成代码块形态。 */
 function ToolView({ result, failed }: ViewProps) {
   const input = (result.input ?? {}) as Record<string, unknown>;
   const str = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
@@ -291,9 +283,7 @@ export function ToolBody({
   result: AgentToolResult;
   failed?: boolean;
 }) {
-  // 失败原因就是工具输出：bash/read/grep 等视图已把它放进卡内，不重复；
-  // write/edit 卡内是输入内容，输出为空时也无可看内容，这两种情况补一行说明，
-  // 保证失败原因不会因为改用工具视图而消失。
+  // 失败原因就是工具输出：多数视图已把它放进卡内；write/edit 卡内是输入，输出为空时补一行说明。
   const reasonOutsideBlock =
     failed &&
     (result.name === 'write' ||

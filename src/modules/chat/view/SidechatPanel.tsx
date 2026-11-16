@@ -55,7 +55,6 @@ export function SidechatPanel({
   const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 只有新建的旁问从右边界滑入；切走标签再回来、从胶囊展开都不再滑入。
   const entered = useSidechats((state) => state.entered[parentId] ?? false);
   const [motion, setMotion] = useState<Motion>(() => (entered ? null : 'enter'));
   const referenceOptions = parent ? files : [];
@@ -166,7 +165,6 @@ export function SidechatPanel({
     </span>
   );
 
-  // 收起与展开时面板和胶囊叠放交叉过渡：面板向右上角缩放淡出的同时胶囊浮现，反之亦然。
   const pill = (
     <button
       aria-hidden={!collapsed || undefined}

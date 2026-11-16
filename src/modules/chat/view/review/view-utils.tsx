@@ -41,7 +41,6 @@ const codeExtensions = new Set([
   'xml',
 ]);
 
-/** 文件类型图标：按扩展名分三档，颜色保持中性，形状足够区分。 */
 export function FileIcon({ path }: { path: string }) {
   const base = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
   const dot = base.lastIndexOf('.');

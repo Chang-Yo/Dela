@@ -1,9 +1,8 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 import type { Navigate, Workbench } from '../../../app/module';
 
-// ChatTab 的容器注入面（与 note 的 draft-source、preview 的 loader 同一注入模式）：workbench 只传
-// tabId/groupId，引用数据源与邮件草稿弹窗经 Provider 注入；会话项目归属取自快照而非当前工作台。
-// chat 域不 import workspace store。
+// ChatTab 的容器注入面（与 note 的 draft-source、preview 的 loader 同一模式）：workbench 只传 tabId/groupId，
+// 引用数据源与邮件草稿弹窗经 Provider 注入；chat 域不 import workspace store。
 
 /** @ 引用候选：key 为绝对路径，title 为相对会话 cwd 的路径。 */
 export type ReferenceEntry = { key: string; title: string };

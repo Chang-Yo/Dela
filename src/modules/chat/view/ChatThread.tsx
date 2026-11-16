@@ -36,13 +36,10 @@ import { ReplyCommentLayer } from './reply-comment';
 import { fetchChatMediaPreview, getChatMediaPreview } from './media';
 import { TurnChangesCard } from './TurnChangesCard';
 
-// 使用 Streamdown 默认淡入时长与积压上限；中文按字符渐显，不额外延迟真实数据。
 const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
 
-/** 复制成功对勾的自动复位时长（消息复制按钮共用）。 */
 const COPY_FEEDBACK_MS = 1500;
 
-/** 消息悬停操作栏：复制、保存为笔记与分支，参照 assistant-ui ActionBar 的自动显隐。 */
 function MessageActions({
   content,
   onSaveNote,
@@ -80,7 +77,6 @@ function MessageActions({
   );
 }
 
-/** 用户消息里的内联图片：会话内有缓存直接显示，历史消息按需拉取缩略图；点击放大查看。 */
 function MessageImage({ id, name }: { id: string; name: string }) {
   const { data: url } = useQuery({
     queryKey: ['chat', 'media', id],
@@ -192,7 +188,6 @@ function UserMessage({
       ) : null}
       {message.content ? (
         <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-sm leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
-          {/* 气泡已是容器：内部代码块去底色，避免「灰底气泡套灰底代码块」的多层嵌套。 */}
           <ChatMarkdown
             className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent"
             mode="static"
@@ -292,7 +287,6 @@ function UserMessage({
   );
 }
 
-/** 已发送的回复评论：被引用的原文在上、评论在下，与正文气泡分开。 */
 function SentComment({ comment }: { comment: ChatComment }) {
   return (
     <div className="grid min-w-0 max-w-full gap-0.5 rounded-card bg-inset px-3 py-1.5 text-xs leading-5 shadow-hairline [overflow-wrap:anywhere]">
@@ -304,7 +298,6 @@ function SentComment({ comment }: { comment: ChatComment }) {
   );
 }
 
-/** 整轮失败（模型/网络）：回复末尾一张错误卡，原因 + 重试。 */
 function ErrorCard({ reason, onRetry }: { reason: string; onRetry?: () => void }) {
   return (
     <div
@@ -456,7 +449,6 @@ const TASK_STATUS: Record<TaskNoticeDetails['status'], string> = {
   stopped: '已停止',
 };
 
-/** 后台任务结束的通知：一行摘要，展开看交给模型的全文；子 Agent 可打开子会话。 */
 function TaskNoticeMessage({ content, task }: { content: string; task: TaskNoticeDetails }) {
   const { navigate } = useChatTabSource();
   const [open, setOpen] = useState(false);
@@ -500,7 +492,6 @@ function TaskNoticeMessage({ content, task }: { content: string; task: TaskNotic
   );
 }
 
-/** Pi 扩展经 sendMessage 发出的可见消息：标出 customType，与模型回复区分开。 */
 function ExtensionMessage({ content, customType }: { content: string; customType: string }) {
   return (
     <Card className="my-3 grid gap-1.5" variant="inset">
@@ -526,7 +517,6 @@ function CompactionDivider({ pending }: { pending?: boolean }) {
   );
 }
 
-/** 对话消息流：发送后贴底展示，用户上滚时暂停跟随；工具步骤折叠展示。 */
 export function ChatThread({
   chat,
   onOpenSource,
@@ -552,7 +542,7 @@ export function ChatThread({
   onEditLast?: (text: string, comments?: ChatComment[]) => void;
   /** 从一条已完成回复分支为新会话；未提供时隐藏入口。 */
   onFork?: (entryId: string) => void;
-  /** 邮件草稿检查弹窗（容器注入，3B 接 features/mail）；未注入时隐藏草稿入口。 */
+  /** 邮件草稿检查弹窗（容器注入）；未注入时隐藏草稿入口。 */
   mailDialog?: MailDraftDialog;
 }) {
   const replyDraftKey = draftKey === undefined ? chat.sessionId : draftKey;
@@ -613,15 +603,12 @@ export function ChatThread({
     const key = `${chat.sessionId}:${lastUserIndex}:${replyStartedAt ?? ''}`;
     if (anchoredKey.current !== key) {
       anchoredKey.current = key;
-      // ChatGPT 式：新回合贴底展示（用户消息下方就是流式输出），流式期间自动跟随
-      // 最新内容；用户上滚即退出跟随（见 onScroll），回到底部或点按钮恢复。
+      // 新回合贴底，流式期间自动跟随；用户上滚退出跟随（见 onScroll），回到底部或点按钮恢复。
       followBottom.current = streaming;
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
     }
     const resize = () => {
-      // 字号可能已变：行高缓存失效，本次随 onScroll 重新计算。
       lineHeightRef.current = 0;
-      // 只跟随实际消息底部，不根据滚动位置改变被观察内容的高度。
       if (followBottom.current) viewport.scrollTop = viewport.scrollHeight;
       syncScroll();
     };
@@ -639,8 +626,6 @@ export function ChatThread({
     };
   }, [chat.sessionId, lastUserIndex, replyStartedAt, streaming]);
 
-  // 邮件草稿弹窗由容器注入：读取草稿、账号校验、关闭守卫与发送都在注入组件内完成，
-  // 本组件只负责入口与发送后的提示文案。
   const MailDialog = mailDialog;
   const handleEditLast = (text: string) => onEditLast?.(text);
   // 重试＝以最后一条用户消息原文重发（编辑重发同一路径，Pi 会话树保留失败分支）。

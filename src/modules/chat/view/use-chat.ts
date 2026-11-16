@@ -35,7 +35,6 @@ import { errorMessage } from '../../../core/protocol/contract';
 
 export type { ChatReference };
 
-/** 快捷入口直发要求文本；常规发送也允许只附图片、文件或回复评论。 */
 export function canSendInput(
   text: string,
   direct: boolean,
@@ -55,17 +54,13 @@ export function shouldRestoreDraft(fresh: WorkspaceChat | null, sentText: string
   return !fresh.messages.some((message) => message.role === 'user' && message.content === stripped);
 }
 
-/** 输入草稿的响应式订阅：只在 composer 容器层调用——打字每键仅重渲输入区，
- *  不带动消息列表；useChat 内部一律经 useChatDrafts.getState() 命令式读取。 */
+/** 输入草稿订阅只在 composer 容器层调用：打字每键仅重渲输入区，不带动消息列表。 */
 export function useChatDraft(sessionId: string) {
   return useChatDrafts((state) => state.drafts[sessionId] ?? emptyDraft);
 }
 
-/** 单个会话的对话状态：快照经 sessions 镜像共享（session-update 全局订阅，多入口同看一份）。
- *  草稿按 sessionId 持久化（drafts.ts），本 hook 不订阅（订阅在 useChatDraft）；附件 chip
- *  不持久化，视图卸载即释放暂存文件（调用方以 sessionId 为 key，切换会话即重挂）；
- *  内联图片随草稿文本保留（文件由启动 GC 回收）。
- *  onNewChat 是 /new 命令的落点，与会话视图里的「新对话」按钮同一个动作。 */
+/** 单个会话的对话状态：快照经 sessions 镜像共享；草稿订阅在 useChatDraft，附件 chip 不持久化，
+ *  视图卸载即释放暂存文件。onNewChat 是 /new 命令的落点。 */
 export function useChat(
   sessionId: string,
   referenceSource?: ReferenceSource,
@@ -148,9 +143,7 @@ export function useChat(
     releaseChatMedia([id]);
   };
 
-  // 发送前从文本解析好的引用（ChatTab 经 referenceContext 算出）；引用即文本，
-  // 删除 = 删掉 @token，无需独立增删入口。
-  // 运行中发送即插队（主进程交给 Pi 的 steer）；命令要等本轮结束。
+  // 引用即文本：删除 = 删掉 @token。运行中发送即插队（Pi 的 steer）；命令要等本轮结束。
   const send = async (references: ChatReference[]) => {
     // 发送时点读取草稿（不依赖渲染期闭包）：拿到的一定是最后一次按键的值。
     const draft = useChatDrafts.getState().drafts[sessionId] ?? emptyDraft;
@@ -183,7 +176,6 @@ export function useChat(
     }
     setPending((count) => count + 1);
     setError(null);
-    // 发送即清空输入：用户消息与流式增量经推送回显，不等整轮结束。
     clearDraft(requested);
     setAttachments([]);
     try {
@@ -213,10 +205,7 @@ export function useChat(
     }
   };
 
-  /**
-   * 会话命令（/compact、/reload、/name、/new、/btw）：不发给模型。失败时恢复输入，方便改了重试；
-   * /compact 期间算作忙，停止按钮可以取消压缩。
-   */
+  // 会话命令不发给模型；失败时恢复输入，/compact 期间算作忙，停止按钮可取消压缩。
   const runCommand = async (name: SessionCommandName, args: string, text: string) => {
     if (!window.dela) return;
     const requested = sessionId;
@@ -294,7 +283,6 @@ export function useChat(
     );
   };
 
-  // 编辑最后一条用户消息并重新生成：主进程截断旧消息后按原 ask 流程重跑。
   // 编辑重发说明原提问不合适，不带回原评论；重试按原消息重发，带上原评论。
   const editLast = async (text: string, comments: ChatComment[] = []) => {
     if (!window.dela || busy) return;
@@ -319,13 +307,11 @@ export function useChat(
     }
   };
 
-  // 模型/思考强度切换的乐观更新直接写镜像缓存，所有入口立即看到新值。
   const optimisticChat = (patch: Partial<WorkspaceChat>) => {
     const current = useSessions.getState().chats[sessionId];
     if (current) useSessions.getState().putChat(sessionId, { ...current, ...patch });
   };
 
-  // 模型选择只属于这个会话，不影响其他会话。
   const selectModel = (provider: LlmProviderView, model: string) => {
     if (!window.dela) return;
     optimisticChat({
@@ -351,7 +337,6 @@ export function useChat(
       );
   };
 
-  // 分支是新会话：写进镜像后在当前位置打开，原会话不变。
   const fork = (entryId: string) => {
     if (!window.dela) return;
     void agentClient

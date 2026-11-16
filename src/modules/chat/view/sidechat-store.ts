@@ -63,7 +63,6 @@ export async function openSidechat(
   }
 }
 
-/** 模块加载即订阅旁问推送。 */
 onAgentEvent('sidechat-update', (view) => {
   // 已关闭的旁问可能还有迟到的推送：只更新仍在镜像里的。
   if (useSidechats.getState().views[view.parentId]) useSidechats.getState().put(view);

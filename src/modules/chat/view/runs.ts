@@ -81,11 +81,9 @@ export function isSessionViewed(sessionId: string): boolean {
   return (useRuns.getState().viewing[sessionId] ?? 0) > 0;
 }
 
-/** 按行订阅某会话的 run 状态原始值：applyRunEvent 只替换目标键，其余会话的行不重渲
- *  （导航徽标用；App 层不再订阅 bySession 对象，避免每个 run 事件全 App 重渲）。 */
+/** 按行订阅：applyRunEvent 只替换目标键，其余会话的行不重渲。 */
 export function useSessionRunStatus(sessionId: string): RunStatus | null {
   return useRuns((state) => state.bySession[sessionId]?.status ?? null);
 }
 
-/** 模块加载即订阅 run 状态推送。 */
 onAgentEvent('run-event', useRuns.getState().apply);

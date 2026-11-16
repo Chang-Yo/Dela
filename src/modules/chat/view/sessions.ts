@@ -15,18 +15,13 @@ export function poolKey(projectId: string | null): string {
 }
 
 interface SessionsState {
-  /** 按池缓存的基础会话摘要列表（query 为空），供导航与切换条共用。 */
   lists: Record<string, ChatSessionSummary[]>;
-  /** sessionId → 最新快照缓存：session-update 推送与 open/ask 结果都写这里。 */
   chats: Record<string, WorkspaceChat>;
   /** 首页上次停留的会话：切走再回首页接着上次，只活在本次运行内（重启后首页回到新对话）。 */
   homeSessionId: string | null;
-  /** 各池待执行的列表重读定时器：命令式句柄，不驱动渲染。 */
   refreshTimers: Record<string, ReturnType<typeof setTimeout>>;
-  /** 重读某池的基础列表（list-sessions）。 */
   refresh: (projectId: string | null) => Promise<void>;
   putChat: (sessionId: string, chat: WorkspaceChat) => void;
-  /** 会话删除后清出镜像（on-update 不会为已删会话推送）。 */
   forgetSession: (sessionId: string) => void;
 }
 
@@ -34,9 +29,7 @@ interface SessionsState {
 const listRefreshDelayMs = 300;
 
 export const useSessions = create<SessionsState>((set, get) => {
-  /** 标题（首条消息才写）与「最近优先」排序都只体现在列表里，快照本身不带列表，
-   *  所以任何来源（推送、ask/fork 结果）写入的快照条数变化后重读该池；按池各自防抖，
-   *  两个池前后脚变化时不会只刷到后一个。 */
+  // 标题与排序只体现在列表里，快照不带列表，所以快照条数变化后要重读该池；按池各自防抖。
   const scheduleListRefresh = (projectId: string | null) => {
     const key = poolKey(projectId);
     clearTimeout(get().refreshTimers[key]);
@@ -81,7 +74,6 @@ export const useSessions = create<SessionsState>((set, get) => {
   };
 });
 
-/** 面板搜索直查（list-sessions 带查询词）：查询态属于调用方，结果不进镜像。 */
 export function querySessions(
   projectId: string | null,
   query: string,
@@ -91,7 +83,6 @@ export function querySessions(
     : Promise.resolve([]);
 }
 
-/** 模块加载即订阅会话推送：快照写入镜像缓存，供同一会话的多个入口共享。 */
 onAgentEvent('session-update', ({ sessionId, chat }) => {
   useSessions.getState().putChat(sessionId, chat);
 });

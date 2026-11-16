@@ -108,11 +108,9 @@ export function cacheHitRateText(usage: ContextUsageView): string {
   return total > 0 ? `${((cachedTokens / total) * 100).toFixed(1)}%` : '—';
 }
 
-// beautiful-ui PromptBar 的控件样式：选择器触发钮与弹层容器（图标钮用 IconButton atom）。
 const triggerButton =
   'flex h-7 min-w-0 shrink items-center gap-1 rounded-control px-1.5 text-xs font-medium text-ink-2 transition-colors duration-base hover:bg-hover hover:text-ink';
 const webSearchOptionsKey = ['capabilities', 'webSearchOptions'];
-// 候选行固定 h-9（9 个 spacing 单位），滑动高亮据此定位。
 const MENU_ROW_UNITS = 9;
 const scrollRowIntoView = (node: HTMLLIElement | null) =>
   node?.scrollIntoView({ block: 'nearest' });
@@ -152,14 +150,12 @@ export function ChatComposer({
   /** 运行中插队、还没送达的消息；非空时显示在输入框上方，可整体撤回。 */
   queued?: string[];
   onWithdrawQueued?: () => void;
-  /** 正在运行的后台任务；为空时不显示工具栏里的后台任务按钮。 */
   tasks?: BackgroundTaskView[];
   onStopTask?: (taskId: string) => void;
   /** 旁问输入框：模型与思考强度沿用主会话、联网搜索是全局开关，这三个选择器都不显示。 */
   sidechat?: boolean;
   /** 新对话的项目浮岛数据；null = 不显示（已有历史或通用池没有项目）。 */
   context?: ComposerContext | null;
-  /** 发送前错误（会话层），显示在输入框上方；null = 无。 */
   notice?: string | null;
   onDismissNotice?: () => void;
   value: string;
@@ -168,7 +164,6 @@ export function ChatComposer({
   onStop: () => void;
   busy: boolean;
   configured: boolean;
-  /** 会话选中的提供商；模型列表据此标出当前项。 */
   providerId?: string | null;
   model: string;
   /** 会话的模型已停用或被移除：禁止发送，提示另选。 */
@@ -180,7 +175,6 @@ export function ChatComposer({
   onEffortSelect: (level: string) => void;
   referenceOptions: ChatReference[];
   attachments: ChatMediaView[];
-  /** 对回复正文的评论（草稿的一部分），显示在附件条上方的独立轨道。 */
   comments: ChatComment[];
   onCommentsChange: (comments: ChatComment[]) => void;
   onAddAttachmentFile: (file: File) => Promise<void>;
@@ -193,8 +187,7 @@ export function ChatComposer({
   const editorRef = useRef<ComposerEditorHandle | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [index, setIndex] = useState(0);
-  // 候选菜单 id 逐实例唯一（同页可同时挂多个会话的 composer），选项 id 按序号派生，
-  // 供编辑器的 aria-controls / aria-activedescendant 引用。
+  // 菜单 id 逐实例唯一：同页可同时挂多个会话的 composer。
   const menuListId = `${useId()}-list`;
   const menuOptionId = (position: number) => `${menuListId}-option-${position}`;
   const [dragging, setDragging] = useState(false);
@@ -270,7 +263,6 @@ export function ChatComposer({
   const handleCaret = (text: string, caret: number) => {
     if (fileError) setFileError(null);
     const next = detectMenu(text, caret);
-    // 候选词变化时高亮从头开始；同词内移动光标保留当前高亮。
     const kindChanged = next?.kind !== menu?.kind;
     const queryChanged = next?.query !== menu?.query;
     if (kindChanged || queryChanged) setIndex(0);
@@ -378,7 +370,6 @@ export function ChatComposer({
       .catch((e) => setFileError(errorMessage(e)));
   };
 
-  // 候选菜单的键盘协议：菜单打开时消费按键并移动高亮，否则交回编辑器默认行为。
   const menuApi = {
     onKey: (key: 'down' | 'up' | 'select' | 'close'): boolean => {
       if (!menuOpen) return false;
@@ -436,10 +427,8 @@ export function ChatComposer({
 
   return (
     <div className="relative">
-      {/* 新对话的项目浮岛：项目与分支各一个可点胶囊；有历史后 context 为 null 就撤掉。 */}
       {context && <ComposerContextBar context={context} />}
       {queued.length > 0 && <QueuedMessages messages={queued} onWithdraw={onWithdrawQueued} />}
-      {/* 提示条浮在输入框上方，不推移输入框与消息列表。 */}
       {(fileError ?? notice) && (
         <ComposerNotice
           message={(fileError ?? notice)!}
@@ -728,7 +717,6 @@ export function ChatComposer({
               <PopoverTrigger asChild>
                 <button
                   aria-label="思考强度"
-                  // 中窄容器（≤260px）收成图标而非整颗消失，极窄（≤160px）才随次要按钮退场。
                   className={cn(triggerButton, '@max-[260px]:px-1.5 @max-[160px]:hidden')}
                   title="思考强度"
                   type="button"
@@ -817,12 +805,9 @@ export function ChatComposer({
             </button>
           )}
         </div>
-        {/* min-w-56 下限在窄容器会越出 composer 边界（分屏时压到相邻组），≤260px 时收为贴容器宽。 */}
         {menuOpen && (
           <ul
-            // 只保留 absolute：relative 与 absolute 同时写时生成 CSS 谁生效不确定，实测会掉回
-            // 文档流向下撑开布局；父容器（composer 外框）已是 relative，向上展开由 bottom-full 定住。
-            // 高亮块与 li 都靠本元素的绝对定位建立包含块，不能改成 static。
+            // 只保留 absolute：与 relative 同写时生成 CSS 谁生效不确定，实测会掉回文档流。
             className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-card bg-surface p-1 shadow-raised @max-[260px]:min-w-0"
             id={menuListId}
             role="listbox"
@@ -844,7 +829,6 @@ export function ChatComposer({
                 className="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-chip px-2 text-left"
                 id={menuOptionId(position)}
                 key={'name' in item ? item.name : item.key}
-                // 阻止点击选项时编辑器失焦。
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setIndex(position)}
                 onClick={() => handleSelect(position)}
@@ -882,7 +866,6 @@ export function ChatComposer({
   );
 }
 
-/** 引用候选：文件名强调蓝加粗在前，所在目录以小字灰阶缀后（过长省略号截断）。 */
 function MentionTitle({ title }: { title: string }) {
   const at = title.lastIndexOf('/');
   const dir = at < 0 ? '' : title.slice(0, at + 1);
@@ -931,7 +914,6 @@ function ComposerChip({
   );
 }
 
-/** composer 上方的提示条：发送前的错误（未配置、文件不支持、引用未保存）。 */
 /** 待送达的插队消息：当前工具执行完后才交给模型；撤回把它们全部放回输入框（Pi 的队列只能整体清空）。 */
 function QueuedMessages({ messages, onWithdraw }: { messages: string[]; onWithdraw?: () => void }) {
   return (
@@ -994,7 +976,6 @@ function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: (
   );
 }
 
-/** 工具栏里的后台任务：图标带运行数，弹层逐个列出，可停止；子 Agent 点开进入它的子会话。 */
 function BackgroundTasks({
   tasks,
   onStop,
@@ -1022,7 +1003,6 @@ function BackgroundTasks({
   );
 }
 
-/** 弹层打开时才挂载：计时每秒走一次，关上即停。 */
 function BackgroundTaskList({
   tasks,
   onStop,

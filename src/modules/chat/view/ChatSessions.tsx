@@ -89,7 +89,6 @@ function SessionList({
   );
 }
 
-/** 历史对话面板：项目会话在前、通用对话在后（通用池只列自己），锚定内容区从右缘滑出。 */
 export function ChatSessions({
   projectId,
   currentSessionId,
@@ -98,7 +97,6 @@ export function ChatSessions({
   onOpenSession,
   onDeleteSession,
 }: {
-  /** 当前会话所属项目；非 null 时面板同时列出项目会话与通用对话入口。 */
   projectId: string | null;
   currentSessionId: string | null;
   open: boolean;
@@ -125,7 +123,6 @@ export function ChatSessions({
   const loadError = sessionLists.isError;
   const lists = loadError ? undefined : sessionLists.data;
 
-  // 悬浮面板自行响应 Esc 关闭。
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -148,8 +145,7 @@ export function ChatSessions({
   };
 
   if (!open) return null;
-  // 面板锚定内容区（app-main）而非视口：侧栏展开时不遮挡导航，滚动状态也与之无关；
-  // 找不到锚点时退回 body（整窗覆盖）。
+  // 锚定内容区而非视口：侧栏展开时不遮挡导航；找不到锚点时退回 body。
   const container = document.getElementById('app-main') ?? document.body;
 
   const sections = pools.map((pool, index) => ({

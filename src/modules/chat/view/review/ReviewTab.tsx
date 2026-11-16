@@ -28,8 +28,7 @@ export function ReviewTab({ tabId }: { tabId: TabId; groupId: string }) {
   );
 }
 
-/** 轮次单文件审阅：冻结记录写后不变，整个标签周期只需读取一次；
- *  记录被清理或轮次无此文件时给出原因，不做假动作入口。 */
+/** 轮次单文件审阅：冻结记录写后不变，只读一次；记录被清理或无此文件时给出原因。 */
 function TurnFileReview({
   sessionId,
   turnId,

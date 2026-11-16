@@ -13,11 +13,8 @@ export interface HomeChatRequest {
   seq: number;
 }
 
-/**
- * 首页要打开的会话，优先级：指定历史 > 显式新对话 > 上次停留的会话 > 未发送的空会话 > 新建。
- * 「上次停留」只在本次运行的内存里，所以切到别的页面再回首页能接着上次，重启应用仍是新对话。
- * 上次那个会话已被删除时 open 会失败，落到新对话，不把用户卡在错误提示上。
- */
+// 首页要打开的会话，优先级：指定历史 > 显式新对话 > 上次停留 > 未发送的空会话 > 新建。
+// 「上次停留」只存内存，重启后是新对话；该会话已删除时落到新对话，不卡在错误提示上。
 async function resolveHomeChat(request: HomeChatRequest | null): Promise<WorkspaceChat> {
   if (request?.sessionId) return agentClient['open-session']({ sessionId: request.sessionId });
   if (request?.create) return agentClient['create-session']({ projectId: null });

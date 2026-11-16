@@ -46,7 +46,6 @@ export type ComposerEditorHandle = {
   selectionStart: () => number;
 };
 
-/** 内联图片 chip：预览缩略图 + 移除按钮，替换 ![…](dela-img:id) token 的显示。 */
 class InlineImageWidget extends WidgetType {
   constructor(
     readonly id: string,
@@ -81,7 +80,6 @@ class InlineImageWidget extends WidgetType {
     remove.setAttribute('aria-label', `移除图片 ${this.name || ''}`);
     remove.textContent = '×';
     remove.type = 'button';
-    // 阻止点击时编辑器失焦。
     remove.addEventListener('mousedown', (event) => event.preventDefault());
     remove.addEventListener('click', () => {
       // 每次从当前文档重新定位 token，不缓存可能因编辑失效的区间。
@@ -126,9 +124,8 @@ const imagePlugin = ViewPlugin.fromClass(
   { decorations: (value) => value.decorations },
 );
 
-// @ 引用 token：文档文本就是「@相对路径」，这里只负责把它画出来——@ 与目录前缀折叠成
-// 一个文件图标，只留文件名可见（悬停图标或文件名可看完整路径），并经 atomicRanges 让
-// 光标/退格把整段路径当作一个整体。
+// @ 引用 token：文档文本就是「@相对路径」，这里只负责画出来——折叠成文件图标加文件名，
+// 并经 atomicRanges 让光标/退格把整段路径当整体。
 const setReferenceOptions = StateEffect.define<ChatReference[]>();
 const referenceField = StateField.define<ChatReference[]>({
   create: () => [],
@@ -143,7 +140,6 @@ const FILE_ICON_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
   'stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>';
 
-// 会话图标（lucide message-square 同形）：# 引用的会话。
 const SESSION_ICON_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
   'stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
@@ -220,12 +216,10 @@ const composerTheme = EditorView.theme({
     fontFamily: 'inherit',
     lineHeight: '1.65',
     overflowY: 'auto',
-    // 高度封顶：绝对 224px + 相对 38vh 双上限，避免满高编辑器把消息流挤没。
     maxHeight: 'min(14rem, 38vh)',
     padding: `${SCROLLER_PADDING.top} ${SCROLLER_PADDING.x} 0.375rem`,
   },
-  // CM 默认给 .cm-content 上下 4px、.cm-line 左 6px 右 2px 的内边距，会让光标/正文
-  // 相对自绘占位符整体偏移（下 4px、右 6px），统一归零，正文与占位符共用同一原点。
+  // CM 默认的内边距会让光标/正文相对自绘占位符偏移，统一归零，共用同一原点。
   '.cm-content': { caretColor: 'inherit', padding: '0' },
   '.cm-line': { padding: '0' },
   '.dela-chat-image': {
@@ -238,7 +232,6 @@ const composerTheme = EditorView.theme({
     display: 'block',
     maxHeight: '4.75rem',
     maxWidth: '11.25rem',
-    // 与消息流内联图片同档圆角，发送前后不跳变。
     borderRadius: 'var(--radius-window)',
     border: '1px solid var(--line)',
   },
@@ -298,7 +291,6 @@ function filesFromTransfer(transfer: DataTransfer | null): File[] {
   return files;
 }
 
-/** 对话输入编辑器：Markdown 语法高亮、内联图片、Enter 发送（IME 安全）、文件粘贴/拖放。 */
 export function ComposerEditor({
   value,
   onChange,
@@ -321,13 +313,11 @@ export function ComposerEditor({
   onFiles: (files: File[], pos: number) => void;
   onDropHandled?: () => void;
   menu: ComposerMenuApi;
-  /** @/斜杠候选菜单的 combobox 状态：展开与当前高亮同步到编辑器内容元素，读屏可感知。 */
   menuAria?: { open: boolean; listId: string; activeId: string | null };
   placeholderText: string;
   hero?: boolean;
   handleRef: RefObject<ComposerEditorHandle | null>;
   className?: string;
-  /** @ 与 # 引用候选：文本中命中的 @路径、#会话标题会渲染成引用 token。 */
   referenceOptions: ChatReference[];
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -380,7 +370,6 @@ export function ComposerEditor({
                   return true;
                 },
               },
-              // Shift+Enter 换行并续写列表等 Markdown 标记。
               { key: 'Shift-Enter', run: insertNewlineContinueMarkup },
               { key: 'Shift-Enter', run: insertNewlineAndIndent },
             ]),
@@ -451,13 +440,11 @@ export function ComposerEditor({
     if (!current || value === current.state.doc.toString() || current.compositionStarted) return;
     current.dispatch({ changes: { from: 0, to: current.state.doc.length, insert: value } });
   }, [value]);
-  // 已知引用候选变化（镜像/远端索引载入）时同步进 CM state，重算 token 装饰。
   useEffect(() => {
     view.current?.dispatch({ effects: setReferenceOptions.of(referenceOptions) });
   }, [referenceOptions]);
-  // combobox 语义落在 CM 内容元素（编辑焦点所在）：role 与 aria-controls 常驻，
-  // expanded/activedescendant 随候选菜单开合与高亮移动（对照 GlobalSearchDialog 输入框）。
-  // 这几个属性 CM 不管理，直接命令式同步；拆出原始值做依赖，打字时不重复写 DOM。
+  // combobox 语义落在 CM 内容元素：属性 CM 不管理，命令式同步；
+  // 拆成原始值做依赖，打字时不重复写 DOM。
   const menuAriaOpen = menuAria?.open ?? false;
   const menuAriaListId = menuAria?.listId ?? '';
   const menuAriaActiveId = menuAria?.activeId ?? null;
@@ -471,9 +458,8 @@ export function ComposerEditor({
       content.setAttribute('aria-activedescendant', menuAriaActiveId);
     else content.removeAttribute('aria-activedescendant');
   }, [menuAriaActiveId, menuAriaListId, menuAriaOpen]);
-  // 占位符用自绘覆盖层而不是 CM 内置 placeholder：内置实现把占位文本作为行内原子
-  // widget 插在光标同位（side 1），空文档点击时光标视觉上落在占位文字右侧，与实际
-  // 插入点（文档开头）不一致；覆盖层不参与布局，光标始终停在行首。
+  // 占位符用自绘覆盖层：CM 内置 placeholder 的行内 widget 会让空文档的光标视觉上落在文字右侧，
+  // 与实际插入点不一致。
   const empty = value.length === 0;
   return (
     <div className={cn('relative', className)} ref={host}>

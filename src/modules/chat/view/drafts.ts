@@ -10,9 +10,7 @@ type ChatDraft = { prompt: string; comments?: ChatComment[] };
 
 export const emptyDraft: ChatDraft = { prompt: '' };
 
-// localStorage 键名沿用 dela.* 前缀约定；跨页面切换与重启保留输入。
 const STORAGE_KEY = 'dela.session.drafts';
-// 会话草稿数量上限：超出时丢弃最早写入的草稿，避免无限增长。
 const MAX_SESSIONS = 30;
 
 export function registerChatAttachmentCheck(check: () => boolean): () => void {
@@ -86,7 +84,6 @@ function prune(drafts: Record<string, ChatDraft>): Record<string, ChatDraft> {
   return kept;
 }
 
-/** 按 sessionId 保存 composer 草稿：组件卸载（切换标签）与重启后输入不丢失。 */
 export const useChatDrafts = create<{
   drafts: Record<string, ChatDraft>;
   /** 各会话视图登记的「还有未发送附件」检查：安装更新前据此拦截。 */

@@ -9,16 +9,13 @@ import { cn } from '../../../ui/cn';
 import { useChatDrafts } from './drafts';
 import { IconButton } from '../../../ui/icon-button';
 
-/** 浮层与视口边缘、与选区之间的留白（rem）。 */
 const EDGE_REM = 0.5;
-/** 写评论时原选区的高亮名，样式见 globals.css 的 ::highlight。 */
+// 样式见 globals.css 的 ::highlight。
 const HIGHLIGHT = 'dela-reply-comment';
 
 export interface FloatingAnchor {
-  /** 选区上沿、下沿，相对消息视口。 */
   top: number;
   bottom: number;
-  /** 首行、末行的水平中点：浮层在上方时对齐首行，在下方时对齐末行。 */
   topCenter: number;
   bottomCenter: number;
 }
@@ -29,11 +26,8 @@ export interface FloatingSpot {
   side: 'top' | 'bottom';
 }
 
-/**
- * 浮层在消息视口里的位置：优先放在选区上方，放不下翻到下方，都放不下（选区高过视口）贴上沿。
- * 结果始终夹在视口内，不压上方的会话栏，也不压下方的输入框。选区整个滚出视口时，pin=false
- * 返回 null（隐藏）；pin=true 贴在离它最近的边缘，正在写的评论不会随滚动消失。
- */
+// 浮层位置：优先选区上方，放不下翻到下方，始终夹在视口内；选区滚出视口时 pin=false 隐藏，
+// pin=true 贴最近边缘，正在写的评论不会随滚动消失。
 function placeFloating(
   anchor: FloatingAnchor,
   box: { width: number; height: number },
@@ -57,10 +51,8 @@ function placeFloating(
 
 const elementOf = (node: Node) => (node instanceof Element ? node : node.parentElement);
 
-/**
- * 可评论的选区：落在 root 内同一段已完成回复的正文里（data-assistant-body，流式中的回复带
- * data-reply-live）。返回独立的 Range：端点落在公式内部时扩到整个公式，引用才能取回完整 TeX。
- */
+// 可评论的选区：落在 root 内同一段已完成回复的正文里。端点落在公式内部时扩到整个公式，
+// 引用才能取回完整 TeX。
 export function commentRange(selection: Selection | null, root: HTMLElement): Range | null {
   if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return null;
   const range = selection.getRangeAt(0).cloneRange();
@@ -112,7 +104,6 @@ const focusAtEnd = (field: HTMLTextAreaElement | null) => {
   field.setSelectionRange(field.value.length, field.value.length);
 };
 
-/** 评论输入：回车或 ✓ 确认（可留空），Shift+回车换行，Esc 取消；输入法组字时的回车不提交。 */
 function CommentInput({
   initial = '',
   onSubmit,
@@ -164,10 +155,7 @@ interface Target {
   editing: boolean;
 }
 
-/**
- * 选区评论浮层。挂在消息视口的定位容器上（不随内容滚动），位置随滚动、视口与内容尺寸变化重算，
- * 始终夹在视口内。按下指针即收起（拖选途中不留旧浮层，写到一半点别处即放弃），拖滚动条除外。
- */
+// 选区评论浮层：按下指针即收起（拖选途中不留旧浮层，写到一半点别处即放弃），拖滚动条除外。
 export function ReplyCommentLayer({
   draftKey,
   scrollRef,
@@ -176,7 +164,6 @@ export function ReplyCommentLayer({
   /** 评论落进哪份草稿：主会话的 sessionId，旁问里是旁问草稿的键。 */
   draftKey: string;
   scrollRef: RefObject<HTMLDivElement | null>;
-  /** 选中文字后另起旁问：把引用带进旁问的输入框；未提供时不显示入口。 */
   onSidechat?: (quote: string) => void;
 }) {
   const [target, setTarget] = useState<Target | null>(null);
@@ -191,7 +178,6 @@ export function ReplyCommentLayer({
     const down = (event: PointerEvent) => {
       if (!inBox(event) && event.target !== scroller) setTarget(null);
     };
-    // 双击、三击的选区在松开指针后才落定，下一帧再读。
     const up = (event: PointerEvent) => {
       if (inBox(event)) return;
       cancelAnimationFrame(frame);
@@ -226,7 +212,6 @@ export function ReplyCommentLayer({
     if (!target || !scroller || !box) return;
     const place = () => {
       const rects = [...target.range.getClientRects()].filter((rect) => rect.width || rect.height);
-      // 正文被折叠或重新渲染：选区已不在页面上。
       if (!rects.length) {
         setTarget(null);
         return;
@@ -330,7 +315,6 @@ export function ReplyCommentLayer({
   );
 }
 
-/** composer 里附件条上方的评论轨道：悬停看全文，点击改评论，✕ 删除。 */
 export function ReplyCommentRail({
   comments,
   onChange,
@@ -339,7 +323,7 @@ export function ReplyCommentRail({
   onChange: (comments: ChatComment[]) => void;
 }) {
   return (
-    // 评论数量不设上限：超过三行在轨道内滚动；-m-px/p-px 给 chip 的描边留出位置，不被裁掉。
+    // 评论数量不设上限：超过三行在轨道内滚动。
     <div className="-m-px flex max-h-24 flex-wrap gap-1.5 overflow-y-auto p-px">
       {comments.map((item, index) => (
         <CommentChip
@@ -408,7 +392,6 @@ function CommentChip({
       <PopoverContent
         align="start"
         className="grid w-80 gap-1.5"
-        // 焦点交给评论输入框自己（光标放到末尾）。
         onOpenAutoFocus={(event) => event.preventDefault()}
         side="top"
         sideOffset={6}

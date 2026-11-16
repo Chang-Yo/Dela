@@ -27,7 +27,6 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
   const [picked, setPicked] = useState<string | null>(null);
   const changes = useQuery({
     queryKey: ['chat', 'uncommitted', sessionId],
-    // 每次挂载与手动刷新都重读；列表重读即作废所有已查看的详情。
     queryFn: () => {
       queryClient.removeQueries({ queryKey: ['chat', 'uncommitted-file', sessionId] });
       return chatClient.readUncommittedChanges(sessionId);

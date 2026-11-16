@@ -116,7 +116,6 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
   const target = stepTarget(result);
   const stat = editStat(result);
   const label = running ? <Shimmer>{verb.doing}</Shimmer> : <span>{verb.done}</span>;
-  // 子 Agent 运行中：行尾跟着它当前的步骤。
   const progress =
     running && result.name === 'task'
       ? (result.output?.details as SubagentDetails | undefined)?.tool
@@ -155,8 +154,7 @@ function StepHead({ result, live }: { result: AgentToolResult; live: boolean }) 
 }
 
 function ToolStep({ result, live }: { result: AgentToolResult; live: boolean }) {
-  // 失败也走工具视图：bash 保持「$ 命令 + 输出」的代码块形态，
-  // 失败只由行尾标记与卡片色条提示，不再把正文整段染红。
+  // 失败也走工具视图，只由行尾标记与卡片色条提示，不把正文染红。
   return (
     <Disclosure head={<StepHead result={result} live={live} />}>
       <ToolBody failed={Boolean(result.output?.isError)} result={result} />
@@ -164,7 +162,6 @@ function ToolStep({ result, live }: { result: AgentToolResult; live: boolean }) 
   );
 }
 
-/** 完成后连续工具的一行摘要：按工具类别计数，保留首次出现的顺序。 */
 function summarize(results: AgentToolResult[]): string {
   const counts = new Map<string, number>();
   for (const result of results) counts.set(result.name, (counts.get(result.name) ?? 0) + 1);
@@ -184,7 +181,6 @@ export function formatDuration(ms: number): string {
 
 function ToolGroup({ results, live }: { results: AgentToolResult[]; live: boolean }) {
   const failed = results.filter((result) => result.output?.isError).length;
-  // 运行中或单步时逐行展示；完成后多步收成摘要行，失败只在摘要标注。
   if (live || results.length === 1)
     return (
       <div className="my-1">
@@ -230,10 +226,7 @@ function Reasoning({ part, live }: { part: Extract<Part, { type: 'reasoning' }>;
   );
 }
 
-/**
- * 回复正文与轨迹：parts 按事件顺序渲染。相邻的工具组合并（Pi 每轮一组工具调用，
- * 中间无正文时视为一段连续操作）。正文节点 key 取首次出现的索引，流式增长不重建。
- */
+/** 回复正文与轨迹：相邻工具组合并（Pi 每轮一组工具调用）；正文节点 key 取首次出现的索引，流式增长不重建。 */
 export function ReplyTrace({
   parts,
   live,
@@ -259,7 +252,6 @@ export function ReplyTrace({
       };
     } else blocks.push({ key: index, part });
   });
-  // 只有最后一个过程块可能还在进行；更早的块已经结束。
   const lastIndex = blocks.length - 1;
   const renderBlock = ({ key, part }: (typeof blocks)[number], index: number) => {
     const blockLive = live && index === lastIndex;

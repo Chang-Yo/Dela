@@ -1,11 +1,9 @@
-// 引用内联 token：文本即引用的唯一事实源。composer 里「@ + 已知相对路径（title）」或「# + 会话标题」的
-// 连续文本是一个引用 token，编辑器按此高亮、发送时解析回绝对路径或 sessionId（key）；手打错误或
-// 已删除的只是普通文本，不高亮也不进上下文。
+// 引用内联 token：文本即引用的唯一事实源。「@ + 已知相对路径」或「# + 会话标题」的连续文本是一个 token，
+// 发送时解析回绝对路径或 sessionId；手打错误或已删除的只是普通文本，不高亮也不进上下文。
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import type { WorkspaceEntry } from '../../workspace/contract';
 import type { ChatReference } from './drafts';
 
-/** 文本中的一个引用 token：[start, end) 覆盖「@路径」全段（含 @，不含尾部标点）。 */
 export interface ReferenceToken {
   start: number;
   end: number;
@@ -173,9 +171,8 @@ export function withCourseReferences(
   return merged;
 }
 
-/** useEntries 的分支逻辑（WorkbenchShell 调用）：远端会话用远端索引候选（其文件不在本地
- *  镜像里，referenceCandidates 恒为空）；本机项目会话只用自己的目录候选；通用池
- *  （projectId 为 null）另并入资料根目录与已下载课件。 */
+/** 远端会话用远端索引候选（文件不在本地镜像里）；本机项目只用自己的目录候选；
+ *  通用池另并入资料根目录与已下载课件。 */
 export function referenceEntryCandidates(
   entries: WorkspaceEntry[],
   cwd: string | null,

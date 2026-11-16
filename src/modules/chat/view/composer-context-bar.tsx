@@ -21,7 +21,6 @@ const empty = 'px-2 py-2 text-xs text-ink-3';
 const matches = (value: string, query: string) =>
   value.toLowerCase().includes(query.trim().toLowerCase());
 
-/** 新对话上方的项目浮岛：项目与分支各一个可点的胶囊，互不牵连。 */
 export function ComposerContextBar({ context }: { context: ComposerContext }) {
   const { navigate } = useChatTabSource();
   const entries = useWorkspaceStore((state) => state.workspace.entries);
@@ -41,7 +40,6 @@ export function ComposerContextBar({ context }: { context: ComposerContext }) {
       queryFn: () => workspaceClient.projectBranch(projectId!),
       enabled: hasLocalRepo,
     }).data ?? null;
-  // 分支列表展开时才拉：仓库可能有很多分支，不必每次进新对话都读一遍。
   const branchList = useQuery({
     queryKey: ['workspace', 'projectBranches', projectId],
     queryFn: () => workspaceClient.projectBranches(projectId!),

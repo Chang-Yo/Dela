@@ -16,7 +16,6 @@ export function reviewTabId(target: ReviewTabTarget): TabId {
     : `review:${target.sessionId}:uncommitted`;
 }
 
-/** 解析审阅标签键；载荷缺段或 UUID 位数不符时返回 null。 */
 export function parseReviewTabId(tabId: string): ReviewTabTarget | null {
   if (!tabId.startsWith('review:')) return null;
   const payload = tabId.slice('review:'.length);

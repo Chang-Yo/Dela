@@ -44,7 +44,6 @@ export function ArchivedSection({ navigate }: { navigate: Navigate }) {
   const projectName = (id: string | null) =>
     (id ? entries.find((entry) => entry.id === id)?.name : null) ?? '随聊';
 
-  // 按项目归类；项目顺序沿用列表顺序（归档时间倒序）。
   const keyword = query.trim().toLowerCase();
   const filtered = (sessions ?? []).filter(
     (session) =>
