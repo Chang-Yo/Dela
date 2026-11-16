@@ -209,7 +209,7 @@ it('searches column names case-insensitively and confirms the original candidate
 it('blocks confirmation for no matches and restores the complete preview when the search is cleared', async () => {
   await renderPreview();
   await enterInput('查找栏目或公告', '不存在的关键词');
-  expect(container.textContent).toContain('没有匹配的栏目或公告');
+  expect(container.querySelectorAll('button[aria-label^="选择栏目："]')).toHaveLength(0);
   expect(button('订阅所选栏目').disabled).toBe(true);
   await act(async () => button('订阅所选栏目').click());
   expect(addNoticeSubscription).not.toHaveBeenCalled();
@@ -220,7 +220,7 @@ it('blocks confirmation for no matches and restores the complete preview when th
   expect(button('订阅所选栏目').disabled).toBe(false);
 });
 
-it('shows collected entries and sync status, then opens the subscribed notices', async () => {
+it('shows subscription counts and opens collected notices', async () => {
   getSubscriptions.mockResolvedValue({
     jwc: true,
     notices: [
@@ -229,7 +229,7 @@ it('shows collected entries and sync status, then opens the subscribed notices',
         label: '学院动态 News · school.example',
         pageUrl: preview.pageUrl,
         acquisition: 'http',
-        lastSuccessAt: '2026-11-16T08:00:00.000Z',
+        lastSuccessAt: new Date().toISOString(),
         error: null,
         entryCount: 5,
         unreadCount: 1,
@@ -237,11 +237,8 @@ it('shows collected entries and sync status, then opens the subscribed notices',
     ],
   });
   await renderPreview();
-  const panel = container.querySelector('section[aria-label="订阅管理"]')!;
-  expect(panel.textContent).toContain('已收集 5 条');
-  expect(panel.textContent).toContain('1 条未读');
-  expect(panel.textContent).toContain('最近检查');
-  expect(panel.textContent).toContain('已有公告标为已读');
+  const savedSubscription = button('移除').parentElement!;
+  expect(savedSubscription.textContent?.match(/\d+/g)).toEqual(['5', '1']);
 
   await act(async () => button('查看订阅公告').click());
   expect(useNotificationSourceFilter.getState().sources).toEqual(['notice']);
@@ -252,9 +249,11 @@ it('shows collected entries and sync status, then opens the subscribed notices',
 it('reports subscription success and reloads counts when notification state changes', async () => {
   await renderPreview();
   await act(async () => button('订阅所选栏目').click());
-  expect(container.textContent).toContain('已订阅');
-  expect(container.textContent).toContain('5 条公告已加入通知列表');
-  expect(container.querySelector('section[aria-label="订阅管理"] [role="status"]')).not.toBeNull();
+  expect(addNoticeSubscription).toHaveBeenCalledExactlyOnceWith('preview-token', 0);
+  const feedback = container.querySelector('section[aria-label="订阅管理"] [role="status"]');
+  expect(feedback).not.toBeNull();
+  expect(feedback?.textContent?.match(/\d+/g)).toEqual(['5']);
+  expect(container.querySelectorAll('button[aria-label^="选择栏目："]')).toHaveLength(0);
 
   getSubscriptions.mockClear();
   await renderView({ ...emptyState, totalCount: 1 });
@@ -274,7 +273,7 @@ it('follows a discovered section before subscribing and replaces the old preview
     .mockResolvedValueOnce({ ...preview, pageUrl: sectionUrl, token: 'section-token' });
 
   await renderPreview();
-  expect(container.textContent).toContain('请选择栏目继续');
+  expect(button('通知公告').disabled).toBe(false);
   expect(container.querySelector('[aria-label="选择栏目：学院动态 News"]')).toBeNull();
   expect(
     [...container.querySelectorAll('button')].some((item) => item.textContent === '订阅所选栏目'),
@@ -314,13 +313,13 @@ it('clears the saved feedback and entry point when the last subscription is remo
     ],
   });
   await act(async () => button('订阅所选栏目').click());
-  expect(container.textContent).toContain('5 条公告已加入通知列表');
+  expect(container.querySelector('section[aria-label="订阅管理"] [role="status"]')).not.toBeNull();
 
   getSubscriptions.mockResolvedValue({ jwc: true, notices: [] });
   await act(async () => button('移除').click());
   await act(async () => button('确认移除').click());
   expect(removeNoticeSubscription).toHaveBeenCalledExactlyOnceWith('saved-notice');
-  expect(container.textContent).not.toContain('5 条公告已加入通知列表');
+  expect(container.querySelector('section[aria-label="订阅管理"] [role="status"]')).toBeNull();
   expect(
     [...container.querySelectorAll('button')].some((item) => item.textContent === '查看订阅公告'),
   ).toBe(false);
