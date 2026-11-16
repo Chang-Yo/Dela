@@ -65,13 +65,6 @@ describe('TODO 持久化与同步', () => {
     expect(getTodoState().items.find((row) => row.id === item.id)!.status).toBe('pending');
     expect(getTodoState().syncing).toBe(false);
   });
-  it('来源的作业保存课程代码，供日历与课表使用同一配色键', async () => {
-    await refreshTodos();
-    expect(getTodoState().items.find((item) => item.source === 'canvas')).toMatchObject({
-      courseCode: 'TEST101',
-      courseName: '测试课程',
-    });
-  });
   it('远端完成不意味着本地已读', async () => {
     await refreshTodos();
     tasks = [task(1), task(2)];

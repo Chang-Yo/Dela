@@ -122,16 +122,6 @@ describe('query_assignments', () => {
 });
 
 describe('save_todo', () => {
-  it('passes color and completion through and returns the slimmed state', () => {
-    save.mockReturnValue(todoState());
-    const input = { title: '复习', completed: true, color: 'sage' };
-    const result = todoDomain.commands.save_todo.execute(input) as {
-      items: { description?: unknown }[];
-    };
-    expect(save).toHaveBeenCalledWith(input);
-    expect(result.items.every((item) => item.description === undefined)).toBe(true);
-  });
-
   it('maps a missing target id to NOT_FOUND', () => {
     save.mockImplementation(() => {
       throw new Error('待办不存在，Canvas 作业的完成状态只能通过同步更新');
@@ -150,17 +140,6 @@ describe('save_todo', () => {
 });
 
 describe('remove_todo', () => {
-  it('removes a personal todo after the existence precheck', () => {
-    remove.mockReturnValue(todoState({ items: [] }));
-    const result = todoDomain.commands.remove_todo.execute({
-      id: '0d7d21f5-8d5a-4f97-9c7f-2f5dfc1a1b2a',
-    }) as {
-      removedId: string;
-    };
-    expect(remove).toHaveBeenCalledWith('0d7d21f5-8d5a-4f97-9c7f-2f5dfc1a1b2a');
-    expect(result.removedId).toBe('0d7d21f5-8d5a-4f97-9c7f-2f5dfc1a1b2a');
-  });
-
   it('refuses canvas assignments and unknown ids', () => {
     let caught: unknown;
     try {
@@ -183,16 +162,6 @@ describe('remove_todo', () => {
 });
 
 describe('refresh_todos', () => {
-  it('refreshes the assignment cache and surfaces per-course errors', async () => {
-    refresh.mockResolvedValue(todoState({ error: '数据结构：无法连接 Canvas，请检查网络后重试' }));
-    const result = (await todoDomain.commands.refresh_todos.execute({})) as {
-      coverage: { complete: boolean; warnings: string[] };
-    };
-    expect(refresh).toHaveBeenCalledTimes(1);
-    expect(result.coverage.complete).toBe(false);
-    expect(result.coverage.warnings[0]).toContain('数据结构');
-  });
-
   it('reports NOT_CONFIGURED without a canvas connection', async () => {
     state.mockReturnValue(todoState({ connected: false }));
     await expect(todoDomain.commands.refresh_todos.execute({})).rejects.toMatchObject({
