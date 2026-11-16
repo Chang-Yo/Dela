@@ -56,7 +56,7 @@ export type { EntryAction };
 
 /** 连接过渡的延迟：热通道列一层只要几十毫秒，立刻画转圈等于每次打开都闪一下；
  *  冷启动（实测 3 秒级）才会越过它，那时空白必须被解释清楚。 */
-export const CONNECT_HINT_DELAY_MS = 200;
+const CONNECT_HINT_DELAY_MS = 200;
 const emptyExcludedIds: string[] = [];
 
 /** 首次连接远端时的过渡：只转圈，细节（连的是哪台）留给项目行的悬浮提示。 */

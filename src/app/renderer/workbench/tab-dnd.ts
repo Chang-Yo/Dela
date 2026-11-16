@@ -37,7 +37,7 @@ export function hasTabDrag(dataTransfer: { types: readonly string[] }): boolean 
 }
 
 /** 边缘拖放分屏的目标区：left/right → 左右（vertical），top/bottom → 上下（horizontal）。 */
-export const edgeZones = ['left', 'right', 'top', 'bottom'] as const;
+const edgeZones = ['left', 'right', 'top', 'bottom'] as const;
 export type EdgeZone = (typeof edgeZones)[number];
 
 // VS Code editorDropTarget：标签进入外沿 10% 才分屏，左右方向在角落占宽度的三分之一。

@@ -67,7 +67,7 @@ export type { NavSessionSummary, SessionRunBadge };
 export type BusinessNavId = Exclude<NavEntryId, 'sources'>;
 
 /** 每项目默认展示的近期会话条数（§4.1「前 3 条 + 显示更多」）。 */
-export const RECENT_SESSIONS = 3;
+const RECENT_SESSIONS = 3;
 
 /** 侧栏文字随折叠状态淡入/淡出（与 AppShell 壳的宽度过渡同步）。 */
 const labelFade = 'transition-opacity duration-slow ease-out';
