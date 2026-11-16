@@ -11,7 +11,7 @@ export function checkWorkspaceSender(event: IpcMainInvokeEvent) {
 }
 
 /** 主窗口（工作台）的页面地址；其他窗口不接收工作台推送。 */
-export function isWorkspaceWindow(value: string): boolean {
+function isWorkspaceWindow(value: string): boolean {
   try {
     const url = new URL(value);
     return (
