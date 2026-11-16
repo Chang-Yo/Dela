@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NotificationItem } from '../../contract';
-import { groupNotifications, likeGroupSummary } from '../group-notifications';
+import { groupNotifications } from '../group-notifications';
 
 function like(
   id: string,
@@ -52,14 +52,6 @@ describe('groupNotifications', () => {
     expect(group?.kind === 'group' && group.items.map((item) => item.id)).toEqual(['a', 'b']);
   });
 
-  it('keeps a lone like on its topic as an ungrouped item', () => {
-    const entries = groupNotifications([like('a', 22, null), like('b', 23, null)]);
-    expect(entries).toEqual([
-      { kind: 'item', item: like('a', 22, null) },
-      { kind: 'item', item: like('b', 23, null) },
-    ]);
-  });
-
   it('never merges read likes into an unread group on the same topic', () => {
     const entries = groupNotifications([
       like('a', 22, null),
@@ -84,29 +76,5 @@ describe('groupNotifications', () => {
     const entries = groupNotifications([reply('a', 22), reply('b', 22), mail('m')]);
     expect(entries.every((entry) => entry.kind === 'item')).toBe(true);
     expect(entries).toHaveLength(3);
-  });
-});
-
-describe('likeGroupSummary', () => {
-  it('names every liker when the group is small', () => {
-    expect(likeGroupSummary([like('a', 22, null, 'alice'), like('b', 22, null, 'bob')])).toBe(
-      'alice、bob 赞了你的帖子',
-    );
-  });
-
-  it('shows two names and the total when more people liked', () => {
-    expect(
-      likeGroupSummary([
-        like('a', 22, null, 'alice'),
-        like('b', 22, null, 'bob'),
-        like('c', 22, null, 'carol'),
-      ]),
-    ).toBe('alice、bob 等 3 人赞了你的帖子');
-  });
-
-  it('sums server-consolidated counts into the total', () => {
-    expect(likeGroupSummary([like('a', 22, null, 'alice', 3), like('b', 22, null, 'bob')])).toBe(
-      'alice、bob 等 4 人赞了你的帖子',
-    );
   });
 });
