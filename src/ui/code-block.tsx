@@ -2,71 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 
-const FILE = 'churn.ts';
-
-const CODE_LINES = [
-  'export async function churnBatch() {',
-  '  const flavor = await getFlavor("pistachio");',
-  '  const base = await dairy.fetch({ flavor });',
-  '  await freezer.store(base, { temp: "-16C" });',
-  '  if (!base.approved) return null;',
-  '  return base.gallons;',
-  '}',
-];
-
-export type CodePiece = { text: string; change?: 'add' | 'del' };
-export type DiffRow = {
-  old: number | null;
-  cur: number | null;
-  type: 'ctx' | 'add' | 'del';
-  pieces: CodePiece[];
-};
 export type CodeBlockLabels = { copy: string; copied: string };
-
-type Piece = CodePiece;
-type Row = DiffRow;
-
-const DIFF: Row[] = [
-  { old: 1, cur: 1, type: 'ctx', pieces: [{ text: 'export async function churnBatch() {' }] },
-  {
-    old: 2,
-    cur: 2,
-    type: 'ctx',
-    pieces: [{ text: '  const flavor = await getFlavor("pistachio");' }],
-  },
-  {
-    old: 3,
-    cur: 3,
-    type: 'ctx',
-    pieces: [{ text: '  const base = await dairy.fetch({ flavor });' }],
-  },
-  {
-    old: 4,
-    cur: null,
-    type: 'del',
-    pieces: [
-      { text: '  await freezer.store(base, { temp: ' },
-      { text: '"-14C"', change: 'del' },
-      { text: ' });' },
-    ],
-  },
-  {
-    old: null,
-    cur: 4,
-    type: 'add',
-    pieces: [
-      { text: '  await freezer.store(base, { temp: ' },
-      { text: '"-16C"', change: 'add' },
-      { text: ' });' },
-    ],
-  },
-  { old: null, cur: 5, type: 'add', pieces: [{ text: '  if (!base.approved) return null;' }] },
-  { old: 5, cur: 6, type: 'ctx', pieces: [{ text: '  return base.gallons;' }] },
-  { old: 6, cur: 7, type: 'ctx', pieces: [{ text: '}' }] },
-];
-
-const HATCH =
-  'repeating-linear-gradient(45deg, var(--danger) 0, var(--danger) 1.5px, transparent 1.5px, transparent 3px)';
 
 const KEYWORDS = new Set([
   'import',
@@ -123,34 +59,6 @@ function highlight(text: string): ReactNode[] {
   return nodes;
 }
 
-function Pieces({ pieces }: { pieces: Piece[] }) {
-  return (
-    <>
-      {pieces.map((p, i) => {
-        if (p.change) {
-          const add = p.change === 'add';
-          return (
-            <span
-              key={i}
-              className="rounded-[0.1875rem]"
-              style={{
-                background: `color-mix(in srgb, var(--${add ? 'green' : 'red'}) 18%, transparent)`,
-                padding: '0 0.125rem',
-                margin: '0 -0.0625rem',
-                boxDecorationBreak: 'clone',
-                WebkitBoxDecorationBreak: 'clone',
-              }}
-            >
-              {highlight(p.text)}
-            </span>
-          );
-        }
-        return <span key={i}>{highlight(p.text)}</span>;
-      })}
-    </>
-  );
-}
-
 function FileIcon() {
   return (
     <svg
@@ -173,11 +81,9 @@ function FileIcon() {
 const DEFAULT_LABELS: CodeBlockLabels = { copy: 'Copy', copied: 'Copied' };
 
 export type CodeBlockProps = {
-  variant?: string;
-  lines?: string[];
+  lines: string[];
   code?: string;
-  diff?: DiffRow[];
-  filename?: string;
+  filename: string;
   labels?: Partial<CodeBlockLabels>;
   onCopy?: (text: string) => void;
   plain?: boolean;
@@ -187,11 +93,9 @@ export type CodeBlockProps = {
 };
 
 export default function CodeBlock({
-  variant = 'Code',
-  lines = CODE_LINES,
+  lines,
   code,
-  diff = DIFF,
-  filename = FILE,
+  filename,
   labels,
   onCopy,
   plain = false,
@@ -200,7 +104,6 @@ export default function CodeBlock({
   tone,
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
-  const isDiff = variant === 'Diff';
   const text = { ...DEFAULT_LABELS, ...labels };
   const raw = code ?? lines.join('\n');
 
@@ -211,9 +114,6 @@ export default function CodeBlock({
       setTimeout(() => setCopied(false), 1500);
     });
   };
-
-  const added = diff.filter((r) => r.type === 'add').length;
-  const removed = diff.filter((r) => r.type === 'del').length;
 
   return (
     <div
@@ -232,104 +132,60 @@ export default function CodeBlock({
           <span className="truncate font-mono leading-normal text-ink">{filename}</span>
         </span>
 
-        {isDiff ? (
-          <span className="ml-auto inline-flex items-center gap-2 font-mono text-xs leading-none tabular-nums">
-            <span className="text-success">+{added}</span>
-            <span className="text-danger">-{removed}</span>
-          </span>
-        ) : (
-          <button
-            type="button"
-            aria-label="Copy code"
-            onClick={copy}
-            className={`-mr-1 ml-auto flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-1.5 text-xs
+        <button
+          type="button"
+          aria-label="Copy code"
+          onClick={copy}
+          className={`-mr-1 ml-auto flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-1.5 text-xs
               font-medium transition-colors duration-fast hover:bg-hover
               ${copied ? 'text-success' : 'text-ink-3 hover:text-ink'}`}
-          >
-            {copied ? (
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-            ) : (
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="9" y="9" width="12" height="12" rx="2.5" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
-            )}
-            {copied ? text.copied : text.copy}
-          </button>
-        )}
+        >
+          {copied ? (
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+          ) : (
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="9" y="9" width="12" height="12" rx="2.5" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          )}
+          {copied ? text.copied : text.copy}
+        </button>
       </div>
 
       <div
         className={`py-3 font-mono text-sm leading-[1.65] text-ink-2${bodyClassName ? ` ${bodyClassName}` : ''}`}
       >
-        {isDiff ? (
-          <div className="relative">
-            <span className="pointer-events-none absolute inset-y-0 left-5 w-px bg-line" />
-            {diff.map((r, i) => {
-              const add = r.type === 'add';
-              const del = r.type === 'del';
-              const num = del ? r.old : r.cur;
-              return (
-                <div
-                  key={i}
-                  className={`relative grid grid-cols-[1.25rem_minmax(0,1fr)] items-start
-                    ${add ? 'bg-success-tint' : del ? 'bg-danger-tint' : ''}`}
-                >
-                  {(add || del) && (
-                    <span
-                      className="absolute inset-y-0 left-0 w-[0.1875rem]"
-                      style={{ background: add ? 'var(--success)' : HATCH }}
-                    />
-                  )}
-                  <span
-                    className={`select-none text-center text-xs ${add ? 'text-success' : del ? 'text-danger' : 'text-ink-3'}`}
-                  >
-                    {num ?? ''}
-                  </span>
-                  <code className="pr-3 pl-1 break-words whitespace-pre-wrap">
-                    {plain ? (
-                      r.pieces.map((piece, i) => <span key={i}>{piece.text}</span>)
-                    ) : (
-                      <Pieces pieces={r.pieces} />
-                    )}
-                  </code>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="relative">
-            <span className="pointer-events-none absolute inset-y-0 left-5 w-px bg-line" />
-            {lines.map((line, i) => (
-              <div key={i} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start">
-                <span className="select-none text-center text-xs text-ink-3">{i + 1}</span>
-                <code className="pr-3 pl-1 break-words whitespace-pre-wrap">
-                  {plain ? line : highlight(line)}
-                </code>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-y-0 left-5 w-px bg-line" />
+          {lines.map((line, i) => (
+            <div key={i} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start">
+              <span className="select-none text-center text-xs text-ink-3">{i + 1}</span>
+              <code className="pr-3 pl-1 break-words whitespace-pre-wrap">
+                {plain ? line : highlight(line)}
+              </code>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
