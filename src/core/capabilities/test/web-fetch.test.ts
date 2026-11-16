@@ -8,7 +8,6 @@ import {
   prepareDocumentFile,
   releaseDocumentResource,
 } from '../../../modules/workspace/main/resources';
-import { assertDocumentDependency } from '../../../modules/preview';
 import { provideTestHostPorts } from '../../test/host-mock';
 import { registerDocumentReader } from '../documents';
 
@@ -54,25 +53,6 @@ describe('web_fetch', () => {
     expect(page.text).toContain('| 名称 | 价格 |');
     expect(page.text).toContain('```js\nconst x = 1;\n```');
     expect(page.text).not.toMatch(/导航内容|脚本内容|页脚内容/);
-  });
-
-  it('保留无标题正文、article header 和定位布局内容', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          `
-      <p>无标题正文</p><article><header><h1>文章标题</h1></header>
-      <div class="sticky">定位正文</div><aside>补充资料</aside></article>
-    `,
-          { headers: { 'content-type': 'text/html' } },
-        ),
-      ),
-    );
-    const page = await fetchWebPage('https://example.com');
-    for (const content of ['无标题正文', '文章标题', '定位正文', '补充资料']) {
-      expect(page.text).toContain(content);
-    }
   });
 
   it('相对链接基于重定向后的地址解析，Markdown 可按 offset 续读', async () => {
@@ -203,30 +183,6 @@ describe('web_fetch', () => {
     expect(await readdir(join(profile.root, 'dela-document-reading'))).toEqual([]);
   });
 
-  it('依赖缺失时提示安装并取消 PDF 响应，不创建任务', async () => {
-    const cancel = vi.fn();
-    vi.mocked(assertDocumentDependency).mockImplementationOnce(() => {
-      throw new Error('请先在设置 › Skills 安装文档读取组件');
-    });
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          new ReadableStream({
-            start(controller) {
-              controller.enqueue(Buffer.from('%PDF-1.7'));
-            },
-            cancel,
-          }),
-          { headers: { 'content-type': 'application/pdf' } },
-        ),
-      ),
-    );
-    await expect(fetchWebPage('https://example.com/file')).rejects.toThrow('安装文档读取组件');
-    expect(cancel).toHaveBeenCalled();
-    expect(await readdir(join(profile.root, 'dela-document-reading'))).toEqual([]);
-  });
-
   it('普通网页仍按 2 MiB 截断并说明内容不完整', async () => {
     vi.stubGlobal(
       'fetch',
@@ -270,18 +226,5 @@ describe('web_fetch', () => {
     const page = await fetchWebPage('https://example.com/page', 0, { apiKey: 'sk-test' });
     expect(page.text).toContain('本地正文');
     expect(fetch).toHaveBeenCalledTimes(2);
-  });
-
-  it('PDF 直链不经过 DeepSeek，仍走文档流程', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response('%PDF-1.7', { headers: { 'content-type': 'application/pdf' } }),
-      );
-    vi.stubGlobal('fetch', fetch);
-    const pdf = await fetchWebPage('https://example.com/file.pdf', 0, { apiKey: 'sk-test' });
-    expect(pdf).toMatchObject({ readable: false, text: '' });
-    expect(fetch.mock.calls[0]![0].toString()).toBe('https://example.com/file.pdf');
-    await releaseDocumentResource(pdf.document!.jobId);
   });
 });

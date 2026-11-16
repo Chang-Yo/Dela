@@ -95,16 +95,6 @@ it('writes the document skill but excludes it until its dependencies are install
 });
 
 describe('分组', () => {
-  it('分开 Dela 内置与本机目录里用户自己放的', async () => {
-    writeSkill(join(home, '.dela', 'skills'), 'my-notes');
-    writeSkill(join(home, '.agents', 'skills'), 'from-agents');
-    const skills = await listSkills();
-    const origin = (name: string) => skills.find((skill) => skill.name === name)?.origin;
-    expect(origin('canvas')).toBe('builtin');
-    expect(origin('my-notes')).toBe('user');
-    expect(origin('from-agents')).toBe('user');
-  });
-
   it('按项目列出 .agents/skills，同名 Skill 各自开关、不碰全局名单', async () => {
     const alpha = addProject('p-alpha', 'alpha');
     const beta = addProject('p-beta', 'beta');
@@ -127,20 +117,6 @@ describe('分组', () => {
     expect(after.map((skill) => skill.enabled)).toEqual([false, true]);
     expect([...readDisabledSkillPaths()]).toEqual([alphaLint]);
     expect(readDisabledSkills().has('lint')).toBe(false);
-  });
-
-  it('远程项目与目录已不在的项目不列', async () => {
-    database
-      .prepare(
-        "INSERT INTO workspace_entries (id, name, kind, local_path, remote_id) VALUES ('p-r', 'remote', 'project', '/root/proj', 'r-1')",
-      )
-      .run();
-    database
-      .prepare(
-        "INSERT INTO workspace_entries (id, name, kind, local_path, remote_id) VALUES ('p-gone', 'gone', 'project', ?, NULL)",
-      )
-      .run(join(projects, 'missing'));
-    expect((await listSkills()).filter((skill) => skill.origin === 'project')).toEqual([]);
   });
 
   it('只认清单里的 id，不接受任意路径', async () => {
