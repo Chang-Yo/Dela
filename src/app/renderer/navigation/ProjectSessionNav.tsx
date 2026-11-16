@@ -1,7 +1,8 @@
 // 项目会话导航：顶部功能入口，中部按项目分组的会话历史（前 3 条 + 「显示更多」）。
 // 会话数据与运行徽标由接入方注入（本组件不 import sessions/）；通用池会话不入项目树。
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../../../ui/button';
+import { useDismissOnOutsidePointer } from '../../../ui/use-dismiss-on-outside-pointer';
 import { CollapseChevron } from '../../../ui/collapse';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
@@ -135,15 +136,9 @@ export function ProjectSessionNav({
   const [sectionName, setSectionName] = useState('');
   const [archiving, setArchiving] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null);
-  useEffect(() => {
-    if (confirmArchive === null) return;
-    const cancel = (event: PointerEvent) => {
-      if (!(event.target instanceof Element && event.target.closest('[data-archive-confirm]')))
-        setConfirmArchive(null);
-    };
-    document.addEventListener('pointerdown', cancel);
-    return () => document.removeEventListener('pointerdown', cancel);
-  }, [confirmArchive]);
+  useDismissOnOutsidePointer(confirmArchive !== null, '[data-archive-confirm]', () =>
+    setConfirmArchive(null),
+  );
   const sectionNames = [
     ...new Set(
       Object.values(preferences)

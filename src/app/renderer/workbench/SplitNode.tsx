@@ -1,6 +1,6 @@
 // 分割节点：递归渲染纵横分屏，组间比例经 Resizer 拖拽调整；store 只产生二元 split
 // （三屏经嵌套），渲染兼容 ≥2 子节点。
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { LayoutNode } from '../../../modules/workspace/contract';
 import { Resizer } from '../../../ui/resizer';
 import { cn } from '../../../ui/cn';
@@ -21,14 +21,11 @@ interface SplitNodeProps {
 
 export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
   const setRatio = useWorkbenchLayout((s) => s.setRatio);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [dimension, setDimension] = useState(0);
   const vertical = node.type === 'split' && node.orientation === 'vertical';
 
   // 挂载即测量一次，避免首帧按 0 宽布局；后续交给 ResizeObserver。
-  useLayoutEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
+  const observeSize = (element: HTMLDivElement) => {
     const update = () => {
       const rect = element.getBoundingClientRect();
       setDimension(vertical ? rect.width : rect.height);
@@ -37,7 +34,7 @@ export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
     const observer = new ResizeObserver(update);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [vertical]);
+  };
 
   if (node.type === 'group') return <TabGroup group={node} onNewChat={onNewChat} />;
   const minimum = Math.min(
@@ -50,7 +47,7 @@ export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
 
   return (
     <div
-      ref={containerRef}
+      ref={observeSize}
       className={cn(
         'flex min-h-0 min-w-0 flex-1 overflow-hidden',
         vertical ? 'flex-row' : 'flex-col',

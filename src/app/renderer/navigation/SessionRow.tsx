@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../../../ui/button';
+import { useDismissOnOutsidePointer } from '../../../ui/use-dismiss-on-outside-pointer';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../../ui/hover-card';
 import { Archive, Cloud, Folder, Pin, PinOff } from 'lucide-react';
 import type { RunStatus } from '../../../core/protocol/agent';
@@ -50,22 +51,9 @@ export function SessionRow({
   const visual = badge === null ? null : badgeVisual[badge];
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  useEffect(() => {
-    if (!confirming) return;
-    const cancel = (event: PointerEvent) => {
-      if (!(event.target instanceof Element && event.target.closest('[data-archive-confirm]')))
-        setConfirming(false);
-    };
-    const cancelOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setConfirming(false);
-    };
-    document.addEventListener('pointerdown', cancel);
-    document.addEventListener('keydown', cancelOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', cancel);
-      document.removeEventListener('keydown', cancelOnEscape);
-    };
-  }, [confirming]);
+  useDismissOnOutsidePointer(confirming, '[data-archive-confirm]', () => setConfirming(false), {
+    escape: true,
+  });
   const change = async (archive: boolean) => {
     if (busy) return;
     if (archive && !confirming) {

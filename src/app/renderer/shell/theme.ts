@@ -63,15 +63,12 @@ export function useAppearance() {
   }, [theme]);
 
   // 根元素字号即用户设置：rem 派生的文字、间距与图标一起缩放。
+  // 浏览器预览没有主进程缩放，用 CSS zoom 降级；桌面端由主进程 setZoomFactor 生效。
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
     localStorage.setItem(fontSizeStorageKey, String(fontSize));
-  }, [fontSize]);
-
-  // 浏览器预览没有主进程缩放，用 CSS zoom 降级；桌面端由主进程 setZoomFactor 生效。
-  useEffect(() => {
     if (!window.dela) document.documentElement.style.zoom = String(zoom);
-  }, [zoom]);
+  }, [fontSize, zoom]);
 
   // 浏览器预览没有主进程，直接写缓存；桌面端以主进程回写的规范值为准。
   const changeTheme = async (next: ThemePreference) => {
