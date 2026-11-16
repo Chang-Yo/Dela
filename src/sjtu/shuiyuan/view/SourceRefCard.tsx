@@ -14,7 +14,6 @@ import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { formatListDate } from './shuiyuan-format';
 import { shuiyuanClient, topicIdOf, useSourceRef } from './use-shuiyuan';
 
-/** 文件树行尾的快照保存进度。 */
 export function SnapshotBadge({ sourceId }: { sourceId: string }) {
   const snapshot = useSourceRef(topicIdOf(sourceId)).data?.snapshot;
   if (snapshot?.status === 'failed') return '!';
@@ -91,9 +90,8 @@ function SnapshotStatus({
 }
 
 /**
- * 项目工作区中的水源来源视图：主题引用卡 + 快照状态 + 楼层正文（读本地快照或保存中的草稿，
- * 都还没有时为引用行摘要）。正文从摘要首次变为可读时自动重读；之后本地有更新只给出
- * 「刷新正文」，不在阅读中替换正文。
+ * 项目工作区中的水源来源视图：引用卡 + 快照状态 + 楼层正文。
+ * 正文首次变为可读时自动重读，之后有更新只给「刷新正文」，不在阅读中替换。
  */
 export function ShuiyuanSourceDoc({ sourceId, content, navigate, onReload }: SourceDocumentProps) {
   const scrollRef = useRef<HTMLDivElement>(null);

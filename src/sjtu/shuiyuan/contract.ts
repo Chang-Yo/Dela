@@ -42,7 +42,6 @@ export interface ShuiyuanState {
   readonly boundAt: string | null;
 }
 
-/** 水源主题（帖子）在列表形态下的瘦身视图；字段从 Discourse 载荷挑选，不透传。 */
 export interface ShuiyuanTopicSummary {
   readonly id: number;
   readonly title: string;
@@ -167,7 +166,6 @@ export interface ShuiyuanCounts {
   readonly messages: number;
 }
 
-/** 关联进项目时持久化的来源引用行（shuiyuan_topics 表的视图）。 */
 export interface ShuiyuanSourceRef {
   readonly topicId: number;
   readonly title: string;
@@ -211,13 +209,10 @@ export const shuiyuanContract = defineContract(
   'shuiyuan',
   {
     state: { input: z.undefined(), output: z.custom<ShuiyuanState>() },
-    /** 打开水源授权窗口：用户在其中登录并授权，随后把站点展示的密文复制回来。 */
     startAuth: { input: z.undefined(), output: z.void() },
     /** 解密并校验用户粘贴的密文，成功后保存 User API Key 并返回绑定状态。 */
     bind: { input: z.string().max(8192), output: z.custom<ShuiyuanState>() },
-    /** 撤销远端 key 并清除本地凭据。 */
     unbind: { input: z.undefined(), output: z.void() },
-    /** 分类树、常用标签与自定义 emoji（主进程内存缓存）。 */
     siteStructure: { input: z.undefined(), output: z.custom<ShuiyuanSiteStructure>() },
     /** 主题列表；moreUrl 是上一页返回的下一页地址。 */
     topics: {
@@ -237,7 +232,6 @@ export const shuiyuanContract = defineContract(
     /** 按 post id 定位所在主题与楼层（合并点赞通知只带 post id）。 */
     locatePost: { input: id, output: z.custom<ShuiyuanTopicLink>() },
     bookmarks: { input: z.undefined(), output: z.custom<ShuiyuanBookmarkItem[]>() },
-    /** 私信会话列表（topic 形态）。 */
     messages: { input: z.undefined(), output: z.custom<ShuiyuanTopicPage>() },
     notifications: { input: z.undefined(), output: z.custom<ShuiyuanNotificationItem[]>() },
     markNotificationsRead: { input: z.undefined(), output: z.void() },
@@ -253,12 +247,10 @@ export const shuiyuanContract = defineContract(
       input: z.object({ fileName: z.string(), base64: z.string() }),
       output: z.custom<ShuiyuanUpload>(),
     },
-    /** 发起新私信，返回会话 topic id。 */
     message: {
       input: z.object({ to: z.array(z.string()), title: z.string(), raw: z.string() }),
       output: z.number(),
     },
-    /** 收藏/取消收藏主题，返回最新状态。 */
     setBookmarked: {
       input: z.object({ topicId: id, on: z.boolean() }),
       output: z.boolean(),
@@ -268,7 +260,6 @@ export const shuiyuanContract = defineContract(
      * post_actions#destroy），已点赞只能去网页端撤销。
      */
     setLiked: { input: z.object({ postId: id, liked: z.boolean() }), output: z.void() },
-    /** 写入来源引用行（添加到项目前调用）。 */
     addSourceRef: { input: id, output: z.custom<ShuiyuanSourceRef>() },
     sourceRef: { input: id, output: z.custom<ShuiyuanSourceRef | null>() },
     snapshotPage: {

@@ -63,7 +63,6 @@ export function SourcesTree({
         container: true,
         badge: loading.includes(course.id) ? '…' : course.error ? '!' : undefined,
       });
-  // 归档课程不占用学期目录，统一移入底部「归档」区平铺展示，并在该处恢复（取消归档）。
   if (archived)
     for (const course of canvas.courses)
       if (course.archived)

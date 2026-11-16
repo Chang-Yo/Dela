@@ -211,7 +211,6 @@ describe('openCampusLoginWindow', () => {
     expect(probe).toHaveBeenCalledTimes(1);
     expect(loginWindow.closeCalled).toBe(false);
 
-    // 登录页自身不在目标域语义内，不触发探测。
     loginWindow.webContents.emit('did-navigate', {}, 'https://jaccount.sjtu.edu.cn/jaccount/login');
     await flush();
     expect(probe).toHaveBeenCalledTimes(1);

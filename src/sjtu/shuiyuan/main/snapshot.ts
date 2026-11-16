@@ -1,8 +1,5 @@
-// 水源本地快照：帖子添加到项目后，后台把全部楼层与图片（原图）存进 userData/shuiyuan-snapshots/<topicId>/，
-// 打开来源与 Agent 读取都优先读快照。一次只保存一个帖子，站内请求走后台额度（budget.ts），不挤占前台浏览。
-// 进行中的保存写在 <topicId>.partial/，完成后整体换入；中断后重试复用已下载的图片。
-// 楼层取齐后按段写出草稿；图片下载只重写发生变化的段落，预览按可见段读取。
-// 引用行只是索引：帖子从所有项目移除后由 collectShuiyuanSnapshots 删除快照文件并清空状态列。
+// 水源本地快照：帖子加入项目后，后台把全部楼层与图片存进 userData/shuiyuan-snapshots/<topicId>/，打开与 Agent 读取优先读快照。
+// 一次只存一帖且走后台额度（budget.ts）；进行中写 <topicId>.partial/，完成后整体换入，中断后复用已下载的图片。
 import { load, type CheerioAPI } from 'cheerio';
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';

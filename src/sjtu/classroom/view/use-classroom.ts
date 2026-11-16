@@ -54,7 +54,6 @@ export function useDownloads() {
   });
 }
 
-/** 当前课程默认取第一门；选中的课程不在列表里时同样回到第一门。 */
 export function useSelection() {
   const courses = useCourses().data ?? [];
   const courseId = useClassroom((state) => state.courseId);

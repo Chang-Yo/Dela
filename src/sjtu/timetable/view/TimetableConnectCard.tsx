@@ -6,7 +6,6 @@ import { ConnectCard } from '../../../ui/connect-card';
 import { showToast } from '../../../ui/toast';
 import { connectAndSyncTimetable } from './use-timetable';
 
-/** 无同步记录时的登录卡：登录在独立窗口完成，成功后同步该学期的课程。 */
 export function TimetableConnectCard({ semester }: { semester: string }) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);

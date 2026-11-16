@@ -23,7 +23,6 @@ export function CoursePicker() {
         <SelectTrigger aria-label="当前课程" className="w-full">
           <SelectValue placeholder="暂无课程" />
         </SelectTrigger>
-        {/* 面板与触发器同宽：课程名动辄二十字以上，等宽加截断比加宽面板更可读。 */}
         <SelectContent className="w-(--radix-select-trigger-width)">
           {courses.map((course) => (
             <SelectItem key={course.id} value={String(course.id)}>

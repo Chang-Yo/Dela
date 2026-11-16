@@ -14,14 +14,14 @@ import {
 export const timelineStart = 8 * 60;
 export const timelineEnd = 24 * 60;
 
-/** 时间轴刻度：1rem 折 20 分钟（默认 16px 根字号下即原来的 0.8px/分）。刻度与块内的文字、内边距
- *  同为 rem，字号设置一变一起缩放；若写成固定 px，块高会停在旧尺寸，块内行数阈值随之失效。 */
+/** 时间轴刻度：1rem 折 20 分钟。与块内文字同为 rem 以随字号缩放；
+ *  写成固定 px 会让块高停在旧尺寸，行数阈值随之失效。 */
 export function minutesToRem(minutes: number): number {
   return minutes / 20;
 }
 
-/** 事件块的高度档位（rem）：min 是块的下限（再短的时段也要容下标题行与内边距），
- *  twoRows 起可放第二行文案，threeRows 起可放第三行——对齐 55 / 75 分钟的课时边界。 */
+/** 事件块高度档位（rem）：twoRows、threeRows 起分别放第二、三行，
+ *  对齐 55 / 75 分钟的课时边界。 */
 export const blockHeights = { min: 1.75, twoRows: 2.75, threeRows: 3.75 } as const;
 
 export function parseDate(value: string): Date {
@@ -110,8 +110,6 @@ export function eventStyle(startMinute: number, endMinute: number): CSSPropertie
   };
 }
 
-// 日列内并排布局的结果：left/width 是相对日列宽度的 0–100 百分比数值，
-// 供 style.left / style.width 拼接 % 使用。
 export type DayColumnLayout = { left: number; width: number };
 
 // 按簇 first-fit 分列：项宽 = 100 / 簇内最大列数，left = 列号 × 项宽。

@@ -78,7 +78,7 @@ export function publishCanvasState(): CanvasState {
 
 let activeTreeSync: Promise<CanvasState> | null = null;
 
-/** 后台目录同步入口（每小时定时器与配置令牌后共用）：未连接时静默跳过，进行中时复用同一任务。 */
+/** 后台目录同步入口：未连接时静默跳过，进行中时复用同一任务。 */
 export function refreshCanvasTrees(): Promise<CanvasState> {
   if (!loadCanvasToken()) return Promise.resolve(getCanvasState());
   if (activeTreeSync) return activeTreeSync;

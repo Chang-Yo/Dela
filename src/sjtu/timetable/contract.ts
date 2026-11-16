@@ -101,7 +101,6 @@ export const timetableContract = defineContract(
       output: z.void(),
     },
     sync: { input: semesterSchema.optional(), output: result },
-    /** 在独立窗口登录教学信息服务网。 */
     connect: { input: z.undefined(), output: result },
   },
   {

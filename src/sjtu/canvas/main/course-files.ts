@@ -2,11 +2,9 @@
 import { posix, win32 } from 'node:path';
 import type { SourceItem } from '../contract';
 
-/** @ 引用候选的一个课件文件：courseName/courseId 用于 title 生成与冲突消解。 */
 export interface CourseRoot {
   courseName: string;
   courseId: number;
-  /** 该课程在 courses 目录下的目录前缀（含 term 层）。 */
   root: string;
 }
 
@@ -40,7 +38,6 @@ export function pickCourseFiles(
   return [...byTitle.values()];
 }
 
-/** 「文件」分支下的一个课件：sourceId 取缓存，folders 为课程目录内的相对路径段。 */
 export interface CourseFileEntry {
   sourceId: string;
   name: string;

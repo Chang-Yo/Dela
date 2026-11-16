@@ -401,7 +401,6 @@ export function deleteCalendarEvent(id: number) {
   emit(timetableContract, 'events', undefined);
 }
 
-/** calendar_events 表只读视图；不存在返回 null。 */
 export function getCalendarEvent(id: number): CalendarEvent | null {
   const row = hostPorts()
     .database()

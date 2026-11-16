@@ -38,7 +38,6 @@ export function MonthCalendar({
   );
   const days = Array.from({ length: dayCount }, (_, index) => addDays(first, index));
   const groupedEvents = localEventsByDay(events);
-  // 跨天拖拽选段参考 DayPilot 月视图：按住起点划到终点，松开后弹窗命名。
   const [drag, setDrag] = useState<{ start: Date; end: Date } | null>(null);
   const dragRange = drag
     ? [
@@ -135,7 +134,6 @@ export function MonthCalendar({
               onKeyDown={(event) => {
                 // 只响应日格自身的键盘激活，忽略内部「更多」按钮冒泡上来的按键。
                 if (event.target !== event.currentTarget) return;
-                // 与 click 的 detail === 0 语义一致：仅键盘激活新建，鼠标点击留给拖拽。
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
                   onCreate(date);
@@ -160,15 +158,12 @@ export function MonthCalendar({
               </span>
               <span className="grid min-w-0 gap-0.5">
                 {items.slice(0, 3).map((item) => (
-                  // 容器不足 320px 时课程条压成色点：格子只留日号与标记点，完整信息看「更多」弹层。
-                  // 注意点样式写在课程条自身（查询外层月历容器），内部文字交给条上的 overflow 裁掉。
                   <span
                     className="@container flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-xs @max-[320px]:h-2 @max-[320px]:w-2 @max-[320px]:rounded-full @max-[320px]:overflow-hidden @max-[320px]:p-0"
                     key={item.id}
                     style={item.tone}
                   >
                     {item.time ? (
-                      // 日格被压窄（768-860px 窗口）时先让出时间前缀，把宽度留给标题。
                       <span className="hidden shrink-0 tabular-nums opacity-70 @min-[120px]:inline">
                         {item.time}
                       </span>

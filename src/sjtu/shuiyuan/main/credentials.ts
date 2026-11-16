@@ -1,6 +1,5 @@
 import { hostPorts } from '../../../core/ports';
 
-/** 水源 User API Key 的本地形态；key 只存在主进程，不进 renderer 或数据库。 */
 export interface ShuiyuanCredential {
   key: string;
   clientId: string;

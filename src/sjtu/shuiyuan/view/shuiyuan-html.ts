@@ -92,7 +92,6 @@ export function sanitizeShuiyuanHtml(html: string): Document {
     // srcset/sizes 里的候选不走代理改写，留着会覆盖已改写的 src 重新破图。
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
-    // 本地快照里已下载的图片由主进程改写为快照地址，原样保留。
     if (img.getAttribute('src')?.startsWith(SNAPSHOT_IMAGE_PREFIX)) {
       const src = img.getAttribute('src')!;
       img.setAttribute('data-dela-original', src);
@@ -129,7 +128,6 @@ export function sanitizeShuiyuanHtml(html: string): Document {
       img.replaceWith(placeholder);
       continue;
     }
-    // 灯箱链接指向原图，直接显示原图，不再加载缩略图。
     const src = absolute(
       img.closest('a.lightbox')?.getAttribute('href') ?? img.getAttribute('src'),
     );
@@ -155,10 +153,8 @@ export function sanitizeShuiyuanHtml(html: string): Document {
 }
 
 /**
- * 楼层文档的阅读样式：黑白灰阶梯 + 细线分隔 + 少量强调色，块级内容用细边框和浅底分层，不做重卡片。
- * 色值手动镜像 beautiful-ui token（iframe 取不到外层 CSS 变量）；链接色沿用日历蓝（--cal-blue-text），
- * 它是全应用唯一的低饱和内容强调色。
- * 尺寸一律 rem——iframe 是独立文档，rootSize 由调用方传入，字号设置变化时重新渲染；边框与阴影保留 px。
+ * 楼层文档的阅读样式。iframe 取不到外层 CSS 变量，色值手动镜像 design token；
+ * 尺寸一律 rem，rootSize 由调用方传入以随字号设置重渲染。
  */
 export function renderShuiyuanHtml(
   doc: Document,
@@ -217,7 +213,6 @@ export function renderShuiyuanHtml(
     hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
     small { color: var(--fg-muted); }
 
-    /* 行内代码与代码块：浅底无描边，靠底色分层。 */
     code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
       'Courier New', monospace;
       background: var(--soft); border-radius: 0.3125rem; padding: 0.12em 0.4em; font-size: 0.88em; }
@@ -229,7 +224,6 @@ export function renderShuiyuanHtml(
       border-left: 2px solid var(--line); color: var(--fg-muted); }
     blockquote > :last-child { margin-bottom: 0; }
 
-    /* Discourse 引用：头部一条浅底 + 正文还原全色。 */
     aside.quote { margin: 0.9em 0; border: 1px solid var(--line); border-radius: 0.5rem;
       overflow: hidden; }
     aside.quote .title { display: flex; align-items: center; gap: 0.5em;
@@ -241,7 +235,6 @@ export function renderShuiyuanHtml(
     aside.quote blockquote { margin: 0; padding: 0.5em 0.9em; border: 0; color: var(--fg); }
     aside.quote aside.quote { margin: 0.75em 0.9em; }
 
-    /* Discourse onebox（链接卡片）：细边框 + 头部来源行。 */
     aside.onebox { margin: 0.9em 0; border: 1px solid var(--line); border-radius: 0.5rem;
       overflow: hidden; }
     aside.onebox header { display: flex; align-items: center; gap: 0.45em;
@@ -255,7 +248,6 @@ export function renderShuiyuanHtml(
     aside.onebox .thumbnail img { border-radius: 0.375rem; }
     aside.onebox .aspect-img, aside.onebox .onebox-avatar { display: none; }
 
-    /* 图片灯箱：隐藏尺寸/文件名 meta，只留图片本体。 */
     .lightbox-wrapper { margin: 0.85em 0; display: inline-block; max-width: 100%; }
     .lightbox-wrapper .meta { display: none; }
     a.lightbox { cursor: zoom-in; }
@@ -266,7 +258,6 @@ export function renderShuiyuanHtml(
       background: var(--soft); color: var(--fg-muted); font-size: 0.85em; }
     a.lightbox:not([href]) { cursor: default; }
 
-    /* 提及与话题标签：安静的着色，不带图标。 */
     .mention { font-weight: 500; color: var(--link); background: var(--soft);
       padding: 0 0.35em; border-radius: 0.3125rem; }
     .mention:hover { text-decoration: none; }
@@ -277,7 +268,6 @@ export function renderShuiyuanHtml(
       padding: 0.4em 0.9em 0.2em; }
     summary { cursor: pointer; color: var(--fg-muted); font-weight: 500; padding: 0.15em 0; }
 
-    /* 投票（按钮被消毒剥离，呈现为选项列表）。 */
     .poll { margin: 0.9em 0; }
     .poll ul { list-style: none; padding: 0; margin: 0.5em 0; }
     .poll li { margin: 0.35em 0; padding: 0.4em 0.7em; border: 1px solid var(--line);

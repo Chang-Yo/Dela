@@ -9,7 +9,6 @@ import { Textarea } from '../../../ui/textarea';
 import { showToast } from '../../../ui/toast';
 import { shuiyuanClient } from './use-shuiyuan';
 
-/** 未绑定时的授权卡：发起授权窗口 → 粘贴密文 → 绑定。 */
 export function BindCard() {
   const queryClient = useQueryClient();
   const [payload, setPayload] = useState('');

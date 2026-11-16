@@ -93,7 +93,6 @@ export const canvasContract = defineContract(
   'canvas',
   {
     state: { input: z.undefined(), output: state },
-    /** 保存令牌并拉取课程列表。 */
     connect: { input: z.string().trim().min(1), output: state },
     disconnect: { input: z.undefined(), output: state },
     syncCourses: { input: z.undefined(), output: state },

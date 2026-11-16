@@ -9,7 +9,6 @@ import { Button } from '../../../ui/button';
 import { Textarea } from '../../../ui/textarea';
 import { shuiyuanClient } from './use-shuiyuan';
 
-/** 向导 · 水源步骤：独立窗口完成 jAccount 登录与授权，粘贴密钥绑定，按钮转为「下一步」。 */
 export function ShuiyuanOnboardingStep({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [authBusy, setAuthBusy] = useState(false);

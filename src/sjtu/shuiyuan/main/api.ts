@@ -187,8 +187,6 @@ export async function unbindShuiyuan(): Promise<void> {
   authWindow?.close();
 }
 
-// ---- 数据面 ----
-
 /** 站点把「精品」做成中文 tag；实测仅 `/tag/<中文名>.json` 可过滤（slug 形态 404）。 */
 const SHUIYUAN_FEATURED_TAG = '精品';
 const STRUCTURE_TTL_MS = 10 * 60 * 1000;
@@ -537,7 +535,6 @@ export async function listShuiyuanTopics(
   return mapTopicList(await shuiyuanRequest(path));
 }
 
-/** 搜索响应合并 topics 与 posts 摘要为统一列表形态。 */
 function mapSearchResult(payload: unknown, query: string, page: number): ShuiyuanTopicPage {
   const parsed = z
     .object({
@@ -732,9 +729,8 @@ export async function createShuiyuanReply(
 }
 
 /**
- * 点赞/取消点赞楼层（Discourse post_action_type_id=2）。
- * 2026-09-21 以真实 key 实测：POST /post_actions.json 200；DELETE 被站点 403 拒绝
- * （write scope 不含 post_actions#destroy），取消只能引导用户去网页端操作。
+ * 点赞楼层（post_action_type_id=2）。实测 2026-09-21：DELETE 被站点 403 拒绝
+ * （write scope 不含 post_actions#destroy），取消只能引导用户去网页端。
  */
 export async function setShuiyuanLiked(postIdInput: unknown, likedInput: unknown): Promise<void> {
   const postId = z.number().int().positive().parse(postIdInput);
@@ -763,9 +759,8 @@ const rawUploadSchema = z
   .passthrough();
 
 /**
- * Composer 附件上传（Discourse `POST /uploads.json`）。该端点未实测，站点若
- * 禁用或调整限制则以响应错误暴露。multipart 请求不走 shuiyuanRequest——
- * 那里的 JSON Content-Type 会破坏 multipart 边界。
+ * Composer 附件上传（POST /uploads.json，未实测）。multipart 不走 shuiyuanRequest：
+ * 其 JSON Content-Type 会破坏 multipart 边界。
  */
 export async function createShuiyuanUpload(
   fileNameInput: unknown,

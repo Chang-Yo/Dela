@@ -58,7 +58,6 @@ async function streamsOf(videoId: number, force = false): Promise<PlaybackEntry>
   return task;
 }
 
-/** streams IPC 入口：返回带播放地址的画面列表（地址含 token，renderer 不解析）。 */
 export async function issuePlayback(videoId: number): Promise<PlaybackStream[]> {
   const entry = await streamsOf(videoId);
   return entry.streams.map((stream) => ({

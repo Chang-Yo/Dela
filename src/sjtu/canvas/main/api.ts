@@ -432,7 +432,6 @@ export async function syncCanvasCourseTrees(): Promise<CanvasState> {
   return getCanvasState();
 }
 
-/** 归档后不参与自动同步，仅保留本地已同步数据。 */
 export function archiveCanvasCourse(id: number, archived: boolean): CanvasState {
   const db = hostPorts().database();
   const rowById = db.prepare('SELECT data FROM canvas_courses WHERE id=?').get(id) as
@@ -796,7 +795,6 @@ export async function exportCanvasCourseFiles(
     const course = state.courses.find((item) => item.id === courseId);
     if (!course) continue;
     const name = diskName(course.name || `course-${courseId}`);
-    // 与 pickCourseFiles 同一冲突规则：普通名撞车才追加 [courseId]。
     const directory = taken.get(name) === undefined ? name : diskName(`${name} [${courseId}]`);
     taken.set(directory, courseId);
     const entries = collectCourseFileEntries(courseId, state.items);

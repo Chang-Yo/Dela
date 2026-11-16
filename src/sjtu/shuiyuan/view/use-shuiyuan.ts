@@ -44,7 +44,6 @@ export function useShuiyuanState() {
   });
 }
 
-/** 分类树与自定义 emoji 在本次运行内不变。 */
 export function useSiteStructure() {
   return (
     useQuery({
@@ -106,7 +105,6 @@ export function useNotifications() {
   });
 }
 
-/** 切换列表总是从头读，再次选中当前列表即刷新。 */
 export function useSelectList() {
   const queryClient = useQueryClient();
   return (list: ListSelection) => {
@@ -132,7 +130,6 @@ export function useMarkNotificationsRead() {
   };
 }
 
-/** 合并点赞等通知只带 post id，先定位所在主题与楼层。 */
 export function openPost(postId: number): void {
   void shuiyuanClient.locatePost(postId).then(
     (link) => openTopic(link.topicId, link.postNumber),
@@ -248,7 +245,6 @@ export async function loadPostWindow(
   }
 }
 
-/** 返回新楼层的楼号，供阅读页定位到刚发出的回复。 */
 export async function submitReply(
   queryClient: QueryClient,
   reading: Reading,

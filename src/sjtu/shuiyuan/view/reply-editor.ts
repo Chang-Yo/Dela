@@ -28,7 +28,6 @@ class QuoteHeadWidget extends WidgetType {
   }
 }
 
-/** `alice, post:3, topic:9` → `@alice · 第 3 楼`；无署名的 [quote] 显示「引用」。 */
 function quoteLabel(attribute: string | undefined): string {
   if (!attribute) return '引用';
   const [user, ...rest] = attribute.split(',').map((part) => part.trim());
@@ -89,7 +88,6 @@ const quotePlugin = ViewPlugin.fromClass(
   { decorations: (plugin) => plugin.decorations },
 );
 
-// 色值引用 beautiful-ui 的基础变量（--line/--inset/--ink-3），与阅读页 aside.quote 同一套层次。
 const theme = EditorView.theme({
   '.cm-sy-quote': {
     borderInline: '1px solid var(--line)',

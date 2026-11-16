@@ -10,7 +10,6 @@ function progressKey(videoId: number): string {
   return `${KEY_PREFIX}${videoId}`;
 }
 
-/** 读取整秒进度；缺失、损坏或不足 1 秒返回 null。 */
 export function readPlaybackProgress(videoId: number): number | null {
   try {
     const raw = localStorage.getItem(progressKey(videoId));
@@ -22,7 +21,6 @@ export function readPlaybackProgress(videoId: number): number | null {
   }
 }
 
-/** 写入整秒进度；不足 1 秒不写入，存储不可用时静默忽略。 */
 export function savePlaybackProgress(videoId: number, seconds: number): void {
   if (!Number.isFinite(seconds)) return;
   const whole = Math.floor(seconds);
@@ -42,7 +40,6 @@ export function clearPlaybackProgress(videoId: number): void {
   }
 }
 
-/** 把保存值换算成可恢复的秒数；接近结尾视为已看完，返回 null。 */
 export function resumePlaybackTime(saved: number | null, duration: number): number | null {
   if (saved === null || saved < MIN_SAVE_SECONDS) return null;
   if (!Number.isFinite(duration) || duration <= 0) return null;

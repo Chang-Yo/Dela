@@ -33,7 +33,6 @@ import { useNow } from '../../../ui/use-now';
 // 当前时间线与「今天」高亮的刷新间隔：now 仅在渲染时取值，需定期重渲染保持新鲜。
 const NOW_REFRESH_INTERVAL_MS = 60_000;
 
-// 点击周视图条目后弹详情的数据形态（课程只读，自建事件可删除，待办派生事件跳转 TODO）。
 export type CalendarItemDetail =
   | { kind: 'lesson'; lesson: TimetableLesson; date: Date | null }
   | { kind: 'event'; event: CalendarEvent }
@@ -69,11 +68,9 @@ export function WeekCalendar({
 
   return (
     <div className="@container min-h-0 flex-1 overflow-auto">
-      {/* 容器查询按内容区实际宽度切换桌面网格/按日堆叠：窗口断点会被主导航侧栏（200–360px）顶掉，
-          窗口 768–1050px 时内容区不足 860px 仍渲染桌面网格，必然出现横向滚动。 */}
+      {/* 容器查询而非窗口断点：主导航侧栏会顶掉断点，内容区不足 860px 仍渲染桌面网格会横向滚动。 */}
       <div className="hidden min-w-215 @min-[860px]:block">
         <div className="sticky top-0 z-drawer grid grid-cols-[3.625rem_repeat(7,minmax(6.875rem,1fr))] border-b border-line bg-surface/95 backdrop-blur">
-          {/* 防御：滚动条占宽等边缘情况引发横向滚动时，时刻度列常驻左缘。 */}
           <div className="sticky left-0 bg-surface" />
           {weekDays.map((day, index) => {
             const date = weekStart ? addDays(weekStart, index) : null;
@@ -104,7 +101,6 @@ export function WeekCalendar({
               <span
                 className={cn(
                   'absolute right-2 text-xs tabular-nums text-ink-3',
-                  // 首个刻度在网格顶边，上移一半会被表头遮住。
                   hour * 60 > timelineStart && '-translate-y-1/2',
                 )}
                 key={hour}
@@ -202,7 +198,6 @@ export function WeekCalendar({
   );
 }
 
-// 事件参与布局与渲染的是同一区间：裁剪到时间轴范围内。
 function eventSpan(event: CalendarEvent): { start: number; end: number } {
   return {
     start: Math.max(timelineStart, minuteOfDay(new Date(event.startAt))),
@@ -245,7 +240,6 @@ function LessonBlock({
           style={{
             ...eventColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
             ...eventStyle(start, end),
-            // 两侧各留 0.125rem 与相邻并排列隔开。
             left: `calc(${layout.left}% + 0.125rem)`,
             width: `calc(${layout.width}% - 0.25rem)`,
           }}
@@ -254,7 +248,6 @@ function LessonBlock({
           <strong className="block break-words text-xs font-semibold leading-tight">
             {lesson.courseName}
           </strong>
-          {/* 教师排在教室之前：并排窄列截断时保证教师可见。矮块隐藏次要行，完整信息看 Tooltip。 */}
           {showMeta && (
             <span className="mt-0.5 block truncate text-xs leading-none opacity-75">
               {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || '地点未定'}
@@ -267,7 +260,6 @@ function LessonBlock({
           )}
         </article>
       </TooltipTrigger>
-      {/* 原生 title 不支持富文本与可靠换行，改用共享的 Radix Tooltip 展示完整信息。 */}
       <TooltipContent className="grid gap-0.5 px-3 py-2 text-left font-normal">
         <strong className="font-semibold">{lesson.courseName}</strong>
         {lesson.teacher ? <span>教师：{lesson.teacher}</span> : null}
@@ -312,8 +304,7 @@ function LocalEventBlock({
   const start = new Date(event.startAt);
   const end = new Date(event.endAt);
   const span = eventSpan(event);
-  // 内容区按中文行高实测需 2.5rem（标题 0.9375 + 间距 0.125 + 时间行 0.6875 + 内边距 0.75）
-  // 展示标题与时间，2.75rem（55 分钟）起显示时间行、3.75rem（75 分钟）起显示地点行，
+  // 内容区需 2.5rem 才放得下标题与时间；2.75rem（55 分钟）起显示时间行、3.75rem（75 分钟）起显示地点行，
   // 避免矮块文字贴底被裁切。
   const height = minutesToRem(span.end - span.start);
   // 时间前缀只在首段显示；跨天事件首段写全起止日期，避免“22:00–10:00”式误导。

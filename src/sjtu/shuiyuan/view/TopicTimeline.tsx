@@ -33,10 +33,8 @@ function ReplyButton({
   );
 }
 
-/** 负边距让悬停底色外扩，而图标仍落在轴线栏中线上。 */
 const wideEdge = '-ml-1.5 gap-2 pr-2 pl-1.5 text-ink-3';
 
-/** 楼号读数，点击换成输入框直接跳楼；回车跳转，Esc 或失焦放弃。 */
 function FloorField({
   value,
   highest,
@@ -80,10 +78,7 @@ function FloorField({
   );
 }
 
-/**
- * 宽版楼层进度：正文列右侧的竖向时间轴（拖动或点轨道跳楼），回复钮单独钉在轴下方。
- * 挂在整个阅读页上而非滚动区：回复卡片升起时轴长不变（卡片只占正文列）。
- */
+/** 宽版楼层进度：挂在整个阅读页而非滚动区，回复卡片升起时轴长不变（卡片只占正文列）。 */
 export function TopicTimeline({ current, highest, onJump, reply }: TopicTimelineProps) {
   const [dragging, setDragging] = useState<number | null>(null);
   const value = dragging ?? current;
@@ -92,9 +87,6 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
 
   return (
     <>
-      {/* 正文列宽 42rem 居中，时间轴贴在列右侧 2rem 处。
-          左侧 1rem 是轴线栏，两端图标、轴线与把手同一中线；楼号与端点文字共用 1.5rem 处的左边线。
-          底部恒留回复钮的位置（1.5rem 底距 + 1.75rem 钮高 + 1rem 间距），轴长不随回复钮隐现变化。 */}
       {highest > 1 ? (
         <nav
           aria-label="楼层进度"
@@ -106,7 +98,6 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
             </span>
             首楼
           </Button>
-          {/* 轨道随阅读页高度伸缩，上限 32rem。 */}
           <div className="relative my-2 max-h-128 min-h-24 w-full flex-1">
             <SliderPrimitive.Root
               aria-label="楼层"
@@ -125,7 +116,6 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
               </SliderPrimitive.Track>
               <SliderPrimitive.Thumb className="block h-8 w-1 rounded-full bg-ink outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface" />
             </SliderPrimitive.Root>
-            {/* Radix 把把手约束在轨道内：中心 = 比例 × (轨长 − 把手长) + 半个把手长（把手长 2rem）。 */}
             <div
               className="absolute left-[1.125rem] -translate-y-1/2"
               style={{ top: `calc(${fraction} * (100% - 2rem) + 1rem)` }}
@@ -141,7 +131,6 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
           </Button>
         </nav>
       ) : null}
-      {/* -ml-2 让按钮图标与轴线栏同一中线。 */}
       {reply ? (
         <ReplyButton
           className="absolute bottom-6 left-[calc(50%+23rem)] -ml-2 hidden @min-[62rem]:inline-flex"
@@ -152,10 +141,6 @@ export function TopicTimeline({ current, highest, onJump, reply }: TopicTimeline
   );
 }
 
-/**
- * 窄版楼层进度：胶囊钉在正文列右下角（与楼层右沿对齐），挂在滚动区上，
- * 回复卡片升起时随滚动区一起上移，不被卡片压住。
- */
 export function FloorCapsule({ current, highest, onJump, reply }: TopicTimelineProps) {
   const progress = highest > 1;
   if (!progress && !reply) return null;

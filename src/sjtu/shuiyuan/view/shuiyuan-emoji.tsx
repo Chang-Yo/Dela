@@ -4,13 +4,11 @@ import type { ShuiyuanCustomEmoji } from '../contract';
 import { SHUIYUAN_ORIGIN } from './shuiyuan-format';
 import { useSiteStructure } from './use-shuiyuan';
 
-/** 标题段：字符串为已替换的文本，对象为站点自定义 emoji（远程图片）。 */
 type ShuiyuanTitleSegment = string | { name: string; url: string };
 
 // Discourse 标题短代码形如 :ocean:；前后不接 ASCII 字母数字，避免误吃 14:30:00 这类时间。
 const SHORTCODE_PATTERN = /(?<![a-zA-Z0-9]):([\p{L}\p{N}_+-]+):(?![a-zA-Z0-9])/gu;
 
-/** 标题里的 emoji 短代码 → Unicode emoji / 自定义 emoji 段；未注册的按 Discourse 行为保留原文。 */
 export function decodeShuiyuanTitle(
   title: string,
   customEmoji?: readonly ShuiyuanCustomEmoji[],
@@ -35,7 +33,6 @@ export function decodeShuiyuanTitle(
   return segments;
 }
 
-/** 标题渲染：信息流、阅读页、收藏与来源卡共用，站点结构未就绪时自定义 emoji 退回原文。 */
 export function ShuiyuanTitle({ text }: { text: string }) {
   const segments = decodeShuiyuanTitle(text, useSiteStructure()?.customEmoji);
   return (

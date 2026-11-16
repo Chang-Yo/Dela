@@ -40,7 +40,6 @@ function DesktopShuiyuanView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
-      {/* 顶部导航原地互换：阅读时直接换为阅读页顶栏，不做动画。 */}
       {reading ? <TopicReaderHeader reading={reading} /> : <ShuiyuanHeader />}
       <div className="relative min-h-0 flex-1">
         {/* 信息流常驻挂载：进入阅读页后保留滚动位置，返回即时还原。 */}

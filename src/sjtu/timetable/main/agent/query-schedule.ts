@@ -71,7 +71,6 @@ export const queryScheduleTool = tool(
       startAt,
       endAt,
     });
-    // 强化未同步警告：给出可执行的下一步，而不只是陈述缺口。
     const warnings = result.coverage.warnings.map((warning) =>
       warning === '该学期课表尚未同步'
         ? '该学期课表尚未同步，请提示用户到课表页面点击同步'

@@ -7,7 +7,6 @@ import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { Input } from '../../../ui/input';
 import { canvasClient, stateKey } from './use-canvas';
 
-/** 先指引在 Canvas 侧获取 Access Token，再粘贴验证并同步课程，按钮转为「下一步」。 */
 export function CanvasOnboardingStep({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [token, setToken] = useState('');

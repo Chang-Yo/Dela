@@ -85,9 +85,7 @@ export async function flushCampusSession(): Promise<void> {
 }
 
 export interface CampusRequestOptions {
-  /** 用户可见的服务名，拼进超时、断网等报错文案。 */
   service: string;
-  /** 登录失效（重定向、401/403）时的报错。 */
   loginError: string;
   /** 接口另用此状态码表示未登录（交大视频身份接口返回 500）。 */
   loginStatus?: number;
@@ -100,9 +98,8 @@ export interface CampusRequestOptions {
 export class CampusAuthError extends Error {}
 
 /**
- * 直接消费 Chromium 响应：Electron session.fetch 在内部构造 Response 时可能抛出未捕获的
- * 状态码异常。重定向一律视为登录失效；超时、断网与 408/5xx 失败的 `cause` 为 'transient'，
- * 由调用方决定是否重试。
+ * 直接消费 Chromium 响应：session.fetch 内部构造 Response 可能抛出未捕获的状态码异常。
+ * 重定向一律视为登录失效；超时、断网与 408/5xx 的 `cause` 为 'transient'，由调用方决定重试。
  */
 export function campusRequest(
   campus: Session,
@@ -175,11 +172,8 @@ export function campusRequest(
 export interface CampusLoginOptions {
   readonly sender: WebContents;
   readonly title: string;
-  /** 登录窗加载的入口地址（校园域内会触发 jAccount SSO）。 */
   readonly url: string;
-  /** 导航 URL 是否已到达目标校园域（登录页自身不算）。 */
   readonly reached: (url: string) => boolean;
-  /** 到达后探测登录是否真正生效；reject 即失败收场。 */
   readonly probe: () => Promise<void>;
   /**
    * 入口页本身就在目标域时（课堂视频）：首次导航必然尚未登录，
@@ -232,7 +226,6 @@ const loginWindows = new Map<
   { window: BrowserWindow; result: Promise<CampusLoginResult> }
 >();
 
-/** 课表与课堂视频共用的校园域登录窗。 */
 export async function openCampusLoginWindow(
   options: CampusLoginOptions,
 ): Promise<CampusLoginResult> {

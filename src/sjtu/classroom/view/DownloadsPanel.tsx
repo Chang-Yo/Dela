@@ -84,7 +84,6 @@ function DownloadRow({
   const percent = Math.floor(progress * 100);
   const size = formatBytes(download.total);
   const received = formatBytes(download.received);
-  // 百分比在环内；文字行只留状态与字节摘要。
   const meta =
     download.state === 'progressing'
       ? [received, size && `/ ${size}`].filter(Boolean).join(' ')

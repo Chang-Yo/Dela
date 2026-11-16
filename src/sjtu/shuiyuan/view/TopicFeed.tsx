@@ -13,7 +13,6 @@ import { Callout } from '../../../ui/alert';
 import { Skeleton } from '../../../ui/skeleton';
 import { Spinner } from '../../../ui/spinner';
 
-/** 分类色索引（Discourse 式）：12px 色方 + 文字，颜色只做索引不做底色。 */
 export function CategoryTag({ category }: { category: { name: string; color: string } }) {
   return (
     <span className="flex min-w-0 items-center gap-1.5">
@@ -27,7 +26,6 @@ export function CategoryTag({ category }: { category: { name: string; color: str
   );
 }
 
-/** 行首头像：远程头像直接渲染，缺省时退回首字母占位圆。 */
 function TopicAvatar({ topic }: { topic: ShuiyuanTopicSummary }) {
   const url = avatarUrl(topic.authorAvatarTemplate, 96);
   if (url) {
@@ -95,7 +93,6 @@ function TopicRow({
           <p className="line-clamp-2 text-xs leading-relaxed text-ink-3">{topic.excerpt}</p>
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-ink-3">
-          {/* 次级元信息一行排开：分类 · 作者 · 标签，纯文字弱化，标题是唯一主角。 */}
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5">
             {category && !isPM ? <CategoryTag category={category} /> : null}
             {isPM ? (
@@ -149,7 +146,6 @@ function TopicCardSkeleton() {
   );
 }
 
-/** 单列信息流：站点 feed 与私信会话共用；搜索/精品带摘要行。 */
 export function TopicFeed({ list }: { list: FeedSelection }) {
   const feed = useFeed(list);
   const topics = feed.data?.pages.flatMap((page) => page.topics) ?? [];

@@ -1,5 +1,4 @@
 // 水源帖子作为工作区来源：引用行（shuiyuan_topics）的写入与读取，来源正文读本地快照（snapshot-files.ts）。
-// 站点请求复用 api.ts。
 import { z } from 'zod';
 import { hostPorts } from '../../../core/ports';
 import type { DocumentContent } from '../../../modules/workspace/contract';
@@ -91,7 +90,6 @@ export async function addShuiyuanSourceRef(topicIdInput: unknown): Promise<Shuiy
   return ref;
 }
 
-/** 水源主题的稳定入口 URL（与引用行一致），供来源引用元数据与外部打开使用。 */
 export function shuiyuanTopicUrl(topicIdInput: unknown): string {
   const topicId = z.number().int().positive().parse(topicIdInput);
   return `${SHUIYUAN_ORIGIN}/t/topic/${topicId}`;

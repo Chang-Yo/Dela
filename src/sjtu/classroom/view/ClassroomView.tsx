@@ -49,7 +49,6 @@ function DesktopClassroomView() {
 
   const toggleSidebar = () => useClassroomPreferences.setState({ sidebarCollapsed: !collapsed });
 
-  // 视口钳制：目录渲染宽度不超过视口约 30%（下限 240），偏好值仍按原值持久化。
   const effectiveWidth = Math.min(width, Math.max(240, Math.round(viewportWidth * 0.3)));
 
   return (
@@ -79,7 +78,6 @@ function DesktopClassroomView() {
           >
             <div
               className={cn(
-                // 壳动内容不动：折叠动画中内容保持展开宽度、被外壳裁切并淡出。
                 'flex min-h-0 flex-1 flex-col transition-opacity duration-base motion-reduce:transition-none',
                 collapsed && 'pointer-events-none opacity-0',
               )}
@@ -96,7 +94,6 @@ function DesktopClassroomView() {
                   课堂视频
                 </span>
                 <div className="flex shrink-0 items-center gap-0.5">
-                  {/* 连接不稳定时的主动出口：重开官方窗口登录并刷新课程。 */}
                   <Button
                     aria-label="重新登录交大视频"
                     className="hover:bg-hover-strong"

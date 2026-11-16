@@ -13,7 +13,6 @@ export function useTimetableState(semester?: string) {
   });
 }
 
-/** 登录教学信息服务网并同步指定学期；失败返回错误文案，成功返回 null。 */
 export async function connectAndSyncTimetable(semester?: string): Promise<string | null> {
   const connected = await timetableClient.connect();
   if (!connected.ok) return connected.error ?? '未完成登录';

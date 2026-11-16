@@ -24,9 +24,6 @@ import {
   DialogClose,
 } from '../../../ui/dialog';
 
-// 点击周视图条目后的详情弹窗：排版参考 Google Calendar 的事件卡
-// （色点标题 + 小图标信息行）。课程只读；自建事件的删除需二次确认；
-// 待办派生事件不可删，提供跳转 TODO 的入口。
 export function EventDetailDialog({
   detail,
   onClose,
@@ -136,7 +133,6 @@ export function EventDetailDialog({
             </>
           )}
         </div>
-        {/* 底部只保留破坏性操作的确认区；关闭走右上角 X，避免重复入口。 */}
         {detail.kind === 'event' ? (
           <div className="mt-5 flex items-center gap-1.5">
             {confirming ? (

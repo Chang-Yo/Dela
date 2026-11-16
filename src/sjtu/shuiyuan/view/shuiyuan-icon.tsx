@@ -1,6 +1,5 @@
 import { createLucideIcon } from 'lucide-react';
 
-/** 水源社区水滴图标，按 lucide 图标规范注册，用法与 lucide 图标一致。 */
 export const ShuiyuanIcon = createLucideIcon('Shuiyuan', [
   [
     'path',

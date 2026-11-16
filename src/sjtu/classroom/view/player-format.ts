@@ -2,7 +2,6 @@
 // 交大视频的时间字段是 "YYYY-MM-DD HH:mm:ss" 文本，按容错解析，解析失败原样展示。
 import type { ClassroomVideo } from '../contract';
 
-/** "12:34" / "1:02:03"；无效值回退 0:00。 */
 export function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
   const total = Math.floor(seconds);
@@ -32,13 +31,11 @@ function parseLectureDate(value: string): Date | null {
   );
 }
 
-/** "10月8日"；无法解析时原样返回。 */
 function lectureDay(start: string): string {
   const date = parseLectureDate(start);
   return date ? `${date.getMonth() + 1}月${date.getDate()}日` : start;
 }
 
-/** 纯数字节次补 "第N节"，其余（如 "1-2"）原样。 */
 function normalizePeriod(period: string): string | null {
   const value = period.trim();
   if (!value) return null;
@@ -50,13 +47,11 @@ function lectureClock(value: string): string | null {
   return match ? `${match[1]}:${match[2]}` : null;
 }
 
-/** 场次主标题："10月8日 · 第3节"。 */
 export function lectureTitle(video: ClassroomVideo): string {
   const period = normalizePeriod(video.period);
   return period ? `${lectureDay(video.start)} · ${period}` : lectureDay(video.start);
 }
 
-/** 场次副标题："14:00–15:35 · 东上院405"；缺项跳过。 */
 export function lectureMeta(video: ClassroomVideo): string {
   const begin = lectureClock(video.start);
   const end = lectureClock(video.end);

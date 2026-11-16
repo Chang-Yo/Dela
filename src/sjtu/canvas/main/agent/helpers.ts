@@ -11,7 +11,6 @@ export const canvasSyncBranches = [
   { key: 'modules', label: '课程模块' },
 ] as const;
 
-/** 课程瘦身：列表/状态共用的字段形态（内容同步时间与分支错误就地可见）。 */
 export function courseSummary(course: CanvasCourse) {
   return {
     id: course.id,

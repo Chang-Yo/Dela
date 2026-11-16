@@ -73,7 +73,6 @@ export function Player({
 }: {
   course: VideoCourse;
   video: ClassroomVideo;
-  /** 侧栏折叠时在标题行首给一个展开按钮，布局不因折叠跳动。 */
   collapsedSidebar?: boolean;
   onExpandSidebar?: () => void;
 }) {
@@ -125,14 +124,12 @@ export function Player({
     return () => element.removeEventListener('loadedmetadata', applySeek);
   }, [seekRequest, video.id, playbackUrl, reloadSeq, progress]);
 
-  // 续播提示按官方习惯短暂出现；自动消失，不挡住后续操作。
   useEffect(() => {
     if (resumeNotice === null) return;
     const timer = setTimeout(() => setResumeNotice(null), RESUME_NOTICE_MS);
     return () => clearTimeout(timer);
   }, [resumeNotice]);
 
-  // 页面隐藏或播放器卸载前再落一次盘。
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') progress.flush();
@@ -205,7 +202,6 @@ export function Player({
     setActiveIndex(index);
   };
 
-  // key 里带上重试序号：重挂 video 元素即重新发起整条加载链路。
   const retry = () => {
     setFailed(false);
     setReloadSeq((seq) => seq + 1);
@@ -328,7 +324,6 @@ export function Player({
               progress.record(time);
             }}
             preload="metadata"
-            // src 变化时元素按 key 重挂，挂上后套用当前音量与倍速。
             ref={(element) => {
               videoRef.current = element;
               if (!element) return;

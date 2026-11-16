@@ -33,7 +33,6 @@ export const shuiyuanView = defineView({
   opensLink: (url) => shuiyuanTopicFromUrl(url) !== null,
   start(navigate) {
     const bridge = window.dela?.bridge;
-    // 主进程拦下的水源链接（聊天、邮件、外部唤起）。
     subscribe(shuiyuanContract, bridge, 'openTopic', ({ topicId, postNumber }) =>
       navigate({ page: 'shuiyuan', topicId, postNumber }),
     );

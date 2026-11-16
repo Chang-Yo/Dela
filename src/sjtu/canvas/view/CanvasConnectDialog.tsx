@@ -10,7 +10,6 @@ import { Input } from '../../../ui/input';
 import type { CanvasState } from '../contract';
 import { canvasClient, stateKey, useCanvasState } from './use-canvas';
 
-/** 配置或更换 Access Token；已连接时可断开。设置页与资料页共用。 */
 export function CanvasConnectDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const { connected } = useCanvasState();

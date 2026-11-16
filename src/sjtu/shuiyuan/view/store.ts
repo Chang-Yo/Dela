@@ -2,7 +2,6 @@
 import { create } from 'zustand';
 import type { ShuiyuanFeed, ShuiyuanTopicSummary } from '../contract';
 
-/** 信息流来源：站点 feed（latest/featured/category/tag/search）或个人列表。 */
 export type ListSelection =
   ShuiyuanFeed | { kind: 'bookmarks' } | { kind: 'messages' } | { kind: 'notifications' };
 
@@ -18,7 +17,6 @@ type ReadMarks = Record<string, string>;
 interface ShuiyuanUi {
   list: ListSelection;
   reading: Reading | null;
-  /** 驱动列表未读加粗。 */
   readMarks: Readonly<ReadMarks>;
   /** 回复草稿按帖子在本次运行内记忆：返回信息流或切帖后回来仍在。 */
   drafts: Readonly<Record<number, Draft>>;

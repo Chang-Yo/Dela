@@ -14,7 +14,6 @@ import {
 import { describeNotification, formatListDate } from './shuiyuan-format';
 import { Callout } from '../../../ui/alert';
 
-/** 个人列表（收藏/通知/私信）返回信息流首页，三处共用。 */
 export function ListBackButton() {
   const selectList = useSelectList();
   return (
@@ -29,7 +28,6 @@ export function ListBackButton() {
   );
 }
 
-/** 收藏列表：点击进入帖子阅读。 */
 export function BookmarkList() {
   const query = useBookmarks();
   const bookmarks = query.data ?? [];
@@ -83,7 +81,6 @@ export function BookmarkList() {
   );
 }
 
-/** 通知列表：语义化行 + 未读点；点击带楼层深链打开帖子。 */
 export function NotificationList() {
   const query = useNotifications();
   const notifications = query.data ?? [];

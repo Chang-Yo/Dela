@@ -5,7 +5,6 @@ import { ErrorText } from '../../../ui/alert';
 import { StepButton, type StepButtonState } from '../../../modules/onboarding/view';
 import { connectAndSyncTimetable } from './use-timetable';
 
-/** 向导 · 教学信息服务网步骤：独立窗口完成登录并同步课表，按钮转为「下一步」。 */
 export function TimetableOnboardingStep({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<StepButtonState>('idle');

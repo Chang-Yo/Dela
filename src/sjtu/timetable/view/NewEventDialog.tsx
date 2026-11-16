@@ -31,7 +31,6 @@ export function NewEventDialog({
     return end.getTime() > start.getTime() ? end : new Date(start.getTime() + HOUR_MS);
   });
   const [location, setLocation] = useState('');
-  // 默认石墨中性色，与自动配色的课程区分；选了候选色则随事件保存。
   const [color, setColor] = useState<CalendarEventColor>('slate');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +62,6 @@ export function NewEventDialog({
     setSaving(false);
   };
 
-  // 底部滑出面板与新建待办共用同一套结构与动画。
   return (
     <div
       aria-modal="true"

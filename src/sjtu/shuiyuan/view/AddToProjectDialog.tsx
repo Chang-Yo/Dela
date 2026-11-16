@@ -20,7 +20,6 @@ const LARGE_TOPIC_POSTS = 1000;
 /** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
 const ROOT_SELECT_VALUE = '__root__';
 
-/** 建的是引用型 source 条目，主进程随后在后台保存全帖快照。 */
 export function AddToProjectDialog({
   open,
   onClose,

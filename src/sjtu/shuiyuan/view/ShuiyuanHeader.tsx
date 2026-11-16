@@ -91,7 +91,6 @@ export function ShuiyuanHeader() {
 
   return (
     <header className="border-b border-line bg-surface/95 px-4 py-2 backdrop-blur max-md:px-3">
-      {/* 宽屏三区网格；窄屏两行。lg:contents 把首行包装拆散为网格项。 */}
       <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
         <div className="flex items-center gap-2.5 lg:contents">
           <div className="flex flex-wrap items-center gap-0.5 lg:col-start-1 lg:row-start-1 lg:justify-self-start">
@@ -136,7 +135,6 @@ export function ShuiyuanHeader() {
             options={feedKinds}
             value={feedKind === 'latest' || feedKind === 'featured' ? feedKind : null}
           />
-          {/* 切换与筛选分属两组操作，用细线隔开避免连成一簇。 */}
           <span aria-hidden="true" className="h-4 w-px shrink-0 bg-line" />
           <Select
             onValueChange={(value) => {
@@ -183,7 +181,6 @@ export function ShuiyuanHeader() {
               ))}
             </SelectContent>
           </Select>
-          {/* 刷新同属“当前列表”操作，紧随筛选器；与右侧搜索区分组。 */}
           <IconButton
             size="lg"
             aria-label="刷新"

@@ -215,7 +215,6 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
         <div className="flex flex-wrap items-center gap-2">
           <div className="mr-1 min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight">{headerTitle}</h1>
-            {/* 周次信息已由下方「教学周」Select 展示，副标题只保留学期，避免同屏重复。 */}
             <p className="text-xs text-ink-3">{semesterLabel(semester)}</p>
           </div>
           <div className="flex items-center rounded-control border border-line bg-surface shadow-hairline">

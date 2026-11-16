@@ -18,7 +18,6 @@ import {
 } from '../../../ui/dialog';
 import { Field } from '../../../ui/field';
 
-/** 发起新私信：收件人用户名（逗号分隔）+ 标题 + Markdown 正文。 */
 export function NewMessageDialog({
   open,
   onOpenChange,

@@ -3,7 +3,6 @@ import type { ShuiyuanPost, ShuiyuanTopicSummary } from '../../contract';
 import { getShuiyuanState } from '../api';
 import { ToolError, toolError } from '../../../../core/capabilities/domain-tools';
 
-/** 主题摘要瘦身：去掉头像模板等面向渲染的字段，附上可直接续读的引用。 */
 export function slimTopicSummary(topic: ShuiyuanTopicSummary) {
   return {
     ref: { type: 'shuiyuan-online' as const, id: topic.id },
@@ -24,7 +23,6 @@ export function slimTopicSummary(topic: ShuiyuanTopicSummary) {
   };
 }
 
-/** 楼层瘦身：cooked 保留服务端消毒后的 HTML 正文。 */
 export function slimPost(post: ShuiyuanPost) {
   return {
     id: post.id,
@@ -38,7 +36,6 @@ export function slimPost(post: ShuiyuanPost) {
   };
 }
 
-/** 未绑定（本地凭据不存在）时所有联网水源工具统一返回 NOT_CONFIGURED。 */
 export function requireShuiyuanBound() {
   if (!getShuiyuanState().connected)
     throw toolError('NOT_CONFIGURED', '尚未绑定水源社区，请先在设置中绑定账号后重试');

@@ -92,7 +92,6 @@ export async function downloadVideo(
         let interrupted = false;
         item.on('updated', (_event, state) => {
           update(state);
-          // 首版不承诺跨链接续传，中断后由用户重新下载。
           if (state === 'interrupted') {
             interrupted = true;
             item.cancel();

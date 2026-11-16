@@ -27,7 +27,6 @@ type ReplyComposerProps = {
   onClose: () => void;
   placeholder: string;
   submitLabel: string;
-  /** 楼层级回复目标。 */
   replyTarget: { postNumber: number; username: string } | null;
   onClearReplyTarget: () => void;
 };
@@ -55,10 +54,6 @@ function previewImageUrl(src: string, alt: string): string | null {
     : parsed.href;
 }
 
-/**
- * 水源回复卡片：从阅读区底部升起、不遮挡阅读（非模态），正文即时渲染。
- * 上传的附件以 upload:// 链接写回正文。
- */
 export function ReplyComposer({
   value,
   onChange,
@@ -105,7 +100,6 @@ export function ReplyComposer({
     view.contentDOM.focus({ preventScroll: true });
   }, []);
 
-  /** 独占一行插入；at 缺省为光标处。 */
   const insertBlock = (view: EditorView, text: string, at?: number) => {
     const pos = at ?? view.state.selection.main.head;
     const before = view.state.sliceDoc(Math.max(0, pos - 1), pos);
@@ -180,7 +174,6 @@ export function ReplyComposer({
   ]);
 
   return (
-    // 留在布局流里而非浮层：阅读区随卡片升起让出高度，末楼不被压住；全屏时才铺满阅读区。
     <form
       aria-label="回复"
       className={cn(
@@ -236,7 +229,6 @@ export function ReplyComposer({
           <X aria-hidden="true" className="size-4" strokeWidth={1.8} />
         </Button>
       </div>
-      {/* MarkdownEditor 的 flex-1 链依赖约束高度，内部 scroller 才会滚动。 */}
       <div ref={editorRef} className="flex min-h-0 flex-1 flex-col border-y border-line">
         <MarkdownEditor
           alwaysWrap

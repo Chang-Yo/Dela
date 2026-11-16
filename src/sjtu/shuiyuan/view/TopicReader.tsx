@@ -37,7 +37,6 @@ import type { ShuiyuanPost } from '../contract';
 import { Callout } from '../../../ui/alert';
 import { IconButton } from '../../../ui/icon-button';
 
-/** 楼层正文转引用文本：去掉楼中嵌套的引用，块级元素之间保留换行。 */
 function quoteText(cooked: string): string {
   const doc = new DOMParser().parseFromString(cooked, 'text/html');
   doc.querySelectorAll('aside.quote, .lightbox-wrapper .meta').forEach((node) => node.remove());
@@ -59,10 +58,7 @@ type PostActionsProps = {
   onReply: (post: ShuiyuanPost) => void;
 };
 
-/**
- * 楼层操作行（Discourse 式全 ghost，默认降透明、悬停/聚焦所在楼层时浮现）。
- * 站点实测（2026-09-21）：点赞可用；User API Key 无法取消点赞，已赞状态按钮不可再点。
- */
+/** 楼层操作行，默认降透明、悬停浮现。实测（2026-09-21）：User API Key 无法取消点赞，已赞按钮不可再点。 */
 function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsProps) {
   const likeCount = post.likeCount ?? 0;
   return (
@@ -108,10 +104,6 @@ function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsPr
   );
 }
 
-/**
- * 阅读页顶栏：驻留在视图顶层，进入阅读时与信息流工具栏原地互换（无动画），
- * 不随楼层流推入。只保留返回、标题与动作——分类、标签、统计归正文标题区。
- */
 export function TopicReaderHeader({ reading }: { reading: Reading }) {
   const toggleBookmark = useToggleBookmark();
   const [addOpen, setAddOpen] = useState(false);
@@ -169,7 +161,6 @@ export function TopicReaderHeader({ reading }: { reading: Reading }) {
   );
 }
 
-/** 楼层头像：40px 圆形（Discourse 45px 沟槽的贴近档），缺省退回首字母占位圆。 */
 function PostAvatar({ post }: { post: ShuiyuanPost }) {
   const avatar = avatarUrl(post.avatarTemplate, 96);
   if (avatar) {
@@ -193,26 +184,17 @@ function PostAvatar({ post }: { post: ShuiyuanPost }) {
   );
 }
 
-/**
- * 阅读页主体：话题标题区（大标题 + 分类/标签/统计）+ 居中楼层流
- * （固定头像沟槽 + 楼底右对齐 ghost 操作条）+ 底部向上展开的回复框。
- * 楼层接近两端时自动分段补楼，右侧楼层进度可拖动跳楼；推入动画由外层负责。
- */
 export function TopicReader({ reading }: { reading: Reading }) {
   const queryClient = useQueryClient();
   const topic = useTopic(reading);
   const structure = useSiteStructure();
-  // 阅读器按 topicId 重挂载。
   const topicId = reading.topicId;
   const saved = useShuiyuan((state) => state.drafts[topicId]);
   const draft = saved?.text ?? '';
-  /** 楼层级回复目标；null 为主题级回复。 */
   const replyTarget = saved?.target ?? null;
   const [composerOpen, setComposerOpen] = useState(saved !== undefined);
-  /** 跳转落点楼层短暂高亮，让落点可辨认。 */
   const [highlight, setHighlight] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState<'before' | 'after' | null>(null);
-  /** 视口顶端所在楼层，驱动楼层进度。 */
   const [currentPost, setCurrentPost] = useState<number | null>(null);
   /** 跳到未加载区域：新楼层段提交到 DOM 后再定位；每次跳转是新对象，同楼再跳也会触发。 */
   const [pendingJump, setPendingJump] = useState<{ postNumber: number } | null>(null);
@@ -333,7 +315,6 @@ export function TopicReader({ reading }: { reading: Reading }) {
     setPendingJump({ postNumber });
   };
 
-  // 指向本帖的链接在当前阅读流内跳楼，不整帖重载。
   const openTopicFromPost = (targetTopicId: number, postNumber?: number) => {
     if (targetTopicId === topicId) void jumpToPost(postNumber ?? 1);
     else openTopic(targetTopicId, postNumber);
@@ -399,14 +380,12 @@ export function TopicReader({ reading }: { reading: Reading }) {
           }}
           ref={scrollRef}
         >
-          {/* 窄版楼层胶囊浮在正文列右下角，底部留白避免它压住末楼的操作条。 */}
           <div className="mx-auto w-full max-w-2xl px-5 pt-5 pb-14 max-md:px-4 @min-[62rem]:pb-5">
             {topic.error ? <Callout role="alert">{errorMessage(topic.error)}</Callout> : null}
             {!detail && !topic.error ? (
               <p className="py-8 text-center text-sm text-ink-3">正在加载帖子…</p>
             ) : null}
             {detail ? (
-              // 话题标题区：正文列同宽，分类/标签/统计一行弱化呈现（Discourse 式）。
               // 标题区与哨兵不参与滚动锚定，否则向上补楼时浏览器会以它们为锚、不回补。
               <header className="border-b border-line pb-4 [overflow-anchor:none]">
                 <h2 className="text-xl font-semibold leading-snug tracking-tight">
@@ -460,11 +439,9 @@ export function TopicReader({ reading }: { reading: Reading }) {
                   data-post-number={post.postNumber}
                   key={post.id}
                 >
-                  {/* 固定头像沟槽：正文永不绕到头像下方，扫读锚点逐楼对齐。 */}
                   <PostAvatar post={post} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      {/* 用户名压小加粗成「标签」，与 15px 常规正文的 iframe 内容拉开层级。 */}
                       <span className="min-w-0 shrink truncate text-xs font-semibold">
                         {post.username}
                       </span>

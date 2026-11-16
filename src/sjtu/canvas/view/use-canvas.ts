@@ -17,7 +17,6 @@ export function cachedCanvasState(client: QueryClient): CanvasState {
   return client.getQueryData<CanvasState>(stateKey) ?? disconnected;
 }
 
-/** 资料页与归档区两棵树共用的分组方式。 */
 export const useLibraryGrouping = create<{ bySource: boolean; toggle: () => void }>((set) => ({
   bySource: false,
   toggle: () => set((state) => ({ bySource: !state.bySource })),
