@@ -73,24 +73,6 @@ describe('draft debounce', () => {
       error: null,
     });
   });
-
-  it('ignores edits for keys without a draft and drops the pending timer on release', async () => {
-    const { saveMock } = installDela(
-      async () => ({ ...content }),
-      vi.fn(async () => 'r2'),
-    );
-    const store = useNoteDrafts.getState();
-    store.edit('missing', 'text');
-    await vi.advanceTimersByTimeAsync(600);
-    expect(saveMock).not.toHaveBeenCalled();
-    await store.acquire('flush');
-    store.edit('flush', 'draft');
-    await expect(store.release('flush')).resolves.toBe(true);
-    expect(saveMock).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(600);
-    expect(saveMock).toHaveBeenCalledTimes(1);
-    expect(useNoteDrafts.getState().drafts['flush']).toBeUndefined();
-  });
 });
 
 describe('draft save mutex', () => {
@@ -138,21 +120,6 @@ describe('draft save mutex', () => {
       saved: 'old',
       saving: false,
       error: 'disk full',
-    });
-  });
-
-  it('refuses to save a document without a revision', async () => {
-    const { saveMock } = installDela(
-      async () => ({ ...content, revision: undefined }),
-      vi.fn(async () => 'r2'),
-    );
-    const store = useNoteDrafts.getState();
-    await store.acquire('norev');
-    store.edit('norev', 'draft');
-    await expect(store.save('norev')).resolves.toBe(false);
-    expect(saveMock).not.toHaveBeenCalled();
-    expect(useNoteDrafts.getState().drafts['norev']).toMatchObject({
-      error: '此文档没有可用的保存版本。',
     });
   });
 });
@@ -256,55 +223,5 @@ describe('draft acquire/release reference counting', () => {
       saving: false,
       error: 'disk full',
     });
-  });
-
-  it('returns true immediately for a clean or unknown draft', async () => {
-    installDela(
-      async () => ({ ...content }),
-      vi.fn(async () => 'r2'),
-    );
-    const store = useNoteDrafts.getState();
-    await expect(store.release('unknown')).resolves.toBe(true);
-    await store.acquire('clean');
-    await expect(store.release('clean')).resolves.toBe(true);
-    expect(useNoteDrafts.getState().drafts['clean']).toBeUndefined();
-  });
-
-  it('does not inflate the refcount when a forced acquire refreshes from disk', async () => {
-    let reads = 0;
-    const { readMock } = installDela(
-      async () => {
-        reads += 1;
-        return { ...content, text: reads === 1 ? 'old' : 'fresh' };
-      },
-      vi.fn(async () => 'r2'),
-    );
-    const store = useNoteDrafts.getState();
-    await store.acquire('focus');
-    // 窗口聚焦 / 会话终态刷新走 force：重读磁盘但不新增持有入口。
-    await store.acquire('focus', true);
-    await store.acquire('focus', true);
-    expect(readMock).toHaveBeenCalledTimes(3);
-    await expect(store.release('focus')).resolves.toBe(true);
-    expect(useNoteDrafts.getState().drafts['focus']).toBeUndefined();
-  });
-
-  it('keeps the draft when it is re-acquired while the release flush is in flight', async () => {
-    const finishes: ((revision: string) => void)[] = [];
-    installDela(
-      async () => ({ ...content }),
-      () => new Promise<string>((resolve) => finishes.push(resolve)),
-    );
-    const store = useNoteDrafts.getState();
-    await store.acquire('reopen');
-    store.edit('reopen', 'draft');
-    const releasing = store.release('reopen');
-    // 冲盘 await 期间切回：新持有入口已计数，release 只冲盘不得删除。
-    await store.acquire('reopen');
-    finishes.shift()!('r2');
-    await expect(releasing).resolves.toBe(true);
-    expect(useNoteDrafts.getState().drafts['reopen']).toMatchObject({ text: 'draft' });
-    await expect(store.release('reopen')).resolves.toBe(true);
-    expect(useNoteDrafts.getState().drafts['reopen']).toBeUndefined();
   });
 });

@@ -46,7 +46,7 @@ export function findMath(
 const cjkRun = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]+/g;
 const textCommand = /\\(?:text|textrm|textsf|textbf|textit|mathrm|mbox|operatorname)\s*\{[^{}]*\}/g;
 
-export function wrapCjk(tex: string): string {
+function wrapCjk(tex: string): string {
   let result = '';
   let last = 0;
   for (const match of tex.matchAll(textCommand)) {

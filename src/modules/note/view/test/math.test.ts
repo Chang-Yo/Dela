@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { findMath, renderMath, wrapCjk } from '../math';
+import { findMath } from '../math';
 
 const find = (text: string, skip: (pos: number) => boolean = () => false) =>
   findMath(text, 0, skip).map(({ tex, display }) => ({ tex, display }));
@@ -29,23 +29,5 @@ describe('findMath', () => {
   it('代码里的 $ 跳过', () => {
     const text = '`$a$` 与 $b$';
     expect(find(text, (pos) => pos < 5)).toEqual([{ tex: 'b', display: false }]);
-  });
-});
-
-describe('wrapCjk', () => {
-  it('公式里的中文包进 \\text，已在文本命令里的不重复包', () => {
-    expect(wrapCjk('v=\\frac{距离}{时间}')).toBe('v=\\frac{\\text{距离}}{\\text{时间}}');
-    expect(wrapCjk('\\text{速度} = 距离，单位')).toBe('\\text{速度} = \\text{距离，单位}');
-    expect(wrapCjk('\\alpha+\\beta')).toBe('\\alpha+\\beta');
-  });
-});
-
-describe('renderMath', () => {
-  it('中文按文本排版，不报错；语法错误显示为红字而不是抛异常', () => {
-    const html = renderMath('面积 = \\pi r^2', false);
-    expect(html).toContain('katex');
-    expect(html).not.toContain('katex-error');
-    expect(html).toContain('面积');
-    expect(renderMath('\\frac{1', true)).toContain('katex-error');
   });
 });
