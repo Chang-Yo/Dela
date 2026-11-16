@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { attachContextMenu } from '../../../modules/workspace';
 
-export const CAMPUS_PARTITION = 'persist:dela-campus';
+const CAMPUS_PARTITION = 'persist:dela-campus';
 let ready: Promise<Session> | undefined;
 let persistenceError: Error | undefined;
 
@@ -82,15 +82,6 @@ export async function flushCampusSession(): Promise<void> {
   await campus.cookies.flushStore();
   campus.flushStorageData();
   if (persistenceError) throw persistenceError;
-}
-
-export async function clearCampusSession(): Promise<void> {
-  const campus = await getCampusSession();
-  await campus.clearStorageData();
-  await campus.cookies.flushStore();
-  rmSync(snapshotPath(), { force: true });
-  rmSync(`${snapshotPath()}.tmp`, { force: true });
-  persistenceError = undefined;
 }
 
 export interface CampusRequestOptions {

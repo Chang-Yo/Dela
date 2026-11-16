@@ -340,7 +340,7 @@ type ImageRef = ReturnType<CheerioAPI>;
  * 剥掉头像（快照不保存头像）与 srcset，图片地址补全为绝对地址；灯箱图取链接指向的原图。
  * 返回按地址去重的待下载图片及引用它们的 img。
  */
-export function collectSnapshotImages(documents: CheerioAPI[]): Map<string, ImageRef[]> {
+function collectSnapshotImages(documents: CheerioAPI[]): Map<string, ImageRef[]> {
   const images = new Map<string, ImageRef[]>();
   for (const $ of documents) {
     for (const element of $('img').toArray()) {

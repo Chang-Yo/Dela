@@ -45,7 +45,7 @@ export function requireShuiyuanBound() {
 }
 
 /** 水源业务错误 → 细分错误码；未识别的错误原样抛出（registry 兜底 OPERATION_FAILED）。 */
-export function mapShuiyuanError(error: unknown): Error {
+function mapShuiyuanError(error: unknown): Error {
   if (error instanceof ToolError || error instanceof z.ZodError || !(error instanceof Error))
     return error instanceof Error ? error : new Error(String(error));
   const message = error.message;

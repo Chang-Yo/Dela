@@ -15,7 +15,7 @@ import { parseTranscript } from './transcript';
 
 export { formatSegments, formatTranscript } from './transcript';
 
-export const VIDEO_HOME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/';
+const VIDEO_HOME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage-ui/';
 const BASE = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/v1';
 // 官方页面自用的身份接口；Canvas LTI 取得的会话 Cookie 只作用于该路径，/cloud-rbac 不认。
 const ME = 'https://v.sjtu.edu.cn/jy-application-resourcemanage/authority/me';
@@ -72,7 +72,7 @@ async function requestOnce(url: string): Promise<unknown> {
 let canvasLogin: Promise<void> | undefined;
 
 /** 已连接 Canvas 时以令牌登录交大视频，免去官方窗口；同时失效的请求共用一次登录。 */
-export function loginWithCanvas(): Promise<void> {
+function loginWithCanvas(): Promise<void> {
   canvasLogin ??= (async () => {
     try {
       // 探测直接请求，不经 requestOnce，避免等待自身这次登录。

@@ -79,8 +79,6 @@ export const calendarEventInput = z
     '结束时间必须晚于开始时间',
   );
 
-export type CalendarEventInput = z.input<typeof calendarEventInput>;
-
 const result = z.custom<TimetableResult>();
 const state = z.custom<TimetableState>();
 

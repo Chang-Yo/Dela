@@ -33,7 +33,7 @@ function parseLectureDate(value: string): Date | null {
 }
 
 /** "10月8日"；无法解析时原样返回。 */
-export function lectureDay(start: string): string {
+function lectureDay(start: string): string {
   const date = parseLectureDate(start);
   return date ? `${date.getMonth() + 1}月${date.getDate()}日` : start;
 }

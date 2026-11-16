@@ -22,7 +22,7 @@ export function useCourses() {
 }
 
 // 录像、画面与文稿在本次运行内不变，重新登录时随 ['classroom'] 一起重读。
-export function useVideos(courseId: number | undefined) {
+function useVideos(courseId: number | undefined) {
   return useQuery({
     queryKey: ['classroom', 'videos', courseId],
     queryFn: () => classroomClient.videos(courseId!),
