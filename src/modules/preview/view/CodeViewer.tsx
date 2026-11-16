@@ -50,12 +50,12 @@ function languageForFilename(filename: string): LanguageDescription | null {
 export function CodeViewer({
   value,
   filename,
-  scroll,
+  initialScroll,
   onScroll,
 }: {
   value: string;
   filename: string;
-  scroll: number;
+  initialScroll: () => number;
   onScroll: (top: number) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -83,7 +83,7 @@ export function CodeViewer({
         ],
       }),
     });
-    view.scrollDOM.scrollTop = scroll;
+    view.scrollDOM.scrollTop = initialScroll();
     const handleScroll = () => reportScroll(view.scrollDOM.scrollTop);
     view.scrollDOM.addEventListener('scroll', handleScroll);
     viewRef.current = view;
@@ -98,7 +98,7 @@ export function CodeViewer({
       viewRef.current = null;
       view.destroy();
     };
-    // value/filename/scroll 仅取初值：标签切换由上层重挂载，外部重读走下方同步。
+    // value/filename/initialScroll 仅取初值：标签切换由上层重挂载，外部重读走下方同步。
   }, []);
 
   useEffect(() => {

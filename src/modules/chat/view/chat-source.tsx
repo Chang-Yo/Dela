@@ -5,11 +5,18 @@ import type { Navigate, Workbench } from '../../../app/module';
 // tabId/groupId，引用数据源与邮件草稿弹窗经 Provider 注入；会话项目归属取自快照而非当前工作台。
 // chat 域不 import workspace store。
 
+/** @ 引用候选：key 为绝对路径，title 为相对会话 cwd 的路径。 */
+export type ReferenceEntry = { key: string; title: string };
+
 /** @ 引用数据源：候选来自容器（workspace 镜像），发送前冲盘未保存的引用草稿。 */
 export interface ReferenceSource {
-  /** 会话项目内的 @ 引用候选：key 为绝对路径，title 为相对会话 cwd 的路径。
-   *  projectId 为 null 时列工作区全部文件。 */
-  useEntries(projectId: string | null, cwd: string | null): { key: string; title: string }[];
+  /** 订阅会话项目内的候选交给 children；projectId 为 null 时列工作区全部文件。
+   *  以组件而非 hook 注入：编译器不接手调用经 props 传入的 hook 的组件。 */
+  Entries: ComponentType<{
+    projectId: string | null;
+    cwd: string | null;
+    children: (entries: ReferenceEntry[]) => ReactNode;
+  }>;
   /** 发送前冲盘引用文档的未保存草稿（笔记正文先落盘，模型才能读到最新内容）；
    *  仍无法保存时抛错阻止发送。`source:` 前缀的引用不经此方法（只读资料）。 */
   flushReference?(key: string): Promise<void>;
@@ -37,6 +44,15 @@ export interface ChatTabSource {
   mailDialog?: MailDraftDialog;
   /** 把回答保存为笔记；未提供时隐藏入口。 */
   onSaveNote?(text: string): void;
+}
+
+const noEntries: ReferenceEntry[] = [];
+export function NoReferenceEntries({
+  children,
+}: {
+  children: (entries: ReferenceEntry[]) => ReactNode;
+}) {
+  return children(noEntries);
 }
 
 const detached: ChatTabSource = {

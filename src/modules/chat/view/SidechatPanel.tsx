@@ -25,7 +25,7 @@ import { useChatTabSource } from './chat-source';
 import { useSessions } from './sessions';
 import { ChatComposer } from './ChatComposer';
 import { ChatThread } from './ChatThread';
-import type { ReferenceSource } from './chat-source';
+import type { ReferenceEntry, ReferenceSource } from './chat-source';
 import { emptyDraft, useChatDrafts } from './drafts';
 import { referenceContext } from './reference-tokens';
 import { releaseChatMedia } from './media';
@@ -37,11 +37,13 @@ type Motion = 'enter' | 'expand' | 'collapse' | 'close' | null;
 
 export function SidechatPanel({
   parentId,
-  referenceSource,
+  files,
+  flushReference,
   onOpenSource,
 }: {
   parentId: string;
-  referenceSource?: ReferenceSource;
+  files: ReferenceEntry[];
+  flushReference?: ReferenceSource['flushReference'];
   onOpenSource?: (key: string) => void;
 }) {
   const { navigate } = useChatTabSource();
@@ -56,8 +58,7 @@ export function SidechatPanel({
   // 只有新建的旁问从右边界滑入；切走标签再回来、从胶囊展开都不再滑入。
   const entered = useSidechats((state) => state.entered[parentId] ?? false);
   const [motion, setMotion] = useState<Motion>(() => (entered ? null : 'enter'));
-  const options = referenceSource?.useEntries(parent?.projectId ?? null, parent?.cwd ?? null);
-  const referenceOptions = parent && options ? options : [];
+  const referenceOptions = parent ? files : [];
 
   const releaseAttachments = useEffectEvent(() =>
     releaseChatMedia(attachments.map((item) => item.id)),
@@ -84,9 +85,12 @@ export function SidechatPanel({
     if (!window.dela || busy || !canSendInput(prompt, false, attachments.length, comments.length))
       return;
     const references = referenceContext(prompt, referenceOptions);
-    try {
+    const flushDrafts = async () => {
       for (const ref of references)
-        if (!ref.key.startsWith('source:')) await referenceSource?.flushReference?.(ref.key);
+        if (!ref.key.startsWith('source:')) await flushReference?.(ref.key);
+    };
+    try {
+      await flushDrafts();
     } catch (e) {
       setError(errorMessage(e));
       return;

@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react';
 
 import { Button } from '../../../ui/button';
 import { showToast } from '../../../ui/toast';
-import { parseRemoteNodeId, type TabId } from '../../workspace/contract';
-import { workspaceClient } from '../../workspace/view';
+import { parseRemoteNodeId, type TabId, type WorkspaceEntry } from '../../workspace/contract';
+import { useWorkspaceStore, workspaceClient } from '../../workspace/view';
 import { DocumentToolbar } from './document-toolbar';
 import { useNoteDraftSource } from './draft-source';
 import { MarkdownEditor } from './MarkdownEditor';
-import { rememberNoteMode, rememberNoteScroll, useNoteViewMemory } from './view-memory';
+import {
+  noteScrollOf,
+  rememberNoteMode,
+  rememberNoteScroll,
+  useNoteViewMemory,
+} from './view-memory';
+import { useNoteDrafts } from './drafts';
 import { markdownImageInsert } from './live-preview';
 import { Spinner } from '../../../ui/spinner';
 import { ConfirmDialog } from '../../../ui/dialog';
@@ -28,6 +34,12 @@ const imageInsert = (entryId: string) =>
       showToast({ variant: 'error', title: '插入图片失败', description: errorMessage(cause) }),
   );
 
+function entryPath(entries: WorkspaceEntry[], id: string): string[] {
+  const entry = entries.find((item) => item.id === id);
+  if (!entry) return [];
+  return entry.parentId ? [...entryPath(entries, entry.parentId), entry.name] : [entry.name];
+}
+
 export function parseNoteTabId(tabId: string): string | null {
   if (!tabId.startsWith('note:')) return null;
   const entryId = tabId.slice('note:'.length);
@@ -42,8 +54,8 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const entryId = parseNoteTabId(tabId);
   const scrollKey = `${tabId}:${groupId}`;
   const source = useNoteDraftSource();
-  const draft = entryId !== null ? source.useDraft(entryId) : undefined;
-  const path = source.usePath?.(entryId ?? '');
+  const draft = useNoteDrafts((state) => (entryId === null ? undefined : state.drafts[entryId]));
+  const entries = useWorkspaceStore((state) => state.workspace.entries);
   // 失败按条目记：标签改指向别的文件后，旧文件的读取错误不再显示。
   const [failure, setFailure] = useState<{ entryId: string; message: string } | null>(null);
   const error = failure && failure.entryId === entryId ? failure.message : null;
@@ -119,6 +131,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         </Button>
       </div>
     );
+  const path = entryPath(entries, entryId);
   const markdown = draft.content.format === 'markdown';
   const readOnly = draft.content.readOnly === true;
   const dirty = draft.text !== draft.saved;
@@ -140,7 +153,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
       aria-label={`文件：${draft.content.title}`}
     >
       <DocumentToolbar
-        path={path?.length ? path : [draft.content.title]}
+        path={path.length ? path : [draft.content.title]}
         markdown={markdown}
         mode={mode}
         onModeChange={(next) => rememberNoteMode(entryId, next)}
@@ -190,7 +203,7 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         value={draft.text}
         filename={draft.content.title}
         editorStateKey={`document:${entryId}:${groupId}:${markdown ? mode : 'code'}`}
-        scroll={useNoteViewMemory.getState().scrolls[scrollKey] ?? 0}
+        initialScroll={() => noteScrollOf(scrollKey)}
         readOnly={readOnly}
         livePreview={
           markdown && mode === 'live' ? (src) => source.resolveImage(entryId, src) : undefined

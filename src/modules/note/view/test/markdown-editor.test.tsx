@@ -44,7 +44,6 @@ describe('MarkdownEditor', () => {
           onChange={onChange}
           onSave={() => {}}
           onScroll={() => {}}
-          scroll={0}
         />,
       ),
     );

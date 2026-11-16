@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
 import type { TabId } from '../../../app/module';
@@ -10,7 +10,13 @@ import { ChatComposer } from './ChatComposer';
 import { composerContext } from './composer-context';
 import { ChatSessions } from './ChatSessions';
 import { ChatThread } from './ChatThread';
-import { useChatTabSource, type MailDraftDialog, type ReferenceSource } from './chat-source';
+import {
+  NoReferenceEntries,
+  useChatTabSource,
+  type MailDraftDialog,
+  type ReferenceEntry,
+  type ReferenceSource,
+} from './chat-source';
 import { useChat, useChatDraft, type ChatReference } from './use-chat';
 import { referenceContext, sessionReferences } from './reference-tokens';
 import { poolKey, updateSession, useSessions } from './sessions';
@@ -65,7 +71,7 @@ function ChatComposerArea({
   chat,
   chatState,
   error,
-  referenceSource,
+  files,
   sessionId,
   hero = false,
 }: {
@@ -74,12 +80,12 @@ function ChatComposerArea({
   chatState: ReturnType<typeof useChat>;
   /** 会话层错误（快照读取失败、发送失败）；null = 无。 */
   error: string | null;
-  referenceSource?: ReferenceSource;
+  files: ReferenceEntry[];
   sessionId: string;
   hero?: boolean;
 }) {
   const { prompt, comments = noComments } = useChatDraft(sessionId);
-  const referenceOptions = useReferenceOptions(referenceSource, chat);
+  const referenceOptions = useReferenceOptions(files, chat);
   // 引用即文本：发送前从草稿文本解析 @token，附件与引用自此分开计数（附件维持上限 5）。
   const references = referenceContext(prompt, referenceOptions);
   // 新对话的项目浮岛：项目名来自工作区条目，通用池显示「随聊」；分支由浮岛自己查。
@@ -130,15 +136,12 @@ const noSessions: ChatSessionSummary[] = [];
 const noComments: ChatComment[] = [];
 /** @ 候选：会话快照就位前（projectId/cwd 未知）不列候选，避免列出别的项目的文件。 */
 /** @ 文件候选来自容器注入；# 会话候选是同池的其他会话（各池列表启动时已载入镜像）。 */
-function useReferenceOptions(source: ReferenceSource | undefined, chat: WorkspaceChat | null) {
+function useReferenceOptions(files: ReferenceEntry[], chat: WorkspaceChat | null) {
   const projectId = chat?.projectId ?? null;
-  const files = source?.useEntries(projectId, chat?.cwd ?? null);
   const sessions = useSessions((state) => state.lists[poolKey(projectId)]);
   const sessionId = chat?.sessionId ?? null;
   const ready = chat !== null;
-  return ready
-    ? [...(files ?? []), ...sessionReferences(sessions ?? noSessions, sessionId)]
-    : noReferences;
+  return ready ? [...files, ...sessionReferences(sessions ?? noSessions, sessionId)] : noReferences;
 }
 
 function ChatSessionView({
@@ -207,16 +210,23 @@ function ChatSessionView({
     setExporting(false);
   };
 
-  const composer = (hero: boolean) => (
-    <ChatComposerArea
-      chat={chat}
-      chatState={chatState}
-      error={chatState.error}
-      referenceSource={referenceSource}
-      sessionId={active}
-      hero={hero}
-    />
+  const ReferenceEntries = referenceSource?.Entries ?? NoReferenceEntries;
+  const withReferences = (render: (files: ReferenceEntry[]) => ReactNode) => (
+    <ReferenceEntries projectId={chat?.projectId ?? null} cwd={chat?.cwd ?? null}>
+      {render}
+    </ReferenceEntries>
   );
+  const composer = (hero: boolean) =>
+    withReferences((files) => (
+      <ChatComposerArea
+        chat={chat}
+        chatState={chatState}
+        error={chatState.error}
+        files={files}
+        sessionId={active}
+        hero={hero}
+      />
+    ));
 
   return (
     <div
@@ -312,13 +322,15 @@ function ChatSessionView({
       ) : (
         conversation && composer(false)
       )}
-      {sidechatOpen && (
-        <SidechatPanel
-          onOpenSource={onOpenSource}
-          parentId={active}
-          referenceSource={referenceSource}
-        />
-      )}
+      {sidechatOpen &&
+        withReferences((files) => (
+          <SidechatPanel
+            onOpenSource={onOpenSource}
+            parentId={active}
+            files={files}
+            flushReference={referenceSource?.flushReference}
+          />
+        ))}
       <ChatSessions
         currentSessionId={active}
         onDeleteSession={(id) => {

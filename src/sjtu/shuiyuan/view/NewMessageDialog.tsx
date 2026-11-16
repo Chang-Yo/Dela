@@ -103,7 +103,6 @@ export function NewMessageDialog({
                 onScroll={() => {}}
                 placeholderText="写下内容…（Markdown）"
                 saveOnBlur={false}
-                scroll={0}
                 value={body}
               />
             </div>

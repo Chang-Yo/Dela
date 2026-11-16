@@ -1,6 +1,6 @@
 // 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏、
 // EntryDialogs 都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   type DocumentContent,
@@ -16,6 +16,7 @@ import { parseRemoteNodeId, remoteAssetUrl } from '../../../modules/remotes/cont
 import {
   ChatTabSourceProvider,
   type ChatTabSource,
+  type ReferenceEntry,
   type ReferenceSource,
   useSessions,
   ChatHome,
@@ -103,9 +104,21 @@ function useReferenceEntries(projectId: string | null, cwd: string | null) {
   );
 }
 
+function ReferenceEntries({
+  projectId,
+  cwd,
+  children,
+}: {
+  projectId: string | null;
+  cwd: string | null;
+  children: (entries: ReferenceEntry[]) => ReactNode;
+}) {
+  return children(useReferenceEntries(projectId, cwd));
+}
+
 // @ 引用候选即 cwd 下的文件路径；通用池另并入资料目录与模块登记的候选，如已下载的课件。
 const referenceSource: ReferenceSource = {
-  useEntries: useReferenceEntries,
+  Entries: ReferenceEntries,
   // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
   flushReference: async (key) => {
     if (!(await useNoteDrafts.getState().save(key)))
@@ -113,21 +126,7 @@ const referenceSource: ReferenceSource = {
   },
 };
 
-function useNotePath(entryId: string) {
-  const entries = useWorkspaceStore((state) => state.workspace.entries);
-  return ancestorChainOf(entries, entryId).flatMap((id) => {
-    const entry = entries.find((entry) => entry.id === id);
-    return entry ? [entry.name] : [];
-  });
-}
-
-function useNoteDraft(entryId: string) {
-  return useNoteDrafts((state) => state.drafts[entryId]);
-}
-
 const draftBase: Omit<NoteDraftSource, 'saveAsNewNote'> = {
-  usePath: useNotePath,
-  useDraft: useNoteDraft,
   resolveImage: (entryId, src) => {
     if (!isRelativeAssetPath(src)) return src;
     const remote = parseRemoteNodeId(entryId);

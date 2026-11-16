@@ -70,6 +70,7 @@ type EditorSession = { state: EditorState; scrollTop: number };
 /* EditorState 存在 React 树外，切换标签不丢撤销历史与光标；复用的 state 带着首次挂载
    的扩展闭包，它们经 handlers 按键找到当前组件的回调。 */
 const sessions = new Map<string, EditorSession>();
+const noScroll = () => 0;
 const handlers = new Map<string, EditorHandlers>();
 
 function replaceDocument(current: string, next: string) {
@@ -106,7 +107,7 @@ export function MarkdownEditor({
   onChange,
   onSave,
   onScroll,
-  scroll,
+  initialScroll = noScroll,
   placeholderText = '开始记录…',
   lineNumbers: showLineNumbers = true,
   ariaLabel = '笔记编辑器',
@@ -122,8 +123,8 @@ export function MarkdownEditor({
   onChange: (text: string) => void;
   onSave: () => void;
   onScroll: (top: number) => void;
-  /* scroll 与 lineNumbers/ariaLabel/saveOnBlur 仅取初值：只装配于首次挂载，此后变化不生效。 */
-  scroll: number;
+  /* initialScroll 与 lineNumbers/ariaLabel/saveOnBlur 仅取初值：只装配于首次挂载，此后变化不生效。 */
+  initialScroll?: () => number;
   /** 占位文案；回复编辑器等非笔记场景使用，变化时热替换。 */
   placeholderText?: string;
   /** 行号 gutter；笔记默认开启，回复编辑器可关闭。 */
@@ -280,7 +281,7 @@ export function MarkdownEditor({
         changes: replaceDocument(state.sliceDoc(), value),
         annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
       }).state;
-    const session: EditorSession = { state, scrollTop: previous?.scrollTop ?? scroll };
+    const session: EditorSession = { state, scrollTop: previous?.scrollTop ?? initialScroll() };
     transient.current = session;
     if (persistent) sessions.set(instanceKey, session);
     const current = new EditorView({ parent: host.current!, state });
@@ -324,7 +325,7 @@ export function MarkdownEditor({
       view.current = null;
       if (handlers.get(instanceKey)?.sync === boundHandlers.sync) handlers.delete(instanceKey);
     };
-    // value/filename/scroll 只在首次挂载装配；后续外部变更由下方 effect 单向同步。
+    // value/filename/initialScroll 只在首次挂载装配；后续外部变更由下方 effect 单向同步。
   }, []);
   useEffect(() => {
     view.current?.dispatch({

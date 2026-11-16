@@ -12,7 +12,12 @@ export {
 export { ArchivedSection } from './ArchivedSection';
 export { ChatHome, type HomeChatRequest } from './ChatHome';
 export { ChatTab } from './ChatTab';
-export { ChatTabSourceProvider, type ChatTabSource, type ReferenceSource } from './chat-source';
+export {
+  ChatTabSourceProvider,
+  type ChatTabSource,
+  type ReferenceEntry,
+  type ReferenceSource,
+} from './chat-source';
 export { registerChatAttachmentCheck, saveChatDrafts, useChatDrafts } from './drafts';
 export { referenceEntryCandidates } from './reference-tokens';
 export { reviewTabTitle } from './review/tab-id';

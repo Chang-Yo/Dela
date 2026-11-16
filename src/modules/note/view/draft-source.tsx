@@ -10,14 +10,8 @@ export type NoteDraft = {
   error: string | null;
 };
 
-/**
- * NoteTab 的草稿数据源（注入接口）：由 content/note/drafts.ts 接线，NoteTab 不感知 store 形态。
- */
+/** NoteTab 的草稿操作（注入接口）；草稿状态由 NoteTab 直接订阅 useNoteDrafts。 */
 export interface NoteDraftSource {
-  /** 订阅文档的工作区层级路径；由装配层解析目录，内容层只负责展示。 */
-  usePath?(entryId: string): string[];
-  /** 订阅草稿状态；尚未建立时为 undefined。 */
-  useDraft(entryId: string): NoteDraft | undefined;
   /** Markdown 正文里的图片地址 → 可显示的地址；本地与远端文件的相对路径解析方式不同。 */
   resolveImage(entryId: string, src: string): string;
   /** 建立或刷新草稿；force 时等在途保存结束后重读磁盘。 */

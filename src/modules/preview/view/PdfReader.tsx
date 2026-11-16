@@ -23,17 +23,17 @@ const DRAWING_DELAY = 400;
 
 export function PdfReader({
   url,
-  scroll,
+  initialScroll,
   onScroll,
 }: {
   url: string;
-  scroll: number;
+  initialScroll: () => number;
   onScroll?: (top: number) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const pages = useRef<HTMLDivElement>(null);
   const viewer = useRef<PDFViewer | null>(null);
-  const position = useRef(scroll);
+  const position = useRef(initialScroll());
   const reportScroll = useEffectEvent((top: number) => onScroll?.(top));
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);

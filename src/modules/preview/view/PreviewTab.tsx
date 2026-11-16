@@ -10,7 +10,7 @@ import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
 import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
-import { rememberPreviewScroll, usePreviewScroll } from './scroll-memory';
+import { previewScrollOf, rememberPreviewScroll } from './scroll-memory';
 import { parsePreviewTabId } from './tab-id';
 import { Spinner } from '../../../ui/spinner';
 import { errorMessage } from '../../../core/protocol/contract';
@@ -60,7 +60,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   // 首次加载失败用占位错误（带重试）；已加载后的重读失败走浮窗，不打断当前内容。
   const error = query.isError && !doc && !query.isFetching ? errorMessage(query.error) : null;
   const scrollKey = `${tabId}:${groupId}`;
-  const scroll = usePreviewScroll.getState()[scrollKey] ?? 0;
+  const initialScroll = () => previewScrollOf(scrollKey);
   const onScroll = (top: number) => rememberPreviewScroll(scrollKey, top);
 
   const load = () =>
@@ -160,7 +160,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
               const frame = event.currentTarget;
               const frameDoc = frame.contentDocument;
               if (!frameDoc) return;
-              frame.contentWindow?.scrollTo(0, scroll);
+              frame.contentWindow?.scrollTo(0, initialScroll());
               frameDoc.addEventListener('click', (e) => {
                 const target = (e.target as Element).closest?.('a[href]');
                 if (target) {
@@ -181,7 +181,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
             <PdfReader
               key={content.previewUrl}
               url={content.previewUrl}
-              scroll={scroll}
+              initialScroll={initialScroll}
               onScroll={onScroll}
             />
           </Suspense>
@@ -232,7 +232,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
               <PdfReader
                 key={exported.previewUrl}
                 url={exported.previewUrl}
-                scroll={scroll}
+                initialScroll={initialScroll}
                 onScroll={onScroll}
               />
             </Suspense>
@@ -259,7 +259,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         <CodeViewer
           value={content.text ?? ''}
           filename={content.title}
-          scroll={scroll}
+          initialScroll={initialScroll}
           onScroll={onScroll}
         />
       )}

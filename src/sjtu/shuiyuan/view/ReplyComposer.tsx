@@ -249,7 +249,6 @@ export function ReplyComposer({
           onScroll={() => {}}
           placeholderText={placeholder}
           saveOnBlur={false}
-          scroll={0}
           value={value}
         />
       </div>

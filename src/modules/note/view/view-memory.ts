@@ -12,3 +12,6 @@ export const rememberNoteMode = (entryId: string, mode: NoteMode) =>
 
 export const rememberNoteScroll = (scrollKey: string, top: number) =>
   useNoteViewMemory.setState((state) => ({ scrolls: { ...state.scrolls, [scrollKey]: top } }));
+
+export const noteScrollOf = (scrollKey: string) =>
+  useNoteViewMemory.getState().scrolls[scrollKey] ?? 0;
