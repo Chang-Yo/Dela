@@ -61,7 +61,7 @@ const detached: ChatTabSource = {
   opensLink: () => false,
 };
 
-export const ChatTabSourceContext = createContext<ChatTabSource>(detached);
+const ChatTabSourceContext = createContext<ChatTabSource>(detached);
 
 export function ChatTabSourceProvider({
   source,

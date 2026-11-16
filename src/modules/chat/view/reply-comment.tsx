@@ -34,7 +34,7 @@ export interface FloatingSpot {
  * 结果始终夹在视口内，不压上方的会话栏，也不压下方的输入框。选区整个滚出视口时，pin=false
  * 返回 null（隐藏）；pin=true 贴在离它最近的边缘，正在写的评论不会随滚动消失。
  */
-export function placeFloating(
+function placeFloating(
   anchor: FloatingAnchor,
   box: { width: number; height: number },
   view: { width: number; height: number },

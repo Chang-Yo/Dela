@@ -55,11 +55,6 @@ export function shouldRestoreDraft(fresh: WorkspaceChat | null, sentText: string
   return !fresh.messages.some((message) => message.role === 'user' && message.content === stripped);
 }
 
-/** 空会话判定：「新对话」切换前移除从未发送过消息的会话，避免空会话进入历史。 */
-export function isEmptySession(chat: WorkspaceChat | null): boolean {
-  return Boolean(chat && chat.messages.length === 0);
-}
-
 /** 输入草稿的响应式订阅：只在 composer 容器层调用——打字每键仅重渲输入区，
  *  不带动消息列表；useChat 内部一律经 useChatDrafts.getState() 命令式读取。 */
 export function useChatDraft(sessionId: string) {

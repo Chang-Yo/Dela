@@ -11,7 +11,7 @@ export interface RunMirror {
 }
 
 /** 事件归并：同一 session 的最新事件覆盖旧状态（主进程对同一 session 串行，IPC 保序）。 */
-export function applyRunEvent(
+function applyRunEvent(
   bySession: Record<string, RunMirror>,
   event: RunEvent,
 ): Record<string, RunMirror> {
@@ -79,12 +79,6 @@ export const useRuns = create<RunsState>((set, get) => ({
 
 export function isSessionViewed(sessionId: string): boolean {
   return (useRuns.getState().viewing[sessionId] ?? 0) > 0;
-}
-
-/** 会话徽标的即时读取（导航行等一次性判定）；需要随推送刷新的界面用 useRuns 选择器订阅。 */
-export function sessionRunBadge(sessionId: string): 'running' | 'failed' | 'completed' | null {
-  const run = useRuns.getState().bySession[sessionId];
-  return run ? runBadge(run.status) : null;
 }
 
 /** 按行订阅某会话的 run 状态原始值：applyRunEvent 只替换目标键，其余会话的行不重渲

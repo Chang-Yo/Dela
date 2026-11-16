@@ -28,7 +28,7 @@ import { openSidechat, useSidechats } from './sidechat-store';
 import { errorMessage } from '../../../core/protocol/contract';
 
 /** 解析 chat:{sessionId} 标签键；无效载荷返回 null。 */
-export function parseChatTabId(tabId: string): string | null {
+function parseChatTabId(tabId: string): string | null {
   if (!tabId.startsWith('chat:')) return null;
   const sessionId = tabId.slice('chat:'.length);
   return sessionId || null;

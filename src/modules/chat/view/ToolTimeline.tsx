@@ -35,7 +35,7 @@ function basename(path: string) {
 }
 
 /** 步骤对象：文件名、命令首行、搜索词；路径只显示文件名，完整值放 title。 */
-export function stepTarget(result: AgentToolResult): { short: string; full: string } {
+function stepTarget(result: AgentToolResult): { short: string; full: string } {
   const input = (result.input ?? {}) as Record<string, unknown>;
   const text = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
   switch (result.name) {
