@@ -1,23 +1,14 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowUp,
   AtSign,
   Bot,
-  Check,
   ChevronDown,
-  CircleAlert,
   FileText,
   Globe,
-  Layers,
   MessageSquare,
   Paperclip,
-  Settings,
   Sparkles,
-  Square,
-  SquareTerminal,
-  Undo2,
-  X,
 } from 'lucide-react';
 import { cn } from '../../../ui/cn';
 import type { ComposerContext } from './composer-context';
@@ -25,11 +16,25 @@ import { ComposerContextBar } from './composer-context-bar';
 import { ReplyCommentRail } from './reply-comment';
 import { formatDuration } from './ToolTimeline';
 import { openSubagent } from './tool-views';
-import { Button } from '../../../ui/button';
-import { useNow } from '../../../ui/use-now';
+import { BackgroundTasks } from '../../../ui/agent/background-tasks';
+import { ContextIndicator } from '../../../ui/agent/context-indicator';
+import {
+  PromptInput,
+  PromptInputAttachments,
+  PromptInputChip,
+  PromptInputMenu,
+  PromptInputMenuItem,
+  PromptInputNotice,
+  PromptInputOption,
+  PromptInputOptionCheck,
+  PromptInputSetup,
+  PromptInputSubmit,
+  PromptInputToolbar,
+  PromptInputTrigger,
+} from '../../../ui/agent/prompt-input';
+import { QueuedMessages } from '../../../ui/agent/queued-messages';
 import { IconButton } from '../../../ui/icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
-import { ProgressRing } from '../../../ui/progress-ring';
 import { useChatTabSource } from './chat-source';
 import type {
   BackgroundTaskView,
@@ -88,17 +93,6 @@ function formatSize(size: number): string {
   return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
-function formatTokens(tokens: number): string {
-  return tokens < 1000 ? '0K' : `${(tokens / 1000).toFixed(1).replace(/\.0$/, '')}K`;
-}
-
-function usageTone(percent: number | null): 'ink' | 'orange' | 'red' {
-  if (percent === null) return 'ink';
-  if (percent >= 90) return 'red';
-  if (percent >= 70) return 'orange';
-  return 'ink';
-}
-
 /** 本会话累计缓存命中率 = cacheRead / (输入 + cacheRead)。main 没给出缓存字段（提供商不上报
  *  缓存）或分母为 0 时显示 —：写成 0% 会把「没有数据」说成「一次都没命中」。 */
 export function cacheHitRateText(usage: ContextUsageView): string {
@@ -108,12 +102,7 @@ export function cacheHitRateText(usage: ContextUsageView): string {
   return total > 0 ? `${((cachedTokens / total) * 100).toFixed(1)}%` : '—';
 }
 
-const triggerButton =
-  'flex h-7 min-w-0 shrink items-center gap-1 rounded-control px-1.5 text-xs font-medium text-ink-2 transition-colors duration-base hover:bg-hover hover:text-ink';
 const webSearchOptionsKey = ['capabilities', 'webSearchOptions'];
-const MENU_ROW_UNITS = 9;
-const scrollRowIntoView = (node: HTMLLIElement | null) =>
-  node?.scrollIntoView({ block: 'nearest' });
 
 export function ChatComposer({
   value,
@@ -428,18 +417,21 @@ export function ChatComposer({
   return (
     <div className="relative">
       {context && <ComposerContextBar context={context} />}
-      {queued.length > 0 && <QueuedMessages messages={queued} onWithdraw={onWithdrawQueued} />}
+      {queued.length > 0 && (
+        <QueuedMessages
+          messages={queued.map((text) => text.trim() || '图片或附件')}
+          onWithdraw={onWithdrawQueued}
+        />
+      )}
       {(fileError ?? notice) && (
-        <ComposerNotice
+        <PromptInputNotice
           message={(fileError ?? notice)!}
           onDismiss={fileError ? () => setFileError(null) : onDismissNotice}
         />
       )}
-      <div
-        className={cn(
-          '@container relative rounded-window border border-line bg-surface shadow-card transition-colors duration-base focus-within:border-line-strong',
-          dragging && 'border-transparent',
-        )}
+      <PromptInput
+        dragging={dragging}
+        dropHint="松开以添加图片或附件"
         onDragOver={(event) => {
           if (event.dataTransfer.types.includes('Files')) {
             event.preventDefault();
@@ -457,20 +449,15 @@ export function ChatComposer({
           void addFiles(files, editorRef.current?.selectionStart() ?? value.length);
         }}
       >
-        {dragging && (
-          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-window border-2 border-dashed border-line-strong bg-page/80 text-sm text-ink-3">
-            松开以添加图片或附件
-          </div>
-        )}
         {(comments.length > 0 || attachments.length > 0) && (
-          <div className="grid gap-1.5 px-3 pt-3">
+          <PromptInputAttachments>
             {comments.length > 0 && (
               <ReplyCommentRail comments={comments} onChange={onCommentsChange} />
             )}
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {attachments.map((item) => (
-                  <ComposerChip
+                  <PromptInputChip
                     detail={formatSize(item.size)}
                     icon={<FileText />}
                     key={item.id}
@@ -481,7 +468,7 @@ export function ChatComposer({
                 ))}
               </div>
             )}
-          </div>
+          </PromptInputAttachments>
         )}
         <ComposerEditor
           className="@max-[220px]:[&_[aria-hidden='true']]:truncate"
@@ -510,7 +497,7 @@ export function ChatComposer({
           referenceOptions={referenceOptions}
           value={value}
         />
-        <div className="flex items-center gap-1 px-2.5 pb-2.5 pt-1 @max-[160px]:gap-0.5 @max-[160px]:px-1.5">
+        <PromptInputToolbar>
           <IconButton aria-label="添加图片或附件" onClick={pickFiles} title="添加图片或附件">
             <Paperclip />
           </IconButton>
@@ -535,66 +522,43 @@ export function ChatComposer({
                     {searchFailed ? '搜索配置加载失败' : '正在加载搜索配置…'}
                   </p>
                 ) : searchEntries.length === 0 ? (
-                  <div className="grid gap-2 px-1.5 py-2">
-                    <p className="text-xs text-ink-3">
-                      还没有搜索服务配置，可在设置 › 内置能力 的「网络」分组中添加。
-                    </p>
-                    <Button
-                      className="w-full justify-start [&_svg]:size-3.5"
-                      onClick={() => {
-                        setSearchPickerOpen(false);
-                        navigate({ page: 'settings', section: 'capabilities' });
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Settings />
-                      打开设置 › 内置能力
-                    </Button>
-                  </div>
+                  <PromptInputSetup
+                    actionLabel="打开设置 › 内置能力"
+                    message="还没有搜索服务配置，可在设置 › 内置能力 的「网络」分组中添加。"
+                    onAction={() => {
+                      setSearchPickerOpen(false);
+                      navigate({ page: 'settings', section: 'capabilities' });
+                    }}
+                  />
                 ) : (
                   <ul aria-label="联网搜索">
                     <li>
-                      <button
+                      <PromptInputOption
+                        active={searchSelectedId === null}
                         aria-checked={searchSelectedId === null}
-                        className={cn(
-                          'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-sm transition-colors',
-                          searchSelectedId === null
-                            ? 'bg-hover font-medium text-ink'
-                            : 'text-ink-2 hover:bg-hover hover:text-ink',
-                        )}
+                        className="h-8 gap-2"
                         onClick={() => void selectSearchEntry(null)}
                         role="radio"
-                        type="button"
                       >
                         <span className="truncate">关闭</span>
-                        {searchSelectedId === null && (
-                          <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
-                        )}
-                      </button>
+                        {searchSelectedId === null && <PromptInputOptionCheck />}
+                      </PromptInputOption>
                     </li>
                     {searchEntries.map((entry) => (
                       <li key={entry.id}>
-                        <button
+                        <PromptInputOption
+                          active={entry.id === searchSelectedId}
                           aria-checked={entry.id === searchSelectedId}
-                          className={cn(
-                            'flex h-8 w-full items-center gap-2 rounded-chip px-2 text-left text-sm transition-colors',
-                            entry.id === searchSelectedId
-                              ? 'bg-hover font-medium text-ink'
-                              : 'text-ink-2 hover:bg-hover hover:text-ink',
-                          )}
+                          className="h-8 gap-2"
                           onClick={() => void selectSearchEntry(entry.id)}
                           role="radio"
-                          type="button"
                         >
                           <span className="truncate">{entry.name}</span>
                           {entry.provider === 'deepseek' && (
                             <span className="shrink-0 text-xs text-ink-3">按次计费</span>
                           )}
-                          {entry.id === searchSelectedId && (
-                            <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
-                          )}
-                        </button>
+                          {entry.id === searchSelectedId && <PromptInputOptionCheck />}
+                        </PromptInputOption>
                       </li>
                     ))}
                   </ul>
@@ -603,27 +567,34 @@ export function ChatComposer({
             </Popover>
           )}
           <div className="flex-1" />
-          {tasks.length > 0 && onStopTask && <BackgroundTasks onStop={onStopTask} tasks={tasks} />}
-          {configured && contextUsage && <ContextIndicator usage={contextUsage} />}
+          {tasks.length > 0 && onStopTask && (
+            <BackgroundTasks
+              formatElapsed={formatDuration}
+              onOpenSubagent={(taskId) => void openSubagent(taskId, navigate)}
+              onStop={onStopTask}
+              tasks={tasks}
+            />
+          )}
+          {configured && contextUsage && (
+            <ContextIndicator cacheHitRate={cacheHitRateText(contextUsage)} usage={contextUsage} />
+          )}
           {configured && !sidechat && (
             <Popover onOpenChange={openModelPicker} open={modelPickerOpen}>
               <PopoverTrigger asChild>
-                <button
+                <PromptInputTrigger
                   aria-label="模型服务"
                   className={cn(
-                    triggerButton,
                     '@max-[220px]:px-1.5',
                     modelUnavailable && 'text-danger hover:text-danger',
                   )}
                   title={modelUnavailable ? `${model}（已停用或被移除，请另选模型）` : model}
-                  type="button"
                 >
                   <span className="truncate @max-[220px]:hidden">
                     {modelUnavailable ? `${model} · 已停用` : model}
                   </span>
                   <Bot className="hidden size-3.5 @max-[220px]:block" />
                   <ChevronDown className="size-3 @max-[220px]:hidden" />
-                </button>
+                </PromptInputTrigger>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80" side="bottom">
                 {providers === null ? (
@@ -633,37 +604,22 @@ export function ChatComposer({
                     <p className="px-2 py-3 text-xs text-ink-3">正在加载模型列表…</p>
                   )
                 ) : providers.length === 0 ? (
-                  <div className="grid gap-2 px-1.5 py-2">
-                    <p className="text-xs text-ink-3">
-                      还没有启用的模型供应商，可在设置 › 模型服务 中添加或启用。
-                    </p>
-                    <Button
-                      className="w-full justify-start [&_svg]:size-3.5"
-                      onClick={() => {
-                        setModelPickerOpen(false);
-                        navigate({ page: 'settings', section: 'providers' });
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Settings />
-                      打开设置 › 模型服务
-                    </Button>
-                  </div>
+                  <PromptInputSetup
+                    actionLabel="打开设置 › 模型服务"
+                    message="还没有启用的模型供应商，可在设置 › 模型服务 中添加或启用。"
+                    onAction={() => {
+                      setModelPickerOpen(false);
+                      navigate({ page: 'settings', section: 'providers' });
+                    }}
+                  />
                 ) : (
                   <div className="flex gap-0.5">
                     <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
                       {providers.map((provider) => (
                         <li key={provider.id}>
-                          <button
-                            className={cn(
-                              'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
-                              provider.id === focused?.id
-                                ? 'bg-hover font-medium text-ink'
-                                : 'text-ink-2 hover:bg-hover hover:text-ink',
-                            )}
+                          <PromptInputOption
+                            active={provider.id === focused?.id}
                             onClick={() => setFocusedId(provider.id)}
-                            type="button"
                           >
                             <span className="truncate">{provider.name}</span>
                             {provider.id === providerId && (
@@ -673,7 +629,7 @@ export function ChatComposer({
                                 title="本会话使用"
                               />
                             )}
-                          </button>
+                          </PromptInputOption>
                         </li>
                       ))}
                     </ul>
@@ -683,27 +639,18 @@ export function ChatComposer({
                     >
                       {focused?.models.map((item) => (
                         <li key={item}>
-                          <button
-                            className={cn(
-                              'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
-                              focused.id === providerId && model === item
-                                ? 'bg-hover font-medium text-ink'
-                                : 'text-ink-2 hover:bg-hover hover:text-ink',
-                            )}
+                          <PromptInputOption
+                            active={focused.id === providerId && model === item}
                             onClick={() => {
                               setModelPickerOpen(false);
                               onModelSelect(focused, item);
                             }}
-                            type="button"
                           >
                             <span className="truncate">{item}</span>
                             {focused.id === providerId && model === item && (
-                              <Check
-                                className="ms-auto size-3 shrink-0 text-ink"
-                                strokeWidth={2.5}
-                              />
+                              <PromptInputOptionCheck />
                             )}
-                          </button>
+                          </PromptInputOption>
                         </li>
                       ))}
                     </ul>
@@ -715,16 +662,15 @@ export function ChatComposer({
           {configured && !sidechat && (
             <Popover onOpenChange={setEffortPickerOpen} open={effortPickerOpen}>
               <PopoverTrigger asChild>
-                <button
+                <PromptInputTrigger
                   aria-label="思考强度"
-                  className={cn(triggerButton, '@max-[260px]:px-1.5 @max-[160px]:hidden')}
+                  className="@max-[260px]:px-1.5 @max-[160px]:hidden"
                   title="思考强度"
-                  type="button"
                 >
                   <span className="truncate @max-[260px]:hidden">{effort ?? 'default'}</span>
                   <Sparkles className="hidden size-3.5 @max-[260px]:block" />
                   <ChevronDown className="size-3 @max-[260px]:hidden" />
-                </button>
+                </PromptInputTrigger>
               </PopoverTrigger>
               <PopoverContent
                 align="end"
@@ -732,45 +678,28 @@ export function ChatComposer({
                 side="bottom"
               >
                 {effortLevels.length === 0 ? (
-                  <div className="grid gap-2 px-1.5 py-2">
-                    <p className="text-xs text-ink-3">
-                      当前模型尚未配置可选的思考强度档位。在设置中编辑当前模型，勾选其支持的档位并保存。
-                    </p>
-                    <Button
-                      className="w-full justify-start [&_svg]:size-3.5"
-                      onClick={() => {
-                        setEffortPickerOpen(false);
-                        navigate({ page: 'settings', section: 'providers' });
-                      }}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Settings />
-                      打开设置 › 模型服务
-                    </Button>
-                  </div>
+                  <PromptInputSetup
+                    actionLabel="打开设置 › 模型服务"
+                    message="当前模型尚未配置可选的思考强度档位。在设置中编辑当前模型，勾选其支持的档位并保存。"
+                    onAction={() => {
+                      setEffortPickerOpen(false);
+                      navigate({ page: 'settings', section: 'providers' });
+                    }}
+                  />
                 ) : (
                   <ul aria-label="思考强度">
                     {effortLevels.map((level) => (
                       <li key={level}>
-                        <button
-                          className={cn(
-                            'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
-                            level === effort
-                              ? 'bg-hover font-medium text-ink'
-                              : 'text-ink-2 hover:bg-hover hover:text-ink',
-                          )}
+                        <PromptInputOption
+                          active={level === effort}
                           onClick={() => {
                             setEffortPickerOpen(false);
                             onEffortSelect(level);
                           }}
-                          type="button"
                         >
                           <span className="truncate">{level}</span>
-                          {level === effort && (
-                            <Check className="ms-auto size-3 shrink-0 text-ink" strokeWidth={2.5} />
-                          )}
-                        </button>
+                          {level === effort && <PromptInputOptionCheck />}
+                        </PromptInputOption>
                       </li>
                     ))}
                   </ul>
@@ -778,70 +707,33 @@ export function ChatComposer({
               </PopoverContent>
             </Popover>
           )}
-          {stoppable ? (
-            <button
-              aria-label="停止执行"
-              className="flex size-7 shrink-0 items-center justify-center rounded-control bg-ink text-surface transition-opacity duration-base hover:opacity-90 active:scale-[0.94]"
-              onClick={onStop}
-              title="停止执行"
-              type="button"
-            >
-              <Square className="size-3 fill-current" />
-            </button>
-          ) : (
-            <button
-              aria-label="发送"
-              className="flex size-7 shrink-0 items-center justify-center rounded-control transition-[background-color,color,transform] duration-slow enabled:active:scale-[0.94]"
-              disabled={!sendable}
-              onClick={onSend}
-              style={{
-                background: sendable ? 'var(--ink)' : 'var(--line-strong)',
-                color: sendable ? 'var(--surface)' : 'var(--ink-2)',
-              }}
-              title={modelUnavailable ? '这个会话的模型已停用，请先另选模型' : '发送'}
-              type="button"
-            >
-              <ArrowUp className="size-4" strokeWidth={2.4} />
-            </button>
-          )}
-        </div>
+          <PromptInputSubmit
+            onSend={onSend}
+            onStop={onStop}
+            sendable={sendable}
+            sendTitle={modelUnavailable ? '这个会话的模型已停用，请先另选模型' : '发送'}
+            stoppable={stoppable}
+          />
+        </PromptInputToolbar>
         {menuOpen && (
-          <ul
-            // 只保留 absolute：与 relative 同写时生成 CSS 谁生效不确定，实测会掉回文档流。
-            className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-56 overflow-auto rounded-card bg-surface p-1 shadow-raised @max-[260px]:min-w-0"
-            id={menuListId}
-            role="listbox"
-          >
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-x-1 rounded-chip bg-hover"
-              style={{
-                top: `calc(var(--spacing) * ${index * MENU_ROW_UNITS + 1})`,
-                height: `calc(var(--spacing) * ${MENU_ROW_UNITS})`,
-                opacity: index < items.length ? 1 : 0,
-                transition:
-                  'top 220ms cubic-bezier(0.23,1,0.32,1), height 220ms cubic-bezier(0.23,1,0.32,1), opacity 150ms ease',
-              }}
-            />
+          <PromptInputMenu activeIndex={index} id={menuListId} itemCount={items.length}>
             {items.map((item, position) => (
-              <li
-                aria-selected={position === index}
-                className="relative z-10 flex h-9 w-full items-center gap-2.5 rounded-chip px-2 text-left"
+              <PromptInputMenuItem
+                icon={
+                  menu?.kind === 'mention' ? (
+                    <FileText className="size-3.5 shrink-0 text-ink-3" />
+                  ) : menu?.kind === 'session' ? (
+                    <MessageSquare className="size-3.5 shrink-0 text-ink-3" />
+                  ) : (
+                    <span className="shrink-0 font-mono text-sm text-ink-3">/</span>
+                  )
+                }
                 id={menuOptionId(position)}
                 key={'name' in item ? item.name : item.key}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setIndex(position)}
-                onClick={() => handleSelect(position)}
-                ref={position === index ? scrollRowIntoView : undefined}
-                role="option"
+                onHover={() => setIndex(position)}
+                onSelect={() => handleSelect(position)}
+                selected={position === index}
               >
-                {menu?.kind === 'mention' ? (
-                  <FileText className="size-3.5 shrink-0 text-ink-3" />
-                ) : menu?.kind === 'session' ? (
-                  <MessageSquare className="size-3.5 shrink-0 text-ink-3" />
-                ) : (
-                  <span className="shrink-0 font-mono text-sm text-ink-3">/</span>
-                )}
                 {'name' in item ? (
                   <>
                     <span className="shrink-0 text-sm font-medium text-ink">/{item.name}</span>
@@ -857,11 +749,11 @@ export function ChatComposer({
                 ) : (
                   <MentionTitle title={item.title} />
                 )}
-              </li>
+              </PromptInputMenuItem>
             ))}
-          </ul>
+          </PromptInputMenu>
         )}
-      </div>
+      </PromptInput>
     </div>
   );
 }
@@ -877,234 +769,5 @@ function MentionTitle({ title }: { title: string }) {
       </span>
       {dir && <span className="min-w-0 truncate text-xs text-ink-3">{dir}</span>}
     </span>
-  );
-}
-
-function ComposerChip({
-  icon,
-  label,
-  detail,
-  onRemove,
-  removeLabel,
-}: {
-  icon: ReactNode;
-  label: string;
-  detail?: string;
-  onRemove: () => void;
-  removeLabel: string;
-}) {
-  return (
-    <span
-      className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field pr-0.5 pl-2 text-xs text-ink-2 shadow-hairline [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-ink-3"
-      style={{ animation: 'pop-in 200ms cubic-bezier(0.23,1,0.32,1) both' }}
-      title={label}
-    >
-      {icon}
-      <span className="truncate">{label}</span>
-      {detail && <span className="shrink-0 text-ink-3">{detail}</span>}
-      <IconButton
-        size="sm"
-        aria-label={removeLabel}
-
-        onClick={onRemove}
-      >
-        <X strokeWidth={2.2} />
-      </IconButton>
-    </span>
-  );
-}
-
-/** 待送达的插队消息：当前工具执行完后才交给模型；撤回把它们全部放回输入框（Pi 的队列只能整体清空）。 */
-function QueuedMessages({ messages, onWithdraw }: { messages: string[]; onWithdraw?: () => void }) {
-  return (
-    <div
-      aria-label="待送达的消息"
-      className="mb-2 flex items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-sm leading-6 shadow-hairline"
-      role="status"
-      style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
-    >
-      <ol className="min-w-0 flex-1">
-        {messages.map((text, index) => (
-          <li className="flex min-w-0 items-baseline gap-2" key={index}>
-            <span
-              aria-hidden
-              className="min-w-3 shrink-0 text-right text-xs tabular-nums text-ink-3"
-            >
-              {index + 1}
-            </span>
-            <span className="truncate text-ink-2" title={text}>
-              {text.trim() || '图片或附件'}
-            </span>
-          </li>
-        ))}
-      </ol>
-      {onWithdraw && (
-        <button
-          className="-mr-1 flex h-6 shrink-0 items-center gap-1 rounded-chip px-1.5 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink [&_svg]:size-3"
-          onClick={onWithdraw}
-          title="撤回到输入框"
-          type="button"
-        >
-          <Undo2 />
-          撤回
-        </button>
-      )}
-    </div>
-  );
-}
-
-function ComposerNotice({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
-  return (
-    <div
-      className="absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--danger-tint),var(--danger-tint))] px-3 py-1.5 text-sm leading-6 text-ink shadow-hairline"
-      role="alert"
-      style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
-    >
-      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-danger" />
-      <p className="min-w-0 flex-1 break-words">{message}</p>
-      {onDismiss && (
-        <button
-          aria-label="关闭提示"
-          className="-mr-1 flex size-6 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-surface hover:text-ink"
-          onClick={onDismiss}
-          type="button"
-        >
-          <X className="size-3" strokeWidth={2.2} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function BackgroundTasks({
-  tasks,
-  onStop,
-}: {
-  tasks: BackgroundTaskView[];
-  onStop: (taskId: string) => void;
-}) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          aria-label={`后台任务（${tasks.length} 个运行中）`}
-          className="flex h-7 shrink-0 items-center gap-1 rounded-control px-1.5 text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink"
-          title="后台任务"
-          type="button"
-        >
-          <Layers className="size-4" />
-          <span className="text-xs tabular-nums">{tasks.length}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" aria-label="后台任务" className="w-72" side="top">
-        <BackgroundTaskList onStop={onStop} tasks={tasks} />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function BackgroundTaskList({
-  tasks,
-  onStop,
-}: {
-  tasks: BackgroundTaskView[];
-  onStop: (taskId: string) => void;
-}) {
-  const { navigate } = useChatTabSource();
-  const now = useNow(1000);
-  return (
-    <ul className="grid grid-cols-1">
-      {tasks.map((task) => {
-        const Icon = task.kind === 'bash' ? SquareTerminal : Bot;
-        const label = (
-          <>
-            <Icon className="size-3.5 shrink-0 text-ink-3" />
-            <span
-              className={cn(
-                'min-w-0 flex-1 truncate text-sm text-ink',
-                task.kind === 'bash' && 'font-mono',
-              )}
-              title={task.label}
-            >
-              {task.label}
-            </span>
-          </>
-        );
-        return (
-          <li className="flex h-9 items-center gap-2 rounded-chip pl-2 pr-1" key={task.id}>
-            {task.kind === 'subagent' ? (
-              <button
-                className="flex min-w-0 flex-1 items-center gap-2 text-left hover:underline"
-                onClick={() => void openSubagent(task.id, navigate)}
-                title="打开子会话"
-                type="button"
-              >
-                {label}
-              </button>
-            ) : (
-              label
-            )}
-            <span className="shrink-0 text-xs tabular-nums text-ink-3">
-              {formatDuration(now - task.startedAt)}
-            </span>
-            <IconButton aria-label="停止" onClick={() => onStop(task.id)} title="停止">
-              <Square />
-            </IconButton>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function ContextIndicator({ usage }: { usage: ContextUsageView }) {
-  const tone = usageTone(usage.percent);
-  const color =
-    tone === 'red' ? 'var(--danger)' : tone === 'orange' ? 'var(--warning)' : 'var(--ink-2)';
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          aria-label="上下文占用"
-          className="flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-base hover:bg-hover"
-          title="上下文占用"
-          type="button"
-        >
-          <ProgressRing progress={(usage.percent ?? 0) / 100} size={18} tone={tone} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="center"
-        aria-label="上下文占用"
-        className="w-60 px-3 py-2.5"
-        side="top"
-      >
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-sm font-medium text-ink">上下文</span>
-          <span className="text-xs tabular-nums text-ink-3">
-            {usage.tokens === null
-              ? '—'
-              : `${usage.estimated ? '约 ' : ''}${formatTokens(usage.tokens)}`}{' '}
-            / {formatTokens(usage.contextWindow)}
-            {usage.percent !== null && ` (${usage.percent.toFixed(1).replace(/\.0$/, '')}%)`}
-          </span>
-        </div>
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-field">
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${Math.min(100, usage.percent ?? 0)}%`,
-              background: color,
-              transition: 'width 400ms cubic-bezier(0.23,1,0.32,1)',
-            }}
-          />
-        </div>
-        {/* 按本会话累计显示（不是最近一轮）：单轮命中率受该轮是否新建缓存影响，波动大、看不出趋势。 */}
-        <div className="mt-2 flex items-baseline justify-between gap-3">
-          <span className="text-sm text-ink-2">缓存命中率</span>
-          <span className="text-xs tabular-nums text-ink-3">{cacheHitRateText(usage)}</span>
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
