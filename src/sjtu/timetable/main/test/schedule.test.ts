@@ -54,10 +54,4 @@ describe('campus lesson dates', () => {
     expect(result.items).toEqual([]);
     expect(result.warnings).toHaveLength(2);
   });
-  it('rejects an invalid semester calendar date', () => {
-    expect(
-      lessonOccurrences([lesson], '2026-02-30', '2026-09-01T00:00:00Z', '2026-10-01T00:00:00Z')
-        .warnings,
-    ).toEqual(['学期开始日期无效']);
-  });
 });

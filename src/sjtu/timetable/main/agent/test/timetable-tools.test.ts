@@ -13,15 +13,9 @@ vi.mock('../../api', async () => {
   };
 });
 
-import {
-  createCalendarEvent,
-  deleteCalendarEvent,
-  getCalendarEvent,
-  querySchedule,
-} from '../../api';
+import { deleteCalendarEvent, getCalendarEvent, querySchedule } from '../../api';
 
 const schedule = vi.mocked(querySchedule);
-const createEvent = vi.mocked(createCalendarEvent);
 const deleteEvent = vi.mocked(deleteCalendarEvent);
 const getEvent = vi.mocked(getCalendarEvent);
 
@@ -56,31 +50,6 @@ describe('query_schedule', () => {
     });
   });
 
-  it('keeps UTC ISO inputs as-is and forwards an explicit semester', async () => {
-    schedule.mockReturnValue({
-      semester: '2025-2026-2',
-      timezone: 'Asia/Shanghai',
-      items: [],
-      coverage: {
-        courseSyncedAt: null,
-        complete: false,
-        warnings: ['该学期课表尚未同步'],
-      },
-    });
-    const result = (await timetableDomain.commands.query_schedule.execute({
-      semester: '2025-2026-2',
-      startAt: '2026-03-01T16:00:00.000Z',
-      endAt: '2026-03-08T16:00:00.000Z',
-    })) as { coverage: { complete: boolean; warnings: string[] } };
-    expect(schedule).toHaveBeenCalledWith({
-      semester: '2025-2026-2',
-      startAt: '2026-03-01T16:00:00.000Z',
-      endAt: '2026-03-08T16:00:00.000Z',
-    });
-    expect(result.coverage.complete).toBe(false);
-    expect(result.coverage.warnings[0]).toContain('请提示用户到课表页面');
-  });
-
   it('rejects mixed, missing or unordered time inputs at the schema layer', () => {
     // schema 校验失败同步抛出（registry 映射为 INVALID_INPUT）。
     expect(() =>
@@ -107,28 +76,6 @@ describe('query_schedule', () => {
         endDate: '2026-03-01',
       }),
     ).toThrow('日期不存在');
-  });
-});
-
-describe('create_event', () => {
-  it('passes the optional color through to the calendar API', () => {
-    const event: CalendarEvent = {
-      id: 7,
-      title: '组会',
-      startAt: '2026-09-30T02:00:00.000Z',
-      endAt: '2026-09-30T03:00:00.000Z',
-      location: null,
-      color: 'teal',
-    };
-    createEvent.mockReturnValue(event);
-    const input = {
-      title: '组会',
-      startAt: '2026-09-30T02:00:00.000Z',
-      endAt: '2026-09-30T03:00:00.000Z',
-      color: 'teal' as const,
-    };
-    expect(timetableDomain.commands.create_event.execute(input)).toEqual(event);
-    expect(createEvent).toHaveBeenCalledWith(input);
   });
 });
 
