@@ -8,10 +8,6 @@ import { IconButton } from './icon-button';
 
 export type ToastVariant = 'error' | 'success';
 
-/* Dela 适配新增（上游无此文件）：应用内通知浮窗卡片与宿主。
- * ToastCard 纯展示；瞬时动作结果由任意模块直接调 showToast()，持久状态仍内联展示。
- * 外观遵循库浮岛惯例：rounded-card + hairline 阴影（shadow-overlay），语义 tint 圆底图标。 */
-
 const tone = {
   error: { icon: CircleAlert, badge: 'bg-danger-tint text-danger', role: 'alert' },
   success: { icon: CircleCheck, badge: 'bg-success-tint text-success', role: 'status' },
@@ -33,7 +29,6 @@ export function ToastCard({
   description?: string;
   onClose?: () => void;
   className?: string;
-  /** Dela 适配：能力拓展复用通知卡片，右侧操作和正文下方进度由调用方提供。 */
   icon?: LucideIcon;
   action?: ReactNode;
   children?: ReactNode;
@@ -73,14 +68,12 @@ export function ToastCard({
 export interface ToastItem {
   id: string;
   open: boolean;
-  /** neutral：没有成败之分的消息（如 Pi 扩展的通知）。 */
   variant: ToastVariant | 'neutral';
   title: string;
   description?: string;
 }
 
 const MAX_OPEN_TOASTS = 4;
-// 错误需要读的时间长一些；成功一瞥即走。
 const DURATION_MS: Record<ToastItem['variant'], number> = {
   error: 8000,
   success: 4000,
@@ -100,9 +93,9 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+/** 瞬时动作结果由任意模块直接调用；持久状态仍内联展示。 */
 export function showToast(toast: Omit<ToastItem, 'id' | 'open'>) {
   const opened = items.filter((item) => item.open);
-  // 超出上限丢最旧，避免持续失败刷屏。
   setItems([...opened, { id: crypto.randomUUID(), open: true, ...toast }].slice(-MAX_OPEN_TOASTS));
 }
 
@@ -114,7 +107,6 @@ export function toasts() {
   return items.filter((item) => item.open);
 }
 
-/** 钉在 AppShell 的 main#app-main 末尾。 */
 export function Toaster() {
   const current = useSyncExternalStore(subscribe, () => items);
   return (

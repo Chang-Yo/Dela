@@ -23,7 +23,6 @@ export type DiffRow = {
 };
 export type CodeBlockLabels = { copy: string; copied: string };
 
-// Back-compat internal aliases for the local component signatures.
 type Piece = CodePiece;
 type Row = DiffRow;
 
@@ -174,22 +173,16 @@ function FileIcon() {
 const DEFAULT_LABELS: CodeBlockLabels = { copy: 'Copy', copied: 'Copied' };
 
 export type CodeBlockProps = {
-  /** "Code" (line-numbered listing) or "Diff". */
   variant?: string;
   lines?: string[];
-  /** Defaults to `lines` joined. */
   code?: string;
   diff?: DiffRow[];
   filename?: string;
   labels?: Partial<CodeBlockLabels>;
   onCopy?: (text: string) => void;
-  /** Dela 适配：纯文本模式——跳过内置语法高亮（stdout、网页正文等非代码内容）。 */
   plain?: boolean;
-  /** Dela 适配：填充父容器宽度（默认限制在 26rem 展示宽度）。 */
   fill?: boolean;
-  /** Dela 适配：追加到代码主体的类名（聊天内限高滚动等场景）。 */
   bodyClassName?: string;
-  /** Dela 适配：失败态——卡片左侧一条 --danger 色条（沿用 Diff 视图增删色条的写法）。 */
   tone?: 'error';
 };
 
@@ -226,14 +219,13 @@ export default function CodeBlock({
     <div
       className={`relative ${fill ? 'w-full' : 'w-full max-w-105'} overflow-hidden rounded-card bg-surface shadow-card`}
     >
-      {/* Dela 适配：失败态色条需盖住 Diff 的整行底色，故置于顶层。 */}
       {tone === 'error' && (
         <span
           aria-hidden
           className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[0.1875rem] bg-danger"
         />
       )}
-      {/* Dela 适配：文件名保留正常行高；leading-none 的 1em 行盒会在字号调大后裁掉下划线与字形下缘。 */}
+      {/* 文件名保留正常行高：leading-none 会在字号调大后裁掉下划线与字形下缘。 */}
       <div className="flex min-h-11 items-center gap-2 border-b border-line px-4 py-2 text-sm">
         <span className="inline-flex min-w-0 items-center gap-[0.4375rem]">
           <FileIcon />
@@ -250,7 +242,6 @@ export default function CodeBlock({
             type="button"
             aria-label="Copy code"
             onClick={copy}
-            // Dela 适配：长路径下保留按钮宽度，避免继承聊天区换行规则后拆开 Copy / Copied。
             className={`-mr-1 ml-auto flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-1.5 text-xs
               font-medium transition-colors duration-fast hover:bg-hover
               ${copied ? 'text-success' : 'text-ink-3 hover:text-ink'}`}
@@ -297,7 +288,6 @@ export default function CodeBlock({
             {diff.map((r, i) => {
               const add = r.type === 'add';
               const del = r.type === 'del';
-              // one gutter column: removals keep the old number, additions/context show the new one
               const num = del ? r.old : r.cur;
               return (
                 <div

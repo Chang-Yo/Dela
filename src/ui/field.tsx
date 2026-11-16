@@ -11,7 +11,6 @@ type FieldProps = Omit<React.ComponentProps<'label'>, 'children'> & {
   children: React.ReactNode;
 };
 
-/* 标签包住控件：点标签即聚焦，且 Select 等无法接收 id 的控件也适用；有 error 时单控件会带上 aria-invalid。 */
 function Field({ label, hint, error, children, className, ...props }: FieldProps) {
   const errorId = useId();
   return (

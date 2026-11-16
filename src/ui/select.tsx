@@ -12,7 +12,6 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
   return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
-// 尺寸与 Input 一一对应，同一表单里的下拉与输入框等高。
 const triggerSizes = {
   default: '',
   lg: 'h-10 rounded-card px-3',
@@ -73,9 +72,7 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        // 左右内边距对称：选中指示器是绝对定位的，不需要再为它预留右侧内边距
-        // （原 pr-8 会让高亮块右内边距远大于左侧）。Radix 会丢弃 ItemText 上的 className，
-        // 截断与指示器避让只能挂在条目上选中末位的 ItemText span。
+        // Radix 会丢弃 ItemText 上的 className，截断与指示器避让只能挂在条目上选中末位的 ItemText span。
         menuItem,
         'w-full [&>*:last-child]:truncate [&>*:last-child]:pe-6',
         className,

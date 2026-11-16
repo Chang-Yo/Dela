@@ -3,10 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { cn } from './cn';
 import { useMediaQuery } from './use-media-query';
 
-/**
- * 高度在 0 与内容高度之间过渡。收起动画结束后卸载内容：隐藏区域里的必填项
- * 不会拦住表单提交，也不会被 Tab 聚焦。
- */
+/** 收起动画结束后卸载内容：隐藏区域里的必填项不会拦住表单提交，也不会被 Tab 聚焦。 */
 function Collapse({
   open,
   className,
@@ -44,7 +41,6 @@ function Collapse({
   );
 }
 
-/** 折叠触发器上的箭头：收起时朝右，展开时朝下。 */
 function CollapseChevron({ open, className }: { open: boolean; className?: string }) {
   return (
     <ChevronRight

@@ -3,9 +3,7 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 type PanelToggleButtonProps = {
   collapsed: boolean;
   onToggle: () => void;
-  /** 面板名称,用于生成"展开/收起 ××"提示。 */
   label: string;
-  /** 可选:受控面板元素的 id,映射到 aria-controls。 */
   controlsId?: string;
 };
 

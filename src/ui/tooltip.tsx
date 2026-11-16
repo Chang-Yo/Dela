@@ -37,7 +37,6 @@ function TooltipContent({
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
         className={cn(
-          // beautiful-ui tooltip token：深底浅字，统一 pop-in 动效。
           'z-overlay w-fit max-w-80 rounded-control bg-(--tooltip-bg) px-2 py-1 text-xs font-medium text-(--tooltip-fg) shadow-tooltip animate-pop-in',
           className,
         )}

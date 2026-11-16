@@ -3,7 +3,6 @@ type DesktopOnlyNoticeProps = {
   description: string;
 };
 
-/** 浏览器预览(无 Electron preload)时替代真实功能的静态说明。 */
 export function DesktopOnlyNotice({ title, description }: DesktopOnlyNoticeProps) {
   return (
     <div className="grid h-full place-items-center p-8">

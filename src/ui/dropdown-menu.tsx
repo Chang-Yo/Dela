@@ -186,8 +186,7 @@ function DropdownMenuSubContent({
   );
 }
 
-/** 菜单项要把焦点交给菜单外新出现的元素（如行内新建的名称输入框）时用：菜单关闭会把焦点还给
- * 触发按钮，抢走新元素的焦点。defer 记下动作，等菜单关完（onCloseAutoFocus）再执行，并取消这次焦点回收。 */
+/** 菜单关闭会把焦点还给触发按钮；defer 等菜单关完再执行动作，让新出现的元素（如行内名称输入框）保住焦点。 */
 function useAfterMenuClose() {
   const pending = useRef<(() => void) | null>(null);
   return {

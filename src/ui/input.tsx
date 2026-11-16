@@ -1,9 +1,6 @@
 import type * as React from 'react';
 import { cn } from './cn';
 
-// default 保持标准输入框外观；ghost 无边框透明、无阴影，聚焦只保留 ring 不加边框，
-// 供面板内的裸输入（如标题行）使用。
-// 外观对齐 beautiful-ui 的字段：field 底 + hairline 描边，聚焦换成 surface 底 + accent 描边。
 const inputVariants = {
   default:
     'bg-field shadow-hairline hover:shadow-hairline-strong focus-visible:bg-surface focus-visible:shadow-focus',

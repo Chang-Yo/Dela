@@ -2,7 +2,6 @@ import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 import { cn } from './cn';
 
-/** 尚未连接某项服务时的引导卡片，下方放登录按钮或表单；居中与滚动由宿主负责。 */
 function ConnectCard({
   icon: Icon,
   title,

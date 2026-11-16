@@ -2,8 +2,6 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
 import { cn } from './cn';
 
-// bordered 用于内容面板（邮件列表、审阅），plain 用于侧栏顶部；
-// 高度与相邻区域对齐：default 对齐工作台标签栏，lg 对齐应用侧栏头。
 const panelHeaderVariants = cva('flex shrink-0 items-center', {
   variants: {
     variant: {

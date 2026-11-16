@@ -3,7 +3,6 @@ import type * as React from 'react';
 import { cn } from './cn';
 import { Input } from './input';
 
-// className 给外层，决定宽度与伸缩；其余属性透传给 Input。
 function SearchInput({ className, ...props }: React.ComponentProps<typeof Input>) {
   return (
     <div className={cn('relative min-w-0', className)} data-slot="search-input">

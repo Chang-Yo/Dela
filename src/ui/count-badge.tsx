@@ -1,6 +1,5 @@
 import { cn } from './cn';
 
-// 反色数量气泡，超过 99 显示 99+；叠在按钮角上时由调用方给定位。
 function CountBadge({ count, className }: { count: number; className?: string }) {
   return (
     <span

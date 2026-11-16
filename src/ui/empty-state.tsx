@@ -2,10 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 import { cn } from './cn';
 
-/**
- * 列表或面板没有内容时的居中提示。填满面板时由调用方加 flex-1；
- * 加载中、出错不用它，分别用状态文字与 Callout。
- */
+/** 加载中、出错不用它，分别用状态文字与 Callout。 */
 function EmptyState({
   icon: Icon,
   title,

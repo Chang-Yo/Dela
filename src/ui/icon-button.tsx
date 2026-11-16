@@ -4,8 +4,6 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
 import { cn } from './cn';
 
-/* 常态无边无底，悬浮显 bg-hover，按压微缩；aria-pressed 与 aria-current=page 显示选中底。
- * 图标尺寸由 size 决定，调用处不再写 size-N。 */
 const iconButtonVariants = cva(
   `flex shrink-0 items-center justify-center rounded-control text-ink-3
    transition-[background-color,color,transform] duration-base

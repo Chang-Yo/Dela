@@ -1,8 +1,7 @@
 import { formatBytes } from './format-bytes';
 import { cn } from './cn';
 
-/** 下载进度一行：百分比向下取整，未完成不显示 100%；尺寸列定最小宽，数字增长时不抖动。
- *  进度条宽度由调用方经 barClassName 给。 */
+/** 百分比向下取整，未完成不显示 100%；尺寸列定最小宽，数字增长时不抖动。 */
 export function DownloadProgressRow({
   barClassName,
   label,

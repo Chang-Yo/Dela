@@ -3,8 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 type HoldPhase = 'idle' | 'waiting' | 'repeating';
 
-// 按住连发：立刻执行一次，短暂延迟后以固定间隔重复；松开、移出按钮或到达边界即停止。
-// interval 随 action 重建：action 捕获的值变了身份才变，连发总是基于最新值。
+// 按住连发：interval 随 action 重建，连发总是基于最新值。
 function useHoldRepeat(action: () => void, enabled: boolean) {
   const [phase, setPhase] = useState<HoldPhase>('idle');
   if (!enabled && phase !== 'idle') setPhase('idle');
@@ -26,10 +25,7 @@ function useHoldRepeat(action: () => void, enabled: boolean) {
   return { onPointerDown: start, onPointerUp: stop, onPointerLeave: stop } as const;
 }
 
-/**
- * 中间值的可编辑形态：数字框 + 单位后缀。编辑期用本地草稿，失焦或回车才收敛——
- * 逐键提交会让「1」「12」这类中间态被 clamp 弹回，输入框跟着跳。
- */
+/** 编辑期用本地草稿，失焦或回车才收敛：逐键提交会让「1」「12」这类中间态被 clamp 弹回。 */
 function StepperInput({
   label,
   max,
@@ -72,8 +68,6 @@ function StepperInput({
   );
 }
 
-/** 单字段步进值：左箭头减、右箭头增，按住可连发；到达边界时禁用对应箭头。
- *  传 input 时中间值可直接输入（失焦收敛到 min–max），否则只读显示 display。 */
 export function StepperControl({
   canDecrease = true,
   canIncrease = true,

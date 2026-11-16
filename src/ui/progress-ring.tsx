@@ -1,4 +1,3 @@
-/** Small progress ring with content in the center — the task-badge from the refs. */
 export function ProgressRing({
   progress,
   tone = 'orange',
@@ -8,7 +7,6 @@ export function ProgressRing({
   progress: number; // 0..1
   tone?: 'orange' | 'green' | 'red' | 'accent' | 'ink';
   children?: React.ReactNode;
-  /** Dela 适配：默认根字号（16px）下的边长，按 rem 派生，随设置 › 外观 › 字号缩放。 */
   size?: number;
 }) {
   const stroke = 2;
@@ -19,7 +17,6 @@ export function ProgressRing({
     green: 'var(--success)',
     red: 'var(--danger)',
     accent: 'var(--accent)',
-    // Dela 适配：中性墨色档。
     ink: 'var(--ink-2)',
   };
   return (

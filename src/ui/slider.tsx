@@ -1,7 +1,5 @@
 'use client';
 
-// Dela 适配：上游无 Slider；按 Switch 的中性语言封装 radix Slider
-// （bg-line-strong 槽 / bg-ink 填充 / 白色拇指），供音量等连续值调节使用。
 import { Slider as SliderPrimitive } from 'radix-ui';
 import { cn } from './cn';
 

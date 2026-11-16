@@ -2,8 +2,6 @@ import { useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { overlayFade } from './motion';
 
-/** 全屏看图：深色遮罩上等比展示原图，点击任意处或 Esc 关闭。src 由调用方给，
- *  data/blob/dela-resource 地址皆可；应用内图片统一的「点击放大」出口。 */
 function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onClose: () => void }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -31,8 +29,7 @@ function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onClose: (
 
 let mounted: { root: Root } | null = null;
 
-/** 命令式入口：输入框图片 chip 等 React 树外的图片点击也走同一个 Lightbox；
- *  React 侧组件直接调用它，不再各自维护开关状态。重复调用只更新内容，不叠层。 */
+/** React 树外的图片点击也走同一个 Lightbox；重复调用只更新内容，不叠层。 */
 export function openLightbox(src: string, alt?: string): void {
   if (!mounted) {
     const host = document.createElement('div');
@@ -42,7 +39,6 @@ export function openLightbox(src: string, alt?: string): void {
   mounted.root.render(<Lightbox alt={alt} onClose={closeLightbox} src={src} />);
 }
 
-/** 主动关闭（Esc/点击遮罩之外的场景）。 */
 function closeLightbox(): void {
   mounted?.root.render(null);
 }

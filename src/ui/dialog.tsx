@@ -115,7 +115,7 @@ type ConfirmDialogProps = {
   busy?: boolean;
 };
 
-/* 需要用户确认的一次性操作；AlertDialog 语义：点遮罩不会关闭。 */
+/* AlertDialog 语义：点遮罩不会关闭。 */
 function ConfirmDialog({
   open,
   onOpenChange,

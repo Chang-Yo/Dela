@@ -2,18 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { cn } from './cn';
 
 type ResizerProps = {
-  /** 无障碍名称,例如"调整邮件列表宽度"。 */
   label: string;
-  /** 受控宽度,px;容器用 CSS 变量把它接到 grid 列宽上。 */
   value: number;
   min: number;
   max: number;
-  /** 分隔条方向;默认垂直分隔左右面板。 */
   orientation?: 'vertical' | 'horizontal';
   onChange: (value: number) => void;
-  /** 拖拽开始/结束回调;容器用它暂停列宽过渡,避免拖动滞后。 */
   onResizingChange?: (resizing: boolean) => void;
-  /** 双击恢复到该值；省略时双击不改变尺寸。 */
   defaultValue?: number;
   className?: string;
 };
@@ -72,7 +67,6 @@ export function Resizer({
         const negative = horizontal ? event.key === 'ArrowUp' : event.key === 'ArrowLeft';
         if (!positive && !negative) return;
         event.preventDefault();
-        // 向右/下拖动增宽；键盘步长 20px。
         onChange(clamp(value + (positive ? 20 : -20)));
       }}
       onDoubleClick={() => {

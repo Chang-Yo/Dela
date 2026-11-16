@@ -1,7 +1,3 @@
-// 浮层菜单共用样式（Select / DropdownMenu / ContextMenu），外观取自 beautiful-ui 的
-// PromptBar 弹层：surface 底 + raised 阴影、10px 圆角、6px 选项圆角、pop-in 动效。
-// 动效原点跟随 radix 的 transform-origin 变量（各组件自行设置 origin-*）。
-
 export const menuPanel =
   'z-overlay min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-card bg-surface p-1 text-ink shadow-raised animate-pop-in';
 

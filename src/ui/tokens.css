@@ -324,7 +324,6 @@
   }
 }
 
-/* 对话框入场：只动独立的 scale 属性，不与居中用的 translate 冲突。 */
 @keyframes dialog-in {
   from {
     opacity: 0;

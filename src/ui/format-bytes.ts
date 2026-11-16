@@ -1,4 +1,3 @@
-/** "404.6 MB"；非正数或无效回退 null。 */
 export function formatBytes(bytes: number): string | null {
   if (!Number.isFinite(bytes) || bytes <= 0) return null;
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];

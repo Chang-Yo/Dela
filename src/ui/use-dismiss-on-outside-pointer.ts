@@ -1,6 +1,5 @@
 import { useEffect, useEffectEvent } from 'react';
 
-/** 确认态「点别处即取消」：active 期间，落在 keepSelector 之外的按下触发 dismiss；escape 时 Esc 也取消。 */
 export function useDismissOnOutsidePointer(
   active: boolean,
   keepSelector: string,

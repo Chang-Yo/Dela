@@ -1,8 +1,6 @@
 import type * as React from 'react';
 import { cn } from './cn';
 
-// 样式 token 与 input.tsx 对齐（field 底、hairline 描边、accent 聚焦），
-// 仅替换为 textarea 并去掉 file 输入专用类；高度用 min-h 而非固定 h，供调用方按需覆盖。
 function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
   return (
     <textarea
