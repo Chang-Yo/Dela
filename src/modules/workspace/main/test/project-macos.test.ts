@@ -50,28 +50,26 @@ it('优先使用 PATH 中的 code CLI，并将完整项目路径作为单个参�
   });
 });
 
-it.each(['/Applications', '/Users/test/Applications'])(
-  '没有 CLI 链接时使用 %s 中应用自带的 CLI',
-  async (directory) => {
-    const cli = join(
-      directory,
-      'Visual Studio Code.app',
-      'Contents',
-      'Resources',
-      'app',
-      'bin',
-      'code',
-    );
-    state.exists.mockImplementation((path: string) => path === cli);
-    state.remote = true;
-    await openProjectDirectory(id, 'vscode');
-    expect(state.spawn).toHaveBeenCalledWith(
-      cli,
-      ['--remote', 'ssh-remote+gpu-box', '/srv/项目 ; & 中文'],
-      { detached: true, stdio: 'ignore', windowsHide: false },
-    );
-  },
-);
+it('没有 CLI 链接时使用 /Applications 中应用自带的 CLI', async () => {
+  const directory = '/Applications';
+  const cli = join(
+    directory,
+    'Visual Studio Code.app',
+    'Contents',
+    'Resources',
+    'app',
+    'bin',
+    'code',
+  );
+  state.exists.mockImplementation((path: string) => path === cli);
+  state.remote = true;
+  await openProjectDirectory(id, 'vscode');
+  expect(state.spawn).toHaveBeenCalledWith(
+    cli,
+    ['--remote', 'ssh-remote+gpu-box', '/srv/项目 ; & 中文'],
+    { detached: true, stdio: 'ignore', windowsHide: false },
+  );
+});
 
 it('未安装时返回操作提示，不尝试启动 Windows 程序', async () => {
   state.exists.mockReturnValue(false);

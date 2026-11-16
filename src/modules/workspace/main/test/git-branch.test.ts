@@ -26,8 +26,10 @@ it('本地 Git 仓库返回当前分支', async () => {
   await expect(gitBranchOf(root)).resolves.toBe('dela-test');
 });
 
-it('不是 Git 仓库或目录已不存在时返回 null', async () => {
+it('不是 Git 仓库或目录已不存在时没有分支，也列不出、切不了', async () => {
   await expect(gitBranchOf(root)).resolves.toBeNull();
+  await expect(gitBranchesOf(root)).resolves.toEqual([]);
+  await expect(gitCheckout(root, 'main')).rejects.toThrow();
   await expect(gitBranchOf(join(root, 'missing'))).resolves.toBeNull();
 });
 
@@ -73,9 +75,4 @@ it('分支不存在时把 git 的报错抛出来，当前分支不动', async ()
   commit();
   await expect(gitCheckout(root, 'nope')).rejects.toThrow(/nope/);
   await expect(gitBranchOf(root)).resolves.toBe('main');
-});
-
-it('非 Git 目录既列不出分支也切不了', async () => {
-  await expect(gitBranchesOf(root)).resolves.toEqual([]);
-  await expect(gitCheckout(root, 'main')).rejects.toThrow();
 });

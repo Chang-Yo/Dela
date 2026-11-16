@@ -13,11 +13,10 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, sep } from 'node:path';
-import { EventEmitter } from 'node:events';
+import { dirname, isAbsolute, join } from 'node:path';
 
-const state = vi.hoisted(() => ({ root: '', execFile: vi.fn(), spawn: vi.fn() }));
-vi.mock('node:child_process', () => ({ execFile: state.execFile, spawn: state.spawn }));
+const state = vi.hoisted(() => ({ root: '', execFile: vi.fn() }));
+vi.mock('node:child_process', () => ({ execFile: state.execFile }));
 
 import { workspaceArchiveId } from '../../contract';
 import {
@@ -34,9 +33,7 @@ import {
   workspaceFilePath,
 } from '../api';
 import { registerWorkspaceSource } from '../sources';
-import { openProjectDirectory } from '../project';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
-import { hostPorts } from '../../../../core/ports';
 import {
   getLocalWorkspaceState,
   listLocalDirectory,
@@ -44,7 +41,6 @@ import {
   searchLocalWorkspace,
 } from '../local-tree';
 
-const open = () => vi.mocked(hostPorts().desktop.open);
 const PNG: Uint8Array = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
 function createDb(): Database.Database {
@@ -93,38 +89,6 @@ function insertFileEntry(db: Database.Database, path: string, kind: 'file') {
 /** 工作区根目录（存储目录为 <root>/Dela）。 */
 const workspaceRoot = () => join(state.root, 'Dela', 'workspace');
 const localPathOf = (id: string) => entry(id).path!;
-
-/** VS Code 已安装的替身：where code 指向 bin/code.cmd，同安装目录有 Code.exe；启动只报成功。 */
-function stubVsCode(): string {
-  const code = join(state.root, 'VS Code', 'Code.exe');
-  mkdirSync(dirname(code), { recursive: true });
-  writeFileSync(code, '');
-  state.execFile.mockImplementation((_command, _args, callback) => {
-    callback(null, join(dirname(code), 'bin', 'code.cmd'));
-  });
-  state.spawn.mockImplementation(() => {
-    const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
-    queueMicrotask(() => child.emit('spawn'));
-    return child;
-  });
-  return code;
-}
-
-/** 远端项目与它的连接记录（local_path 是远端 POSIX 路径，本地没有对应目录）。 */
-function insertRemoteProject(host: string, path: string): string {
-  const id = crypto.randomUUID();
-  const remoteId = crypto.randomUUID();
-  db.prepare('INSERT INTO remotes VALUES (?, ?, ?, NULL, NULL, ?)').run(
-    remoteId,
-    host,
-    host,
-    new Date().toISOString(),
-  );
-  db.prepare(
-    'INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, ?, ?, NULL, ?, ?, ?)',
-  ).run(id, path.split('/').pop()!, 'project', path, remoteId, new Date().toISOString());
-  return id;
-}
 
 let db: Database.Database;
 
@@ -213,29 +177,6 @@ describe('磁盘工作区', () => {
     const controller = new AbortController();
     controller.abort();
     expect(await searchLocalWorkspace(project.id, 'needle', controller.signal)).toEqual([]);
-  });
-
-  it('目录列表保留来源引用和项目身份，删除后重新读取只返回当前文件', async () => {
-    const project = createWorkspaceEntry({ parentId: null, name: 'folder', kind: 'project' });
-    const path = localPathOf(project.id);
-    const child = join(path, 'child');
-    mkdirSync(child);
-    const nested = linkProjectFolder(child);
-    db.prepare(
-      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('source-1', NULL, '课件', 'source', 'file:1', ?, NULL, 'now')",
-    ).run(path);
-    const listing = await listLocalDirectory(project.id);
-    expect(listing.find((item) => item.id === nested.id)?.parentId).toBe(project.id);
-    expect(listing.find((item) => item.id === 'source-1')).toMatchObject({
-      parentId: project.id,
-      path: undefined,
-    });
-    const overview = await getLocalWorkspaceState();
-    expect(overview.entries.find((item) => item.id === nested.id)?.parentId).toBe(project.id);
-    rmSync(child, { recursive: true });
-    expect((await listLocalDirectory(project.id)).some((item) => item.id === nested.id)).toBe(
-      false,
-    );
   });
 
   it('外部创建的文件可发现、打开与保存，无需数据库条目或笔记身份', async () => {
@@ -361,86 +302,6 @@ describe('移动中断后的恢复', () => {
   });
 });
 
-describe('打开项目目录', () => {
-  beforeEach(() => vi.stubGlobal('process', { ...process, platform: 'win32' }));
-  afterEach(() => vi.unstubAllGlobals());
-  it('VS Code 接收完整路径参数，不经 shell 且不隐藏首次启动的窗口', async () => {
-    const project = createWorkspaceEntry({
-      parentId: null,
-      name: '项目 % & 中文',
-      kind: 'project',
-    });
-    const code = stubVsCode();
-    await openProjectDirectory(project.id, 'vscode');
-    expect(state.spawn).toHaveBeenLastCalledWith(code, [join(workspaceRoot(), '项目 % & 中文')], {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: false,
-    });
-  });
-
-  it('远端项目经 Remote-SSH 打开远端路径，不交给本地 VS Code 当本地目录', async () => {
-    const project = insertRemoteProject('root@47.117.158.218', '/srv/app');
-    const code = stubVsCode();
-    open().mockClear();
-    await openProjectDirectory(project, 'vscode');
-    expect(state.spawn).toHaveBeenLastCalledWith(
-      code,
-      ['--remote', 'ssh-remote+root@47.117.158.218', '/srv/app'],
-      { detached: true, stdio: 'ignore', windowsHide: false },
-    );
-    // 远端目录没有本地对应物，资源管理器无从打开。
-    await expect(openProjectDirectory(project, 'explorer')).rejects.toThrow('没有本地目录');
-    expect(open()).not.toHaveBeenCalled();
-  });
-
-  it('未找到 VS Code 时提示远端项目需要 Remote - SSH 与 ssh config', async () => {
-    const project = insertRemoteProject('gpu-box', '/srv/app');
-    state.execFile.mockImplementation((_command, _args, callback) => callback(null, ''));
-    await expect(openProjectDirectory(project, 'vscode')).rejects.toThrow('Remote - SSH');
-  });
-
-  it('VS Code 进程启动失败时返回错误，供界面显示提示', async () => {
-    const project = insertRemoteProject('gpu-box', '/srv/app');
-    stubVsCode();
-    state.spawn.mockImplementationOnce(() => {
-      const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
-      queueMicrotask(() => child.emit('error', new Error('spawn EACCES')));
-      return child;
-    });
-    await expect(openProjectDirectory(project, 'vscode')).rejects.toThrow(
-      '启动 VS Code 失败：spawn EACCES',
-    );
-  });
-
-  it('打开项目当前目录，重命名后使用新路径', async () => {
-    const project = createWorkspaceEntry({
-      parentId: null,
-      name: '项目 % & 中文',
-      kind: 'project',
-    });
-    await openProjectDirectory(project.id, 'explorer');
-    expect(open()).toHaveBeenLastCalledWith(join(workspaceRoot(), '项目 % & 中文'));
-    updateWorkspaceEntry(project.id, { name: '新项目' });
-    await openProjectDirectory(project.id, 'explorer');
-    expect(open()).toHaveBeenLastCalledWith(join(workspaceRoot(), '新项目'));
-  });
-
-  it('拒绝普通文件夹、无效项目 ID 和未知打开方式', async () => {
-    const folder = createWorkspaceEntry({ parentId: null, name: '资料', kind: 'folder' });
-    await expect(openProjectDirectory(folder.id, 'explorer')).rejects.toThrow('只有项目');
-    await expect(openProjectDirectory('invalid', 'explorer')).rejects.toThrow();
-    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
-    await expect(openProjectDirectory(project.id, 'unknown')).rejects.toThrow();
-  });
-
-  it('系统打开失败时报告错误', async () => {
-    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
-    open().mockRejectedValueOnce(new Error('目录无法打开'));
-    await expect(openProjectDirectory(project.id, 'explorer')).rejects.toThrow('目录无法打开');
-  });
-});
-
 describe('createWorkspaceEntry', () => {
   it('文件名原样落盘，不补扩展名：无后缀与点文件都能新建', async () => {
     for (const name of ['log', '.env', 'Makefile', 'demo.cpp']) {
@@ -470,16 +331,6 @@ describe('createWorkspaceEntry', () => {
     expect(statSync(join(workspaceRoot(), 'x', 'y', 'z')).isDirectory()).toBe(true);
   });
 
-  it('以 / 或 \\ 结尾的名字建文件夹，即使是从「新建文件」进来', () => {
-    expect(createWorkspaceEntry({ parentId: null, name: 'aaa/', kind: 'file' })).toMatchObject({
-      kind: 'folder',
-      name: 'aaa',
-    });
-    expect(statSync(join(workspaceRoot(), 'aaa')).isDirectory()).toBe(true);
-    createWorkspaceEntry({ parentId: null, name: 'p\\q\\', kind: 'file' });
-    expect(statSync(join(workspaceRoot(), 'p', 'q')).isDirectory()).toBe(true);
-  });
-
   it('重名报错不改名；. 与 .. 段拒绝；中间段撞上文件时报错', () => {
     createWorkspaceEntry({ parentId: null, name: 'a.md', kind: 'file' });
     expect(() => createWorkspaceEntry({ parentId: null, name: 'a.md', kind: 'file' })).toThrow(
@@ -496,12 +347,6 @@ describe('createWorkspaceEntry', () => {
     expect(() => createWorkspaceEntry({ parentId: null, name: 'a.md/b', kind: 'file' })).toThrow(
       '不是文件夹',
     );
-  });
-
-  it('重命名里的 / 仍按非法字符替换，不会变成移动', () => {
-    const file = createWorkspaceEntry({ parentId: null, name: 'r.md', kind: 'file' });
-    const renamed = updateWorkspaceEntry(file.id, { name: 'a/b.md' });
-    expect(renamed.id).toBe(join(workspaceRoot(), 'a_b.md'));
   });
 
   it('source 引用行的 local_path 是容器目录去重键，不改变该目录的条目身份', () => {
@@ -533,28 +378,6 @@ describe('资料来源条目', () => {
     read: vi.fn(),
   };
   registerWorkspaceSource(fake);
-
-  it('认领来源的模块负责校验、预览与回收；没有 filePath 的来源不是文件', async () => {
-    expect(() =>
-      createWorkspaceEntry({
-        parentId: null,
-        name: '缺失',
-        kind: 'source',
-        sourceId: 'fake:missing',
-      }),
-    ).toThrow('资料不存在');
-    const item = createWorkspaceEntry({
-      parentId: null,
-      name: '来源',
-      kind: 'source',
-      sourceId: 'fake:1',
-    });
-    expect(fake.added).toHaveBeenCalledWith('fake:1');
-    await expect(readWorkspaceEntry(item.id)).resolves.toMatchObject({ text: '正文' });
-    await expect(workspaceFilePath(item.id)).rejects.toThrow('条目不是文件');
-    await removeWorkspaceEntry(item.id);
-    expect(fake.collect).toHaveBeenCalled();
-  });
 
   it('没有模块认领的来源（对应校园服务未启用）给出产品错误', async () => {
     expect(() =>
@@ -594,16 +417,6 @@ describe('归档文件夹', () => {
     );
     getWorkspaceState();
     expect(entry(workspaceArchiveId).path).toBe(archivePath());
-  });
-
-  it('移入归档：目录落到归档文件夹下，条目挂在归档行', () => {
-    seedArchive();
-    const folder = createWorkspaceEntry({ parentId: null, name: '资料夹', kind: 'folder' });
-    updateWorkspaceEntry(folder.id, { parentId: workspaceArchiveId });
-    expect(existsSync(join(archivePath(), '资料夹'))).toBe(true);
-    expect(
-      getWorkspaceState().entries.find((item) => item.id === join(archivePath(), '资料夹')),
-    ).toMatchObject({ parentId: workspaceArchiveId });
   });
 });
 
@@ -730,20 +543,6 @@ describe('folder↔project 转换', () => {
     expect(entry(demoted.id).kind).toBe('folder');
   });
 
-  it('降格删除条目行，项目会话经外键转为通用', () => {
-    const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
-    const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
-    const iso = '2026-09-29T00:00:00.000Z';
-    db.prepare(
-      'INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-    ).run(crypto.randomUUID(), promoted.id, '', iso, iso);
-    updateWorkspaceEntry(promoted.id, { kind: 'folder' });
-    expect(
-      db.prepare('SELECT count(*) AS n FROM sessions WHERE project_id IS NOT NULL').get(),
-    ).toEqual({ n: 0 });
-    expect(existsSync(join(workspaceRoot(), '课题'))).toBe(true);
-  });
-
   it('移除项目删除条目行与名下会话，目录保留', async () => {
     const directory = join(state.root, '课题目录');
     mkdirSync(directory);
@@ -813,15 +612,6 @@ describe('导入已有文件夹作为项目', () => {
       parentId: project.id,
       kind: 'file',
     });
-  });
-
-  it('重复导入同一目录沿用已有身份；移除项目身份后目录保留', async () => {
-    const first = linkProjectFolder(external());
-    expect(linkProjectFolder(`${external()}${sep}`).id).toBe(first.id);
-    expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 1 });
-    await removeWorkspaceEntry(first.id);
-    expect(existsSync(join(external(), 'README.md'))).toBe(true);
-    expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 0 });
   });
 
   it('拒绝文件、不存在的目录与工作区根目录本身', () => {

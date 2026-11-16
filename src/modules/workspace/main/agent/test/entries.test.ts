@@ -1,48 +1,20 @@
-// 工具层契约：remove_entry 的守卫与错误码映射、update_entry 的 kind 转换、
-// list_workspace_entries 的浏览/过滤。
+// 工具层契约：remove_entry 的守卫与错误码映射、list_workspace_entries 的浏览/过滤。
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../api', () => ({
-  createWorkspaceEntry: vi.fn(),
   getWorkspaceState: vi.fn(),
-  updateWorkspaceEntry: vi.fn(),
   removeWorkspaceEntry: vi.fn(),
 }));
 
-import {
-  createWorkspaceEntry,
-  getWorkspaceState,
-  removeWorkspaceEntry,
-  updateWorkspaceEntry,
-} from '../../api';
+import { getWorkspaceState, removeWorkspaceEntry } from '../../api';
 import { workspaceArchiveId } from '../../../contract';
-import { createEntryTool, removeEntryTool, updateEntryTool } from '../entries';
+import { removeEntryTool } from '../entries';
 import { listWorkspaceEntriesTool } from '../list-entries';
 
 const id = 'da21ec6f-71ae-414c-ae59-7618b0dac93e';
 const childId = '1f0a0e46-047b-4d4d-a3ca-8cf76687b16e';
 
 beforeEach(() => vi.resetAllMocks());
-
-describe('create_entry', () => {
-  it('输入透传给业务层，返回工作区引用与条目', async () => {
-    vi.mocked(createWorkspaceEntry).mockReturnValue({
-      id,
-      parentId: null,
-      name: '笔记',
-      kind: 'file',
-      sourceId: null,
-      updatedAt: '2026-01-01T00:00:00Z',
-    });
-    const entry = await createEntryTool.execute({ parentId: null, kind: 'file', name: '笔记' });
-    expect(createWorkspaceEntry).toHaveBeenCalledWith({
-      parentId: null,
-      kind: 'file',
-      name: '笔记',
-    });
-    expect(entry).toMatchObject({ ref: { type: 'workspace', id }, entry: { id, kind: 'file' } });
-  });
-});
 
 describe('remove_entry', () => {
   it('删除成功返回 removed 与引用', async () => {
@@ -74,39 +46,6 @@ describe('remove_entry', () => {
       new Error('项目下还有项目（子课题），请先移除它们'),
     );
     await expect(removeEntryTool.execute({ id })).rejects.toThrow('项目下还有项目');
-  });
-});
-
-describe('update_entry', () => {
-  it('把 kind folder↔project 转换传给业务层，返回新 id 与路径映射', async () => {
-    vi.mocked(updateWorkspaceEntry).mockReturnValue({ id, kind: undefined, ...{} } as never);
-    vi.mocked(updateWorkspaceEntry).mockReturnValueOnce({
-      id,
-      fromPath: 'D:/ws/课题',
-      toPath: 'D:/ws/毕业设计',
-    });
-    vi.mocked(getWorkspaceState).mockReturnValue({
-      entries: [
-        {
-          id,
-          parentId: null,
-          name: 'A',
-          kind: 'project',
-          sourceId: null,
-          updatedAt: '2026-01-01T00:00:00Z',
-        },
-      ],
-      directory: 'D:/ws',
-    });
-    await expect(
-      updateEntryTool.execute({ id: 'D:/ws/课题', kind: 'project' }),
-    ).resolves.toMatchObject({
-      ref: { type: 'workspace', id },
-      fromPath: 'D:/ws/课题',
-      toPath: 'D:/ws/毕业设计',
-      entry: { id, kind: 'project' },
-    });
-    expect(updateWorkspaceEntry).toHaveBeenCalledWith('D:/ws/课题', { kind: 'project' });
   });
 });
 

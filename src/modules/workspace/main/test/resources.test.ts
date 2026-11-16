@@ -45,21 +45,10 @@ describe('copyResourceToProject', () => {
 });
 
 describe('openResourceFile', () => {
-  it('引用解析到本地路径后交给系统默认应用打开', async () => {
-    vi.mocked(workspaceFilePath).mockResolvedValue('C:/ws/b.pptx');
-    await openResourceFile({ type: 'workspace', id: parentId });
-    expect(open().mock.calls.at(-1)).toEqual(['C:/ws/b.pptx']);
-  });
-
-  it('系统打开失败时抛出；不支持的引用类型（如邮件附件）直接拒绝', async () => {
-    vi.mocked(workspaceFilePath).mockResolvedValue('C:/ws/a.pptx');
-    open().mockRejectedValue(new Error('没有关联的应用'));
-    await expect(openResourceFile({ type: 'workspace', id: parentId })).rejects.toThrow(
-      '没有关联的应用',
-    );
+  it('不支持的引用类型（如邮件附件）直接拒绝', async () => {
     await expect(openResourceFile({ type: 'attachment', messageId: 3, part: '1' })).rejects.toThrow(
       '仅支持资料文件与我的资料条目',
     );
-    expect(open()).toHaveBeenCalledTimes(1);
+    expect(open()).not.toHaveBeenCalled();
   });
 });

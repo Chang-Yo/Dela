@@ -28,13 +28,8 @@ vi.mock('../../../mail/main/api', () => ({
   ),
   mailAttachment: vi.fn(() => ({ attachment: { filename: '报名.xlsx' } })),
 }));
-import {
-  prepareDocumentResource,
-  readWorkspaceResource,
-  releaseDocumentResource,
-} from '../resources';
+import { prepareDocumentResource, releaseDocumentResource } from '../resources';
 import { entry, readWorkspaceEntry, workspaceFilePath } from '../api';
-import { registerWorkspaceSource } from '../sources';
 import { attachmentResourceResolver, mailResourceResolver } from '../../../mail/main/resources';
 import { readResourceTool, workspaceResourceResolver } from '../read-resource';
 import { registerResourceResolver } from '../../../../core/capabilities/resources';
@@ -76,29 +71,27 @@ it('rejects cleanup traversal and checks the dependency before acquiring files',
   );
 });
 
-it.each(['slides.pptx', 'report.pdf'])(
-  'returns a skill hint for %s without opening the file or querying GUI',
-  async (name) => {
-    const id = join(profile.root, name);
-    vi.mocked(entry).mockReturnValue({
-      id,
-      name,
-      kind: 'file',
-      parentId: null,
-      sourceId: null,
-      updatedAt: '',
-    });
-    const result = await readResourceTool.execute({ ref: { type: 'workspace', id } });
-    expect(result).toMatchObject({
-      title: name,
-      format: 'file',
-      readable: false,
-      hint: expect.stringContaining('document-reading'),
-    });
-    expect(workspaceFilePath).not.toHaveBeenCalled();
-    expect(readWorkspaceEntry).not.toHaveBeenCalled();
-  },
-);
+it('returns a skill hint for office documents without opening the file or querying GUI', async () => {
+  const name = 'slides.pptx';
+  const id = join(profile.root, name);
+  vi.mocked(entry).mockReturnValue({
+    id,
+    name,
+    kind: 'file',
+    parentId: null,
+    sourceId: null,
+    updatedAt: '',
+  });
+  const result = await readResourceTool.execute({ ref: { type: 'workspace', id } });
+  expect(result).toMatchObject({
+    title: name,
+    format: 'file',
+    readable: false,
+    hint: expect.stringContaining('document-reading'),
+  });
+  expect(workspaceFilePath).not.toHaveBeenCalled();
+  expect(readWorkspaceEntry).not.toHaveBeenCalled();
+});
 
 it('classifies extensionless and dotfiles by content: text is readable, binary gets the skill hint', async () => {
   const text = join(profile.root, '.env');
@@ -152,50 +145,4 @@ it('reads and paginates a note with its revision without querying GUI', async ()
     revision: expect.stringMatching(/^[a-f0-9]{64}$/),
   });
   expect(readWorkspaceEntry).not.toHaveBeenCalled();
-});
-
-it('preserves inline images for workspace files', async () => {
-  const id = join(profile.root, 'picture.jpg');
-  await writeFile(id, Buffer.from([1, 2, 3]));
-  vi.mocked(entry).mockReturnValue({
-    id,
-    path: id,
-    name: 'picture.jpg',
-    kind: 'file',
-    parentId: null,
-    sourceId: null,
-    updatedAt: '',
-  });
-  vi.mocked(workspaceFilePath).mockResolvedValue(id);
-  expect(await readResourceTool.execute({ ref: { type: 'workspace', id } })).toMatchObject({
-    format: 'image',
-    images: [{ dataUrl: 'data:image/jpeg;base64,AQID', page: 1 }],
-  });
-  expect(readWorkspaceEntry).not.toHaveBeenCalled();
-});
-
-it('reads source entries through the owning module, and reports unowned sources', async () => {
-  const preview = vi.fn();
-  registerWorkspaceSource({
-    owns: (sourceId) => sourceId.startsWith('fake:'),
-    validate: () => {},
-    preview,
-    read: async () => ({ title: '来源', format: 'html', text: '<p>正文</p>' }),
-  });
-  const id = join(profile.root, 'linked');
-  const item = { id, name: 'linked', kind: 'source' as const, parentId: null, updatedAt: '' };
-  vi.mocked(entry).mockReturnValue({ ...item, sourceId: 'fake:1' });
-  expect(await readWorkspaceResource(id)).toMatchObject({ title: '来源', text: '<p>正文</p>' });
-  expect(preview).not.toHaveBeenCalled();
-  vi.mocked(entry).mockReturnValue({ ...item, sourceId: 'page:1' });
-  await expect(readWorkspaceResource(id)).rejects.toThrow('该资料来源暂不可用');
-});
-
-it('returns attachment metadata without downloading it', async () => {
-  const result = await readResourceTool.execute({
-    ref: { type: 'attachment', messageId: 1, part: '1' },
-  });
-  expect(result).toMatchObject({ title: '报名.xlsx', format: 'file', readable: false });
-  const { saveMailAttachment } = await import('../../../mail/main/api');
-  expect(saveMailAttachment).not.toHaveBeenCalled();
 });

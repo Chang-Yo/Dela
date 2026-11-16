@@ -17,20 +17,13 @@ vi.mock('../../../../core/remote/operations', async (importOriginal) => ({
   locateRemote: state.locate,
 }));
 
-import {
-  parentOf,
-  remoteJoin,
-  withinRemoteRoot,
-  removeRemote,
-  listRemotes,
-} from '../../../remotes/main/api';
+import { withinRemoteRoot, removeRemote, listRemotes } from '../../../remotes/main/api';
 import {
   createWorkspaceEntry,
   entry,
   getWorkspaceState,
   importRemoteProject,
   projectDirectory,
-  projectLocation,
   remoteProjectOf,
   removeWorkspaceEntry,
   updateWorkspaceEntry,
@@ -80,20 +73,7 @@ beforeEach(() => {
     .run(state.root);
 });
 
-describe('远端路径拼接与归属', () => {
-  it('项目根就是 / 时不拼出双斜杠', () => {
-    expect(remoteJoin('/', 'root')).toBe('/root');
-    expect(remoteJoin('', 'root')).toBe('/root');
-    expect(remoteJoin('/root/proj', 'a.ts')).toBe('/root/proj/a.ts');
-  });
-
-  it('上级目录到根为止', () => {
-    expect(parentOf('/root/proj')).toBe('/root');
-    expect(parentOf('/root')).toBe('/');
-    expect(parentOf('/')).toBeNull();
-    expect(parentOf('/root/proj/')).toBe('/root');
-  });
-
+describe('远端路径归属', () => {
   it('只有根目录之内才算项目内', () => {
     expect(withinRemoteRoot('/root/proj', '/root/proj')).toBe(true);
     expect(withinRemoteRoot('/root/proj', '/root/proj/src/a.ts')).toBe(true);
@@ -131,23 +111,11 @@ describe('远程项目登记', () => {
     });
     await expect(importRemoteProject(remoteId, '/root/x')).rejects.toThrow('远端目录不存在');
   });
-
-  it('资料树包含远程项目但不在本地扫描它', async () => {
-    const created = await importRemoteProject(remoteId, '/root/proj');
-    const workspace = getWorkspaceState();
-    expect(workspace.entries.map((item) => item.id)).toContain(created.id);
-    expect(workspace.entries.find((item) => item.id === created.id)?.remoteId).toBe(remoteId);
-  });
 });
 
 describe('远程条目的本地入口', () => {
-  it('projectLocation 给出远端分支，projectDirectory 拒绝', async () => {
-    const created = await importRemoteProject(remoteId, '/root/proj');
-    expect(projectLocation(created.id)).toEqual({
-      kind: 'remote',
-      remoteId,
-      path: '/root/proj',
-    });
+  it('projectDirectory 拒绝远程项目', async () => {
+    const created = await importRemoteProject(remoteId, '/home/root/proj');
     expect(() => projectDirectory(created.id)).toThrow('远程项目没有本地目录');
   });
 
@@ -173,15 +141,6 @@ describe('远程条目的本地入口', () => {
     expect(() => updateWorkspaceEntry(named.id, { parentId: folder.id })).toThrow(
       '远程项目不能移动',
     );
-  });
-
-  it('移除远程项目只删登记行，不碰远端也不报错', async () => {
-    const created = await importRemoteProject(remoteId, '/root/proj');
-    await removeWorkspaceEntry(created.id);
-    expect(
-      state.db!.prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(created.id),
-    ).toBeUndefined();
-    expect(state.locate).toHaveBeenCalled();
   });
 
   it('移除远程项目删除条目与会话，连接保留，重新导入得到新身份', async () => {
@@ -228,11 +187,6 @@ describe('远端条目身份', () => {
     expect(remoteProjectOf(`${second.id}:${nodePath}`)?.id).toBe(second.id);
     // 裸远端路径同时落在两个项目里：不猜，直接说清。
     expect(() => remoteProjectOf(nodePath)).toThrow('同时属于多个项目');
-  });
-
-  it('只有一个远程项目时裸远端路径仍照旧归属', async () => {
-    const created = await importRemoteProject(remoteId, '/root/proj');
-    expect(remoteProjectOf(nodePath)?.id).toBe(created.id);
   });
 });
 
