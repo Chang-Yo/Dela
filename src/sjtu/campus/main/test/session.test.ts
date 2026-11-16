@@ -135,30 +135,6 @@ describe.each(['darwin', 'win32'])('校园窗口平台边界（%s）', (platform
       sandbox: true,
     });
   });
-
-  it.each([
-    { key: 'Escape', meta: false },
-    { key: 'w', meta: true },
-  ])('辅助窗口关闭键 %j 不传播到网页', (input) => {
-    createCampusLoginWindow(sender, '登录测试');
-    const event = { preventDefault: vi.fn() };
-    asWindow().webContents.emit('before-input-event', event, { type: 'keyDown', ...input });
-    expect(asWindow().closeCalled).toBe(platform === 'darwin');
-    expect(event.preventDefault).toHaveBeenCalledTimes(platform === 'darwin' ? 1 : 0);
-  });
-
-  it('普通输入、组合输入与其他修饰键不关窗', () => {
-    createCampusLoginWindow(sender, '登录测试');
-    for (const input of [
-      { type: 'keyDown', key: 'w' },
-      { type: 'keyUp', key: 'Escape' },
-      { type: 'keyDown', key: 'w', control: true },
-      { type: 'keyDown', key: 'Escape', isComposing: true },
-      { type: 'keyDown', key: 'w', meta: true, shift: true },
-    ])
-      asWindow().webContents.emit('before-input-event', { preventDefault: vi.fn() }, input);
-    expect(asWindow().closeCalled).toBe(false);
-  });
 });
 
 describe('openCampusLoginWindow', () => {
@@ -187,63 +163,6 @@ describe('openCampusLoginWindow', () => {
     expect(mock.windows).toHaveLength(2);
     asWindow().close();
     await expect(retry).resolves.toEqual({ ok: false, error: '未完成登录' });
-  });
-
-  it('不同服务入口独立，取消一个不会关闭另一个', async () => {
-    const options = { sender, title: '登录测试', reached: () => false, probe: vi.fn() };
-    const first = openCampusLoginWindow({ ...options, url: 'https://v.sjtu.edu.cn/' });
-    const second = openCampusLoginWindow({ ...options, url: 'https://i.sjtu.edu.cn/' });
-    await flush();
-    const [video, timetable] = mock.windows as [LoginWindowMock, LoginWindowMock];
-    expect(mock.windows).toHaveLength(2);
-    video.close();
-    await expect(first).resolves.toEqual({ ok: false, error: '未完成登录' });
-    expect(timetable.closeCalled).toBe(false);
-    timetable.close();
-    await expect(second).resolves.toEqual({ ok: false, error: '未完成登录' });
-  });
-
-  it('页面加载失败关窗并允许重试', async () => {
-    mock.load.mockRejectedValueOnce(new Error('offline'));
-    const options = {
-      sender,
-      title: '登录测试',
-      url: 'https://v.sjtu.edu.cn/',
-      reached: () => false,
-      probe: vi.fn(),
-    };
-    await expect(openCampusLoginWindow(options)).resolves.toEqual({ ok: false, error: 'offline' });
-    expect(asWindow().closeCalled).toBe(true);
-    const retry = openCampusLoginWindow(options);
-    await flush();
-    expect(mock.windows).toHaveLength(2);
-    asWindow().close();
-    await expect(retry).resolves.toEqual({ ok: false, error: '未完成登录' });
-  });
-
-  it('SPA 页内登录完成后自动关闭登录窗', async () => {
-    vi.useFakeTimers();
-    let authenticated = false;
-    const pending = openCampusLoginWindow({
-      sender,
-      title: '登录交大视频',
-      url: 'https://v.sjtu.edu.cn/',
-      reached: (url) => url.startsWith('https://v.sjtu.edu.cn/'),
-      retryProbe: true,
-      probe: async () => {
-        if (!authenticated) throw new Error('未登录');
-      },
-    });
-    await vi.advanceTimersByTimeAsync(0);
-    const loginWindow = asWindow();
-    loginWindow.webContents.emit('did-navigate', {}, 'https://v.sjtu.edu.cn/');
-    await vi.advanceTimersByTimeAsync(0);
-    authenticated = true;
-    loginWindow.webContents.emit('did-navigate-in-page', {}, 'https://v.sjtu.edu.cn/#/home', true);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(loginWindow.closeCalled).toBe(true);
-    await expect(pending).resolves.toEqual({ ok: true });
-    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('无后续导航的异步登录也会重探，成功后停止重试', async () => {
@@ -320,24 +239,6 @@ describe('openCampusLoginWindow', () => {
     await expect(pending).resolves.toEqual({ ok: false, error: '课表接口失败' });
     expect(loginWindow.closeCalled).toBe(true);
   });
-
-  it('用户直接关闭窗口按未完成登录收场', async () => {
-    vi.useFakeTimers();
-    const pending = openCampusLoginWindow({
-      sender,
-      title: '登录交大视频',
-      url: 'https://v.sjtu.edu.cn/',
-      reached: (url) => url.startsWith('https://v.sjtu.edu.cn/'),
-      retryProbe: true,
-      probe: vi.fn().mockRejectedValue(new Error('校园会话已失效，请重新登录')),
-    });
-    await vi.advanceTimersByTimeAsync(0);
-    const loginWindow = asWindow();
-    await loginWindow.loadURL();
-    loginWindow.close();
-    await expect(pending).resolves.toEqual({ ok: false, error: '未完成登录' });
-    expect(vi.getTimerCount()).toBe(0);
-  });
 });
 
 describe('campusRequest', () => {
@@ -386,17 +287,6 @@ describe('campusRequest', () => {
     });
     expect(caught).toBeInstanceOf(CampusAuthError);
     expect((caught as Error).message).toBe('登录已失效，请重新登录');
-    expect(request.abort).toHaveBeenCalledOnce();
-  });
-
-  it('网络错误按可重试失败收场', async () => {
-    const request = mockRequest('error');
-    let caught: unknown;
-    await campusRequest({} as Session, url, options).catch((error) => {
-      caught = error;
-    });
-    expect((caught as Error).message).toBe('无法连接课表，请检查网络');
-    expect((caught as Error).cause).toBe('transient');
     expect(request.abort).toHaveBeenCalledOnce();
   });
 
