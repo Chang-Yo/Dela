@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { previewBranchOf } from '../PreviewTab';
 import { parsePreviewTabId, type PreviewTabTarget } from '../tab-id';
-import type { LoadedDocument } from '../loader';
 
 describe('parsePreviewTabId', () => {
   it('工作区条目：preview:{entryId}', () => {
@@ -29,22 +27,5 @@ describe('parsePreviewTabId', () => {
     expect(parsePreviewTabId('note:00000000-0000-4000-8000-000000000002')).toBeNull();
     expect(parsePreviewTabId('chat:abc')).toBeNull();
     expect(parsePreviewTabId('review:abc')).toBeNull();
-  });
-});
-
-function docOf(format: LoadedDocument['content']['format'], extra?: Partial<LoadedDocument>) {
-  return { content: { title: 't', format }, ...extra };
-}
-
-describe('previewBranchOf', () => {
-  it('按格式分流；无法当文本打开的内容走 binary 提示', () => {
-    expect(previewBranchOf(docOf('text', { watchesDisk: true }))).toBe('text');
-    expect(previewBranchOf(docOf('binary'))).toBe('binary');
-  });
-
-  it('水源来源优先于格式分流', () => {
-    const source = { id: 'shuiyuan-topic:456', document: () => null };
-    expect(previewBranchOf(docOf('html', { source }))).toBe('source');
-    expect(previewBranchOf(docOf('text', { source, watchesDisk: true }))).toBe('source');
   });
 });

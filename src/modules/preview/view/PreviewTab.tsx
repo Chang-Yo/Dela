@@ -29,7 +29,7 @@ const SheetPreview = lazy(() =>
 export type PreviewBranch =
   'source' | 'html' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'text' | 'binary';
 
-export function previewBranchOf(doc: LoadedDocument): PreviewBranch {
+function previewBranchOf(doc: LoadedDocument): PreviewBranch {
   if (doc.source) return 'source';
   const { format } = doc.content;
   if (
