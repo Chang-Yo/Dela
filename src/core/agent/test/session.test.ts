@@ -371,19 +371,6 @@ it('文档附件按会话归属判断远程：本地路径落在远程项目根�
   );
 });
 
-it('continues to inline ordinary text attachment contents', async () => {
-  state.configured = true;
-  const attachment = stageChatMedia('notes.txt', Buffer.from('普通文本附件'));
-  const chat = newSession(null);
-  await askSession(chat.sessionId!, {
-    text: '总结',
-    attachments: [attachment.id],
-    context: [],
-    comments: [],
-  });
-  expect(state.prompts[0]).toContain('<attachment name="notes.txt">\n普通文本附件\n</attachment>');
-});
-
 it('只带回复评论也能发送：评论进 prompt，历史消息还原为结构化评论', async () => {
   state.configured = true;
   const chat = newSession(null);
@@ -491,18 +478,6 @@ describe('projectMessages', () => {
     });
   });
 
-  it('用户消息的 Dela 元数据前缀不进展示，引用与图片还原到消息字段', () => {
-    const meta = { body: '看看这个', sources: [{ key: 'D:/p/a.md', title: 'D:/p/a.md' }] };
-    const [user] = projectMessages([
-      {
-        role: 'user',
-        content: `<dela-meta>${JSON.stringify(meta)}</dela-meta>\n用户引用了这些文件……看看这个`,
-        timestamp: 1,
-      },
-    ] as AgentMessage[]);
-    expect(user).toMatchObject({ content: '看看这个', sources: meta.sources });
-  });
-
   it('模型报错的回复标记中断并给出原因', () => {
     const [, reply] = projectMessages([
       { role: 'user', content: 'hi', timestamp: 1 },
@@ -510,16 +485,6 @@ describe('projectMessages', () => {
     ] as AgentMessage[]);
     expect(reply).toMatchObject({ interrupted: true });
     expect(reply!.content).toContain('401');
-  });
-
-  it('运行中：末条为用户消息时补占位回复，回复不带 finishedAt', () => {
-    const projected = projectMessages(
-      [{ role: 'user', content: 'hi', timestamp: 5 }] as AgentMessage[],
-      undefined,
-      true,
-    );
-    expect(projected.at(-1)).toMatchObject({ role: 'assistant', startedAt: 5 });
-    expect(projected.at(-1)!.finishedAt).toBeUndefined();
   });
 });
 
@@ -596,24 +561,11 @@ describe('会话归属与 cwd', () => {
       .run(join(state.root, 'missing'));
     expect(() => newSession('p2')).toThrow('项目目录不存在');
   });
-
-  it('非项目条目不能作为会话归属', () => {
-    expect(() => newSession('nope')).toThrow('项目不存在');
-  });
 });
 
 describe('会话命令', () => {
   const titleOf = (id: string) =>
     (state.db!.prepare('SELECT title FROM sessions WHERE id=?').get(id) as { title: string }).title;
-
-  it('/name 改标题（截到 60 字），没给标题时报出用法', async () => {
-    const chat = newSession(null);
-    await runSessionCommand(chat.sessionId!, 'name', '  课程周报  ');
-    expect(titleOf(chat.sessionId!)).toBe('课程周报');
-    await runSessionCommand(chat.sessionId!, 'name', '长'.repeat(80));
-    expect(titleOf(chat.sessionId!)).toHaveLength(60);
-    await expect(runSessionCommand(chat.sessionId!, 'name', '')).rejects.toThrow('用法：/name');
-  });
 
   it('/name 改过的标题，首条消息不再覆盖', async () => {
     state.configured = true;

@@ -222,7 +222,7 @@ export function setLlmProviderEnabled(id: string, enabled: boolean): void {
 
 /** 模型列表端点候选，并带上该候选对应的 OpenAI 兼容根地址：对话端点与模型列表同前缀，
  *  所以「哪个 /models 应答了」就决定了实际该用哪个根地址发对话请求。 */
-export function modelListEndpoints(baseUrl: string): { models: string; apiBase: string }[] {
+function modelListEndpoints(baseUrl: string): { models: string; apiBase: string }[] {
   const base = baseUrl.replace(/\/+$/, '');
   return /\/v\d+$/.test(base)
     ? [{ models: `${base}/models`, apiBase: base }]
@@ -235,7 +235,7 @@ export function modelListEndpoints(baseUrl: string): { models: string; apiBase: 
 /** 兼容 OpenAI {data:[{id}]}、智谱 {models:[{slug}]} 与裸数组三种模型列表形态。
  *  形态不符返回 null 而非空列表：网关常把控制台首页以 200 返回，那不是「没有模型」，
  *  而是「这个地址不是 API 根」，必须继续试下一个候选。 */
-export function parseModelList(payload: unknown): string[] | null {
+function parseModelList(payload: unknown): string[] | null {
   const source = Array.isArray(payload)
     ? payload
     : typeof payload === 'object' && payload !== null

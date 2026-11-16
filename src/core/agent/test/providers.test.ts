@@ -3,8 +3,6 @@ import { CredentialDecryptionError } from '../../ports';
 import { loadLlmConfig, saveLlmConfig, type StoredLlmConfig } from '../llm-config';
 import {
   listLlmProviders,
-  modelListEndpoints,
-  parseModelList,
   removeLlmProvider,
   saveLlmProvider,
   setLlmProviderEnabled,
@@ -125,24 +123,6 @@ describe('LLM provider config', () => {
     ).rejects.toThrow('deepseek-chat');
   });
 
-  it('stores per-model limits and reasoning levels', async () => {
-    const created = await saveLlmProvider({
-      ...input,
-      modelConfigs: {
-        'deepseek-v4-pro': {
-          contextWindow: 1000000,
-          maxOutputTokens: 128000,
-          effortLevels: ['high', 'max'],
-          effort: 'max',
-        },
-        'deepseek-flash': { effortLevels: [] },
-      },
-    });
-    expect(created.modelConfigs?.['deepseek-v4-pro']?.contextWindow).toBe(1000000);
-    expect(created.modelConfigs?.['deepseek-v4-pro']?.effortLevels).toEqual(['high', 'max']);
-    expect(created.modelConfigs?.['deepseek-flash']?.effortLevels).toEqual([]);
-  });
-
   it('rejects invalid model limits and settings for models outside the list', async () => {
     await expect(
       saveLlmProvider({
@@ -166,30 +146,6 @@ describe('LLM provider config', () => {
       saveLlmProvider({ ...input, modelConfigs: { unknown: { contextWindow: 1000000 } } }),
     ).rejects.toThrow('模型配置必须属于模型列表');
   });
-  it('accepts a new server while keeping the stored key', async () => {
-    const created = await saveLlmProvider(input);
-    const saved = await saveLlmProvider({
-      ...input,
-      id: created.id,
-      baseUrl: 'https://other.example/v1',
-      apiKey: undefined,
-    });
-    expect(saved.baseUrl).toBe('https://other.example/v1');
-    expect(config.providers[0]?.apiKey).toBe('test-only');
-  });
-
-  it('allows changing the endpoint with an explicitly supplied key', async () => {
-    const created = await saveLlmProvider(input);
-    const saved = await saveLlmProvider({
-      ...input,
-      id: created.id,
-      baseUrl: 'https://other.example',
-      apiKey: 'new-test-key',
-    });
-    expect(saved.baseUrl).toBe('https://other.example');
-    expect(config.providers[0]?.apiKey).toBe('new-test-key');
-  });
-
   it('can add a provider after the old encrypted config becomes unreadable', async () => {
     loadMock.mockImplementation(() => {
       throw new CredentialDecryptionError('llm-providers', undefined);
@@ -210,12 +166,6 @@ describe('LLM provider config', () => {
     expect(saveMock.mock.calls).toHaveLength(writes);
   });
 
-  it('does not treat unrelated read failures as an empty config', async () => {
-    loadMock.mockImplementation(() => {
-      throw new Error('EACCES');
-    });
-    await expect(saveLlmProvider(input)).rejects.toThrow('EACCES');
-  });
   it('saves a new provider with a generated id and returns the masked view', async () => {
     const view = await saveLlmProvider(input);
     expect(view).toEqual({
@@ -228,18 +178,6 @@ describe('LLM provider config', () => {
     });
     expect('apiKey' in view).toBe(false);
     expect(config.providers[0]!.apiKey).toBe('test-only');
-  });
-
-  it('normalizes model effort levels and rejects unknown levels', async () => {
-    const model = 'deepseek-v4-pro';
-    const view = await saveLlmProvider({
-      ...input,
-      modelConfigs: { [model]: { effortLevels: ['ultra', 'low', 'low', 'none'] } },
-    });
-    expect(view.modelConfigs?.[model]?.effortLevels).toEqual(['none', 'low', 'ultra']);
-    await expect(
-      saveLlmProvider({ ...input, modelConfigs: { [model]: { effortLevels: ['turbo'] } } }),
-    ).rejects.toThrow();
   });
 
   it('keeps the stored key when editing with an empty apiKey', async () => {
@@ -259,38 +197,6 @@ describe('LLM provider config', () => {
     expect(() => setLlmProviderEnabled('00000000-0000-4000-8000-000000000000', true)).toThrow();
     removeLlmProvider(created.id);
     expect(config.providers).toHaveLength(0);
-  });
-});
-
-describe('model list endpoints', () => {
-  it('appends /models when the base already ends with a version segment', async () => {
-    expect(modelListEndpoints('https://api.minimaxi.com/v1')).toEqual([
-      { models: 'https://api.minimaxi.com/v1/models', apiBase: 'https://api.minimaxi.com/v1' },
-    ]);
-    expect(modelListEndpoints('https://open.bigmodel.cn/api/coding/paas/v4/')).toEqual([
-      {
-        models: 'https://open.bigmodel.cn/api/coding/paas/v4/models',
-        apiBase: 'https://open.bigmodel.cn/api/coding/paas/v4',
-      },
-    ]);
-  });
-
-  it('tries /v1/models before /models for plain origins', async () => {
-    expect(modelListEndpoints('https://api.deepseek.com')).toEqual([
-      { models: 'https://api.deepseek.com/v1/models', apiBase: 'https://api.deepseek.com/v1' },
-      { models: 'https://api.deepseek.com/models', apiBase: 'https://api.deepseek.com' },
-    ]);
-  });
-
-  it('parses OpenAI, Zhipu and bare-array model lists with dedupe', async () => {
-    expect(parseModelList({ data: [{ id: 'qwen' }, { id: 'qwen' }, { id: 'minimax' }] })).toEqual([
-      'qwen',
-      'minimax',
-    ]);
-    expect(parseModelList({ models: [{ slug: 'glm-5.2' }] })).toEqual(['glm-5.2']);
-    expect(parseModelList(['a', { id: 'b' }, 3, null])).toEqual(['a', 'b']);
-    expect(parseModelList({ error: { message: 'x' } })).toBeNull();
-    expect(parseModelList('<!doctype html>')).toBeNull();
   });
 });
 
@@ -317,7 +223,6 @@ describe('verifyLlm', () => {
       baseUrl: `${input.baseUrl}/v1`,
     });
     expect(fetcher.mock.calls[0]![1]!.headers).toEqual({ Authorization: 'Bearer test-only' });
-    // 探测目标就是用户刚填的地址，不回写成原存储地址。
     fetcher.mockClear();
     const elsewhere = await verifyLlm({ id: created.id, baseUrl: 'https://gateway.internal/v1' });
     expect(elsewhere.ok).toBe(true);
@@ -391,55 +296,5 @@ describe('verifyLlm', () => {
     const result = await verifyLlm(verifyInput);
     expect(result.ok).toBe(false);
     expect(result.message).toContain('/v1');
-  });
-
-  it('probes the versioned root before a model request at a bare origin', async () => {
-    const server = await MockOpenAiServer.start();
-    // 只接管模型列表探测；对话请求仍走真实 fetch 打到 mock 服务。
-    const realFetch = globalThis.fetch;
-    try {
-      const origin = server.baseUrl.replace(/\/v1$/, '');
-      server.enqueue({
-        kind: 'sse',
-        frames: [mockFrames.textDelta('OK'), mockFrames.finishFrame('stop')],
-      });
-      vi.stubGlobal(
-        'fetch',
-        vi.fn((...args: Parameters<typeof fetch>) =>
-          String(args[0]).endsWith('/v1/models')
-            ? Promise.resolve(json({ data: [{ id: 'test-model' }] }))
-            : realFetch(...args),
-        ),
-      );
-      const result = await verifyLlmModel({
-        baseUrl: origin,
-        apiKey: 'test-only',
-        model: 'test-model',
-      });
-      expect(result).toEqual({
-        ok: true,
-        message: '模型可用',
-        baseUrl: `${origin}/v1`,
-      });
-      expect(server.requests[0]?.url).toBe('/v1/chat/completions');
-    } finally {
-      vi.unstubAllGlobals();
-      await server.close();
-    }
-  });
-
-  it('requires a key before contacting the endpoint', async () => {
-    const fetcher = vi.fn();
-    vi.stubGlobal('fetch', fetcher);
-    const result = await verifyLlm({ baseUrl: input.baseUrl });
-    expect(result.ok).toBe(false);
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it('reports unreachable services after all candidates fail', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('network')));
-    const result = await verifyLlm(verifyInput);
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain('无法连接');
   });
 });

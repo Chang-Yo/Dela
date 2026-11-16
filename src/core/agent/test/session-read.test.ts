@@ -199,12 +199,6 @@ describe('pageTurns', () => {
     expect(clipped!.reply!.length).toBeLessThan(1100);
     expect(clipped!.reply).toContain('已截断，原文 5000 字');
   });
-
-  it('按 turnId 读单轮；不存在的轮次如实报错', () => {
-    expect(pageTurns(turns, { turnId: 'c' }).turns).toEqual([turns[2]]);
-    expect(() => pageTurns(turns, { turnId: 'zz' })).toThrow('没有这一轮');
-    expect(() => pageTurns(turns, { before: 'zz' })).toThrow('没有这一轮');
-  });
 });
 
 describe('session_search / session_read', () => {

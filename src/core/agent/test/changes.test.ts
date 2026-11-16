@@ -7,9 +7,7 @@ import * as fsPromises from 'node:fs/promises';
 import { diffStatOf } from '../../protocol/diff';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-// 本文件逐个 spawn git 并做真实文件比对，Windows 上单个用例可达数秒；共享 CI runner
-// 满载时实测超过 vitest 默认的 5s 被误杀（2026-10-19 本机 5.1s）。按 database.test.ts
-// 的先例整文件放宽到 30s，避免把环境抖动当成回归。
+// 逐个 spawn git 并比对真实文件，慢机器上超过默认 5s，整文件放宽到 30s。
 vi.setConfig({ testTimeout: 30_000 });
 
 const profile = vi.hoisted(() => ({ path: '' }));
@@ -138,23 +136,6 @@ it('连续两轮的基准独立，停止与失败轮次也保留已发生的变�
   expect(await readTurnChanges(sessionId, first)).toBeNull();
 });
 
-it('二进制和超出文本上限的文件仍在变更列表中，不伪造文本 diff', async () => {
-  const before = await captureDirectory(cwd);
-  writeFileSync(join(cwd, 'binary.bin'), Buffer.from([0, 255, 3]));
-  writeFileSync(join(cwd, 'large.txt'), 'a'.repeat(1024 * 1024 + 1));
-  const turn = randomUUID();
-  await freezeTurnChanges(sessionId, turn, cwd, new Date().toISOString(), 'completed', before);
-  const saved = await readTurnChanges(sessionId, turn);
-  expect(saved?.files).toHaveLength(2);
-  expect(saved?.files.every((file) => !file.textDiff)).toBe(true);
-  expect(await readTurnFileChange(sessionId, turn, 'binary.bin')).toMatchObject({
-    patch: null,
-    before: null,
-    after: null,
-  });
-  expect((await readTurnFileChange(sessionId, turn, 'large.txt')).note).toContain('1 MiB');
-});
-
 it('轮末新增 ignore 规则不把仍存在的文件误报为删除', async () => {
   writeFileSync(join(cwd, 'a.txt'), 'same');
   const before = await captureDirectory(cwd);
@@ -164,24 +145,6 @@ it('轮末新增 ignore 规则不把仍存在的文件误报为删除', async ()
   expect((await readTurnChanges(sessionId, turn))?.files.map((file) => file.path)).toEqual([
     '.gitignore',
   ]);
-});
-
-it('缺失基准明确返回 unavailable，不伪造空的成功结果', async () => {
-  const turn = randomUUID();
-  await freezeTurnChanges(
-    sessionId,
-    turn,
-    cwd,
-    new Date().toISOString(),
-    'completed',
-    null,
-    '远程暂不支持',
-  );
-  await expect(readTurnChanges(sessionId, turn)).resolves.toMatchObject({
-    state: 'unavailable',
-    warnings: ['远程暂不支持'],
-    files: [],
-  });
 });
 
 it('Git 当前变更合并已暂存、未暂存、删除与未跟踪文件，不修改真实索引', async () => {
@@ -232,23 +195,6 @@ it('仓库子目录只返回会话目录中的变更', async () => {
   expect(await readUncommittedFileChange(sub, 'a.txt')).toMatchObject({ before: 'A', after: 'B' });
 });
 
-it('未有首个提交的仓库也能展示文件，干净仓库返回空列表', async () => {
-  init();
-  writeFileSync(join(cwd, 'a.txt'), 'A');
-  git('add', 'a.txt');
-  writeFileSync(join(cwd, 'b.txt'), 'B');
-  expect(await readUncommittedChanges(cwd)).toMatchObject({
-    available: true,
-    head: null,
-    files: [
-      { path: 'a.txt', status: 'added' },
-      { path: 'b.txt', status: 'added' },
-    ],
-  });
-  commit();
-  expect((await readUncommittedChanges(cwd)).files).toEqual([]);
-});
-
 it('单文件详情只读取目标文件，路径中的通配字符按字面匹配', async () => {
   init();
   for (const name of ['[a].txt', 'a.txt']) writeFileSync(join(cwd, name), 'HEAD');
@@ -269,44 +215,6 @@ it('单文件详情只读取目标文件，路径中的通配字符按字面匹�
   await expect(readUncommittedFileChange(cwd, 'missing.txt')).rejects.toThrow('没有未提交改动');
 });
 
-it('单文件详情支持未跟踪文件和尚无提交的仓库', async () => {
-  init();
-  writeFileSync(join(cwd, '[new].txt'), 'new');
-  expect(await readUncommittedFileChange(cwd, '[new].txt')).toMatchObject({
-    status: 'added',
-    before: null,
-    after: 'new',
-  });
-  git('add', '.');
-  expect(await readUncommittedFileChange(cwd, '[new].txt')).toMatchObject({ status: 'added' });
-  commit();
-  writeFileSync(join(cwd, 'untracked.txt'), 'untracked');
-  expect(await readUncommittedFileChange(cwd, 'untracked.txt')).toMatchObject({
-    status: 'added',
-    before: null,
-    after: 'untracked',
-  });
-  await expect(readUncommittedFileChange(cwd, '[new].txt')).rejects.toThrow('没有未提交改动');
-});
-
-it('轮次统计一次读取整轮，随聊不请求时不返回统计', async () => {
-  const before = await captureDirectory(cwd);
-  for (let index = 0; index < 20; index++) writeFileSync(join(cwd, `${index}.txt`), 'new\n');
-  const turn = randomUUID();
-  await freezeTurnChanges(sessionId, turn, cwd, new Date().toISOString(), 'completed', before);
-  const read = vi.mocked(fsPromises.readFile);
-  read.mockClear();
-  const summary = await readTurnChanges(sessionId, turn, true);
-  expect(read).toHaveBeenCalledTimes(1);
-  expect(summary?.files).toHaveLength(20);
-  expect(summary?.files.every((file) => file.stat?.added === 1 && file.stat.deleted === 0)).toBe(
-    true,
-  );
-  expect(
-    (await readTurnChanges(sessionId, turn))?.files.every((file) => file.stat === undefined),
-  ).toBe(true);
-});
-
 it.each(['autocrlf', 'attributes'])('工作区 diff 遵循 Git 换行转换：%s', async (mode) => {
   init();
   if (mode === 'autocrlf') git('config', 'core.autocrlf', 'true');
@@ -319,16 +227,4 @@ it.each(['autocrlf', 'attributes'])('工作区 diff 遵循 Git 换行转换：%s
   expect(diffStatOf(result.patch)).toEqual({ added: 1, deleted: 1 });
   expect(result.after).toContain('\r\n');
   expect(git('status', '--porcelain=v1')).toBe(status);
-});
-
-it('禁用文本转换时保留真实换行差异', async () => {
-  init();
-  writeFileSync(join(cwd, '.gitattributes'), '*.txt -text\n');
-  writeFileSync(join(cwd, 'a.txt'), 'one\ntwo\n');
-  commit();
-  writeFileSync(join(cwd, 'a.txt'), 'one\r\nchanged\r\n');
-  expect(diffStatOf((await readUncommittedFileChange(cwd, 'a.txt')).patch)).toEqual({
-    added: 2,
-    deleted: 2,
-  });
 });

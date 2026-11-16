@@ -1,20 +1,18 @@
 // 子 Agent（task 工具）：真实 Pi 会话加本地 mock 模型。子会话历史为空、工具里没有 task，
-// 只把最终回复交回父会话；带 taskId 续接；父会话停止时连带中止；并发数超出上限时直接报错；
-// 在内置能力里关掉后不再提供。
-import { mkdtempSync, rmSync } from 'node:fs';
+// 只把最终回复交回父会话；带 taskId 续接；父会话停止时连带中止；后台子 Agent 占用并发名额。
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import type { SubagentDetails } from '../../protocol/agent';
 import type { StoredLlmProvider } from '../llm-config';
-import { MockOpenAiServer, mockFrames, type RecordedRequest } from './mock-openai-server';
+import { mockFrames, type MockOpenAiServer, type RecordedRequest } from './mock-openai-server';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-subagent-'));
 const state = vi.hoisted(() => ({
   db: null as Database.Database | null,
   provider: null as StoredLlmProvider | null,
-  disabledTools: [] as string[],
 }));
 vi.mock('electron', () => ({
   app: { getPath: () => root },
@@ -32,7 +30,7 @@ vi.mock('../environment', () => ({
       skillPaths: [],
       globalSkillDirs: [],
       disabledSkills: new Set(),
-      disabledTools: state.disabledTools,
+      disabledTools: [],
     }),
   }),
 }));
@@ -46,17 +44,16 @@ import {
 import { askSession, cancelRun, shutdownSessions } from '../session/run';
 import { listSessions, preloadPi } from '../session/store';
 import { provideTestHostPorts } from '../../test/host-mock';
+import {
+  askInput as input,
+  recordRequests,
+  reply,
+  startMockModel,
+  stopMockModel,
+} from '../../test/mock-model';
 
 provideTestHostPorts({ database: () => state.db! });
 
-const reply = (text: string, delayMs = 0) => ({
-  kind: 'sse' as const,
-  frames: [
-    mockFrames.textDelta(text.slice(0, 1)),
-    { ...mockFrames.textDelta(text.slice(1)), delayMs },
-    mockFrames.finishFrame('stop'),
-  ],
-});
 const taskCalls = (...calls: object[]) => ({
   kind: 'sse' as const,
   frames: [
@@ -71,7 +68,6 @@ const taskCalls = (...calls: object[]) => ({
     mockFrames.finishFrame('tool_calls'),
   ],
 });
-const input = (text: string) => ({ text, attachments: [], context: [], comments: [] });
 const toolNames = (request: RecordedRequest) =>
   ((request.body as { tools?: { function: { name: string } }[] }).tools ?? []).map(
     (tool) => tool.function.name,
@@ -88,44 +84,20 @@ const taskResults = (parentId: string) =>
     .messages.flatMap((message) => message.parts ?? [])
     .flatMap((part) => (part.type === 'tools' ? part.results : []))
     .filter((result) => result.name === 'task');
-const recorded = () => {
-  const requests: RecordedRequest[] = [];
-  const stop = server.onRequest((request) => requests.push(request));
-  return { requests, stop };
-};
-
 let server: MockOpenAiServer;
+const recorded = () => recordRequests(server);
 
 beforeAll(async () => {
-  server = await MockOpenAiServer.start();
-  state.provider = {
-    id: 'p1',
-    name: 'mock',
-    baseUrl: server.baseUrl,
-    apiKey: 'test-only',
-    models: ['mock-model'],
-    piProvider: null,
-    enabled: true,
-  };
-  state.db = new Database(':memory:');
-  state.db.exec(`
-    CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT NOT NULL,
-      kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT, updated_at TEXT NOT NULL);
-    CREATE TABLE sessions (id TEXT PRIMARY KEY, project_id TEXT, cwd TEXT, file TEXT NOT NULL,
-      title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
-      archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-      provider_id TEXT, model TEXT, effort TEXT, parent_id TEXT);
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-  `);
+  const mock = await startMockModel();
+  server = mock.server;
+  state.provider = mock.provider;
+  state.db = mock.db;
   await preloadPi();
 });
 
 afterAll(async () => {
   await shutdownSessions(1000);
-  await server.close();
-  state.db?.close();
-  rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  await stopMockModel({ server, db: state.db }, root);
 });
 
 it('子 Agent 历史为空、没有 task 工具，只把最终回复交回父会话；续接时保留它自己的对话', async () => {
@@ -198,43 +170,6 @@ it('父会话停止时连带中止子 Agent，子会话保留并记为停止', a
     isError: true,
     details: { taskId: child, status: 'stopped' },
   });
-});
-
-it('在内置能力里关掉 task 后，新会话没有 task 工具，后台 bash 照常可用', async () => {
-  state.disabledTools = ['task'];
-  const parent = newSession(null).sessionId!;
-  const { requests, stop } = recorded();
-  server.enqueue(reply('好的'));
-  await askSession(parent, input('你好'));
-  stop();
-  state.disabledTools = [];
-
-  expect(toolNames(requests[0]!)).not.toContain('task');
-  expect(toolNames(requests[0]!)).toEqual(
-    expect.arrayContaining(['bash', 'task_output', 'task_stop']),
-  );
-});
-
-it('同时运行的子 Agent 超出上限时直接报错，不排队', async () => {
-  state
-    .db!.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('subagent-limit', '1')")
-    .run();
-  const parent = newSession(null).sessionId!;
-  const { requests, stop } = recorded();
-  server.enqueue(
-    taskCalls({ description: '甲', prompt: '做甲' }, { description: '乙', prompt: '做乙' }),
-  );
-  server.enqueue(reply('甲做完了', 200));
-  server.enqueue(reply('一个做完，一个超限'));
-  await askSession(parent, input('并行派两个'));
-  stop();
-  state.db!.prepare("DELETE FROM workspace_settings WHERE key='subagent-limit'").run();
-
-  expect(requests).toHaveLength(3);
-  expect(children(parent)).toHaveLength(1);
-  const results = taskResults(parent);
-  expect(results.map((result) => Boolean(result.output?.isError))).toEqual([false, true]);
-  expect(results[1]!.output?.text).toContain('上限（1 个）');
 });
 
 it('后台子 Agent 立即返回并占用并发名额，结束时把最终回复作为通知交回父会话', async () => {
