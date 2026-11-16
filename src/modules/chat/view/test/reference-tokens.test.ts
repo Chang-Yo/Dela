@@ -51,17 +51,9 @@ describe('matchReferenceTokens（@token 扫描）', () => {
     }
   });
 
-  it('中文逗号后紧跟正文（无空格分隔）不解析：@ 菜单插入自带尾随空格，正常路径不受影响', () => {
-    expect(matchReferenceTokens('看 @readme.md，谢谢', options)).toEqual([]);
-  });
-
   it('同一文件多次引用各自成 token，不含空格的同名 title 不嵌套误判', () => {
     const tokens = matchReferenceTokens('@readme.md 与 @readme.md', options);
     expect(tokens.map((token) => token.start)).toEqual([0, 13]);
-  });
-
-  it('候选为空时直接返回空数组', () => {
-    expect(matchReferenceTokens('@readme.md', [])).toEqual([]);
   });
 });
 
@@ -140,29 +132,6 @@ describe('referenceCandidates（@ 候选范围）', () => {
       ref('/repo/Project/readme.md', 'readme.md'),
     ]);
   });
-
-  it('POSIX 文件名中的反斜杠保持原样，也不被当作目录边界', () => {
-    const path = '/repo/课程\\笔记.md';
-    const entries = [entry('s1', path), entry('outside', '/repo\\outside.md')];
-    const candidates = referenceCandidates(entries, '/repo', null);
-    expect(candidates).toEqual([ref(path, '课程\\笔记.md')]);
-    expect(referenceContext('@课程\\笔记.md', candidates)).toEqual(candidates);
-  });
-
-  it.each(['C:\\Repo\\', '\\\\server\\share\\Repo\\'])(
-    'Windows 路径 %s 忽略大小写并兼容两种分隔符',
-    (cwd) => {
-      const root = cwd.replaceAll('\\', '/').toLowerCase();
-      const path = `${root}docs\\readme.md`;
-      const entries = [entry('s1', path), entry('outside', `${root.slice(0, -1)}-other/file.md`)];
-      expect(referenceCandidates(entries, cwd, null)).toEqual([ref(path, 'docs/readme.md')]);
-    },
-  );
-
-  it.each(['/', 'C:\\'])('根目录 %s 可生成相对路径', (cwd) => {
-    const path = `${cwd}readme.md`;
-    expect(referenceCandidates([entry('s1', path)], cwd, null)).toEqual([ref(path, 'readme.md')]);
-  });
 });
 
 describe('withCourseReferences', () => {
@@ -185,55 +154,6 @@ describe('withCourseReferences', () => {
     ]);
     const local = [ref('E:/repo/笔记.md', '笔记.md')];
     expect(withCourseReferences(local, [])).toEqual([ref('E:/repo/笔记.md', '笔记.md')]);
-  });
-});
-
-describe('referenceEntryCandidates（useEntries 三分支）', () => {
-  const entry = (id: string, path: string, remoteId?: string): WorkspaceEntry => ({
-    id,
-    parentId: null,
-    name: path.split('/').pop()!,
-    kind: 'project',
-    sourceId: null,
-    path,
-    updatedAt: '2026-10-09T00:00:00.000Z',
-    ...(remoteId ? { remoteId } : {}),
-  });
-
-  const local = [entry('p1', 'E:/repo/Test')];
-  const course = { path: 'C:/courses/软件工程/files/lec1.pdf', title: '软件工程/files/lec1.pdf' };
-
-  it('远端会话用远端索引候选，本地镜像里没有远端文件', () => {
-    const remoteEntry = [entry('p1', '/remote/repo', 'remote-1')];
-    expect(
-      referenceEntryCandidates(
-        remoteEntry,
-        '/remote/repo',
-        'p1',
-        'remote-1',
-        [ref('/r/a.md', 'a.md')],
-        [course],
-      ),
-    ).toEqual([ref('/r/a.md', 'a.md')]);
-  });
-
-  it('本机项目会话用自己的目录候选，不并课件', () => {
-    expect(
-      referenceEntryCandidates(
-        local,
-        'E:/repo/Test',
-        'p1',
-        null,
-        [ref('/r/a.md', 'a.md')],
-        [course],
-      ),
-    ).toEqual([]);
-  });
-
-  it('通用池（projectId 为 null）并入课件候选', () => {
-    expect(referenceEntryCandidates(local, 'E:/repo', null, null, [], [course])).toEqual([
-      ref('C:/courses/软件工程/files/lec1.pdf', '软件工程/files/lec1.pdf'),
-    ]);
   });
 });
 

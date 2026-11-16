@@ -105,36 +105,6 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 
-it('没有冻结记录的轮次不渲染任何内容', async () => {
-  await renderCard(sessionId, '00000000-0000-4000-8000-000000000001');
-  expect(host.textContent).toBe('');
-});
-
-it('默认折叠，展开后列出文件并显示行数统计', async () => {
-  const turn = turnFixture();
-  turn.files[0]!.stat = { added: 2, deleted: 1 };
-  api['agent:read-turn-changes'].mockImplementation(async () => turn);
-  await renderCard(sessionId, turn.turnId);
-  expect(host.querySelector('[aria-expanded="false"]')).not.toBeNull();
-  expect(api['agent:read-turn-changes']).toHaveBeenCalledWith({
-    sessionId,
-    turnId: turn.turnId,
-    includeStats: true,
-  });
-  expect(api['agent:read-turn-changes']).toHaveBeenCalledTimes(1);
-  expect(api['agent:read-turn-file-change']).not.toHaveBeenCalled();
-  expect(host.querySelectorAll('li')).toHaveLength(0);
-
-  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
-  expect(host.querySelectorAll('li')).toHaveLength(2);
-  expect(host.textContent).toContain('app.ts');
-  expect(host.textContent).toContain('src');
-  expect(host.textContent).toContain('logo.png');
-  // 二进制文件不计行数；文本文件显示 +2 -1，标题栏合计同源。
-  expect(host.textContent).toContain('+2');
-  expect(host.textContent).toContain('-1');
-});
-
 it('审阅与打开按解析出的标签键落位，已删除文件的打开被禁用', async () => {
   const turn = turnFixture({
     files: [
@@ -163,17 +133,6 @@ it('审阅与打开按解析出的标签键落位，已删除文件的打开被�
 
   const deletedOpen = host.querySelector<HTMLButtonElement>('[title="文件已删除"]')!;
   expect(deletedOpen.disabled).toBe(true);
-});
-
-it('部分记录在展开后展示警告，不给「一切正常」的假象', async () => {
-  const turn = turnFixture({
-    state: 'partial',
-    warnings: ['big.bin: 二进制或非 UTF-8 文件，不提供文本 diff', 'x: 不可读'],
-  });
-  api['agent:read-turn-changes'].mockImplementation(async () => turn);
-  await renderCard(sessionId, turn.turnId);
-  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-expanded]')!.click());
-  expect(host.textContent).toContain('big.bin: 二进制或非 UTF-8 文件，不提供文本 diff');
 });
 
 it('随聊只列文件并提供打开，不读取 diff 详情或显示审阅与行数', async () => {

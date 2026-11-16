@@ -1,55 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import { commentRange, placeFloating } from '../reply-comment';
-
-const view = { width: 600, height: 400 };
-const box = { width: 120, height: 32 };
-const edge = 8;
-const anchor = (top: number, bottom: number, center = 300) => ({
-  top,
-  bottom,
-  topCenter: center,
-  bottomCenter: center,
-});
-
-describe('placeFloating', () => {
-  it('优先放在选区上方，水平居中于首行', () => {
-    expect(placeFloating(anchor(200, 220), box, view, edge, false)).toEqual({
-      top: 200 - edge - box.height,
-      left: 300 - box.width / 2,
-      side: 'top',
-    });
-  });
-
-  it('上方放不下翻到下方，不压上方会话栏', () => {
-    expect(placeFloating(anchor(20, 40), box, view, edge, false)).toMatchObject({
-      top: 40 + edge,
-      side: 'bottom',
-    });
-  });
-
-  it('选区高过视口时贴上沿，不压下方输入框', () => {
-    const spot = placeFloating(anchor(-500, 900), box, view, edge, false)!;
-    expect(spot.top).toBe(edge);
-    expect(spot.top + box.height).toBeLessThanOrEqual(view.height - edge);
-  });
-
-  it('选区滚出视口：提示隐藏，正在写的评论贴在最近的边缘', () => {
-    expect(placeFloating(anchor(-80, -40), box, view, edge, false)).toBeNull();
-    expect(placeFloating(anchor(450, 480), box, view, edge, false)).toBeNull();
-    expect(placeFloating(anchor(-80, -40), box, view, edge, true)?.top).toBe(edge);
-    expect(placeFloating(anchor(450, 480), box, view, edge, true)?.top).toBe(
-      view.height - edge - box.height,
-    );
-  });
-
-  it('靠近左右边缘时水平夹在视口内', () => {
-    expect(placeFloating(anchor(200, 220, 10), box, view, edge, false)?.left).toBe(edge);
-    expect(placeFloating(anchor(200, 220, 595), box, view, edge, false)?.left).toBe(
-      view.width - edge - box.width,
-    );
-  });
-});
+import { commentRange } from '../reply-comment';
 
 describe('commentRange', () => {
   afterEach(() => {

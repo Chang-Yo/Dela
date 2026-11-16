@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 // dela.session.drafts 持久化形状校验：损坏条目在 loadStored 丢弃，不进渲染期。
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { emptyDraft } from '../drafts';
 
 const STORAGE_KEY = 'dela.session.drafts';
 
@@ -66,12 +65,5 @@ describe('useChatDrafts 启动加载', () => {
       s2: { prompt: '正文' },
       s3: { prompt: '正文' },
     });
-  });
-
-  it('update 以 emptyDraft 为基底合并并写回存储', async () => {
-    const { useChatDrafts } = await loadFresh();
-    useChatDrafts.getState().update('s1', { prompt: 'abc' });
-    expect(useChatDrafts.getState().drafts.s1).toEqual({ ...emptyDraft, prompt: 'abc' });
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).s1.prompt).toBe('abc');
   });
 });

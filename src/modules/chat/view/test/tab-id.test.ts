@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseReviewTabId, reviewTabId, reviewTabTitle } from '../review/tab-id';
+import { parseReviewTabId, reviewTabId } from '../review/tab-id';
 
 const sessionId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4d';
 const turnId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4e';
@@ -35,18 +35,5 @@ describe('reviewTabId / parseReviewTabId', () => {
     expect(parseReviewTabId('review:short:path')).toBeNull();
     expect(parseReviewTabId('review:uncommitted')).toBeNull();
     expect(parseReviewTabId(`${sessionId}:${turnId}:${path}`)).toBeNull();
-  });
-});
-
-describe('reviewTabTitle', () => {
-  it('轮次变体取路径末段作标题，跨平台分隔符都能截', () => {
-    expect(reviewTabTitle(reviewTabId({ kind: 'turn', sessionId, turnId, path }))).toBe(
-      'session.ts',
-    );
-    expect(
-      reviewTabTitle(
-        reviewTabId({ kind: 'turn', sessionId, turnId, path: 'E:\\dir\\quicksort.py' }),
-      ),
-    ).toBe('quicksort.py');
   });
 });

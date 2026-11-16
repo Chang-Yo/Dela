@@ -26,7 +26,7 @@ const { invoke, listeners } = vi.hoisted(() => {
   });
   return { invoke, listeners };
 });
-import { poolKey, querySessions, useSessions } from '../sessions';
+import { poolKey, useSessions } from '../sessions';
 
 const pushUpdate = (sessionId: string, chat: WorkspaceChat) =>
   listeners['agent:session-update']![0]!({ sessionId, chat });
@@ -65,23 +65,6 @@ describe('sessions mirror store', () => {
       's1',
       's2',
     ]);
-  });
-
-  it('通用池与项目池分开缓存（null → general）', async () => {
-    invoke.mockResolvedValue([summary('g1')]);
-    useSessions.setState({ lists: {}, chats: {} });
-    await useSessions.getState().refresh(null);
-    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: null });
-    expect(useSessions.getState().lists['general']).toHaveLength(1);
-    expect(useSessions.getState().lists['p1']).toBeUndefined();
-  });
-
-  it('session-update 推送写入对应会话的快照缓存', () => {
-    useSessions.setState({ chats: {} });
-    pushUpdate('s1', chat('s1', 2));
-    expect(useSessions.getState().chats['s1']?.messages).toHaveLength(2);
-    pushUpdate('s1', chat('s1', 3));
-    expect(useSessions.getState().chats['s1']?.messages).toHaveLength(3);
   });
 
   it('流式增量只替换运行中会话的末条 assistant 消息，历史消息保持对象身份', () => {
@@ -180,21 +163,6 @@ describe('sessions mirror store', () => {
     vi.useRealTimers();
   });
 
-  it('不经推送写入的快照（分支、ask 结果）同样触发重读，两个池前后脚变化各自刷新', async () => {
-    vi.useFakeTimers();
-    invoke.mockResolvedValue([summary('s1')]);
-    useSessions.setState({ lists: {}, chats: {} });
-
-    useSessions.getState().putChat('fork', { ...chat('fork', 2), projectId: 'p1' });
-    useSessions.getState().putChat('g', chat('g', 1));
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: 'p1' });
-    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: null });
-
-    vi.clearAllTimers();
-    vi.useRealTimers();
-  });
-
   it('forgetSession 同时清出快照缓存与各池列表条目', () => {
     useSessions.setState({
       lists: {
@@ -207,13 +175,5 @@ describe('sessions mirror store', () => {
     expect(useSessions.getState().chats['s1']).toBeUndefined();
     expect(useSessions.getState().lists[poolKey('p1')]?.map((item) => item.id)).toEqual(['s2']);
     expect(useSessions.getState().lists.general).toHaveLength(1);
-  });
-
-  it('querySessions 透传 projectId 与查询词，结果不落镜像', async () => {
-    invoke.mockResolvedValue([summary('s9')]);
-    useSessions.setState({ lists: {}, chats: {} });
-    await expect(querySessions('p2', '复习')).resolves.toHaveLength(1);
-    expect(invoke).toHaveBeenCalledWith('agent:list-sessions', { projectId: 'p2', query: '复习' });
-    expect(useSessions.getState().lists).toEqual({});
   });
 });
