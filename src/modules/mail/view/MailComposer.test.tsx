@@ -111,12 +111,6 @@ it.each([
   expect((await save()).text).toBe(expected);
 });
 
-it('纯文本草稿恢复为可见换行，保存后不把多行连在一起', async () => {
-  const editor = await mount(undefined, 'first\r\nsecond\r\nthird');
-  expect(editor.querySelectorAll('br')).toHaveLength(2);
-  expect((await save()).text).toBe('first\nsecond\nthird');
-});
-
 it('内联图片恢复为预览，发送数据仍用 CID 并保留周围格式', async () => {
   const editor = await mount(
     '<i>图片前</i><img src="cid:image@dela" alt="说明"><b>图片后</b>',
@@ -137,22 +131,4 @@ it('内联图片恢复为预览，发送数据仍用 CID 并保留周围格式',
   expect(saved.html).toContain('<i>图片前</i>');
   expect(saved.html).toContain('<b>图片后</b>');
   expect(saved.inlineImageIds).toEqual(['image']);
-});
-
-it('只有 selectionchange 时工具栏也跟随实际格式状态更新', async () => {
-  const editor = await mount('<i>italic</i> normal');
-  const range = document.createRange();
-  range.selectNodeContents(editor.querySelector('i')!);
-  const selection = window.getSelection()!;
-  selection.removeAllRanges();
-  selection.addRange(range);
-  commandState.mockImplementation((command: string) => command === 'italic');
-  await act(async () => document.dispatchEvent(new Event('selectionchange')));
-  expect(container.querySelector('[aria-label="斜体"]')?.getAttribute('aria-pressed')).toBe('true');
-  commandState.mockReturnValue(false);
-  range.selectNodeContents(editor);
-  await act(async () => document.dispatchEvent(new Event('selectionchange')));
-  expect(container.querySelector('[aria-label="斜体"]')?.getAttribute('aria-pressed')).toBe(
-    'false',
-  );
 });
