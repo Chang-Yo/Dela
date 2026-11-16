@@ -10,7 +10,7 @@ import { agentClient } from '../client';
 import { parseReviewTabId } from './tab-id';
 import { UncommittedReview } from './UncommittedReview';
 import { Centered, STATUS_TEXT, basenameOf, dirnameOf } from './view-utils';
-import { DiffView } from './DiffView';
+import { DiffScroller, PatchDiffView } from './pierre-diff';
 import { errorMessage } from '../../../../core/protocol/contract';
 
 export function ReviewTab({ tabId }: { tabId: TabId; groupId: string }) {
@@ -81,13 +81,13 @@ function TurnFileReview({
           {detail.note}
         </p>
       )}
-      <div className="min-h-0 flex-1 overflow-auto py-2">
-        {detail.patch ? (
-          <DiffView patch={detail.patch} />
-        ) : (
-          <Centered>此文件没有可展示的文本差异</Centered>
-        )}
-      </div>
+      {detail.patch ? (
+        <DiffScroller>
+          <PatchDiffView patch={detail.patch} />
+        </DiffScroller>
+      ) : (
+        <Centered>此文件没有可展示的文本差异</Centered>
+      )}
     </Shell>
   );
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -24,6 +24,11 @@ const { api, dela } = vi.hoisted(() => {
   return { api, dela };
 });
 import { UncommittedReview } from '../review/UncommittedReview';
+
+vi.mock('../review/pierre-diff', () => ({
+  DiffScroller: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  PatchDiffView: () => null,
+}));
 
 const sessionId = '0197d5a2-7b1e-7cc2-9f3a-5e6d1c2b3a4d';
 

@@ -5,7 +5,7 @@ import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitCompare, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { FileChangeDetail } from '../../../../core/protocol/agent';
 import { chatClient } from '../client';
-import { DiffView } from './DiffView';
+import { DiffScroller, PatchDiffView } from './pierre-diff';
 import { Centered, STATUS_TEXT, FileIcon, basenameOf, dirnameOf } from './view-utils';
 import { IconButton } from '../../../../ui/icon-button';
 import { PanelHeader } from '../../../../ui/panel-header';
@@ -161,12 +161,12 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
           </button>
         ))}
       </aside>
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {detailError ? (
           <Centered>{detailError}</Centered>
         ) : detail ? (
-          <div className="py-2">
-            <div className="flex items-center gap-2 px-3 pb-2">
+          <>
+            <div className="flex shrink-0 items-center gap-2 px-3 py-2">
               <span className="text-sm font-medium">{basenameOf(detail.path)}</span>
               <span className="shrink-0 text-xs text-ink-3">· {STATUS_TEXT[detail.status]}</span>
               {detail.note && (
@@ -174,11 +174,13 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
               )}
             </div>
             {detail.patch ? (
-              <DiffView patch={detail.patch} />
+              <DiffScroller>
+                <PatchDiffView patch={detail.patch} />
+              </DiffScroller>
             ) : (
               <Centered>此文件没有可展示的文本差异</Centered>
             )}
-          </div>
+          </>
         ) : (
           <Centered role="status">正在读取差异…</Centered>
         )}
