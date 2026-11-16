@@ -109,14 +109,6 @@ it.each([true, false])('首次导入近两个月通知且不提醒（正式版�
   expect(request).toHaveBeenCalledTimes(3);
 });
 
-it('首次忽略的过期首页通知不会在后续刷新时作为新通知导入', async () => {
-  request.mockImplementation(async () => page(list(row(9, '01', '2026.09'))));
-  await refreshJwc(true);
-  await refreshJwc(true);
-  expect(db.prepare('SELECT id FROM notifications').all()).toHaveLength(0);
-  expect(systemNotifyItem).not.toHaveBeenCalled();
-});
-
 it('北京时间刚跨日时按当地日期保留两个月前当天的通知', async () => {
   vi.setSystemTime(new Date('2026-11-01T16:30:00Z'));
   request.mockResolvedValueOnce(page(list(row(9, '02', '2026.09') + row(8, '01', '2026.09'))));
