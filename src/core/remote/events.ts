@@ -9,7 +9,6 @@ export function onRemoteChange(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-/** path：可能已变化的远端目录；子目录也可能变了，由订阅方按前缀处理。 */
 export function notifyRemoteChange(path: string): void {
   for (const listener of listeners) listener(path);
 }

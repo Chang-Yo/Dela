@@ -38,14 +38,12 @@ function piSessionsDir(): string {
 /** 每个 Dela 提供商注册成独立的 Pi 提供商：鉴权按名字查，共用一个名字时各会话的地址与密钥会互相覆盖。 */
 const piProviderName = (provider: StoredLlmProvider) => `dela-${provider.id}`;
 
-/** 会话的模型选择：提供商连同其中的一个模型与推理档位。 */
 export interface SessionModel {
   provider: StoredLlmProvider;
   model: string;
   effort: string | null;
 }
 
-/** Dela 档位 → Pi ThinkingLevel；超出 Pi 档位集的扩展档位挂到最高档。 */
 function thinkingLevel(effort: string | undefined) {
   if (!effort || effort === 'none') return 'off' as const;
   const known = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
@@ -59,7 +57,6 @@ type Runtime = Awaited<ReturnType<Sdk['ModelRuntime']['create']>>;
 // 需要云账号、订阅登录或 Pi 自家网关，只凭 API Key 接不进来。
 const unofferedProviders = new Set(['amazon-bedrock', 'github-copilot', 'radius']);
 
-/** Pi 目录中只凭 API Key 就能接入的厂商；地址带 {占位} 的要另配账号，不提供。 */
 function offeredProviders(runtime: Runtime) {
   return runtime.getProviders().flatMap((provider) => {
     const models = runtime.getModels(provider.id);
@@ -93,7 +90,6 @@ export async function llmCatalog(): Promise<LlmCatalogProvider[]> {
   }));
 }
 
-/** 内置厂商直接沿用目录里的模型（协议、地址、兼容参数、请求头都随目录走），只换成用户的密钥。 */
 function builtinProviderConfig(runtime: Runtime, provider: StoredLlmProvider, piProvider: string) {
   return {
     name: provider.name,
@@ -128,7 +124,6 @@ function customProviderConfig(provider: StoredLlmProvider) {
 /** 注册时 Pi 会重组提供商并刷新快照；配置没变就跳过。 */
 const registeredConfigs = new Map<string, string>();
 
-/** 把会话选中的提供商注册成 Pi 的提供商，返回其中的模型与思考档位。 */
 export async function resolveModel({ provider, model: modelId, effort }: SessionModel) {
   const runtime = await modelRuntime();
   const name = piProviderName(provider);
@@ -170,7 +165,6 @@ async function modelRuntime() {
   return runtimePromise;
 }
 
-/** path 是否在 dir 里面（不含 dir 本身）。 */
 export function isInside(path: string, dir: string): boolean {
   const rest = relative(resolve(dir), resolve(path));
   return rest !== '' && !rest.startsWith('..') && !isAbsolute(rest);
@@ -184,17 +178,12 @@ export function isPiProjectSkill(path: string, cwd: string): boolean {
 export interface OpenSessionInput {
   cwd: string;
   file?: string;
-  /** 旁问：不落盘的会话记录，带着主会话的历史。 */
   inMemory?: SessionManager;
-  /** 子 Agent：新建的会话文件在 header 里记下父会话的文件。 */
   parentSession?: string;
   selection: SessionModel;
-  /** 追加到 Pi 默认系统提示之后（项目背景、用户自定义指令、dela 命令说明）。 */
   appendSystemPrompt: string[];
   customTools: ToolDefinition[];
-  /** 平台 Bash 路径（与终端同源）。 */
   shellPath: string;
-  /** bash 每条命令前置的脚本（dela 函数定义）。远程会话不注入。 */
   commandPrefix?: string;
   skillPaths: string[];
   /** 远端会话用：Pi 在本机读不到 AGENTS.md（cwd 是远端路径），由调用方注入远端内容。 */
@@ -202,7 +191,6 @@ export interface OpenSessionInput {
     agentsFiles: { path: string; content: string }[];
   };
   disabledSkills: ReadonlySet<string>;
-  /** 按 SKILL.md 绝对路径停用的项目 Skill，同名的互不影响。 */
   disabledSkillPaths?: ReadonlySet<string>;
   /** 这些目录里的 Skill 按名称开关，其余按路径；Pi 此时还没贴来源标签。 */
   globalSkillDirs: string[];
@@ -266,7 +254,6 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
   return session;
 }
 
-/** 从会话文件的某个条目分出新会话文件：另开实例去分，原文件与正在用它的会话都不受影响。 */
 export async function forkSessionFile(file: string, cwd: string, entryId: string): Promise<string> {
   const pi = await loadPi();
   const forked = pi.SessionManager.open(file, piSessionsDir(), cwd).createBranchedSession(entryId);
@@ -274,7 +261,6 @@ export async function forkSessionFile(file: string, cwd: string, entryId: string
   return forked;
 }
 
-/** 内存里的会话记录写成会话文件（文件名同 Pi 自己的命名），返回路径。 */
 export function writeSessionFile(header: FileEntry & { type: 'session' }, entries: FileEntry[]) {
   const file = join(
     piSessionsDir(),
@@ -295,7 +281,6 @@ export function writeSessionFile(header: FileEntry & { type: 'session' }, entrie
   return file;
 }
 
-/** 设置页的模型检测：一次无工具的短请求，失败抛出 pi-ai 的错误文案（"<status>: …"）。 */
 export async function verifyModel(input: {
   piProvider: string | null;
   baseUrl: string;

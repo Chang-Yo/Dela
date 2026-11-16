@@ -22,7 +22,6 @@ export const chatAskInputSchema = z.object({
   context: z.array(z.string().max(32_767)),
   sessions: z.array(z.object({ id: uuid, title: z.string().max(500) })).optional(),
   comments: z.array(chatCommentSchema),
-  /** 编辑重发：丢弃最后一条用户消息及其后内容。 */
   replaceLastUser: z.boolean().optional(),
 });
 
@@ -126,7 +125,6 @@ export const chatMessageSchema = z.object({
     .optional(),
   startedAt: z.number().optional(),
   turnId: z.string().optional(),
-  /** 已完成回复的最后一个记录条目，fork 从这里分支。 */
   entryId: z.string().optional(),
   finishedAt: z.number().optional(),
   interrupted: z.boolean().optional(),
@@ -136,7 +134,6 @@ export const chatMessageSchema = z.object({
   task: taskNoticeDetailsSchema.optional(),
 });
 
-/** 会话快照：重连或错过事件时以它为准。 */
 export const workspaceChatSchema = z.object({
   sessionId: z.string().nullable(),
   projectId: z.string().nullable(),
@@ -147,12 +144,10 @@ export const workspaceChatSchema = z.object({
   queued: z.array(z.string()).optional(),
   tasks: z.array(backgroundTaskViewSchema).optional(),
   subagent: z.object({ parentId: z.string(), description: z.string() }).optional(),
-  /** 至少有一个启用且带密钥的提供商。 */
   configured: z.boolean(),
   providerId: z.string().nullable(),
   providerName: z.string().nullable(),
   model: z.string(),
-  /** 选中的模型已不可用：保留选择但不能发送。 */
   modelUnavailable: z.boolean(),
   effortLevels: z.array(z.string()),
   effort: z.string().nullable(),
@@ -175,7 +170,6 @@ export const runEventSchema = z.object({
   runId: z.string(),
   status: runStatusSchema,
   activeTool: z.string().optional(),
-  /** 冻结 diff 落盘失败，不影响本轮的完成状态。 */
   changesError: z.string().optional(),
 });
 
@@ -192,7 +186,6 @@ export const chatQueueEventSchema = z.object({
   queued: z.array(z.string()),
 });
 
-/** 旁问只含自己的问答，借来的主会话历史不重复下发。 */
 export const sidechatViewSchema = z.object({
   parentId: z.string(),
   running: z.boolean(),
@@ -201,7 +194,6 @@ export const sidechatViewSchema = z.object({
 });
 
 export const fileChangeSummarySchema = z.object({
-  /** 相对本次比较目录的路径，统一用 /。 */
   path: z.string(),
   status: z.enum(['added', 'modified', 'deleted']),
   beforeBytes: z.number().nullable(),
@@ -228,7 +220,6 @@ export const turnChangesSchema = z.object({
   files: z.array(fileChangeSummarySchema),
 });
 
-/** 可供会话选用的模型；提供商的配置只在桌面端进行。 */
 export const modelProviderViewSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -257,7 +248,6 @@ export type ChatStreamEvent = z.infer<typeof chatStreamEventSchema>;
 export type ChatQueueEvent = z.infer<typeof chatQueueEventSchema>;
 export type SidechatView = z.infer<typeof sidechatViewSchema>;
 
-/** task 工具（子 Agent）结果的 details：taskId 即子会话 id；运行中带当前步骤。 */
 export interface SubagentDetails {
   taskId: string;
   status: TaskStatus;
@@ -267,10 +257,8 @@ export interface SubagentDetails {
   background?: true;
 }
 
-/**
- * Dela 自己实现的会话命令，对应 Pi 终端界面里的同名命令（Pi 的 SDK 不带这些命令）。输入以它们开头时
- * 不发给模型，也不经过扩展命令与提示模板：Dela 命令 > 扩展命令 > 提示模板 > 普通消息，与 Pi 一致。
- */
+/** Dela 自己实现的会话命令（对应 Pi 终端界面的同名命令）：输入以它们开头时不发给模型，
+ * 优先级 Dela 命令 > 扩展命令 > 提示模板 > 普通消息。 */
 export const SESSION_COMMANDS = [
   { name: 'compact', description: '压缩上下文', argumentHint: '[压缩时的说明]' },
   { name: 'reload', description: '重新加载 Skills、扩展与 AGENTS.md' },
@@ -285,10 +273,8 @@ export const SESSION_COMMANDS = [
 
 export type SessionCommandName = (typeof SESSION_COMMANDS)[number]['name'];
 
-/** `/new` 与 `/btw` 只是界面动作，由渲染端处理；其余在主进程执行。 */
 export type MainSessionCommand = Exclude<SessionCommandName, 'new' | 'btw'>;
 
-/** 输入是不是一条会话命令：命令名后要么结束、要么是空白再跟参数（`/compactor` 不算）。 */
 export function parseSessionCommand(
   text: string,
 ): { name: SessionCommandName; args: string } | null {
@@ -301,7 +287,6 @@ const filePath = z.string().min(1).max(32_767);
 const empty = z.object({});
 const sidechatTarget = z.object({ parentId: uuid });
 
-/** 服务端推送的事件，推给所有已连接的端。 */
 export const agentEvents = {
   'session-update': z.object({ sessionId: z.string(), chat: workspaceChatSchema }),
   'session-stream': chatStreamEventSchema,
@@ -328,12 +313,10 @@ export const agentContract = defineContract(
       output: workspaceChatSchema,
     },
     'open-session': { input: z.object({ sessionId }), output: workspaceChatSchema },
-    /** 运行中发送即插队。 */
     ask: {
       input: chatAskInputSchema.extend({ sessionId }),
       output: workspaceChatSchema,
     },
-    /** 停止本轮，未送达的插队消息一并撤回。 */
     'cancel-run': { input: z.object({ sessionId }), output: chatQueuedDraftSchema.nullable() },
     'withdraw-queued': { input: z.object({ sessionId }), output: chatQueuedDraftSchema.nullable() },
     'stop-task': { input: z.object({ sessionId, taskId: uuid }), output: z.void() },
@@ -366,7 +349,6 @@ export const agentContract = defineContract(
     },
     'cancel-sidechat': { input: sidechatTarget, output: z.void() },
     'close-sidechat': { input: sidechatTarget, output: z.void() },
-    /** 把旁问保留为新会话，旁问随之关闭。 */
     'keep-sidechat': { input: sidechatTarget, output: workspaceChatSchema },
     'stage-media': {
       input: z.object({

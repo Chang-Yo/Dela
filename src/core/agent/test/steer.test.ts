@@ -54,7 +54,6 @@ const nextRequest = () =>
     });
   });
 
-/** 开一轮慢回复，等模型开始回答（Pi 正在运行）再返回；包一层，免得 await 把整轮也等完。 */
 async function startSlowTurn(id: string) {
   server.enqueue(reply('first', 500));
   const started = nextRequest();

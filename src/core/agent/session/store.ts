@@ -19,7 +19,6 @@ export interface SessionRow {
   provider_id: string | null;
   model: string | null;
   effort: string | null;
-  /** 子 Agent 会话的父会话；顶层会话为 null。 */
   parent_id: string | null;
 }
 
@@ -34,14 +33,12 @@ export function row(id: string): SessionRow {
   return found;
 }
 
-/** 不属于任何项目的通用会话以工作区根为默认目录。 */
 function workspaceRoot() {
   const root = join(hostPorts().paths.storage(), 'workspace');
   mkdirSync(root, { recursive: true });
   return root;
 }
 
-/** 通用会话的私有工作目录：与 workspace 平级的 chat-sessions/<会话 id>，建会话时建好。 */
 function chatSessionDirectory(id: string) {
   const dir = join(hostPorts().paths.storage(), 'chat-sessions', id);
   mkdirSync(dir, { recursive: true });
@@ -119,7 +116,6 @@ export function modelChoice(meta: SessionRow): ModelChoice {
   return first ? readyChoice(first, first.models[0]!, null, false) : { kind: 'none' };
 }
 
-/** 发送与旁问都要求一个可用的模型：没配或已停用时报出能照着做的说明。 */
 export function readySelection(meta: SessionRow): Extract<ModelChoice, { kind: 'ready' }> {
   const choice = modelChoice(meta);
   if (choice.kind === 'none') throw new Error('请先在设置中配置模型服务');
@@ -153,7 +149,6 @@ export function storeActivity(id: string, messageCount: number) {
     .run(messageCount, new Date().toISOString(), id);
 }
 
-/** 归档连带子 Agent 会话；置顶只作用于会话自己。 */
 export function storeVisibility(id: string, patch: { archived?: boolean; pinned?: boolean }) {
   const db = hostPorts().database();
   if (patch.archived !== undefined)
@@ -166,7 +161,6 @@ export function storeVisibility(id: string, patch: { archived?: boolean; pinned?
     db.prepare('UPDATE sessions SET pinned=? WHERE id=?').run(Number(patch.pinned), id);
 }
 
-/** 归档项目的全部会话，返回其中原先未归档的。 */
 export function archiveProject(projectId: string | null): string[] {
   const db = hostPorts().database();
   const ids = db
@@ -228,7 +222,6 @@ function emptyGeneralSessionId(): string | undefined {
   return row?.id;
 }
 
-/** 每个项目只保留一个空会话入口，没有时返回 undefined。 */
 export function emptySessionId(projectId: string | null): string | undefined {
   if (projectId === null) return emptyGeneralSessionId();
   return (
@@ -255,7 +248,6 @@ export function insertSession(projectId: string | null): string {
   return id;
 }
 
-/** 由已有会话派生出的会话文件（分支、保留下来的旁问）登记为新会话：同项目、同 cwd、同模型。 */
 export function adoptSessionFile(meta: SessionRow, file: string, titlePrefix: string): string {
   const id = randomUUID();
   const userMessages = requirePiSync()
@@ -285,7 +277,6 @@ export function adoptSessionFile(meta: SessionRow, file: string, titlePrefix: st
   return id;
 }
 
-/** 子 Agent 的会话：同项目、同目录，模型与推理档位取父会话当时的选择，历史为空。 */
 export function insertSubagentSession(parentId: string, description: string, cwd: string): string {
   const parent = row(parentId);
   const id = randomUUID();

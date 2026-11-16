@@ -38,16 +38,13 @@ describe('镜像内容交给 Pi', () => {
         agentsFiles: [...base.agentsFiles, { path: '/root/proj/AGENTS.md', content: '暗号：菠萝' }],
       }),
     });
-    // Pi 的默认技能位置（例如本机 ~/.agents/skills）照旧被发现，镜像只是多挂一处。
     const { skills } = loader.getSkills();
     expect(skills.map((entry) => entry.name)).not.toContain('alpha');
     await loader.reload();
     const loaded = loader.getSkills().skills.find((entry) => entry.name === 'alpha')!;
     expect(loaded).toBeDefined();
-    // 模型看到的位置就是镜像位置，/skill 展开时本地读它。
     expect(loaded.filePath).toBe(join(alpha, 'SKILL.md'));
     expect(readFileSync(loaded.filePath, 'utf-8')).toContain('ALPHA 正文');
-    // 远端 AGENTS.md 排在本地全局上下文之后，路径是远端路径。
     expect(loader.getAgentsFiles().agentsFiles.at(-1)).toEqual({
       path: '/root/proj/AGENTS.md',
       content: '暗号：菠萝',

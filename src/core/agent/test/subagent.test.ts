@@ -78,7 +78,6 @@ const children = (parentId: string) =>
       .db!.prepare('SELECT id FROM sessions WHERE parent_id=? ORDER BY created_at')
       .all(parentId) as { id: string }[]
   ).map(({ id }) => id);
-/** 父会话里 task 工具的结果（按调用顺序）。 */
 const taskResults = (parentId: string) =>
   openSession(parentId)
     .messages.flatMap((message) => message.parts ?? [])

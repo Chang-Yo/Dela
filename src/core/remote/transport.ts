@@ -1,19 +1,13 @@
-/**
- * ssh 边界：只承担引导 helper（探测、上传、启动、诊断）、连接自检、隧道与终端的连接参数。
- * 远程项目的工具调用、目录树与预览都经 helper（见 helper.ts），不在这里。
- * 默认调用系统 OpenSSH（Windows 10 1809+ 自带），缺失时回退随包分发的 openssh。
- * 每条命令都是一个独立的 ssh 子进程（Windows OpenSSH 不支持 ControlMaster 多路复用）。
- */
+/** ssh 边界：helper 的引导、连接自检、隧道与终端的连接参数；工具调用与目录树都经 helper.ts。
+ * 默认用系统 OpenSSH，缺失时回退随包分发的；每条命令一个独立 ssh 进程（Windows OpenSSH 无 ControlMaster）。 */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { hostPorts } from '../ports';
 
 export interface RemoteTarget {
-  /** ssh 的第一个位置参数：`~/.ssh/config` 里的别名，或 `user@host`。 */
   host: string;
   port?: number | null;
-  /** 私钥文件；留空则交给 ssh 自己按 config、agent 与 `~/.ssh/id_*` 解析。 */
   keyPath?: string | null;
 }
 
@@ -24,7 +18,6 @@ export function targetKey(target: RemoteTarget): string {
 
 interface ExecOptions {
   stdin?: Buffer | string;
-  /** 分块写 stdin 并报告已写字节（上传 helper 用）；不传就一次写完。 */
   onStdinProgress?: (sent: number, total: number) => void;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -43,7 +36,6 @@ export interface RemoteDirEntry {
   modifiedAt: number | null;
 }
 
-/** 单条命令的兜底超时：远端挂住时不能让调用方永久等待。 */
 const DEFAULT_TIMEOUT_MS = 120_000;
 const CONNECT_TIMEOUT_SECONDS = 10;
 /** 静默超过这么久就发一个加密保活包：中间的 NAT/防火墙会把长时间没流量的连接丢掉，
@@ -64,7 +56,6 @@ function binaryCandidates(binary: 'ssh' | 'sftp'): string[] {
 
 const located = new Map<string, string>();
 
-/** 探测顺序即回退顺序：系统路径优先，自带二进制兜底。 */
 export function locateSsh(binary: 'ssh' | 'sftp' = 'ssh'): string {
   const cached = located.get(binary);
   if (cached) return cached;
@@ -79,7 +70,6 @@ export function locateSsh(binary: 'ssh' | 'sftp' = 'ssh'): string {
   return found;
 }
 
-/** 单引号包裹，内部单引号用 '\'' 转义；所有进 shell 的路径与命令都过这里。 */
 export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
@@ -180,7 +170,6 @@ async function writeChunked(
   stream.end();
 }
 
-/** 认证失败等错误在 stderr 上是英文原文；翻译成用户能动作的说明。 */
 export function sshErrorMessage(result: ExecResult): string {
   const stderr = result.stderr.trim();
   if (/Host key verification failed/i.test(stderr))
@@ -198,7 +187,6 @@ async function run(target: RemoteTarget, command: string, options: ExecOptions =
   return result;
 }
 
-/** 连接自检：一次调用拿到系统、架构、主机名与 bash 可用性。 */
 export async function probeRemote(target: RemoteTarget) {
   const result = await exec(
     target,

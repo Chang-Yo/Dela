@@ -21,11 +21,9 @@ import { todoDomain } from '../../../modules/todo/main/agent';
 import { resourceDomain } from '../../../modules/workspace/main/read-resource';
 import { locateBash } from '../../../modules/terminal';
 
-/** 把请求体写进文件而不真的发请求；只认桥当前使用的 --data-binary。 */
 const CURL_STUB =
   'curl() { while [ "$#" -gt 0 ]; do [ "$1" = "--data-binary" ] && cat > "$DELA_CAPTURE"; shift; done; }\n';
 
-/** 在临时目录写入脚本，环境和行由调用方拼好。 */
 function writeScript(prefix: string, env: string, line: string) {
   const directory = mkdtempSync(join(tmpdir(), `dela-bridge-${prefix}-`));
   const path = join(directory, 'run.sh');
@@ -33,7 +31,6 @@ function writeScript(prefix: string, env: string, line: string) {
   return { directory, path };
 }
 
-/** 执行 `dela <line>`，返回 curl 桩捕获到的请求体 JSON。 */
 function bridgeBody(line: string) {
   const capture = join(tmpdir(), `dela-bridge-capture-${process.pid}-${Date.now()}.json`);
   const { directory, path } = writeScript(
@@ -52,7 +49,6 @@ function bridgeBody(line: string) {
   }
 }
 
-/** 用真实 curl 把 `dela <line>` 发到本机端口，返回端口收到的请求体。 */
 async function postedBody(port: number, line: string) {
   const { directory, path } = writeScript(
     'curl',

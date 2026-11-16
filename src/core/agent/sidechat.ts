@@ -1,8 +1,5 @@
-/**
- * 旁问：从主会话当前位置借一份上下文问一句，不进数据库也不写会话文件，关掉就没了。
- * 实例走与主会话相同的 openPiSession（系统提示、工具与模型一致，缓存前缀因此对得上），
- * 只是会话记录放在内存里；每个主会话最多一个旁问。「保留」时才把记录写成文件、登记成新会话。
- */
+/** 旁问：借主会话当前位置的上下文问一句，会话记录只放内存、不进数据库；每个主会话最多一个，「保留」时才写成文件。
+ * 实例走与主会话相同的 openPiSession，缓存前缀因此对得上。 */
 import { existsSync } from 'node:fs';
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import {
@@ -124,10 +121,7 @@ function onEvent(parentId: string, side: Side, event: AgentSessionEvent) {
   }
 }
 
-/**
- * 旁问的起点：主会话当前分支上的记录。主会话正在回答时退到这一轮提问之前，
- * 旁问看不到还没答完的那一轮。
- */
+/** 旁问的起点：主会话当前分支上的记录；主会话正在回答时退到这一轮提问之前。 */
 async function sidechatSource(id: string) {
   const meta = row(id);
   const { selection } = readySelection(meta);
@@ -177,7 +171,6 @@ async function createSide(parentId: string): Promise<Side> {
   return side;
 }
 
-/** 打开（或回到）这个会话的旁问。 */
 export async function openSidechat(parentId: string): Promise<SidechatView> {
   const existing = sides.get(parentId);
   if (existing) return view(parentId, existing);
@@ -197,7 +190,6 @@ function requireSide(parentId: string): Side {
   return side;
 }
 
-/** 旁问里问一句：与主会话相同的提问组装（@ 引用、附件、评论），没有会话命令和编辑重发。 */
 export async function askSidechat(parentId: string, input: ChatAskInput): Promise<SidechatView> {
   const side = requireSide(parentId);
   if (side.run) throw new Error('请等待旁问回答完成');
@@ -226,7 +218,6 @@ export function cancelSidechat(parentId: string) {
   void side?.session.abort();
 }
 
-/** 关闭旁问：正在回答就先中断，内容随实例丢弃。 */
 export async function closeSidechat(parentId: string): Promise<void> {
   const side = sides.get(parentId) ?? (await opening.get(parentId)?.catch(() => undefined));
   if (!side) return;
@@ -241,7 +232,6 @@ export async function closeSidechat(parentId: string): Promise<void> {
   emit(agentContract, 'sidechat-closed', { parentId });
 }
 
-/** 保留为新会话：借来的历史加旁问内容写成会话文件，标题加「旁问：」，然后关闭旁问。 */
 export async function keepSidechat(parentId: string): Promise<WorkspaceChat> {
   const side = requireSide(parentId);
   if (side.run) throw new Error('请等待旁问回答完成');

@@ -10,7 +10,6 @@ export interface DiffRow {
   kind: 'hunk' | 'add' | 'del' | 'context';
   oldLine: number | null;
   newLine: number | null;
-  /** 不含前缀字符的行内容。 */
   text: string;
 }
 
@@ -34,7 +33,6 @@ export function diffStatOf(patch: string | null): DiffStat | null {
   return { added, deleted };
 }
 
-/** 拆出带行号的展示行；文件头与 "\ No newline at end of file" 不产出行。 */
 export function parseUnifiedPatch(patch: string): DiffRow[] {
   const lines = patch.split('\n');
   const rows: DiffRow[] = [];

@@ -38,7 +38,6 @@ export interface SubagentResult {
   error?: string;
 }
 
-/** 子 Agent 跑一轮：由会话运行层注入，signal 中止时连带停止。 */
 export type RunSubagent = (
   id: string,
   prompt: string,
@@ -48,7 +47,6 @@ export type RunSubagent = (
 
 let running = 0;
 
-/** 子 Agent 当前步骤的对象：命令首行、路径或搜索词。 */
 function targetOf(args: unknown): string {
   const input = (args ?? {}) as Record<string, unknown>;
   const value = ['command', 'path', 'pattern', 'query', 'url']
@@ -97,9 +95,7 @@ export function taskTool(
         let owner: string | null = null;
         try {
           owner = row(params.taskId).parent_id;
-        } catch {
-          // 不存在的 taskId 与别人的子 Agent 一样报错。
-        }
+        } catch {}
         if (owner !== parent.id) throw new Error(`没有这个子 Agent：${params.taskId}`);
         if (taskRunning(params.taskId) || sessionRunning(params.taskId))
           throw new Error('这个子 Agent 还在运行，等它结束再续接');

@@ -23,8 +23,6 @@ export const textAttachmentStart = (name: string) => `<attachment name="${name}"
 export const TEXT_ATTACHMENT_END = '\n</attachment>\n';
 export const COMMENTS_HEADER = '用户选中了你之前回复中的片段并留下评论';
 
-/** meta 前缀、@ 引用、附件、回复评论与正文依次拼接。
- *  插队消息沿用所在 run 的 turnId，改动记录按 run 归属。 */
 export function composePrompt(
   input: ChatAskInput,
   projectId: string | null,
@@ -56,7 +54,6 @@ export function composePrompt(
     throw new Error('文档附件目前只支持本机会话，请切换到随聊或本地项目');
   // @ 引用即路径：只告诉模型路径，读取由模型用 read 自主完成（pull 模型）。
   const sources = input.context.map((key) => ({ key, title: key }));
-  // # 引用的会话同样是 pull：只给 id，读取由模型用 session_read 完成。
   const sessions = input.sessions ?? [];
   const meta = {
     turnId,

@@ -6,15 +6,12 @@ import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { RemoteBackend } from '../remote/operations';
 import { loadPi } from './pi';
 
-/** 单行匹配文本上限（与 Pi 的 grep 一致）。 */
 const GREP_MAX_LINE_LENGTH = 500;
 
 /** Pi 的工具定义在参数类型上是不变的，customTools 收的却是 ToolDefinition[]：
  *  这里是纯类型收窄，运行时对象原样传递。 */
 const asTool = (definition: unknown): ToolDefinition => definition as ToolDefinition;
 
-/** 远端 grep：输出格式照 Pi 的 grep。Pi 的 grep 工具没有 operations 注入点，
- *  所以这里保留它的 schema 与描述、只换 execute。 */
 export async function remoteGrepTool(cwd: string, backend: RemoteBackend): Promise<ToolDefinition> {
   const pi = await loadPi();
   const base = pi.createGrepToolDefinition(cwd);
@@ -53,7 +50,6 @@ export async function remoteGrepTool(cwd: string, backend: RemoteBackend): Promi
         const before = (match.context ?? []).filter((line) => line.line < match.line);
         const after = (match.context ?? []).filter((line) => line.line > match.line);
         const first = before[0]?.line ?? match.line;
-        // 与 rg 的分组一致：同一文件里不相邻的两段之间用 -- 隔开。
         if (previous && (previous.path !== match.path || first > previous.line + 1))
           output.push('--');
         for (const line of before) output.push(`${match.path}-${line.line}- ${line.text}`);
@@ -74,7 +70,6 @@ export async function remoteGrepTool(cwd: string, backend: RemoteBackend): Promi
   });
 }
 
-/** 七个工具的远程版本：名字与内置完全一致，Pi 按名字覆盖内置定义。 */
 export async function remoteTools(cwd: string, backend: RemoteBackend): Promise<ToolDefinition[]> {
   // Pi 是纯 ESM：主进程 CJS 产物只能动态 import，不能在文件顶部静态引入。
   const pi = await loadPi();

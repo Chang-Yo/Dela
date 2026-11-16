@@ -28,7 +28,6 @@ export type Client<C extends Contract> = {
   ) => Promise<z.output<Procedure<C, K>['output']>>;
 };
 
-/** 擦除了具体类型的实现，app 只需要通道名和一个统一的调用入口。 */
 export interface Implementation {
   contract: Contract;
   call(name: string, input: unknown): unknown;
@@ -38,10 +37,8 @@ export type EventPayload<C extends Contract, K extends keyof C['events']> = z.ou
   C['events'][K]
 >;
 
-/** preload 暴露给渲染端的唯一入口，只放行已登记契约的通道。 */
 export interface Bridge {
   invoke(channel: string, input: unknown): Promise<unknown>;
-  /** 订阅推送事件，返回退订函数。 */
   subscribe(channel: string, listener: (payload: unknown) => void): () => void;
 }
 
@@ -85,7 +82,6 @@ export function implement<C extends Contract>(contract: C, handlers: Handlers<C>
   };
 }
 
-/** 契约客户端抛出的错误已去掉 Electron 前缀，直接作为提示文案。 */
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

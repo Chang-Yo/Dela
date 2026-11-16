@@ -12,7 +12,6 @@ describe('remotePath', () => {
   it('还原被 node:path 改写过的远端路径', () => {
     // 本机实测：cwd=/root/proj 时相对路径 src/a.ts 会被解析成 E:\root\proj\src\a.ts
     expect(remotePath('E:\\root\\proj\\src\\a.ts')).toBe('/root/proj/src/a.ts');
-    // 绝对路径 /tmp/x 会变成 \tmp\x
     expect(remotePath('\\tmp\\x')).toBe('/tmp/x');
     expect(remotePath('/root/proj/')).toBe('/root/proj');
     expect(remotePath('/')).toBe('/');
@@ -26,7 +25,6 @@ describe('remotePath', () => {
       { mirror: `${mirror}\\home`, remote: '/root' },
     ]);
     try {
-      // 模型从技能的 <location> 里拿到的是镜像路径
       expect(remotePath(`${mirror}\\repo\\.agents\\skills\\lint\\SKILL.md`)).toBe(
         '/root/proj/.agents/skills/lint/SKILL.md',
       );
@@ -35,7 +33,6 @@ describe('remotePath', () => {
         '/root/.dela/skills/x/SKILL.md',
       );
       expect(remotePath(`${mirror}\\repo`)).toBe('/root/proj');
-      // 远端绝对路径、被改写的相对路径都照旧
       expect(remotePath('/tmp/x')).toBe('/tmp/x');
       expect(remotePath('E:\\root\\proj\\src\\a.ts')).toBe('/root/proj/src/a.ts');
     } finally {

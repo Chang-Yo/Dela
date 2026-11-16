@@ -70,7 +70,6 @@ export async function searchDeepSeek(
     .slice(0, count);
 }
 
-/** 抓取单页正文，返回标题与 Markdown；取不到正文时抛 DeepSeekError（404）。 */
 export async function fetchDeepSeek(
   url: string,
   apiKey: string,

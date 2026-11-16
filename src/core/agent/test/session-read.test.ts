@@ -61,7 +61,6 @@ const toolResult = (toolCallId: string): Message =>
     timestamp: (clock += 1000),
   }) as Message;
 
-/** 一轮：先说一句再调工具，工具结果回来后给出最终回复。 */
 function toolTurn(manager: Manager, turnId: string, ask: string, answer: string) {
   manager.appendMessage(user(ask, turnId));
   const call = assistant('我先看看目录', 'toolUse');

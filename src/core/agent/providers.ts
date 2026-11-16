@@ -70,7 +70,6 @@ const saveInputSchema = z
     },
   );
 
-/** 去重并按固定强度顺序排列，避免多选顺序影响存储与展示。 */
 function normalizeEffortLevels(levels: string[] | undefined): string[] {
   if (!levels?.length) return [];
   return reasoningEffortLevels.filter((level) => levels.includes(level));
@@ -102,7 +101,6 @@ export function llmProviders(): StoredLlmProvider[] {
   return loadLlmConfig().providers;
 }
 
-/** 可供会话选用的提供商：启用且持有密钥。 */
 export function usableLlmProviders(providers = llmProviders()): StoredLlmProvider[] {
   return providers.filter(({ enabled, apiKey }) => enabled && apiKey);
 }
@@ -116,7 +114,6 @@ function defaultEffort(levels: string[]): string | undefined {
   );
 }
 
-/** 内置厂商：地址与思考档位取自 Pi 目录，用户只决定用哪些模型和默认档位。 */
 async function builtinProviderFields(
   piProvider: string,
   models: string[],
@@ -258,14 +255,12 @@ function parseModelList(payload: unknown): string[] | null {
 
 const VERIFY_TIMEOUT = 15000;
 
-/** 两种检测共用：留空沿用该提供商已存的密钥。 */
 function verificationKey(input: { id?: string; apiKey?: string }): string {
   const key = input.apiKey?.trim();
   if (key || !input.id) return key ?? '';
   return loadLlmConfig().providers.find(({ id }) => id === input.id)?.apiKey ?? '';
 }
 
-/** 只做一次 GET：401/403 视为密钥无效，成功时顺带取回模型列表。 */
 export async function verifyLlm(input: {
   id?: string;
   baseUrl: string;
@@ -296,7 +291,6 @@ export async function verifyLlm(input: {
             ok: true,
             message: models.length ? `连接成功，发现 ${models.length} 个模型` : '连接成功',
             models,
-            // 应答的那个端点前缀才是真实 API 根，回传给表单校正。
             ...(apiBase !== typed ? { baseUrl: apiBase } : {}),
           };
         }
@@ -313,7 +307,6 @@ export async function verifyLlm(input: {
   };
 }
 
-/** 使用同一 Pi 请求链发出无工具的短请求；不创建会话，不保存回复。 */
 export async function verifyLlmModel(input: unknown): Promise<LlmVerifyResult> {
   const parsed = z
     .object({

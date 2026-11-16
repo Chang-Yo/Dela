@@ -28,7 +28,6 @@ const digest = createHash('sha256')
   .digest('hex');
 const remoteDir = `$HOME/.dela/helper/${HELPER_VERSION}-${digest.slice(0, 8)}`;
 
-/** 远端 run.json 里的 pid：复用与重起要靠它分辨是不是同一个实例。 */
 async function helperPid(): Promise<string> {
   const result = await exec(
     target,
@@ -37,7 +36,6 @@ async function helperPid(): Promise<string> {
   return result.stdout.toString().trim();
 }
 
-/** 杀掉本机到远端的隧道（只杀 -L 那一条 ssh，不碰远端 helper）。 */
 async function killLocalTunnels(): Promise<void> {
   const { execSync } = await import('node:child_process');
   if (process.platform === 'win32')
@@ -113,7 +111,6 @@ describe('helper 通道（真机）', () => {
     const text = Buffer.concat(chunks).toString();
     expect(result).toEqual({ code: 3, state: 'exited', lost: 0 });
     expect(text.match(/line \d/g)).toEqual([1, 2, 3, 4, 5, 6].map((i) => `line ${i}`));
-    // 重连复用的是同一个远端实例，不是新起的。
     expect(await helperPid()).toBe(pidBefore);
   }, 120_000);
 

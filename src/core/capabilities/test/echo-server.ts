@@ -58,7 +58,7 @@ function handle(message: JsonRpcRequest) {
     });
     return;
   }
-  if (message.id === undefined) return; // 通知（notifications/initialized 等）无需应答
+  if (message.id === undefined) return;
   if (message.method === 'tools/list') {
     write({ jsonrpc: '2.0', id: message.id, result: { tools: TOOLS } });
     return;

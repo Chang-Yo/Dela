@@ -5,7 +5,6 @@ import * as changes from '../changes';
 import { resolveSessionFile } from '../session-path';
 import { isRemoteSession, row, sessionCwd } from './store';
 
-/** 会话内文件的定位/打开入口：相对路径按会话 cwd 解析；远程项目的文件不在本机。 */
 function sessionFilePath(sessionId: string, rawPath: string): string {
   const meta = row(sessionId);
   if (isRemoteSession(meta)) throw new Error('远程项目的文件不在本机，请用远端方式打开');
@@ -20,7 +19,6 @@ export async function openSessionFile(sessionId: string, path: string): Promise<
   await hostPorts().desktop.open(sessionFilePath(sessionId, path));
 }
 
-/** 解析会话内文件的本机绝对路径（须真实存在）：应用内预览标签以它作为标签键。 */
 export function locateSessionFile(sessionId: string, path: string): string {
   return sessionFilePath(sessionId, path);
 }
@@ -62,7 +60,6 @@ export function readSessionUncommittedFileChange(id: string, path: string) {
   return changes.readUncommittedFileChange(sessionCwd(meta.project_id, meta.cwd), path);
 }
 
-/** 会话目录能否做未提交改动审阅：轻探测（两次 git 调用），供入口可见性判定。 */
 export async function uncommittedAvailability(
   id: string,
 ): Promise<Pick<UncommittedChanges, 'available' | 'reason'>> {

@@ -22,7 +22,6 @@ const state = vi.hoisted(() => ({
   messages: [] as AgentMessage[],
   prompts: [] as string[],
   onPrompt: null as (() => void | Promise<void>) | null,
-  /** 假会话：每建一次实例加一；compact 的行为与是否在压缩由用例设置。 */
   opened: 0,
   disposed: 0,
   compacting: false,
@@ -37,7 +36,6 @@ const state = vi.hoisted(() => ({
     piProvider: null;
     enabled: boolean;
   }[],
-  /** 假会话上的 setModel 调用（模型 id）。 */
   modelSwitches: [] as string[],
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));

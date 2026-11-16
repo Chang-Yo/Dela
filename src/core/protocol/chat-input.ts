@@ -1,6 +1,5 @@
 import { SNIFF_BYTES, formatByName, imageMimeOf, isTextContent } from './files';
 
-// 助手 Composer 的输入模型：图文混排 blocks、附件类型与上限。
 // 内联图片以 ![文件名](dela-img:<UUID>) 嵌入，发送时按出现顺序拆成 text / image blocks，附件不进入排版区。
 
 export const INLINE_IMAGE_MAX = 6;
@@ -35,7 +34,6 @@ export function matchChatImageTokens(text: string): RegExpMatchArray[] {
   return [...text.matchAll(chatImageTokenRe)];
 }
 
-/** 持久化消息 content 只存纯文本。 */
 export function stripChatImageTokens(text: string): string {
   return text.replace(chatImageTokenRe, '').trim();
 }
@@ -50,8 +48,7 @@ export function chatImageToken(id: string, name: string): string {
   return `![${alt}](dela-img:${id})`;
 }
 
-/** 附件分流：可直接给视觉模型的位图走内联图片；PDF/Office 与无法当文本读的内容交给文档 skill；
- *  其余按文本附件。head 为文件开头字节，truncated 表示它不是整个文件。 */
+/** 附件分流：位图走内联图片；PDF/Office 与读不成文本的交文档 skill；其余按文本附件。 */
 export function chatFileKind(
   name: string,
   head: Uint8Array,
@@ -64,7 +61,6 @@ export function chatFileKind(
   return isTextContent(head, truncated) ? 'text' : 'document';
 }
 
-/** 浏览器 File 的附件分流：只读开头嗅探窗口，大文件不整个读进渲染进程。 */
 export async function chatFileKindOfFile(file: File): Promise<'image' | 'text' | 'document'> {
   const head = new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer());
   return chatFileKind(file.name, head, file.size > SNIFF_BYTES);

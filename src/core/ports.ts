@@ -15,7 +15,6 @@ export interface HostPorts {
   network: Network;
   /** 宿主打开并迁移好的数据库；表结构与迁移归宿主（core 只读写 sessions 与自己的设置键）。 */
   database(): SqlDatabase;
-  /** 主窗口（工作台）的渲染进程句柄；窗口尚未创建时为 null。 */
   workspaceClient(): ClientHandle | null;
   projects: Projects;
 }
@@ -25,11 +24,8 @@ export interface Paths {
   home(): string;
   documents(): string;
   temp(): string;
-  /** 用户选定的 Dela 数据目录，工作区与通用会话目录都在其下。 */
   storage(): string;
-  /** 随应用分发的二进制目录：开发时在仓库内，打包后在 resources/。 */
   bundled(name: BundledResource): string;
-  /** Agent 的 bash；找不到时抛出带安装指引的错误。 */
   bash(): string;
 }
 
@@ -51,24 +47,18 @@ export interface SqlDatabase {
 
 export interface RemoteProject {
   id: string;
-  /** 远端项目根目录（POSIX 绝对路径）。 */
   path: string;
   remoteId: string;
   label: string;
   target: RemoteTarget;
 }
 
-/** 工作区的项目树归工作区模块，core 只按 id 查询。 */
 export interface Projects {
-  /** 项目条目；id 不是项目时返回 null。远程项目的 path 是远端路径。 */
   find(id: string): { name: string; path: string | null } | null;
-  /** 本机项目，不含远程项目。 */
   local(): { id: string; name: string; path: string }[];
-  /** 条目（项目、远端条目 id 或远端绝对路径）所属的远程项目；本地条目返回 null。 */
   remoteOf(id: string): RemoteProject | null;
 }
 
-/** 走宿主的网络栈（系统代理、证书），与界面里的请求表现一致。 */
 export interface Network {
   fetch(url: string, init?: RequestInit): Promise<Response>;
 }
@@ -82,10 +72,8 @@ export interface SecretStore {
   remove(namespace: SecretNamespace): void;
 }
 
-/** 后台任务的终态提醒；偏好与系统通知由实现方决定。 */
 export interface Notifier {
   notifyRunFinished(sessionId: string, status: 'completed' | 'failed'): void;
-  /** 系统桌面通知；主窗口正被使用时不弹。点击唤起主窗口后调用 onClick。 */
   show(title: string, body: string, onClick?: () => void): void;
 }
 
@@ -95,7 +83,6 @@ export interface ClientBroadcaster {
 }
 
 export interface ImageCodec {
-  /** 生成宽不超过 480 的 data: 缩略图；无法解码或为空图时返回 null。 */
   previewDataUrl(source: string | Buffer): string | null;
 }
 
@@ -105,7 +92,6 @@ export interface SavePathOptions {
   extension: string;
 }
 
-/** 桌面专有操作：对话框、系统文件管理器与回收站。core 只处理路径。 */
 export interface Desktop {
   pickFiles(owner: ClientHandle): Promise<string[]>;
   pickSavePath(owner: ClientHandle | null, options: SavePathOptions): Promise<string | null>;
@@ -131,7 +117,6 @@ const secretLabels = new Map<SecretNamespace, string>([
   ['mcp-servers', 'MCP 服务器配置'],
 ]);
 
-/** 登记凭据的用户可见名称，用于解密失败的提示。 */
 export function registerSecretLabel(namespace: SecretNamespace, label: string): void {
   secretLabels.set(namespace, label);
 }

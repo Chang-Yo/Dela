@@ -18,7 +18,6 @@ const target: RemoteTarget = {
   keyPath: process.env.DELA_REMOTE_KEY ?? null,
 };
 const root = '/tmp/dela-tools-test';
-/** 工具传进来的形态：Windows 上 resolve 会把 POSIX 绝对路径挂到当前盘。 */
 const mangled = (path: string) => resolveLocal(path);
 
 describe('远程工具（真机）', () => {
@@ -48,7 +47,6 @@ describe('远程工具（真机）', () => {
   it('bash 在远端目录执行并合并 stderr', async () => {
     const result = await run('pwd; echo "home=$HOME"; echo 出错了 >&2');
     expect(result.output.split('\n')[0]).toBe(root);
-    // 登录 shell：HOME 是远端用户自己的主目录。
     expect(result.output).toMatch(/home=\//);
     expect(result.output).toContain('出错了');
     expect(result.exitCode).toBe(0);
@@ -159,7 +157,6 @@ describe('远程工具（真机）', () => {
   }, 120_000);
 
   it('预览用的 stat 与片段读取：只拉请求的那一段', async () => {
-    // 预览大文件靠这两个入口：stat 从目录清单拿 size/mtime，片段读取只回一段。
     await ops.write.writeFile(`${root}/slice.txt`, '0123456789');
     const stat = await statRemoteFile(target, `${root}/slice.txt`);
     expect(stat).toMatchObject({ directory: false, size: 10 });
@@ -174,7 +171,6 @@ describe('远程工具（真机）', () => {
   }, 120_000);
 
   it('目录清单按远端原样返回，顺带把变化通知发出去', async () => {
-    // 目录树走的就是这个入口：清单内容与远端 ls 一致。
     const seen: string[] = [];
     const stop = onRemoteChange((path) => seen.push(path));
     try {

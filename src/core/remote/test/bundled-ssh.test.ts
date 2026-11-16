@@ -13,7 +13,6 @@ const systemPaths = [
 vi.mock('electron', () => ({
   app: { isPackaged: false, getAppPath: () => process.cwd(), getPath: () => process.cwd() },
 }));
-// 只把「系统装的 OpenSSH」当成不存在，其余文件系统照旧。
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return {

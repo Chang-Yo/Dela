@@ -46,7 +46,6 @@ interface FileState {
 
 export interface DirectorySnapshot {
   files: Record<string, FileState>;
-  /** 无法读取的路径不能被误判为删除。 */
   unreadable: string[];
   warnings: string[];
 }

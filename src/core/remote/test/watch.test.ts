@@ -6,7 +6,6 @@ vi.mock('electron', () => ({
   app: { isPackaged: false, getAppPath: () => process.cwd(), getPath: () => process.cwd() },
 }));
 
-/** 假会话：记下被报上来的集合，并允许测试手动推事件。 */
 class FakeSession {
   sets = new Map<string, string[]>();
   listeners = new Set<(event: unknown) => void>();
@@ -34,7 +33,6 @@ class FakeSession {
   }
 }
 
-/** 每个目标一个假会话：多通道下一个连接一条流，事件也只该回到自己那条流。 */
 const sessions = new Map<string, FakeSession>();
 
 vi.mock('../helper', () => ({
@@ -79,7 +77,6 @@ it('报上集合后 helper 收到监视，change 事件推成目录变化', asyn
   fake(target.host).emit({ type: 'change', id: 'p-1', paths: ['/home/u/proj/src'] });
   expect(seen).toEqual(['/home/u/proj/src']);
 
-  // reset（内核队列溢出/订阅者卡住）：按项目根报一次就够，目录树会重读根以下所有层。
   fake(target.host).emit({ type: 'reset', id: '*', reason: 'overflow' });
   expect(seen).toEqual(['/home/u/proj/src', '/home/u/proj']);
   stop();

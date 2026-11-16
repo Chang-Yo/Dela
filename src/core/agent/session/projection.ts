@@ -18,7 +18,6 @@ import { modelChoice, requirePiSync, row, sessionCwd, type ModelChoice } from '.
 
 type ChatMessage = WorkspaceChat['messages'][number];
 
-/** 后台任务通知在 Pi 会话记录里的 customType。 */
 export const TASK_NOTICE = 'dela-task';
 
 export const textOf = (content: string | (TextContent | ImageContent)[]) =>
@@ -26,7 +25,6 @@ export const textOf = (content: string | (TextContent | ImageContent)[]) =>
     ? content
     : content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('');
 
-/** Dela 在用户消息前附加的 <dela-meta> 块（引用、附件、turnId）不进展示。 */
 const META_PREFIX = '<dela-meta>';
 const META_SUFFIX = '</dela-meta>\n';
 
@@ -65,8 +63,7 @@ export function toolOutput(result: {
   };
 }
 
-/** running：会话正在执行时末条回复不写 finishedAt（renderer 据此合并流式增量）。
- *  entryIds 与 messages 一一对应时，已完成的回复带上本轮最后一个条目，作为分支锚点。 */
+/** running 时末条回复不写 finishedAt（renderer 据此合并流式增量）；已完成的回复带本轮最后条目作分支锚点。 */
 export function projectMessages(
   messages: AgentMessage[],
   pending?: Map<string, AgentToolResult>,
@@ -88,7 +85,6 @@ export function projectMessages(
       reply = null;
     } else if (message.role === 'assistant') {
       if (!reply) {
-        // 一轮回复以用户消息的时间戳为 startedAt：占位、流式与落定的快照是同一条消息。
         reply = {
           role: 'assistant',
           content: '',
@@ -185,7 +181,6 @@ export function projectMessages(
   return out;
 }
 
-/** 按会话记录投影：每条消息带上它所在的条目，已完成的回复因此有分支锚点。 */
 function storedMessages(manager: Pick<SessionManager, 'buildSessionProjection'>): ChatMessage[] {
   const projected = manager
     .buildSessionProjection()
@@ -202,7 +197,6 @@ function storedMessages(manager: Pick<SessionManager, 'buildSessionProjection'>)
   );
 }
 
-/** 未打开的会话：直接读 JSONL 投影（不建 Pi 实例，避免打开历史就要求模型配置）。 */
 function readMessages(id: string): ChatMessage[] {
   const file = row(id).file;
   if (!existsSync(file)) return [];
@@ -233,15 +227,11 @@ export function withoutToolImages(message: ChatMessage): ChatMessage {
 }
 
 export function usageOf(entry: Live | undefined): ContextUsageView | null {
-  // 一次聚合同时取上下文占用与累计用量：getSessionStats 内部已算过 getContextUsage，
-  // 分开调用会把这件按消息估算的重活在同一个流式节拍里做两遍。
+  // 一次聚合同时取上下文占用与累计用量：分开调用会让按消息估算的重活在同一个流式节拍里做两遍。
   return entry ? contextUsageView(entry.session.getSessionStats(), entry.compactedTokens) : null;
 }
 
-/**
- * Pi 的会话统计 → 界面上的上下文用量。压缩后 Pi 在模型下一次回复前给不出用量（tokens 为 null），
- * 这时用压缩结果里的估计值 compactedTokens 顶上并标为估计；有了实际用量就不再用它。
- */
+/** Pi 会话统计 → 上下文用量。压缩后下次回复前 Pi 给不出用量（tokens 为 null），用 compactedTokens 估计顶上。 */
 export function contextUsageView(
   stats: Pick<ReturnType<AgentSession['getSessionStats']>, 'contextUsage' | 'tokens'>,
   compactedTokens?: number,
@@ -256,9 +246,8 @@ export function contextUsageView(
           estimated: true,
         }
       : null;
-  // 缓存命中率的分子分母都取本会话累计：SessionStats 聚合会话文件里的全部条目（含已被
-  // 压缩或被分支抛弃的历史，那些请求确实按缓存价计过费）。提供商不上报缓存时这里恒为 0，
-  // 直接下发会被读成「一次都没命中」，所以只在出现过缓存读或写时才带上这两个字段。
+  // 缓存命中率取本会话累计（含已压缩或被分支抛弃的历史）；提供商不上报缓存时恒为 0，
+  // 会被读成「一次没命中」，所以仅在出现过缓存读写时才带这两个字段。
   const { input, cacheRead, cacheWrite } = stats.tokens;
   return {
     tokens: usage.tokens,
@@ -307,9 +296,7 @@ export function snapshot(id: string): WorkspaceChat {
   let choice: ModelChoice = { kind: 'none' };
   try {
     choice = modelChoice(meta);
-  } catch {
-    // 凭据不可读时只显示未配置状态。
-  }
+  } catch {}
   let cwd: string | null = entry?.cwd ?? null;
   try {
     cwd ??= sessionCwd(meta.project_id, meta.cwd);
