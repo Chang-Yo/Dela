@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import type { CalendarEvent, TimetableLesson } from '../contract';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
@@ -29,6 +28,7 @@ import {
   weekDays,
 } from '../../../modules/todo/view';
 import { cn } from '../../../ui/cn';
+import { useNow } from '../../../ui/use-now';
 
 // 当前时间线与「今天」高亮的刷新间隔：now 仅在渲染时取值，需定期重渲染保持新鲜。
 const NOW_REFRESH_INTERVAL_MS = 60_000;
@@ -50,11 +50,7 @@ export function WeekCalendar({
   weekStart: Date | null;
   onOpen: (detail: CalendarItemDetail) => void;
 }) {
-  const [, setNowTick] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setNowTick((tick) => tick + 1), NOW_REFRESH_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, []);
+  useNow(NOW_REFRESH_INTERVAL_MS);
   const timelineHeight = `${minutesToRem(timelineEnd - timelineStart)}rem`;
   const groupedEvents = localEventsByDay(events);
   const now = new Date();
