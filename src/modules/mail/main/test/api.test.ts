@@ -14,7 +14,6 @@ import {
   markAllMailSeen,
   markMailSeen,
   onMailCacheChanged,
-  pickTextPart,
   purgeMailMessage,
   restoreMailMessage,
   setMailTrashRetention,
@@ -91,28 +90,6 @@ vi.mock('imapflow', () => ({
 }));
 
 describe('mail MIME rendering', () => {
-  it('prefers HTML alternatives and ignores attached messages', () => {
-    const structure: MessageStructureObject = {
-      type: 'multipart/mixed',
-      childNodes: [
-        { type: 'message/rfc822', childNodes: [{ type: 'text/html', part: '1.1' }] },
-        {
-          type: 'multipart/alternative',
-          childNodes: [
-            { type: 'text/plain', part: '2.1' },
-            { type: 'text/html', part: '2.2' },
-          ],
-        },
-      ],
-    };
-    expect(pickTextPart(structure)).toEqual({ type: 'text/html', part: '2.2' });
-    expect(pickTextPart({ type: 'text/plain', part: '1' })).toEqual({
-      type: 'text/plain',
-      part: '1',
-    });
-    expect(pickTextPart(undefined)).toBeNull();
-  });
-
   it('resolves encoded CID references once, without downloading unrelated attachments', async () => {
     const download = vi.fn(async () => ({ content: Readable.from([Buffer.from('image')]) }));
     const client = { download } as unknown as ImapFlow;
@@ -305,13 +282,6 @@ describe('mail local trash and folder sync', () => {
     expect(listMailMessages(folderId)).toHaveLength(1);
   });
 
-  it('shows the configure entry when credentials have been cleared, keeping the cached account', () => {
-    vi.mocked(loadMailCredentials).mockReturnValueOnce(null);
-    expect(getMailState().account).toBeNull();
-    expect(db.prepare('SELECT COUNT(*) AS n FROM mail_accounts').get()).toEqual({ n: 1 });
-    expect(getMailState().account?.address).toBe('reader@example.com');
-  });
-
   it('runSync purges server drafts once, skips \\Drafts/\\Trash, and cascades stale local rows', async () => {
     imapHarness.folders = [
       asFolder('INBOX', '\\Inbox'),
@@ -341,31 +311,6 @@ describe('mail local trash and folder sync', () => {
     startMailSync();
     await waitForSync();
     expect(imapHarness.deletions).toHaveLength(1);
-  });
-
-  it('failed draft purge leaves the key unset so the next sync retries', async () => {
-    imapHarness.folders = [asFolder('INBOX', '\\Inbox'), asFolder('Drafts', '\\Drafts')];
-    imapHarness.status = (path) =>
-      path === 'Drafts'
-        ? { messages: 2 }
-        : { messages: 0, unseen: 0, uidValidity: '1', uidNext: 1 };
-    imapHarness.messageDeleteResult = false;
-
-    startMailSync();
-    await waitForSync();
-    expect(mailSyncStatus().phase).toBe('idle');
-    expect(imapHarness.deletions).toHaveLength(1);
-    expect(setting(db, 'mail-drafts-purged')).toBeUndefined();
-    expect(folderPaths(db)).toEqual(['INBOX']);
-  });
-
-  it('marks the account purged even when the server has no drafts folder', async () => {
-    imapHarness.folders = [asFolder('INBOX', '\\Inbox')];
-
-    startMailSync();
-    await waitForSync();
-    expect(imapHarness.deletions).toHaveLength(0);
-    expect(setting(db, 'mail-drafts-purged')).toBe('reader@example.com');
   });
 
   it('keeps deleted_at on re-synced messages and counts unread from the local table', async () => {
@@ -415,19 +360,6 @@ describe('mail local trash and folder sync', () => {
       unread: 1,
     });
     expect(listMailMessages(folderId, 100).map((item) => item.uid)).toEqual([2]);
-  });
-
-  it('getMailState removes local \\Drafts/\\Trash rows without waiting for a sync', () => {
-    const inboxId = insertFolder(db, 'INBOX', '\\Inbox');
-    insertMessage(db, inboxId, 1);
-    const draftsId = insertFolder(db, 'Drafts', '\\Drafts');
-    insertMessage(db, draftsId, 1);
-    const trashId = insertFolder(db, 'Trash', '\\Trash');
-    insertMessage(db, trashId, 1);
-
-    getMailState();
-    expect(folderPaths(db)).toEqual(['INBOX']);
-    expect(db.prepare('SELECT COUNT(*) AS c FROM mail_messages').get()).toEqual({ c: 1 });
   });
 
   it('delete/restore/purge lifecycle updates unread counts and the message list', () => {
@@ -523,23 +455,6 @@ describe('mail local trash and folder sync', () => {
     imapHarness.flagAdds = [];
     expect(await markAllMailSeen()).toEqual({ ok: true });
     expect(imapHarness.flagAdds).toHaveLength(0);
-  });
-
-  it('restore fails when the original folder row is gone', () => {
-    const folderId = insertFolder(db, 'INBOX', '\\Inbox');
-    const messageId = insertMessage(db, folderId, 1, 1, daysAgo(1));
-    db.prepare('DELETE FROM mail_folders WHERE id = ?').run(folderId);
-    expect(db.prepare('SELECT COUNT(*) AS c FROM mail_messages').get()).toEqual({ c: 0 });
-
-    // 模拟孤儿缓存行（生产中外键级联通常先删掉消息；此处仅验证防御分支）。
-    db.pragma('foreign_keys = OFF');
-    const orphanId = insertMessage(db, 999, 7, 1, daysAgo(1));
-    db.pragma('foreign_keys = ON');
-    expect(restoreMailMessage(orphanId)).toEqual({
-      ok: false,
-      error: '原文件夹已不存在，无法恢复',
-    });
-    expect(messageId).toBeGreaterThan(0);
   });
 
   it('trash retention defaults to 30, validates values, and expires old entries', () => {

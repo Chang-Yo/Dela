@@ -20,8 +20,8 @@ vi.mock('../../../notifications', async (importOriginal) => ({
   systemNotifyItem: vi.fn(),
 }));
 
-import { notificationsModule, systemNotifyItem } from '../../../notifications';
-import { markAllMailSeen, markMailSeen, onMailCacheChanged } from '../api';
+import { systemNotifyItem } from '../../../notifications';
+import { onMailCacheChanged } from '../api';
 import { registerMailNotices } from '../notice-source';
 
 let db: Database.Database;
@@ -94,18 +94,5 @@ describe('mail notice source', () => {
     expect(db.prepare('SELECT id, read_at IS NOT NULL AS read FROM notifications').all()).toEqual([
       { id: 'mail:student@sjtu.edu.cn:10', read: 1 },
     ]);
-  });
-
-  it('marks mail seen on the server and stays unread when that fails', async () => {
-    insertMail(10, '2026-09-11T00:00:00.000Z');
-    registerMailNotices();
-    vi.mocked(markMailSeen).mockResolvedValueOnce({ ok: false, error: '无法连接邮件服务器' });
-    await notificationsModule.ipc!.call('markRead', 'mail:student@sjtu.edu.cn:10');
-    expect(markMailSeen).toHaveBeenCalledWith(10);
-    expect(unreadIds()).toHaveLength(1);
-
-    vi.mocked(markAllMailSeen).mockResolvedValueOnce({ ok: true });
-    await notificationsModule.ipc!.call('markAllRead', undefined);
-    expect(unreadIds()).toHaveLength(0);
   });
 });

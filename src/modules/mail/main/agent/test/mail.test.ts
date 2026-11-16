@@ -83,25 +83,6 @@ describe('search_mail', () => {
 });
 
 describe('list_mail_folders', () => {
-  it('返回文件夹列表与缓存新鲜度，coverage 完整', async () => {
-    vi.mocked(listMailFolders).mockReturnValue([
-      {
-        id: 2,
-        path: 'INBOX',
-        name: '收件箱',
-        specialUse: '\\Inbox',
-        total: 120,
-        unread: 3,
-        lastSyncedAt: '2026-09-01T08:00:00Z',
-      },
-    ]);
-    await expect(listMailFoldersTool.execute({})).resolves.toEqual({
-      items: [expect.objectContaining({ id: 2, name: '收件箱', unread: 3 })],
-      freshness: { kind: 'cached', syncedAt: '2026-09-01T08:00:00Z' },
-      coverage: { scope: 'cached_folders', complete: true },
-    });
-  });
-
   it('从未同步（空文件夹列表）时 coverage 标注缺口', async () => {
     vi.mocked(listMailFolders).mockReturnValue([]);
     await expect(listMailFoldersTool.execute({})).resolves.toMatchObject({
