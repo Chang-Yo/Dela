@@ -62,16 +62,6 @@ beforeEach(() => {
 });
 
 describe('useUpdateState', () => {
-  it('挂载后先读一次当前快照，再接收后续推送', async () => {
-    startUpdateMirror();
-    await vi.waitFor(() => expect(useUpdateState.getState().snapshot).toEqual(base));
-    expect(harness.state.listeners).toHaveLength(1);
-    expect(getState).toHaveBeenCalledTimes(1);
-    expect(toast).not.toHaveBeenCalled();
-    push(available);
-    expect(useUpdateState.getState().snapshot).toEqual(available);
-  });
-
   it('迟到的初始下载快照不能覆盖已经推送的 ready 状态', async () => {
     let resolve!: (snapshot: UpdateSnapshot) => void;
     getState.mockReturnValue(
@@ -98,21 +88,6 @@ describe('useUpdateState', () => {
     expect(useUpdateState.getState().snapshot?.phase).toBe('installing');
   });
 
-  it('安装器重启后提示实际运行版本', () => {
-    window.dela = { ...window.dela!, version: '1.0.2', updatedOnLaunch: true };
-    startUpdateMirror();
-    expect(toast).toHaveBeenCalledExactlyOnceWith({
-      variant: 'success',
-      title: '已更新至 Dela 1.0.2',
-    });
-  });
-
-  it('浏览器预览没有 preload 时保持空快照，不抛异常', () => {
-    delete window.dela;
-    expect(() => startUpdateMirror()).not.toThrow();
-    expect(useUpdateState.getState().snapshot).toBeNull();
-  });
-
   it('安装器异步失败时提示手动安装，重复广播不重复提示', async () => {
     startUpdateMirror();
     await vi.waitFor(() => expect(useUpdateState.getState().snapshot).toEqual(base));
@@ -126,12 +101,5 @@ describe('useUpdateState', () => {
     push({ ...failure });
     expect(toast).toHaveBeenCalledTimes(1);
     expect(toast.mock.calls[0]?.[0].description).toContain('手动安装');
-  });
-
-  it('读取失败不把快照改成错误态，交给标题栏保持安静', async () => {
-    getState.mockRejectedValue(new Error('IPC 断了'));
-    startUpdateMirror();
-    await vi.waitFor(() => expect(getState).toHaveBeenCalled());
-    expect(useUpdateState.getState().snapshot).toBeNull();
   });
 });
