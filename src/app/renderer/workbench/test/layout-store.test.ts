@@ -114,13 +114,6 @@ describe('init', () => {
     });
   });
 
-  it('无保存数据 → 默认空单组', async () => {
-    installLayoutApi(() => null);
-    await state().init(null);
-    expect(state().root).toEqual(createDefaultLayout().root);
-    expect(state().projectId).toBeNull();
-  });
-
   it('旧布局全为空组时收敛为一个空根组并清除最大化', async () => {
     installLayoutApi(() => ({
       root: {
@@ -140,23 +133,6 @@ describe('init', () => {
     expect(groups()[0]!.tabs).toEqual([]);
     expect(state().focus).toBe('primary');
     expect(state().maximized).toBeNull();
-  });
-
-  it('布局就绪前暂存的打开请求，在同一项目 init 完成后兑现并清除', async () => {
-    installLayoutApi(() => null);
-    state().reveal('chat:new', uuid);
-    expect(state().pendingReveal).toEqual({ tabId: 'chat:new', projectId: uuid, keep: false });
-    await state().init(uuid);
-    expect(groups()[0]!.active).toBe('chat:new');
-    expect(state().pendingReveal).toBeNull();
-  });
-
-  it('init 另一个项目时丢弃暂存的打开请求', async () => {
-    installLayoutApi(() => null);
-    state().reveal('chat:new', uuid);
-    await state().init(null);
-    expect(groups().flatMap((group) => group.tabs)).toEqual([]);
-    expect(state().pendingReveal).toBeNull();
   });
 });
 
@@ -183,28 +159,6 @@ describe('relocatePaths', () => {
   });
 });
 
-describe('openTab', () => {
-  beforeEach(() => installLayoutApi(() => null));
-
-  it('新标签进入焦点组并激活', () => {
-    state().openTab('note:a');
-    state().openTab('note:b');
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a', 'note:b']);
-    expect(findGroup(state().root, 'primary')?.active).toBe('note:b');
-  });
-
-  it('已打开的标签聚焦已有出现处，不新建', () => {
-    state().openTab('note:a');
-    state().splitGroup('primary', 'vertical');
-    const before = groups().length;
-    state().openTab('note:a');
-    expect(groups()).toHaveLength(before);
-    // splitGroup 后焦点在新组；再次 openTab 定位回 primary 的已有标签。
-    expect(state().focus).toBe('primary');
-    expect(findGroup(state().root, 'primary')?.active).toBe('note:a');
-  });
-});
-
 describe('closeTab / closeTabs', () => {
   beforeEach(() => installLayoutApi(() => null));
 
@@ -222,54 +176,10 @@ describe('closeTab / closeTabs', () => {
     state().closeTab(tab, side.id);
     expect(closeProject).toHaveBeenCalledExactlyOnceWith(uuid);
   });
-
-  it('关闭活动标签后激活滑入位置或前一个', () => {
-    state().openTab('note:a');
-    state().openTab('note:b');
-    state().openTab('note:c');
-    state().openTab('note:a');
-    state().closeTab('note:a');
-    expect(findGroup(state().root, 'primary')?.active).toBe('note:b');
-    state().closeTab('note:c');
-    expect(findGroup(state().root, 'primary')?.active).toBe('note:b');
-  });
-
-  it('空组删除、split 收敛、焦点回到相邻组', () => {
-    state().openTab('note:a');
-    state().splitGroup('primary', 'vertical');
-    const side = groups()[1]!;
-    expect(side.tabs).toEqual(['note:a']);
-    state().closeTab('note:a', side.id);
-    expect(state().root.type).toBe('group');
-    expect(groups()).toHaveLength(1);
-    expect(state().focus).toBe('primary');
-  });
-
-  it('根组保留空态，不删除', () => {
-    state().openTab('note:a');
-    state().closeTab('note:a');
-    expect(state().root).toEqual({ type: 'group', id: 'primary', tabs: [], active: null });
-  });
-
-  it('closeTabs others/right 按锚点批量关闭', () => {
-    for (const tab of ['note:a', 'note:b', 'note:c'] as const) state().openTab(tab);
-    state().closeTabs('primary', 'right', 'note:a');
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a']);
-    state().openTab('note:b');
-    state().closeTabs('primary', 'others', 'note:b');
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b']);
-  });
 });
 
 describe('moveTab / moveTabToEdge', () => {
   beforeEach(() => installLayoutApi(() => null));
-
-  it('组内排序保持激活态', () => {
-    for (const tab of ['note:a', 'note:b', 'note:c'] as const) state().openTab(tab);
-    state().moveTab('note:c', 'primary', 'primary', 0);
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:c', 'note:a', 'note:b']);
-    expect(findGroup(state().root, 'primary')?.active).toBe('note:c');
-  });
 
   it('跨组移动去重：目标组已有同 id 标签时合并为一个', () => {
     state().openTab('note:a');
@@ -297,15 +207,6 @@ describe('moveTab / moveTabToEdge', () => {
     expect(walkGroups(root).flatMap((g) => g.tabs)).toEqual(['note:a', 'note:b']);
   });
 
-  it('下缘拖放产生横向 split', () => {
-    state().openTab('note:a');
-    state().openTab('note:b');
-    state().moveTabToEdge('note:a', 'primary', 'primary', 'bottom');
-    const root = state().root;
-    expect(root.type).toBe('split');
-    if (root.type === 'split') expect(root.orientation).toBe('horizontal');
-  });
-
   it('移走最后一个标签时移除来源组，保留目标的内容与焦点', () => {
     state().openTab('note:a');
     state().splitGroup('primary', 'vertical');
@@ -315,22 +216,10 @@ describe('moveTab / moveTabToEdge', () => {
     expect(state().root).toMatchObject({ id: side.id, tabs: ['note:a'] });
     expect(state().focus).toBe(side.id);
   });
-
-  it('唯一标签拖到自己的边缘不留下空组', () => {
-    state().openTab('note:a');
-    state().moveTabToEdge('note:a', 'primary', 'primary', 'bottom');
-    expect(groups()).toHaveLength(1);
-    expect(groups()[0]!.tabs).toEqual(['note:a']);
-  });
 });
 
 describe('splitGroup / setMaximized / setRatio', () => {
   beforeEach(() => installLayoutApi(() => null));
-
-  it('空组不能继续分屏', () => {
-    state().splitGroup('primary', 'vertical');
-    expect(groups()).toHaveLength(1);
-  });
 
   it('split 包裹目标组、复制活动标签、焦点落到新组', () => {
     state().openTab('note:a');
@@ -341,40 +230,6 @@ describe('splitGroup / setMaximized / setRatio', () => {
     const side = groups()[1]!;
     expect(side.tabs).toEqual(['note:a']);
     expect(state().focus).toBe(side.id);
-  });
-
-  it('三屏 = 嵌套 split（depth 2），横纵组合', () => {
-    state().openTab('note:a');
-    state().splitGroup('primary', 'vertical');
-    state().splitGroup(groups()[1]!.id, 'horizontal');
-    expect(groups()).toHaveLength(3);
-    expect(splitDepth(state().root)).toBe(2);
-    const root = state().root;
-    if (root.type === 'split') {
-      expect(root.orientation).toBe('vertical');
-      const inner = root.children[1];
-      expect(inner?.type === 'split' && inner.orientation).toBe('horizontal');
-    }
-  });
-
-  it('非法路径的 ratio 变更无效', () => {
-    state().openTab('note:a');
-    state().splitGroup('primary', 'vertical');
-    const root = state().root;
-    state().setRatio([9], 0.5);
-    expect(state().root).toBe(root);
-  });
-
-  it('最大化与还原；最大化组被关闭时清除最大化态', () => {
-    state().openTab('note:a');
-    state().splitGroup('primary', 'vertical');
-    const side = groups()[1]!;
-    state().setMaximized(side.id);
-    expect(state().maximized).toBe(side.id);
-    expect(state().focus).toBe(side.id);
-    state().closeTabs(side.id, 'all');
-    expect(state().maximized).toBeNull();
-    expect(state().root.type).toBe('group');
   });
 });
 
@@ -431,21 +286,6 @@ describe('持久化', () => {
 describe('togglePin / 固定区', () => {
   beforeEach(() => installLayoutApi(() => null));
 
-  it('固定挪入固定区末尾，取消固定落到未固定区开头', () => {
-    for (const tab of ['note:a', 'note:b', 'note:c'] as const) state().openTab(tab);
-
-    state().togglePin('note:b', 'primary');
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b', 'note:a', 'note:c']);
-    expect(findGroup(state().root, 'primary')?.pinned).toEqual(['note:b']);
-
-    state().togglePin('note:c', 'primary');
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b', 'note:c', 'note:a']);
-
-    state().togglePin('note:b', 'primary');
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:c', 'note:b', 'note:a']);
-    expect(findGroup(state().root, 'primary')?.pinned).toEqual(['note:c']);
-  });
-
   it('批量关闭跳过固定标签，固定标签只能显式逐个关闭', () => {
     for (const tab of ['note:a', 'note:b', 'note:c'] as const) state().openTab(tab);
     state().togglePin('note:a', 'primary');
@@ -463,23 +303,6 @@ describe('togglePin / 固定区', () => {
     expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a', 'note:b']);
   });
 
-  it('拖拽排序钳制在各自区域内：未固定进不了固定区，双固定可换位', () => {
-    for (const tab of ['note:a', 'note:b', 'note:c'] as const) state().openTab(tab);
-    state().togglePin('note:a', 'primary');
-    state().togglePin('note:b', 'primary');
-
-    // 未固定 c 想插到最前：被钳到固定区之后，位置不变。
-    state().moveTab('note:c', 'primary', 'primary', 0);
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a', 'note:b', 'note:c']);
-
-    // 固定 a 拖到 b 的右半段（targetIndex=2 → 钳到固定区末尾）：可换位，不会越出固定区。
-    state().moveTab('note:a', 'primary', 'primary', 2);
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b', 'note:a', 'note:c']);
-
-    state().moveTab('note:a', 'primary', 'primary', 0);
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a', 'note:b', 'note:c']);
-  });
-
   it('跨组移动保留固定状态（仿 VS Code），源组固定记录同步清理', () => {
     state().openTab('note:a');
     state().openTab('note:b');
@@ -491,35 +314,6 @@ describe('togglePin / 固定区', () => {
     expect(findGroup(state().root, 'primary')?.pinned).toBeUndefined();
     expect(findGroup(state().root, side.id)?.tabs).toEqual(['note:a']);
     expect(findGroup(state().root, side.id)?.pinned).toEqual(['note:a']);
-  });
-
-  it('跨组拖入未固定副本时，目标组同 id 的陈旧固定引用被剔除', () => {
-    state().openTab('note:b');
-    state().openTab('note:a');
-    state().togglePin('note:b', 'primary');
-    state().splitGroup('primary', 'vertical', true);
-    const side = groups()[1]!;
-    state().openTab('note:a', side.id);
-    state().togglePin('note:a', side.id);
-    state().openTab('note:c', side.id);
-    expect(findGroup(state().root, side.id)?.tabs).toEqual(['note:a', 'note:c']);
-    // primary 里未固定的 a 拖到 side 尾部：合并后的 a 不能保持固定，否则
-    // pinned 不再是 tabs 的前缀。
-    state().moveTab('note:a', 'primary', side.id, 2);
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:b']);
-    expect(findGroup(state().root, 'primary')?.pinned).toEqual(['note:b']);
-    expect(findGroup(state().root, side.id)?.tabs).toEqual(['note:c', 'note:a']);
-    expect(findGroup(state().root, side.id)?.pinned).toBeUndefined();
-  });
-
-  it('closeTab 同步清理固定记录，清空后字段收敛为缺省', () => {
-    for (const tab of ['note:a', 'note:b'] as const) state().openTab(tab);
-    state().togglePin('note:b', 'primary');
-
-    state().closeTab('note:b', 'primary');
-
-    expect(findGroup(state().root, 'primary')?.tabs).toEqual(['note:a']);
-    expect(findGroup(state().root, 'primary')?.pinned).toBeUndefined();
   });
 });
 

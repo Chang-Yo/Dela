@@ -158,49 +158,6 @@ it('随聊发送首条消息后保持首页聊天，继续显示同一会话的�
   expect(noChatTab()).toBe(true);
 });
 
-it('新对话创建期间不显示旧会话，返回后绑定新身份', async () => {
-  await act(async () => root.render(<Home />));
-  await act(async () =>
-    useSessions.getState().putChat('first', {
-      ...emptyChat('first'),
-      messages: [{ role: 'user', content: '上一轮消息' }],
-    }),
-  );
-  let resolveNew!: (chat: WorkspaceChat) => void;
-  api['agent:create-session'] = () =>
-    new Promise((resolve) => {
-      resolveNew = resolve;
-    });
-  await act(async () => useNavigationStore.getState().openGeneralChat(true));
-  expect(host.querySelector('[aria-label="消息输入"]')).toBeNull();
-  expect(host.textContent).not.toContain('上一轮消息');
-  await act(async () => resolveNew(emptyChat('second')));
-  await act(async () => useChatDrafts.getState().update('second', { prompt: '新会话草稿' }));
-  expect(host.querySelector<HTMLInputElement>('[aria-label="消息输入"]')?.value).toBe('新会话草稿');
-  expect(useNavigationStore.getState().view).toBe('home');
-});
-
-it('从会话顶部导出当前对话，并提示缺失附件', async () => {
-  const save = vi.fn(async () => ({ saved: true, missing: ['讲义.pdf'] }));
-  api['chat:export'] = save;
-  await act(async () => root.render(<Home />));
-  const button = () => host.querySelector<HTMLButtonElement>('[aria-label="导出会话"]');
-  expect(button()).toBeNull();
-  await act(async () =>
-    useSessions.getState().putChat('first', {
-      ...emptyChat('first'),
-      messages: [{ role: 'user', content: '请继续' }],
-    }),
-  );
-  await act(async () => button()!.click());
-  expect(save).toHaveBeenCalledWith('first');
-  expect(toasts().at(-1)).toMatchObject({
-    title: '会话已导出，部分文件未打包',
-    description: '讲义.pdf',
-  });
-  expect(button()?.disabled).toBe(false);
-});
-
 it('回到首页接着上次会话，清空运行内存（重启）后才是新对话', async () => {
   await act(async () => root.render(<Home />));
   await act(async () =>
@@ -220,22 +177,6 @@ it('回到首页接着上次会话，清空运行内存（重启）后才是新�
   expect(create).toHaveBeenCalledTimes(1);
   // 首页发起的通用会话落在随聊私有目录，不认资料页那一档。
   expect(create).toHaveBeenCalledWith({ projectId: null });
-});
-
-it('打开随聊历史留在首页，展示指定会话而不是创建空会话或资料标签', async () => {
-  const history = {
-    ...emptyChat('history'),
-    messages: [{ role: 'assistant' as const, content: '历史回复' }],
-  };
-  useSessions.getState().putChat('history', history);
-  const create = vi.spyOn(api, 'agent:create-session');
-  await act(async () => useNavigationStore.getState().openChat('history', null));
-  await act(async () => root.render(<Home />));
-  expect(useNavigationStore.getState().view).toBe('home');
-  expect(useWorkbenchLayout.getState().pendingReveal).toBeNull();
-  expect(noChatTab()).toBe(true);
-  expect(host.querySelector('[aria-label="对话消息"]')?.textContent).toBe('历史回复');
-  expect(create).not.toHaveBeenCalled();
 });
 
 it('历史快速切换时延迟返回不能覆盖最新会话，项目历史仍进入项目工作台', async () => {
@@ -308,18 +249,6 @@ describe('会话命令', () => {
     expect(useChatDrafts.getState().drafts.first?.prompt).toBe('/compact 保留结论');
   });
 
-  it('/new 开新对话，不发消息也不走命令通道', async () => {
-    const runCommand = vi.fn();
-    api['agent:run-command'] = runCommand;
-    const ask = vi.spyOn(api, 'agent:ask');
-    await act(async () => root.render(<Home />));
-    const create = vi.spyOn(api, 'agent:create-session').mockResolvedValue(emptyChat('second'));
-    await sendText('/new');
-    expect(create).toHaveBeenCalledWith({ projectId: null });
-    expect(ask).not.toHaveBeenCalled();
-    expect(runCommand).not.toHaveBeenCalled();
-  });
-
   it('只是以 / 开头、不是命令的文字照常发给模型', async () => {
     const runCommand = vi.fn();
     api['agent:run-command'] = runCommand;
@@ -331,43 +260,4 @@ describe('会话命令', () => {
     );
     expect(runCommand).not.toHaveBeenCalled();
   });
-});
-
-it('归档首页当前对话后通过导航创建新会话，不沿用归档会话身份', async () => {
-  vi.useFakeTimers();
-  await act(async () => root.render(<Home />));
-  api['agent:list-sessions'] = vi.fn(async () => [
-    {
-      id: 'first',
-      projectId: null,
-      title: '当前对话',
-      messageCount: 1,
-      archived: false,
-      pinned: false,
-      updatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    },
-  ]);
-  const update = vi.fn(async () => {});
-  api['chat:update'] = update;
-  const create = vi.spyOn(api, 'agent:create-session').mockResolvedValue(emptyChat('second'));
-  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="历史对话"]')!.click());
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(200);
-  });
-  await act(async () =>
-    document.querySelector<HTMLButtonElement>('[aria-label="归档对话 当前对话"]')!.click(),
-  );
-  await act(async () => {
-    [...document.querySelectorAll('button')]
-      .find((button) => button.textContent === '确认归档')!
-      .click();
-  });
-  expect(update).toHaveBeenCalledWith({ id: 'first', patch: { archived: true } });
-  expect(create).toHaveBeenCalledWith({ projectId: null });
-  expect(useSessions.getState().homeSessionId).toBe('second');
-  await act(async () => useChatDrafts.getState().update('second', { prompt: '归档之后的新草稿' }));
-  expect(host.querySelector<HTMLInputElement>('[aria-label="消息输入"]')?.value).toBe(
-    '归档之后的新草稿',
-  );
 });

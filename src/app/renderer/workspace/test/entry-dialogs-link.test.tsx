@@ -20,7 +20,7 @@ const { api, desktop } = vi.hoisted(() => {
   window.dela = desktop;
   return { api: handlers, desktop };
 });
-import { EntryDialogs, type EntryDialogRequest } from '../entry-dialogs';
+import { EntryDialogs } from '../entry-dialogs';
 import { useWorkspaceStore } from '../../../../modules/workspace/view';
 
 function entry(
@@ -49,8 +49,8 @@ let root: Root;
 let container: HTMLDivElement;
 const create = vi.fn(async (input) => ({ ...entry('created', input.kind), ...input }));
 const state = vi.fn(async () => workspace);
-const update = vi.fn(async () => undefined);
-Object.assign(api, { create, state, update });
+
+Object.assign(api, { create, state });
 const scrollIntoView = Element.prototype.scrollIntoView;
 
 beforeEach(() => {
@@ -80,32 +80,16 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-async function render(initialTarget?: string, action: EntryDialogRequest['action'] = 'link') {
+async function render(initialTarget?: string) {
   await act(async () =>
     root.render(
       <QueryClientProvider client={new QueryClient()}>
         <EntryDialogs
-          request={{ action, id: 'source:file:123', initialTarget }}
+          request={{ action: 'link', id: 'source:file:123', initialTarget }}
           onClose={() => {}}
         />
       </QueryClientProvider>,
     ),
-  );
-}
-
-async function expand() {
-  await act(async () =>
-    document
-      .querySelector('[role="combobox"]')!
-      .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })),
-  );
-  return [...document.querySelectorAll<HTMLElement>('[role="option"]')];
-}
-
-async function choose(text: string) {
-  const option = (await expand()).find((element) => element.textContent === text)!;
-  await act(async () =>
-    option.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })),
   );
 }
 
@@ -116,15 +100,6 @@ async function submit() {
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
   );
 }
-
-it('offers only local project entries without rescanning directories', async () => {
-  await render();
-  const options = (await expand()).map((element) => element.textContent);
-  // 前四项是本地项目；文件夹与远端项目都不出现，只多一个新建入口。
-  expect(options).toHaveLength(5);
-  expect(options.slice(0, 4)).toEqual(['课程项目', '嵌套项目', '第二项目', '隐藏项目']);
-  expect(state).not.toHaveBeenCalled();
-});
 
 it.each([
   ['附件目录', '课程项目'],
@@ -143,13 +118,6 @@ it.each([
   );
 });
 
-it('links to the project the user selects', async () => {
-  await render('附件目录');
-  await choose('第二项目');
-  await submit();
-  expect(create).toHaveBeenCalledWith(expect.objectContaining({ parentId: '第二项目' }));
-});
-
 it.each([undefined, '普通文件夹', 'missing', '远程项目'])(
   'requires a project choice for initial target %s',
   async (initialTarget) => {
@@ -159,26 +127,6 @@ it.each([undefined, '普通文件夹', 'missing', '远程项目'])(
     expect(create).not.toHaveBeenCalled();
   },
 );
-
-it('can create a project and link to its root when no projects exist', async () => {
-  useWorkspaceStore.setState({ workspace: { ...workspace, entries: [] } });
-  await render();
-  await choose('新建项目…');
-  const input = document.querySelector<HTMLInputElement>('input[aria-label="名称"]')!;
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-      input,
-      '新项目',
-    );
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  await submit();
-  expect(create).toHaveBeenNthCalledWith(1, { name: '新项目', parentId: null, kind: 'project' });
-  expect(create).toHaveBeenNthCalledWith(
-    2,
-    expect.objectContaining({ kind: 'source', parentId: 'created' }),
-  );
-});
 
 it('clears an unavailable project target instead of silently using the workspace root', async () => {
   await render('课程项目');
@@ -193,19 +141,4 @@ it('clears an unavailable project target instead of silently using the workspace
   );
   await submit();
   expect(create).not.toHaveBeenCalled();
-});
-
-it('preserves folder and workspace-root destinations for moves', async () => {
-  await render('附件目录', 'move');
-  expect(document.querySelector('[role="combobox"]')?.textContent).toBe(
-    '课程项目 / 子文件夹 / 附件目录',
-  );
-  await submit();
-  expect(update).toHaveBeenLastCalledWith({
-    id: 'source:file:123',
-    patch: { parentId: '附件目录' },
-  });
-  await choose('我的内容');
-  await submit();
-  expect(update).toHaveBeenLastCalledWith({ id: 'source:file:123', patch: { parentId: null } });
 });

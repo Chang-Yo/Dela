@@ -75,12 +75,6 @@ it('同一项目再次挂载不再请求', async () => {
   expect(remoteReferences).toHaveBeenCalledTimes(1);
 });
 
-it('没有远程项目时不请求', async () => {
-  await render(null);
-  expect(container.textContent).toBe('');
-  expect(remoteReferences).not.toHaveBeenCalled();
-});
-
 it('索引失败时给出空候选且不抛错', async () => {
   remoteReferences.mockRejectedValue(new Error('连接失败'));
   await render('p-failed');

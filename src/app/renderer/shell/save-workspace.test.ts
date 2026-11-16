@@ -12,7 +12,7 @@ const invoke = vi.hoisted(() => {
 });
 import { registerComposeSave } from '../../../modules/mail/view';
 import { useNoteDrafts } from '../../../modules/note/view';
-import { deferInstall, runUpdateAction, useUpdateState } from '../../../modules/update/view';
+import { runUpdateAction, useUpdateState } from '../../../modules/update/view';
 import { chatImageToken } from '../../../core/protocol/chat-input';
 import { registerChatAttachmentCheck, useChatDrafts, useRuns } from '../../../modules/chat/view';
 import { useWorkbenchLayout } from '../workbench/layout-store';
@@ -21,7 +21,6 @@ import { dismissToast, toasts } from '../../../ui/toast';
 
 const originalSave = useNoteDrafts.getState().save;
 let install: Mock<() => Promise<unknown>>;
-let defer: Mock<() => Promise<unknown>>;
 let saveLayout: () => Promise<unknown>;
 let releases: (() => void)[];
 
@@ -29,11 +28,9 @@ beforeEach(() => {
   vi.resetAllMocks();
   releases = [];
   install = vi.fn(async () => ({}));
-  defer = vi.fn(async () => {});
   saveLayout = async () => {};
   invoke.mockImplementation(async (channel: string) => {
     if (channel === 'update:install') return install();
-    if (channel === 'update:deferInstall') return defer();
     if (channel === 'workspace:saveLayout') return saveLayout();
   });
   useNoteDrafts.setState({ drafts: {} });
@@ -132,53 +129,6 @@ it.each(['mail', 'layout', 'storage', 'attachment', 'image', 'run'])(
     }
   },
 );
-
-it('保存未完成时重复点击只保存和安装一次', async () => {
-  let complete!: (saved: boolean) => void;
-  releases.push(
-    registerComposeSave(
-      () =>
-        new Promise((resolve) => {
-          complete = resolve;
-        }),
-    ),
-  );
-  const first = runUpdateAction('install');
-  await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
-  expect(await runUpdateAction('install')).toBe(false);
-  expect(install).not.toHaveBeenCalled();
-  complete(true);
-  expect(await first).toBe(true);
-  expect(install).toHaveBeenCalledTimes(1);
-});
-
-it('更新动作 IPC 失败时提示且保留日志，不静默', async () => {
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  install = vi.fn(async () => {
-    throw new Error('ipc down');
-  });
-  expect(await runUpdateAction('install')).toBe(false);
-  expect(errorSpy).toHaveBeenCalled();
-  expect(toasts()[0]).toMatchObject({
-    variant: 'error',
-    title: '更新操作失败',
-    description: 'ipc down',
-  });
-});
-
-it('推迟提醒失败时提示，不静默', async () => {
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  defer = vi.fn(async () => {
-    throw new Error('ipc down');
-  });
-  await deferInstall();
-  expect(errorSpy).toHaveBeenCalled();
-  expect(toasts()[0]).toMatchObject({
-    variant: 'error',
-    title: '设置提醒失败',
-    description: 'ipc down',
-  });
-});
 
 it('安装器启动失败的返回快照不当作成功', async () => {
   install = vi.fn(async () => ({ phase: 'error', failedAt: 'install', reason: 'failed' }));

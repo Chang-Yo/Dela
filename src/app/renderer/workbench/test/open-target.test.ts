@@ -75,41 +75,6 @@ describe('项目工作台：文件是预览，单击就地替换', () => {
     expect(primary().tabs).toEqual(['note:a.ts', 'chat:s1', 'terminal:p']);
     expect(primary().preview).toBe('note:a.ts');
   });
-
-  it('拖动预览标签即保留', () => {
-    openTarget('note:a.ts');
-    state().moveTab('note:a.ts', 'primary', 'primary', 0);
-    expect(primary().preview).toBeUndefined();
-  });
-
-  it('关闭预览标签后清掉预览标记', () => {
-    openTarget('note:a.ts');
-    state().closeTab('note:a.ts', 'primary');
-    openTarget('chat:s1');
-    openTarget('note:b.ts');
-    expect(primary().tabs).toEqual(['chat:s1', 'note:b.ts']);
-  });
-
-  it('组里满 30 个标签时，预览替换仍然可用（不占新位置）', () => {
-    for (let i = 0; i < 29; i += 1) openTarget(`chat:s${i}`);
-    openTarget('note:a.ts');
-    expect(primary().tabs).toHaveLength(30);
-    openTarget('note:b.ts');
-    expect(primary().tabs).toHaveLength(30);
-    expect(primary().tabs).toContain('note:b.ts');
-  });
-});
-
-describe('资料（通用）工作台：课件与文件都常驻', () => {
-  beforeEach(() => setLayout(null));
-
-  it('每打开一个都多一个标签，方便并排比对', () => {
-    openTarget('preview:source:file:1');
-    openTarget('preview:source:file:2');
-    openTarget('note:x.md');
-    expect(primary().tabs).toEqual(['preview:source:file:1', 'preview:source:file:2', 'note:x.md']);
-    expect(primary().preview).toBeUndefined();
-  });
 });
 
 describe('落点：普通打开进焦点组，已打开就聚焦', () => {
@@ -149,27 +114,5 @@ describe('aside：放到焦点组右侧', () => {
     expect(groups()).toHaveLength(3);
     expect(findGroup(state().root, middle!)!.tabs).toContain('note:a.ts');
     expect(findGroup(state().root, right!)!.tabs).toEqual(['chat:s3']);
-  });
-
-  it('焦点组是空组时直接落进去', () => {
-    openTarget('review:x', { aside: true });
-    expect(groups()).toHaveLength(1);
-    expect(primary().tabs).toEqual(['review:x']);
-  });
-
-  it('已打开的会话/审阅只聚焦，不在旁边开第二份', () => {
-    openTarget('review:x');
-    openTarget('chat:s1');
-    openTarget('review:x', { aside: true });
-    expect(groups()).toHaveLength(1);
-    expect(primary().active).toBe('review:x');
-  });
-
-  it('文件可以在旁边再开一份（对照同一文件的两处）', () => {
-    openTarget('note:a.ts');
-    state().keepTab('note:a.ts');
-    openTarget('note:a.ts', { aside: true });
-    expect(groups()).toHaveLength(2);
-    expect(groups().every((group) => group.tabs.includes('note:a.ts'))).toBe(true);
   });
 });

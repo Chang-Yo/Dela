@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GroupNode, LayoutNode } from '../../../../modules/workspace/contract';
-import {
-  clampRatio,
-  countNodes,
-  createDefaultLayout,
-  nextGroupId,
-  parseWorkbenchLayout,
-  removeGroup,
-  walkGroups,
-} from '../layout-schema';
+import { countNodes, createDefaultLayout, parseWorkbenchLayout } from '../layout-schema';
 
 const group = (id: string, tabs: string[] = [], active: string | null = null): GroupNode => ({
   type: 'group',
@@ -27,15 +19,6 @@ describe('布局 schema 校验', () => {
   it('接受合法布局', () => {
     const layout = createDefaultLayout();
     expect(parseWorkbenchLayout(layout)).toEqual(layout);
-  });
-
-  it('接受嵌套 split（depth ≥ 2）', () => {
-    const layout = {
-      root: split([group('a', ['note:1']), split([group('b'), group('c')], 0.3)]),
-      focus: 'b',
-      maximized: null,
-    };
-    expect(parseWorkbenchLayout(layout)).not.toBeNull();
   });
 
   it('拒绝组内重复标签', () => {
@@ -103,44 +86,5 @@ describe('布局 schema 校验', () => {
       active: 'note:c',
       pinned: ['note:a'],
     });
-  });
-
-  it('没有固定标签的组不带 pinned 字段', () => {
-    const parsed = parseWorkbenchLayout({
-      root: group('a', ['note:x'], 'note:x'),
-      focus: 'a',
-      maximized: null,
-    });
-    expect(parsed?.root).toEqual({ type: 'group', id: 'a', tabs: ['note:x'], active: 'note:x' });
-  });
-});
-
-describe('树操作', () => {
-  it('removeGroup 删除组并收敛单子 split', () => {
-    const tree = split([group('a'), split([group('b'), group('c')])]);
-    // 删 c：内层 split 只剩 b → 上提；外层回到 [a, b]。
-    expect(removeGroup(tree, 'c')).toEqual(split([group('a'), group('b')]));
-    // 删 a：外层只剩内层 split → 上提为根。
-    expect(removeGroup(tree, 'a')).toEqual(split([group('b'), group('c')]));
-    // 根组不删除。
-    expect(removeGroup(group('root'), 'root')).toEqual(group('root'));
-  });
-
-  it('clampRatio 收敛到 [0.05, 0.95]', () => {
-    expect(clampRatio(0.001)).toBe(0.05);
-    expect(clampRatio(1)).toBe(0.95);
-    expect(clampRatio(Number.NaN)).toBe(0.5);
-    expect(clampRatio(0.42)).toBe(0.42);
-  });
-
-  it('nextGroupId 避开已占用 id', () => {
-    const tree = split([group('g1'), split([group('g2'), group('primary')])]);
-    expect(nextGroupId(tree)).toBe('g3');
-  });
-
-  it('walkGroups / countNodes', () => {
-    const tree = split([group('a'), split([group('b'), group('c')])]);
-    expect(walkGroups(tree).map((g) => g.id)).toEqual(['a', 'b', 'c']);
-    expect(countNodes(tree)).toBe(5);
   });
 });

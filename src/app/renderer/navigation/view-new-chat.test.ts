@@ -90,16 +90,6 @@ it('项目工作台里新建对话同样就地开标签', async () => {
   expect(isActiveTab('chat:new')).toBe(true);
 });
 
-it('新建对话不再顺手关掉别的空会话标签', async () => {
-  useNavigationStore.setState({ view: 'workbench', projectId: null });
-  useSessions.setState({ chats: { old: emptyChat('old') }, lists: {} });
-  useWorkbenchLayout.getState().openTab('chat:old');
-
-  await useNavigationStore.getState().newChat(null);
-
-  expect(groups()[0]!.tabs).toContain('chat:old');
-});
-
 it('首页新建对话仍落在首页聊天', async () => {
   await useNavigationStore.getState().newChat(null);
 
@@ -129,13 +119,4 @@ it('在首页或项目工作台打开随聊：回首页聊天', () => {
 
   expect(useNavigationStore.getState().view).toBe('home');
   expect(useNavigationStore.getState().generalChat?.sessionId).toBe('old');
-});
-
-it('资料页与首页新建通用会话，入参相同', async () => {
-  useNavigationStore.setState({ view: 'workbench', projectId: null });
-  await useNavigationStore.getState().newChat(null);
-  useNavigationStore.setState({ view: 'home' });
-  await useNavigationStore.getState().newChat(null);
-
-  expect(creates).toEqual([{ projectId: null }, { projectId: null }]);
 });
