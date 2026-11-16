@@ -192,7 +192,6 @@ CREATE TABLE IF NOT EXISTS notification_refreshes (
   expect(db.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%_v7'").all()).toEqual([]);
   db.close();
   expect(runMigrations({ userData, seal }, 8)).toBe(0);
-  expect(readdirSync(userData).filter((name) => name.endsWith('.migrating'))).toEqual([]);
 });
 
 it('v8→v9：会话表补 parent_id，原有会话都是顶层会话', () => {

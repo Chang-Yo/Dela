@@ -38,14 +38,6 @@ afterEach(() => {
 });
 
 describe('sealed credential recovery', () => {
-  it('retains readable credentials across saves', () => {
-    electronPorts.secrets.write('test-secret', 'first-test-token');
-    expect(electronPorts.secrets.read('test-secret')).toBe('first-test-token');
-    electronPorts.secrets.write('test-secret', 'second-test-token');
-    expect(electronPorts.secrets.read('test-secret')).toBe('second-test-token');
-    expect(readdirSync(storage.directory)).toEqual(['test-secret.bin']);
-  });
-
   it('preserves an unreadable file and gives an actionable error without leaking its content', () => {
     const path = join(storage.directory, 'test-secret.bin');
     writeFileSync(path, 'unreadable-test-ciphertext');

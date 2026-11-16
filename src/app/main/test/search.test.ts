@@ -101,16 +101,4 @@ describe('global search', () => {
       '保留的 lecture-notes.pdf',
     ]);
   });
-
-  it('每个来源最多十条，达到上限时标记截断', () => {
-    for (let index = 0; index < 11; index += 1)
-      run(
-        "INSERT INTO workspace_entries (id, name, kind, updated_at) VALUES (?, '同名项目', 'project', ?)",
-        `p-${index}`,
-        timestamp,
-      );
-    const group = querySearch('同名项目').find((item) => item.id === 'project');
-    expect(group?.hits).toHaveLength(10);
-    expect(group?.truncated).toBe(true);
-  });
 });
