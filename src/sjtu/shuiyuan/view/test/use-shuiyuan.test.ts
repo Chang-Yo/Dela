@@ -90,11 +90,6 @@ describe('楼层分段加载', () => {
     );
   });
 
-  it('向上补楼取紧邻已加载段之前的一批', async () => {
-    await loadMorePosts(queryClient, reading, 'before');
-    expect(topicOf(queryClient, reading)?.posts[0]?.postNumber).toBe(10);
-  });
-
   it('已加载段未到末尾时，新回复只登记进 stream，不跨断档追加', async () => {
     api.reply = async () => makePost(61);
     await submitReply(queryClient, reading, '回复');

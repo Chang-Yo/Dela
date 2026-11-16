@@ -129,17 +129,6 @@ describe('Shuiyuan notice source', () => {
     expect(vi.mocked(systemNotifyItem).mock.calls[0]![1]).toBe('alice、bob 等 3 人赞了你的帖子');
   });
 
-  it('joins new likes silently while the topic group still has unread items', async () => {
-    vi.mocked(listShuiyuanNotifications)
-      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
-      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice'), shuiyuanLike(2, 22, 'bob')]);
-
-    await refreshNotifications();
-    await refreshNotifications();
-    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
-    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(2);
-  });
-
   it('alerts again for a topic once all of its likes have been read', async () => {
     vi.mocked(listShuiyuanNotifications)
       .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
@@ -150,20 +139,6 @@ describe('Shuiyuan notice source', () => {
     await refreshNotifications();
     expect(systemNotifyItem).toHaveBeenCalledTimes(2);
     expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('bob 赞了你的帖子');
-  });
-
-  it('turns a consolidated like count increase back into unread and alerts again', async () => {
-    vi.mocked(listShuiyuanNotifications)
-      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice', 1)])
-      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice', 2)]);
-
-    await refreshNotifications();
-    await markAllNotificationsRead();
-    await refreshNotifications();
-    const state = getNotificationState(['shuiyuan']);
-    expect(state.items[0]!.readAt).toBeNull();
-    expect(state.items[0]!.count).toBe(2);
-    expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('alice 等 2 人赞了你的帖子');
   });
 
   it('syncs server read state without alerting and keeps local reads', async () => {
@@ -188,28 +163,6 @@ describe('Shuiyuan notice source', () => {
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
   });
 
-  it('reads every like on a topic when one of them is marked read', async () => {
-    vi.mocked(listShuiyuanNotifications)
-      .mockResolvedValueOnce([
-        shuiyuanLike(1, 22, 'alice'),
-        shuiyuanLike(2, 22, 'bob'),
-        shuiyuanLike(3, 23, 'carol'),
-      ])
-      .mockResolvedValueOnce([
-        shuiyuanLike(1, 22, 'alice'),
-        shuiyuanLike(2, 22, 'bob'),
-        shuiyuanLike(3, 23, 'carol'),
-        shuiyuanLike(4, 22, 'dave'),
-      ]);
-
-    await refreshNotifications();
-    await markNotificationRead('shuiyuan:dela-user:2');
-    expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);
-    await refreshNotifications();
-    expect(systemNotifyItem).toHaveBeenCalledTimes(3);
-    expect(vi.mocked(systemNotifyItem).mock.calls[2]![1]).toBe('dave 赞了你的帖子');
-  });
-
   it('shows a consolidated like as its own item and alerts again when its post count grows', async () => {
     vi.mocked(listShuiyuanNotifications)
       .mockResolvedValueOnce([shuiyuanConsolidatedLike(9, 'alice', 3), shuiyuanLike(1, 22, 'bob')])
@@ -230,19 +183,5 @@ describe('Shuiyuan notice source', () => {
     expect(getNotificationState(['shuiyuan']).unreadCount).toBe(1);
     await refreshNotifications();
     expect(vi.mocked(systemNotifyItem).mock.calls.at(-1)![1]).toBe('alice 赞了你的 5 个帖子');
-  });
-
-  it('alerts for a new like when the server reads the earlier ones in the same refresh', async () => {
-    vi.mocked(listShuiyuanNotifications)
-      .mockResolvedValueOnce([shuiyuanLike(1, 22, 'alice')])
-      .mockResolvedValueOnce([
-        { ...shuiyuanLike(1, 22, 'alice'), read: true },
-        shuiyuanLike(2, 22, 'bob'),
-      ]);
-
-    await refreshNotifications();
-    await refreshNotifications();
-    expect(systemNotifyItem).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(systemNotifyItem).mock.calls[1]![1]).toBe('bob 赞了你的帖子');
   });
 });

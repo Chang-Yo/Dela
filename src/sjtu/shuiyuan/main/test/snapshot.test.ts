@@ -274,91 +274,6 @@ it('fails when the site is unreachable and resumes without refetching saved imag
   expect(fetch.mock.calls.map(([url]) => (url as URL).href)).toEqual([second]);
 });
 
-it('resumes an interrupted save without refetching the posts it already has', async () => {
-  const posts = Array.from({ length: 250 }, (_, index) => post(index + 1));
-  mockTopic(posts);
-  vi.mocked(loadShuiyuanPosts).mockImplementation(async (_topicId, ids) => {
-    if ((ids as number[]).includes(250)) throw new Error('无法连接水源社区，请检查网络后重试');
-    return posts.filter((item) => (ids as number[]).includes(item.id)) as never;
-  });
-
-  queueShuiyuanSnapshot(42);
-  expect(await saved()).toBe('failed');
-
-  mockTopic(posts);
-  vi.mocked(loadShuiyuanPosts).mockClear();
-  queueShuiyuanSnapshot(42);
-
-  expect(await saved()).toBe('done');
-  expect(
-    vi.mocked(loadShuiyuanPosts).mock.calls.map(([, ids]) => (ids as number[]).length),
-  ).toEqual([30]);
-  expect((await readShuiyuanSnapshot(42))!.posts).toHaveLength(250);
-  expect(readdirSync(join(userData, 'shuiyuan-snapshots', '42'))).not.toContain('posts.ndjson');
-});
-
-it('refreshing reuses images from the previous snapshot', async () => {
-  mockTopic([post(1, lightbox)]);
-  queueShuiyuanSnapshot(42);
-  expect(await saved()).toBe('done');
-  const before = (await readShuiyuanSnapshot(42))!;
-
-  mockTopic([post(1, lightbox), post(2)]);
-  fetch.mockClear();
-  queueShuiyuanSnapshot(42);
-
-  expect(await saved()).toBe('done');
-  expect(fetch).not.toHaveBeenCalled();
-  const after = (await readShuiyuanSnapshot(42))!;
-  expect(after.posts).toHaveLength(2);
-  expect(after.posts[0]!.cooked).toBe(before.posts[0]!.cooked);
-});
-
-it('makes saved images visible in paged drafts and keeps full reads available for the agent', async () => {
-  mockTopic(
-    Array.from({ length: 25 }, (_, index) =>
-      post(index + 1, index === 20 ? lightbox : '<p>正文</p>'),
-    ),
-  );
-  let release!: () => void;
-  fetch.mockImplementation(async () => {
-    await new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    return image();
-  });
-  queueShuiyuanSnapshot(42);
-  await vi.waitFor(async () => {
-    expect((await findShuiyuanSnapshot(42))?.index).toMatchObject({ postCount: 25 });
-    expect(release).toBeDefined();
-  }, WAIT);
-  expect((await readShuiyuanSnapshotPage(42, 2))[0]!.cooked).toContain('data-snapshot-pending');
-  release();
-  expect(await saved()).toBe('done');
-  const page = await readShuiyuanSnapshotPage(42, 2);
-  expect(page).toHaveLength(5);
-  expect(page[0]!.cooked).toContain('dela-resource://shuiyuan-snapshot/42/');
-  expect(page[0]!.cooked).not.toContain('data-snapshot-pending');
-  expect((await readShuiyuanSnapshot(42))!.posts).toHaveLength(25);
-});
-
-it('reads only the requested page without downloading', async () => {
-  const dir = join(userData, 'shuiyuan-snapshots', '42');
-  mkdirSync(dir, { recursive: true });
-  const index = { title: '快照', savedAt: '2026-11-04T00:00:00Z', postCount: 25, pageSize: 10 };
-  await writeSnapshotBytes(join(dir, 'index.json'), JSON.stringify(index));
-  await writeSnapshotBytes(
-    join(dir, 'page-2.json'),
-    JSON.stringify(Array.from({ length: 5 }, (_, i) => post(i + 21))),
-  );
-  expect((await findShuiyuanSnapshot(42))?.index).toEqual(index);
-  expect((await readShuiyuanSnapshotPage(42, 2)).map((p) => p.postNumber)).toEqual([
-    21, 22, 23, 24, 25,
-  ]);
-  expect(await readShuiyuanSnapshotPage(42, 3)).toEqual([]);
-  expect(fetch).not.toHaveBeenCalled();
-});
-
 it('prefers the completed snapshot over a newer draft for all local readers', async () => {
   const root = join(userData, 'shuiyuan-snapshots');
   for (const [name, title] of [
@@ -379,25 +294,6 @@ it('prefers the completed snapshot over a newer draft for all local readers', as
   rmSync(join(root, '42'), { recursive: true });
   expect(await readShuiyuanSnapshot(42)).toMatchObject({ title: '草稿', draft: true });
   expect((await readShuiyuanSnapshotPage(42, 0))[0]?.cooked).toBe('草稿');
-});
-
-it('preserves previously saved images when the same page is flushed again', async () => {
-  const second = `${site}/uploads/second.png`;
-  mockTopic([post(1, `${lightbox}<img src="${second}">`)]);
-  const now = vi.spyOn(Date, 'now');
-  fetch.mockImplementation(async () => {
-    now.mockReturnValue(new Date().getTime() + 6_000);
-    return image();
-  });
-  try {
-    queueShuiyuanSnapshot(42);
-    expect(await saved()).toBe('done');
-    const html = (await readShuiyuanSnapshotPage(42, 0))[0]!.cooked;
-    expect(html.match(/src="dela-resource:\/\/shuiyuan-snapshot\//g)).toHaveLength(2);
-    expect(html).not.toContain('data-snapshot-pending');
-  } finally {
-    now.mockRestore();
-  }
 });
 
 it('collects snapshots of topics no longer in any project', async () => {

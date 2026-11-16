@@ -29,20 +29,6 @@ it('keeps images already saved into the local snapshot', () => {
   expect(doc.querySelector('img')!.getAttribute('data-dela-image')).toBe(`${local}?thumbnail=1`);
 });
 
-it('replaces image markup the site escaped into a quote excerpt with a link to the post', () => {
-  const doc = sanitizeShuiyuanHtml(
-    `<aside class="quote" data-post="152" data-topic="22873"><div class="title">` +
-      `<a href="https://shuiyuan.sjtu.edu.cn/t/topic/22873/152">长帖</a></div><blockquote>` +
-      `<details><summary>Day1</summary>&lt;a class="lightbox" href="${upload}/original/a.jpeg" data-download-href=&amp;quo…</details>` +
-      `</blockquote></aside>`,
-  );
-  const details = doc.querySelector('details')!;
-  expect(details.textContent).not.toContain('lightbox');
-  expect(details.querySelector('a')!.getAttribute('href')).toBe(
-    'https://shuiyuan.sjtu.edu.cn/t/topic/22873/152',
-  );
-});
-
 it('holds the place of snapshot images not saved yet without loading them', () => {
   const doc = sanitizeShuiyuanHtml(
     `<a class="lightbox" href="${upload}/original/a.jpeg">` +

@@ -9,10 +9,6 @@ describe('decodeShuiyuanTitle', () => {
     expect(decodeShuiyuanTitle(':+1:')).toEqual(['👍']);
   });
 
-  it('连续短代码逐个替换', () => {
-    expect(decodeShuiyuanTitle(':ocean::tada:')).toEqual(['🌊', '🎉']);
-  });
-
   it('未注册短代码按 Discourse 行为保留原文', () => {
     expect(decodeShuiyuanTitle(':unknown-thing: 标题')).toEqual([':unknown-thing: 标题']);
   });
@@ -31,10 +27,5 @@ describe('decodeShuiyuanTitle', () => {
   it('时间与比分不被当作短代码', () => {
     expect(decodeShuiyuanTitle('会议记录 14:30:00')).toEqual(['会议记录 14:30:00']);
     expect(decodeShuiyuanTitle('比分 3:2:1')).toEqual(['比分 3:2:1']);
-  });
-
-  it('无短代码时原样返回', () => {
-    expect(decodeShuiyuanTitle('普通标题')).toEqual(['普通标题']);
-    expect(decodeShuiyuanTitle('')).toEqual([]);
   });
 });

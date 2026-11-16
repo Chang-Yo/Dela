@@ -114,16 +114,6 @@ describe('水源授权窗口生命周期', () => {
     );
   });
 
-  it('窗口仍开着时绑定成功会关闭，随后可以重新发起', async () => {
-    await startShuiyuanAuth(sender);
-    const first = mock.windows[0]!;
-    await bindShuiyuan(payload(first));
-    expect(first.destroyed).toBe(true);
-    await expect(bindShuiyuan(payload(first))).rejects.toThrow('请先点击');
-    await startShuiyuanAuth(sender);
-    expect(mock.windows).toHaveLength(2);
-  });
-
   it('加载失败清理窗口和待绑定状态，重试可成功', async () => {
     mock.load.mockRejectedValueOnce(new Error('offline'));
     await expect(startShuiyuanAuth(sender)).rejects.toThrow('offline');

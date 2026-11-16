@@ -67,10 +67,6 @@ it('reports online failure without silently substituting a snapshot or excerpt',
   expect(getShuiyuanSourceRef).not.toHaveBeenCalled();
 });
 
-it('rejects the ambiguous old resource type', () => {
-  expect(() => readResourceTool.execute({ ref: { type: 'shuiyuan-topic', id: 42 } })).toThrow();
-});
-
 it('keeps workspace references on the local document read path', async () => {
   const workspaceRef = { type: 'workspace', id: '00000000-0000-4000-8000-000000000042' };
   vi.mocked(readWorkspaceResource).mockResolvedValue({

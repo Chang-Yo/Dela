@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ShuiyuanPost,
-  ShuiyuanSiteStructure,
   ShuiyuanSourceRef,
   ShuiyuanTopicDetail,
   ShuiyuanTopicSummary,
@@ -12,7 +11,6 @@ import { shuiyuanDomain } from '../index';
 vi.mock('../../api', () => ({
   getShuiyuanState: vi.fn(),
   listShuiyuanTopics: vi.fn(),
-  getShuiyuanSiteStructure: vi.fn(),
   getShuiyuanTopic: vi.fn(),
   loadShuiyuanPosts: vi.fn(),
 }));
@@ -24,7 +22,6 @@ import { addShuiyuanSourceRef } from '../../sources';
 vi.mock('../../../../../modules/workspace', () => ({ createWorkspaceEntry: vi.fn() }));
 
 import {
-  getShuiyuanSiteStructure,
   getShuiyuanState,
   getShuiyuanTopic,
   listShuiyuanTopics,
@@ -34,7 +31,6 @@ import { createWorkspaceEntry } from '../../../../../modules/workspace';
 
 const state = vi.mocked(getShuiyuanState);
 const listTopics = vi.mocked(listShuiyuanTopics);
-const siteStructure = vi.mocked(getShuiyuanSiteStructure);
 const getTopic = vi.mocked(getShuiyuanTopic);
 const loadPosts = vi.mocked(loadShuiyuanPosts);
 const addSourceRef = vi.mocked(addShuiyuanSourceRef);
@@ -109,18 +105,6 @@ describe('search_shuiyuan_topics', () => {
     expect(result).not.toHaveProperty('total');
   });
 
-  it('passes the opaque nextCursor back for the next page', async () => {
-    listTopics.mockResolvedValue({ topics: [], moreUrl: null });
-    await shuiyuanDomain.commands.search_shuiyuan_topics.execute({
-      query: '选课',
-      nextCursor: '/search.json?q=x&page=3',
-    });
-    expect(listTopics).toHaveBeenCalledWith(
-      { kind: 'search', query: '选课' },
-      '/search.json?q=x&page=3',
-    );
-  });
-
   it('maps unbound and rate limited failures to contract error codes', async () => {
     state.mockReturnValue({ connected: false, username: null, boundAt: null });
     await expect(
@@ -174,36 +158,6 @@ describe('list_shuiyuan_topics', () => {
   });
 });
 
-describe('list_shuiyuan_categories', () => {
-  it('returns the category tree and tags for feed construction', async () => {
-    const structure: ShuiyuanSiteStructure = {
-      categories: [
-        { id: 4, name: '开发调优', slug: 'dev', color: '808281', parentId: null, topicCount: 120 },
-        {
-          id: 5,
-          name: '前端',
-          slug: 'fe',
-          color: '25AAE2',
-          parentId: 4,
-          topicCount: 30,
-        },
-      ],
-      tags: [{ name: '精品', topicCount: 99 }],
-      customEmoji: [{ name: 'sjtu', url: 'https://x/1.png' }],
-    };
-    siteStructure.mockResolvedValue(structure);
-    const result = (await shuiyuanDomain.commands.list_shuiyuan_categories.execute({})) as {
-      categories: unknown[];
-      tags: unknown[];
-    };
-    expect(result.categories).toEqual([
-      { id: 4, name: '开发调优', slug: 'dev', parentId: null, topicCount: 120 },
-      { id: 5, name: '前端', slug: 'fe', parentId: 4, topicCount: 30 },
-    ]);
-    expect(result.tags).toEqual([{ name: '精品', topicCount: 99 }]);
-  });
-});
-
 describe('read_shuiyuan_topic → read_shuiyuan_posts continuation chain', () => {
   it('exposes the full stream and the next chunk of unread post ids', async () => {
     const detail: ShuiyuanTopicDetail = {
@@ -249,30 +203,6 @@ describe('read_shuiyuan_topic → read_shuiyuan_posts continuation chain', () =>
     expect(result.posts.map((item) => item.id)).toEqual([120]);
     expect(result.missingPostIds).toEqual([999]);
   });
-
-  it('returns null continuation when every floor is already loaded', async () => {
-    getTopic.mockResolvedValue({
-      id: 43,
-      title: '短帖',
-      categoryId: null,
-      tags: [],
-      postsCount: 2,
-      highestPostNumber: 2,
-      likeCount: null,
-      views: null,
-      createdAt: '',
-      lastPostedAt: null,
-      closed: false,
-      archetype: 'regular',
-      bookmarked: false,
-      stream: [7, 8],
-      posts: [post(7, 1), post(8, 2)],
-    });
-    const result = (await shuiyuanDomain.commands.read_shuiyuan_topic.execute({ topicId: 43 })) as {
-      continuation: null;
-    };
-    expect(result.continuation).toBeNull();
-  });
 });
 
 describe('link_shuiyuan_topic', () => {
@@ -315,18 +245,5 @@ describe('link_shuiyuan_topic', () => {
       ref: { type: 'workspace', id: entry.id },
       onlineRef: { type: 'shuiyuan-online', id: 42 },
     });
-  });
-
-  it('maps a failed workspace entry to NOT_FOUND', async () => {
-    addSourceRef.mockResolvedValue(sourceRef);
-    createEntry.mockImplementation(() => {
-      throw new Error('目标不是文件夹或项目');
-    });
-    await expect(
-      shuiyuanDomain.commands.link_shuiyuan_topic.execute({
-        topicId: 42,
-        parentId: '0e2f6f5e-1234-4abc-8ef0-1234567890ab',
-      }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });

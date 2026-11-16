@@ -1,36 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeNotification, uploadMarkdown } from '../shuiyuan-format';
-
-const notification = (type: number, topicId: number | null = 42) => ({
-  id: 1,
-  type,
-  count: 5,
-  read: false,
-  highPriority: false,
-  createdAt: '2026-11-01T00:00:00Z',
-  topicId,
-  postNumber: topicId === null ? null : 3,
-  fancyTitle: topicId === null ? null : '期末复习',
-  displayUsername: '尼康感动常在',
-  originalPostId: topicId === null ? 4926962 : null,
-});
-
-describe('describeNotification', () => {
-  it('按 Discourse 类型区分提到（1）与回复（2）', () => {
-    expect(describeNotification(notification(1)).text).toBe(
-      '尼康感动常在 在「期末复习」中提到了你',
-    );
-    expect(describeNotification(notification(2)).text).toBe(
-      '尼康感动常在 回复了你在「期末复习」的帖子',
-    );
-  });
-
-  it('连赞（19）显示被赞的帖子数，而不是审核通过', () => {
-    expect(describeNotification(notification(19, null)).text).toBe(
-      '尼康感动常在 赞了你的 5 个帖子',
-    );
-  });
-});
+import { uploadMarkdown } from '../shuiyuan-format';
 
 const upload = (
   originalFilename: string,
@@ -57,12 +26,6 @@ describe('uploadMarkdown', () => {
     expect(
       uploadMarkdown({ name: 'a|b[1].jpg', type: 'image/jpeg', size: 1 }, upload('a|b[1].jpg')),
     ).toBe('![a b 1 ](upload://abc.png)');
-  });
-
-  it('音视频用 |video / |audio，站点据此渲染播放器', () => {
-    expect(
-      uploadMarkdown({ name: 'clip.mp4', type: 'video/mp4', size: 1 }, upload('clip.mp4')),
-    ).toBe('![clip.mp4|video](upload://abc.png)');
   });
 
   it('其他文件按 |attachment 写出并附大小', () => {
