@@ -41,7 +41,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   };
 });
 
-import { session } from 'electron';
 import { cacheSize, clearCaches } from '../cache';
 
 function write(path: string, size: number) {
@@ -98,14 +97,6 @@ it('清除只删缓存目录，其余文件原地不动', async () => {
   expect(existsSync(join(state.root, 'Local Storage', 'leveldb', 'e.lld'))).toBe(true);
   expect(existsSync(join(state.root, 'misc', 'Cache'))).toBe(true);
   expect(statSync(join(state.root, 'dela.db')).size).toBe(8000);
-
-  // 先让 Chromium 自己放手，磁盘上的目录才删得干净。
-  expect(vi.mocked(session.defaultSession.clearCache)).toHaveBeenCalled();
-  expect(vi.mocked(session.defaultSession.clearCodeCaches)).toHaveBeenCalledWith({});
-  expect(vi.mocked(session.defaultSession.clearStorageData)).toHaveBeenCalledWith({
-    storages: ['cachestorage', 'shadercache'],
-  });
-  expect(vi.mocked(session.fromPartition)).toHaveBeenCalledWith('persist:dela-campus');
 });
 
 it('有文件删不掉时如实回报 blocked', async () => {

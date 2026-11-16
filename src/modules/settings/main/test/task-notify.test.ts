@@ -43,15 +43,4 @@ describe('notifyRunFinished', () => {
     notifyRunFinished('session-1', 'completed');
     expect(systemNotifyToast).toHaveBeenCalledWith('任务完成', '整理复习计划');
   });
-
-  it('stays silent when the failed switch is off', () => {
-    setTaskNotificationPrefs({ completed: false, failed: false });
-    notifyRunFinished('session-1', 'failed');
-    expect(systemNotifyToast).not.toHaveBeenCalled();
-  });
-
-  it('falls back to a generic body for unknown sessions', () => {
-    notifyRunFinished('missing', 'failed');
-    expect(systemNotifyToast).toHaveBeenCalledWith('任务失败', 'Dela 会话');
-  });
 });

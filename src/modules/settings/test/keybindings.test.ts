@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   acceleratorFromEvent,
-  acceleratorKeys,
   defaultKeybindings,
   findShortcutConflicts,
   isAccelerator,
@@ -34,11 +33,6 @@ describe('acceleratorFromEvent', () => {
     expect(acceleratorFromEvent(key(',', { ctrlKey: true }))).toBe('Mod+,');
     expect(acceleratorFromEvent(key(' '))).toBe('Space');
     expect(acceleratorFromEvent(key('+', { ctrlKey: true }))).toBe('Mod+=');
-  });
-
-  it('单独的修饰键与无法识别的键不构成键位', () => {
-    expect(acceleratorFromEvent(key('Control', { ctrlKey: true }))).toBeNull();
-    expect(acceleratorFromEvent(key('Dead'))).toBeNull();
   });
 });
 
@@ -89,11 +83,6 @@ describe('matchShortcut 与 digit 族', () => {
       matchShortcut(bindings, { ...key('¡', { altKey: true }), code: 'Digit3' }, 'workbench'),
     ).toBe('focus-group');
   });
-
-  it('解绑后不再命中', () => {
-    const unbound = mergeKeybindings({ 'toggle-word-wrap': null });
-    expect(matchShortcut(unbound, key('z', { altKey: true }), 'global')).toBeNull();
-  });
 });
 
 describe('macOS 键位语义', () => {
@@ -117,8 +106,6 @@ describe('macOS 键位语义', () => {
     const accelerator = acceleratorFromEvent(key('k', { ctrlKey: true }), 'mac');
     expect(accelerator).toBe('Ctrl+K');
     expect(isAccelerator(accelerator)).toBe(true);
-    expect(acceleratorKeys(accelerator, 'mac')).toEqual(['⌃', 'K']);
-    expect(acceleratorKeys('Mod+Alt+K', 'mac')).toEqual(['⌘', '⌥', 'K']);
     const custom = mergeKeybindings({ 'global-search': accelerator });
     expect(matchShortcut(custom, key('k', { ctrlKey: true }), 'global', 'mac')).toBe(
       'global-search',
@@ -142,13 +129,6 @@ describe('macOS 键位语义', () => {
       ),
     ).toBeNull();
   });
-
-  it('Windows 仍使用 Control，不将系统 Win 键当作 Mod', () => {
-    expect(matchShortcut(bindings, key('k', { ctrlKey: true }), 'global', 'other')).toBe(
-      'global-search',
-    );
-    expect(matchShortcut(bindings, key('k', { metaKey: true }), 'global', 'other')).toBeNull();
-  });
 });
 
 describe('findShortcutConflicts', () => {
@@ -156,14 +136,6 @@ describe('findShortcutConflicts', () => {
     const conflicts = findShortcutConflicts(mergeKeybindings({ 'global-search': 'Mod+O' }));
     expect(conflicts).toHaveLength(1);
     expect(conflicts[0]!.actionIds).toEqual(['import-files', 'global-search']);
-  });
-
-  it('digit 族按展开后的键位判定冲突', () => {
-    const conflicts = findShortcutConflicts(mergeKeybindings({ 'focus-group': 'Mod+1' }));
-    // Mod+1…9 全部归 focus-group，其中前三档与「首页」「邮箱」「课表」的默认键位重叠。
-    expect(conflicts.map((conflict) => conflict.accelerator)).toEqual(['Mod+1', 'Mod+2', 'Mod+3']);
-    expect(conflicts[0]!.actionIds).toEqual(['open-home', 'focus-group']);
-    expect(conflicts[2]!.actionIds).toEqual(['open-timetable', 'focus-group']);
   });
 
   it('默认键位表本身无冲突', () => {

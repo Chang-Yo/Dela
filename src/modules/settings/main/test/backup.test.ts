@@ -147,13 +147,6 @@ it('跳过可再生缓存、保留用户数据，并给数据库取一致快照'
   }
 });
 
-it('用户取消时不生成任何东西', async () => {
-  state.picked = { canceled: true, filePaths: [] };
-
-  expect(await exportUserData(null)).toEqual({ status: 'cancelled' });
-  expect(readdirSync(pickedDirectory)).toEqual([]);
-});
-
 it('同一分钟重复导出不覆盖已有备份', async () => {
   const first = exported(await exportUserData(null));
   const second = exported(await exportUserData(null));

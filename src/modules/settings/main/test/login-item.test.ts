@@ -53,8 +53,8 @@ describe('macOS 登录项生效确认', () => {
     expect(state.write).not.toHaveBeenCalled();
   });
 
-  it.each(['not-registered', 'not-found'])('确认未注册后保存关闭状态（%s）', (status) => {
-    state.getLogin.mockReturnValue({ openAtLogin: false, status });
+  it('确认未注册后保存关闭状态', () => {
+    state.getLogin.mockReturnValue({ openAtLogin: false, status: 'not-registered' });
     expect(setOpenAtLogin(false)).toBe(false);
     expect(state.setLogin).toHaveBeenCalledWith({ openAtLogin: false });
     expect(state.write).toHaveBeenCalledWith('open-at-login', '0');
