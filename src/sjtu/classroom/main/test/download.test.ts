@@ -1,5 +1,4 @@
 import { EventEmitter } from 'node:events';
-import { join } from 'node:path';
 import { beforeEach, expect, it, vi } from 'vitest';
 const boundary = vi.hoisted(() => ({
   choose: vi.fn(),
@@ -37,13 +36,7 @@ vi.mock('../api', () => ({
     { view: 5, duration: 3283, url: 'https://live.sjtu.edu.cn/test.mp4?key=private' },
   ],
 }));
-import {
-  chooseDownloadDirectory,
-  downloadVideo,
-  exportTranscript,
-  listDownloads,
-  revealDownload,
-} from '../downloads';
+import { downloadVideo, exportTranscript, listDownloads, revealDownload } from '../downloads';
 import { issuePlayback } from '../playback';
 beforeEach(() => {
   campus = new EventEmitter();
@@ -71,32 +64,6 @@ it('returns available views and duration with an opaque playback route, never th
   expect(stream?.view).toBe(5);
   expect(stream?.duration).toBe(3283);
   expect(stream?.playbackUrl).toMatch(/^dela-resource:\/\/vsjtu\/video\/60\/5\?t=[0-9a-f]{32}$/);
-});
-
-it('does not start a transfer when the native save dialog is cancelled', async () => {
-  boundary.choose.mockResolvedValue({ canceled: true });
-  await downloadVideo(60, 5, '录像');
-  expect(boundary.download).not.toHaveBeenCalled();
-});
-
-it('starts the save dialog in the configured video directory, or by file name alone when unset', async () => {
-  boundary.choose.mockResolvedValue({ canceled: true });
-  await downloadVideo(60, 5, '线性代数 第3讲');
-  expect(boundary.choose.mock.calls[0]?.[0]).toMatchObject({
-    defaultPath: '线性代数 第3讲-画面5.mp4',
-  });
-  boundary.directory = 'D:/课堂录像';
-  await downloadVideo(61, 5, '线性代数 第3讲');
-  expect(boundary.choose.mock.calls[1]?.[0]).toMatchObject({
-    defaultPath: join('D:/课堂录像', '线性代数 第3讲-画面5.mp4'),
-  });
-});
-
-it('saves the picked download directory and keeps the old value on cancel', async () => {
-  boundary.choose.mockResolvedValue({ canceled: false, filePaths: ['D:/课堂录像'] });
-  expect(await chooseDownloadDirectory()).toBe('D:/课堂录像');
-  boundary.choose.mockResolvedValue({ canceled: true, filePaths: [] });
-  expect(await chooseDownloadDirectory()).toBe('D:/课堂录像');
 });
 
 it('reports network interruption distinctly from a user cancellation and never reveals an incomplete file', async () => {

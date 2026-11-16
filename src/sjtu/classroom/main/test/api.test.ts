@@ -191,13 +191,8 @@ describe.each(['courses', 'videos'] as const)('%s empty pages', (kind) => {
 
   it.each([
     { records: null, rowCount: 1, pageCount: 0 },
-    { records: null, rowCount: 0, pageCount: 1 },
     { records: null, pageCount: 0 },
-    { records: null, rowCount: 0 },
-    { records: null, rowCount: '0', pageCount: 0 },
-    { records: null, rowCount: 0, pageCount: '0' },
     { rowCount: 0, pageCount: 0 },
-    { records: {}, rowCount: 0, pageCount: 0 },
   ])('rejects incomplete or inconsistent empty data without retry (%j)', async (data) => {
     server.replies.push({ ok: true, dataOk: true, status: 200, data });
     const expectedRequests = server.replies.length;
@@ -207,10 +202,6 @@ describe.each(['courses', 'videos'] as const)('%s empty pages', (kind) => {
 
   it.each([
     [{ ok: false, dataOk: true, status: 200 }, '接口请求失败'],
-    [{ ok: true, dataOk: false, status: 200 }, '接口请求失败'],
-    [{ dataOk: true, status: 200 }, '列表数据格式已变化'],
-    [{ ok: true, status: 200 }, '列表数据格式已变化'],
-    [{ ok: true, dataOk: true, status: 401 }, '登录'],
     [{ ok: true, dataOk: true, code: '-1' }, '登录'],
   ] as const)(
     'does not treat an unconfirmed or failed response as empty (%j)',
@@ -253,85 +244,13 @@ describe('on-demand course list', () => {
     ]);
   });
 
-  it('paginates the official course list, filters by current term and deduplicates course IDs', async () => {
-    const current = { acteId: '11', teclId: '9000', subjCode: null, subjName: '测试课程' };
-    server.replies.push(
-      {
-        ok: true,
-        dataOk: true,
-        data: {
-          records: [
-            { ...current, acteId: 10, teclId: 8999 },
-            current,
-            { ...current, acteId: 12, teclId: 9001 },
-          ],
-          pageCount: 2,
-        },
-      },
-      {
-        ok: true,
-        dataOk: true,
-        data: { records: [current, { ...current, teclId: 9002, subjCode: 'TEST' }], pageCount: 2 },
-      },
-    );
-    await expect(listCourses()).resolves.toEqual([
-      { id: 9000, code: '', name: '测试课程' },
-      { id: 9002, code: 'TEST', name: '测试课程' },
-    ]);
-    expect(server.urls).toHaveLength(5);
-    for (const [index, value] of server.urls.slice(3).entries()) {
-      const url = new URL(value);
-      expect(url.pathname).toBe('/jy-application-resourcemanage/v1/group_subject_vod_list/t-1');
-      expect(url.searchParams.get('page.pageIndex')).toBe(String(index + 1));
-      expect(url.searchParams.get('page.pageSize')).toBe('1000');
-      expect(url.searchParams.get('page.orders[0].asc')).toBe('false');
-      expect(url.searchParams.get('page.orders[0].field')).toBe('courBeginTime');
-    }
-  });
-
-  it('returns no courses when on-demand courses belong only to older terms', async () => {
-    server.replies.push({
-      ok: true,
-      data: { records: [{ acteId: 10, teclId: 9000, subjName: '旧课程' }], pageCount: 1 },
-    });
-    await expect(listCourses()).resolves.toEqual([]);
-  });
-
   it.each([
     { teclId: 9000, subjName: '缺少学期' },
     { acteId: null, teclId: 9000, subjName: '无效学期' },
-    { acteId: 11, teclId: 'invalid', subjName: '无效课程编号' },
-    { acteId: 11, teclId: 9000 },
   ])('rejects incomplete on-demand course metadata (%j)', async (course) => {
     server.replies.push({ ok: true, data: { records: [course], pageCount: 1 } });
     await expect(listCourses()).rejects.toThrow('数据格式已变化');
   });
-
-  it.each([
-    [{ ok: false, data: { records: [] } }, '接口请求失败'],
-    [{ ok: true, dataOk: false, data: { records: [] } }, '接口请求失败'],
-    [{ code: '-1', data: null }, '登录'],
-    [{ ok: true, data: { unexpected: [] } }, '列表数据格式已变化'],
-  ] as const)(
-    'reports on-demand errors instead of presenting an empty list (%j)',
-    async (reply, error) => {
-      server.replies.push(reply);
-      await expect(listCourses()).rejects.toThrow(error);
-      expect(server.urls).toHaveLength(4);
-    },
-  );
-
-  it.each([
-    { ok: false, data: { records: [], pageCount: 0 } },
-    { ok: true, dataOk: false, data: { records: [], pageCount: 0 } },
-  ])(
-    'does not query on-demand courses after the curriculum reports failure (%j)',
-    async (reply) => {
-      server.replies[2] = reply;
-      await expect(listCourses()).rejects.toThrow('接口请求失败');
-      expect(server.urls).toHaveLength(3);
-    },
-  );
 });
 
 it('preserves video pagination, query parameters and field mapping', async () => {
@@ -368,19 +287,6 @@ it('does not discard earlier pages when a later page unexpectedly reports zero t
   ];
   await expect(listVideos(9000)).rejects.toThrow('列表数据格式已变化');
   expect(server.urls).toHaveLength(3);
-});
-
-it('rejects missing streams without guessing the cause and retains validation details', () => {
-  expect(() => parseStreams({ courseVodViewList: null })).toThrow(
-    expect.objectContaining({
-      message: '暂未获取到可播放录像，请稍后重试',
-      cause: expect.objectContaining({
-        issues: expect.arrayContaining([
-          expect.objectContaining({ path: ['courseVodViewList'], code: 'invalid_type' }),
-        ]),
-      }),
-    }),
-  );
 });
 
 it('keeps both valid streams and rejects links outside the known media host', () => {

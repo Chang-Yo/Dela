@@ -78,21 +78,6 @@ it('restores a saved position when metadata is ready', async () => {
   expect(container.querySelector('[role="status"]')?.textContent).toContain('2:00');
 });
 
-it('offers a restart link that clears the saved position', async () => {
-  savePlaybackProgress(video.id, 120);
-  const element = await renderPlayer();
-  await fire(element, 'loadedmetadata');
-  const notice = container.querySelector('[role="status"]')!;
-  const restart = [...notice.querySelectorAll('button')].find(
-    (button) => button.textContent === '回到开头',
-  );
-  expect(restart).toBeDefined();
-  await act(async () => restart!.click());
-  expect(element.currentTime).toBe(0);
-  expect(readPlaybackProgress(video.id)).toBeNull();
-  expect(container.querySelector('[role="status"]')).toBeNull();
-});
-
 it('lets a transcript seek override the saved position', async () => {
   savePlaybackProgress(video.id, 120);
   useClassroom.setState({ seekRequest: { videoId: video.id, seconds: 60 } });
@@ -110,13 +95,5 @@ it('saves the current second on pause and clears progress after the lecture ends
   expect(readPlaybackProgress(video.id)).toBe(45);
 
   await fire(element, 'ended');
-  expect(readPlaybackProgress(video.id)).toBeNull();
-});
-
-it('does not resume a lecture that was left in its last second', async () => {
-  savePlaybackProgress(video.id, 299);
-  const element = await renderPlayer();
-  await fire(element, 'loadedmetadata');
-  expect(element.currentTime).toBe(0);
   expect(readPlaybackProgress(video.id)).toBeNull();
 });

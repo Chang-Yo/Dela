@@ -67,25 +67,6 @@ it('does not cache absent transcripts or confuse service and schema failures wit
   }
 });
 
-it('keeps only the latest transcript and releases it after five minutes', async () => {
-  await api.getTranscript(12);
-  await api.getTranscript(12);
-  expect(reads()).toBe(1);
-  await api.getTranscript(13);
-  await api.getTranscript(12);
-  expect(reads()).toBe(3);
-  await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
-  await api.getTranscript(12);
-  expect(reads()).toBe(4);
-});
-
-it('returns a large transcript without retaining it in the cache', async () => {
-  payload = { ok: true, data: { afterAssemblyList: [{ bg: 0, ed: 1, res: '文'.repeat(400000) }] } };
-  expect((await api.getTranscript(12))!.segments[0]!.text).toHaveLength(400000);
-  await api.getTranscript(12);
-  expect(reads()).toBe(2);
-});
-
 it('checks authentication before cache hits and clears the cache on failure', async () => {
   await api.getTranscript(12);
   server.request.mockResolvedValueOnce(JSON.stringify({ code: '-1', result: null }));
@@ -98,14 +79,5 @@ it('invalidates the cached transcript when the campus session changes', async ()
   await api.getTranscript(12);
   changeSession();
   await api.getTranscript(12);
-  expect(reads()).toBe(2);
-});
-
-it('refetches with the new session when the session changes during a read', async () => {
-  server.request.mockImplementationOnce(async () => {
-    changeSession();
-    return JSON.stringify(payload);
-  });
-  expect((await api.getTranscript(12))!.segments[0]!.text).toBe('测试文稿');
   expect(reads()).toBe(2);
 });

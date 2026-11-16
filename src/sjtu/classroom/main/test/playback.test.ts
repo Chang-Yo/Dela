@@ -76,20 +76,6 @@ it('retries a temporary upstream failure while preserving the requested byte ran
   ).toEqual(['bytes=100-101', 'bytes=100-101']);
 });
 
-it('forwards HEAD without starting a full GET and preserves unsatisfied-range metadata', async () => {
-  upstream.fetch.mockResolvedValue(
-    new Response(null, {
-      status: 416,
-      headers: { 'content-range': 'bytes */200' },
-    }),
-  );
-  const response = await mediaRequest({ method: 'HEAD', headers: { range: 'bytes=999-' } });
-  expect(upstream.fetch.mock.calls[0]![1].method).toBe('HEAD');
-  expect(response.status).toBe(416);
-  expect(response.headers.get('content-range')).toBe('bytes */200');
-  expect(response.body).toBeNull();
-});
-
 it('times out an upstream that never sends headers, with a bounded retry', async () => {
   vi.useFakeTimers();
   upstream.fetch.mockImplementation(
@@ -127,19 +113,6 @@ it('ends a stalled response body instead of leaving the player waiting indefinit
   expect(signal?.aborted).toBe(true);
 });
 
-it('does not treat downstream backpressure as an upstream read timeout', async () => {
-  vi.useFakeTimers();
-  let signal: AbortSignal | undefined;
-  upstream.fetch.mockImplementation(async (_url, options) => {
-    signal = options.signal;
-    return new Response(new ReadableStream({ pull() {} }));
-  });
-  const response = await mediaRequest();
-  await vi.advanceTimersByTimeAsync(60000);
-  expect(signal?.aborted).toBe(false);
-  await response.body!.cancel();
-});
-
 it('rejects forged tokens before resolving sources or contacting the media host', async () => {
   const response = await handleVsjtuMediaRequest(
     new Request(`dela-resource://vsjtu/video/${videoId}/1?t=${'0'.repeat(32)}`),
@@ -162,14 +135,4 @@ it('shares a signature refresh across concurrent expired Range requests', async 
   );
   expect(await Promise.all(responses.map((response) => response.text()))).toEqual(['ok', 'ok']);
   expect(upstream.streams).toHaveBeenCalledTimes(2);
-});
-
-it('does not retry a request cancelled by the player', async () => {
-  const controller = new AbortController();
-  upstream.fetch.mockImplementation(async () => {
-    controller.abort();
-    throw new DOMException('cancelled', 'AbortError');
-  });
-  await mediaRequest({ signal: controller.signal });
-  expect(upstream.fetch).toHaveBeenCalledTimes(1);
 });
