@@ -1,6 +1,5 @@
-import { diffLines, diffWords } from 'diff';
+import { lazy, Suspense } from 'react';
 import type { AgentToolResult, SubagentDetails } from '../../../core/protocol/agent';
-import type { CodePiece, DiffRow } from '../../../ui/code-block';
 import CodeBlock from '../../../ui/code-block';
 import { openLightbox } from '../../../ui/lightbox';
 import { Button } from '../../../ui/button';
@@ -9,6 +8,10 @@ import type { Navigate } from '../../../app/module';
 import { useChatTabSource } from './chat-source';
 import { useSessions } from './sessions';
 import { ChatMarkdown } from './markdown';
+
+const EditDiffCard = lazy(() =>
+  import('./review/pierre-diff').then((module) => ({ default: module.EditDiffCard })),
+);
 
 // 工具卡片的正文视图：按 Pi 内置工具（read/write/edit/bash/grep/find/ls）渲染输入与文本输出，
 // read 读到图片时直接预览图片本体。输出形状见 core/protocol/agent 的 AgentToolOutput（text + image + 工具 details）。
@@ -21,58 +24,6 @@ type ViewProps = { result: AgentToolResult; failed: boolean };
 
 function outputText(result: AgentToolResult): string {
   return result.output?.text ?? '';
-}
-
-/** 由 oldText → newText 构造 CodeBlock Diff 视图的行：逐行配对的增删之间做
- *  词级对比（pieces），未配对行整行着色。 */
-function buildDiffRows(oldText: string, newText: string): DiffRow[] {
-  const chunks = diffLines(oldText, newText);
-  const rows: DiffRow[] = [];
-  let oldNo = 0;
-  let newNo = 0;
-  const pushChunk = (
-    chunk: { added?: boolean; removed?: boolean; value: string },
-    pair?: { added?: boolean; removed?: boolean; value: string },
-  ) => {
-    const type = chunk.added ? 'add' : chunk.removed ? 'del' : 'ctx';
-    const lines = chunk.value.replace(/\n$/, '').split('\n');
-    const pairLines = pair ? pair.value.replace(/\n$/, '').split('\n') : undefined;
-    for (let index = 0; index < lines.length; index += 1) {
-      if (type === 'del') oldNo += 1;
-      if (type === 'add' || type === 'ctx') newNo += 1;
-      const pairLine = pairLines?.[index];
-      const pieces: CodePiece[] =
-        type === 'del' && pairLine !== undefined && pair?.added
-          ? diffWords(lines[index]!, pairLine).map((part) => ({
-              text: part.value,
-              change: part.added ? 'add' : part.removed ? 'del' : undefined,
-            }))
-          : [{ text: lines[index]! }];
-      rows.push({
-        old: type === 'add' ? null : oldNo,
-        cur: type === 'del' ? null : newNo,
-        type,
-        pieces,
-      });
-    }
-    if (pairLines && pairLines.length > lines.length && pair?.added) {
-      for (let index = lines.length; index < pairLines.length; index += 1) {
-        newNo += 1;
-        rows.push({ old: null, cur: newNo, type: 'add', pieces: [{ text: pairLines[index]! }] });
-      }
-    }
-  };
-  for (let index = 0; index < chunks.length; index += 1) {
-    const chunk = chunks[index]!;
-    const next = chunks[index + 1];
-    if (chunk.removed && next?.added) {
-      pushChunk(chunk, next);
-      index += 1;
-    } else {
-      pushChunk(chunk);
-    }
-  }
-  return rows;
 }
 
 function BashView({ result, failed }: ViewProps) {
@@ -164,19 +115,19 @@ function EditView({ result, failed }: ViewProps) {
   );
   if (!edits.length) return null;
   return (
-    <div className="mb-1 mt-1 min-w-0 space-y-1.5">
-      {edits.map((edit, index) => (
-        <CodeBlock
-          key={index}
-          bodyClassName="max-h-80 overflow-y-auto"
-          diff={buildDiffRows(edit.oldText!, edit.newText!)}
-          filename={input?.path ?? ''}
-          fill
-          tone={failed ? 'error' : undefined}
-          variant="Diff"
-        />
-      ))}
-    </div>
+    <Suspense fallback={null}>
+      <div className="mb-1 mt-1 min-w-0 space-y-1.5">
+        {edits.map((edit, index) => (
+          <EditDiffCard
+            failed={failed}
+            key={index}
+            newText={edit.newText!}
+            oldText={edit.oldText!}
+            path={input?.path ?? ''}
+          />
+        ))}
+      </div>
+    </Suspense>
   );
 }
 
