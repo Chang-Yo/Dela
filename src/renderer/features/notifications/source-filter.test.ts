@@ -11,13 +11,19 @@ describe('notification source filter', () => {
     const { toggleSource } = useNotificationSourceFilter.getState();
     toggleSource('jwc');
     toggleSource('mail');
-    expect(useNotificationSourceFilter.getState().sources).toEqual(['shuiyuan', 'todo', 'canvas']);
+    expect(useNotificationSourceFilter.getState().sources).toEqual([
+      'shuiyuan',
+      'todo',
+      'canvas',
+      'notice',
+    ]);
     toggleSource('jwc');
     expect(useNotificationSourceFilter.getState().sources).toEqual([
       'shuiyuan',
       'todo',
       'jwc',
       'canvas',
+      'notice',
     ]);
   });
 

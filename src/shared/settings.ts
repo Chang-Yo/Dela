@@ -20,8 +20,8 @@ export interface TaskNotificationPrefs {
   failed: boolean;
 }
 
-/** 试验功能：总开关 + 子项（水源、课堂视频下载）；子项只在总开关开启时生效，键缺失视为开启。 */
-export type ExperimentKey = 'master' | 'shuiyuan' | 'videoDownload';
+/** 试验功能：总开关 + 子项（水源、课堂视频下载、公告订阅）；子项只在总开关开启时生效，键缺失视为开启。 */
+export type ExperimentKey = 'master' | 'shuiyuan' | 'videoDownload' | 'noticeSubscriptions';
 export type ExperimentState = Record<ExperimentKey, boolean>;
 
 export interface SettingsApi {

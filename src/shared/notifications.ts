@@ -1,4 +1,4 @@
-export const notificationSources = ['mail', 'shuiyuan', 'todo', 'jwc', 'canvas'] as const;
+export const notificationSources = ['mail', 'shuiyuan', 'todo', 'jwc', 'canvas', 'notice'] as const;
 export type NotificationSource = (typeof notificationSources)[number];
 export type NotificationCategory = 'like' | 'reply' | 'mention' | 'message' | 'other';
 export interface NotificationItem {
@@ -14,6 +14,7 @@ export interface NotificationItem {
     | { kind: 'todo'; todoId: string }
     | { kind: 'mail'; messageId: number }
     | { kind: 'jwc'; url: string }
+    | { kind: 'notice'; url: string; publishedAt: string | null }
     | { kind: 'canvas'; sourceId: string }
     | { kind: 'shuiyuan'; topicId: number; postNumber?: number | null }
     | { kind: 'shuiyuan-post'; postId: number };
@@ -35,6 +36,15 @@ export interface NotificationsApi {
     token: string,
     code: string,
   ): Promise<{ status: 'saved' | 'canceled' | 'invalid-code' }>;
+  getSubscriptions(): Promise<NotificationSubscriptions>;
+  setJwcSubscribed(enabled: boolean): Promise<NotificationState>;
+  previewNoticeSubscription(
+    url: string,
+    sampleTitle?: string,
+    render?: boolean,
+  ): Promise<NoticePreview>;
+  addNoticeSubscription(token: string, candidate: number): Promise<NotificationState>;
+  removeNoticeSubscription(id: string): Promise<NotificationState>;
   getState(sources?: readonly NotificationSource[]): Promise<NotificationState>;
   refresh(): Promise<NotificationState>;
   markRead(id: string): Promise<NotificationState>;
@@ -42,6 +52,38 @@ export interface NotificationsApi {
   setSnooze(until: string | null): Promise<NotificationState>;
   onUpdate(listener: (state: NotificationState) => void): () => void;
   onOpen(listener: (item: NotificationItem) => void): () => void;
+}
+
+export interface NoticeSubscription {
+  id: string;
+  label: string;
+  pageUrl: string;
+  acquisition: 'http' | 'rendered';
+  lastSuccessAt: string | null;
+  entryCount: number;
+  unreadCount: number;
+  error: string | null;
+}
+
+export interface NotificationSubscriptions {
+  jwc: boolean;
+  notices: NoticeSubscription[];
+}
+
+export interface NoticePreview {
+  token: string;
+  pageUrl: string;
+  title: string;
+  acquisition: 'http' | 'rendered';
+  status: 'ok' | 'needs-selection' | 'unsupported';
+  candidates: {
+    label: string;
+    reasons: string[];
+    entries: { title: string; url: string; publishedAt: string | null }[];
+  }[];
+  feeds: { title: string; url: string }[];
+  sectionLinks?: { title: string; url: string }[];
+  diagnostics: string[];
 }
 
 export interface JwcNotice {

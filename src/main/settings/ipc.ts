@@ -26,6 +26,7 @@ import {
   zoomSchema,
 } from './prefs';
 import { cancelVideoDownloads } from '../vsjtu/ipc';
+import { broadcastNotifications } from '../notifications';
 
 export function applyTheme(theme: z.infer<typeof themeSchema>): 'system' | 'light' | 'dark' {
   nativeTheme.themeSource = theme;
@@ -40,11 +41,12 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('settings:set-experiment', (event, key, value) => {
     checkWorkspaceSender(event);
     const state = setExperiment(
-      z.enum(['master', 'shuiyuan', 'videoDownload']).parse(key),
+      z.enum(['master', 'shuiyuan', 'videoDownload', 'noticeSubscriptions']).parse(key),
       z.boolean().parse(value),
     );
     // 下载关闭即取消进行中的任务（用户决定：立即取消，不等下完）。
     if (!state.master || !state.videoDownload) cancelVideoDownloads();
+    broadcastNotifications();
     return state;
   });
   ipcMain.handle('settings:get-theme', (event) => {

@@ -9,6 +9,7 @@ export default defineConfig({
     ),
   },
   test: {
+    maxWorkers: 4,
     // 单元测试不启动 Electron，也需能找到应用随包分发的搜索工具。
     env: {
       PATH: [
@@ -23,6 +24,7 @@ export default defineConfig({
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*',
       '.tools/**',
+      'experiments/**',
       '**/*.remote.test.ts',
     ],
   },

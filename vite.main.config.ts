@@ -40,7 +40,15 @@ export default defineConfig({
   build: {
     target: 'node24',
     outDir: 'out/main',
-    lib: { entry: 'src/main/index.ts', formats: ['cjs'], fileName: () => 'index.cjs' },
+    lib: {
+      entry: {
+        index: 'src/main/bootstrap.ts',
+        app: 'src/main/index.ts',
+        'render-worker': 'src/main/notifications/notice-subscriptions/render-worker.ts',
+      },
+      formats: ['cjs'],
+      fileName: (_, name) => `${name}.cjs`,
+    },
     rolldownOptions: {
       external: [
         'electron',
@@ -52,6 +60,7 @@ export default defineConfig({
         'openai',
         'typebox',
         'better-sqlite3',
+        'cheerio',
         'node-pty',
         'imapflow',
         'nodemailer',

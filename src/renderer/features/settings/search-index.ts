@@ -26,6 +26,12 @@ export const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['实验', '水源', '社区', 'shuiyuan'],
   },
   {
+    id: 'experimental-notice-subscriptions',
+    section: 'general',
+    title: '公告订阅（试验）',
+    keywords: ['实验', '公告', '通知', '订阅', '学院', 'notice', 'rss'],
+  },
+  {
     id: 'experimental-video-download',
     section: 'general',
     title: '课堂视频下载（试验）',

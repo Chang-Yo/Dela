@@ -110,6 +110,75 @@ it.each([true, false])('首次导入近两个月通知且不提醒（正式版�
   expect(request).toHaveBeenCalledTimes(3);
 });
 
+it('不启动已停用的教务处刷新', async () => {
+  await refreshJwc(true, () => false);
+  expect(request).not.toHaveBeenCalled();
+  expect(db.prepare('SELECT * FROM workspace_settings').all()).toEqual([]);
+  expect(db.prepare('SELECT * FROM notification_refreshes').all()).toEqual([]);
+});
+
+it.each(['success', 'not-modified', 'failure', 'response-body'] as const)(
+  '刷新期间关闭教务处订阅时丢弃 %s 结果，重新开启可立即刷新',
+  async (outcome) => {
+    let enabled = true;
+    const isCurrent = () => enabled;
+    request.mockResolvedValueOnce(page(list(row(1))));
+    await refreshJwc(true);
+    const notifications = db.prepare('SELECT * FROM notifications').all();
+    const saved = db.prepare("SELECT value FROM workspace_settings WHERE key = 'jwc-sync'").get();
+    const refreshes = db.prepare('SELECT * FROM notification_refreshes').all();
+    vi.setSystemTime(new Date(Date.now() + 21 * 60_000));
+
+    let finish!: (response: Response) => void;
+    let fail!: (error: Error) => void;
+    let finishBody!: (html: string) => void;
+    const response = page(list(row(2) + row(1)));
+    const readBody = vi.spyOn(response, 'text');
+    if (outcome === 'response-body') {
+      readBody.mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            finishBody = resolve;
+          }),
+      );
+      request.mockResolvedValueOnce(response);
+    } else {
+      request.mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve, reject) => {
+            finish = resolve;
+            fail = reject;
+          }),
+      );
+    }
+
+    const refreshing = refreshJwc(false, isCurrent);
+    if (outcome === 'response-body') await vi.waitFor(() => expect(readBody).toHaveBeenCalled());
+    enabled = false;
+    if (outcome === 'response-body') finishBody(list(row(2) + row(1)));
+    else if (outcome === 'failure') fail(new Error('network failed'));
+    else finish(outcome === 'not-modified' ? new Response(null, { status: 304 }) : response);
+    await refreshing;
+
+    expect(db.prepare('SELECT * FROM notifications').all()).toEqual(notifications);
+    expect(db.prepare("SELECT value FROM workspace_settings WHERE key = 'jwc-sync'").get()).toEqual(
+      saved,
+    );
+    expect(db.prepare('SELECT * FROM notification_refreshes').all()).toEqual(refreshes);
+    expect(systemNotifyItem).not.toHaveBeenCalled();
+
+    enabled = true;
+    request.mockResolvedValueOnce(page(list(row(2) + row(1))));
+    await refreshJwc(false, isCurrent);
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(db.prepare('SELECT id FROM notifications ORDER BY id').all()).toEqual([
+      { id: 'jwc:1' },
+      { id: 'jwc:2' },
+    ]);
+    expect(systemNotifyItem).toHaveBeenCalledTimes(1);
+  },
+);
+
 it('首次忽略的过期首页通知不会在后续刷新时作为新通知导入', async () => {
   request.mockImplementation(async () => page(list(row(9, '01', '2026.09'))));
   await refreshJwc(true);

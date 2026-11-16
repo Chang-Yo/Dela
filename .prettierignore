@@ -1,5 +1,6 @@
 node_modules/
 .tools/
+.serena/
 out/
 dist/
 coverage/
@@ -9,3 +10,5 @@ pnpm-lock.yaml
 scripts/*.ps1
 # vendored 组件库，保留上游代码风格（见目录内 README）
 src/renderer/components/ui/beautifului/
+
+experiments/notice-subscriptions/

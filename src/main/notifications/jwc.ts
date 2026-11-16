@@ -8,7 +8,7 @@ import { getDatabase } from '../database';
 import { systemNotifyItem } from './system';
 
 const origin = 'https://jwc.sjtu.edu.cn';
-const listUrl = `${origin}/index/mxxsdtz.htm`;
+export const listUrl = `${origin}/index/mxxsdtz.htm`;
 const syncKey = 'jwc-sync';
 const accountKey = 'students';
 let nextCheckAt = 0;
@@ -60,7 +60,8 @@ export function parseJwcList(html: string, pageUrl: string) {
   return { items, next: next ? new URL(next, pageUrl).href : null };
 }
 
-export async function refreshJwc(force = false): Promise<void> {
+export async function refreshJwc(force = false, isCurrent = () => true): Promise<void> {
+  if (!isCurrent()) return;
   const db = getDatabase();
   const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(syncKey) as
     { value: string } | undefined;
@@ -118,6 +119,7 @@ export async function refreshJwc(force = false): Promise<void> {
       sync.etag = response.headers.get('etag');
       sync.modified = response.headers.get('last-modified');
     }
+    if (!isCurrent()) return;
     sync.checkedAt = Date.now();
     db.transaction(() => {
       const insert = db.prepare(`INSERT OR IGNORE INTO notifications
@@ -144,10 +146,13 @@ export async function refreshJwc(force = false): Promise<void> {
     })();
     if (!initialSync) for (const item of added) systemNotifyItem(item);
   } catch (error) {
+    if (!isCurrent()) return;
     db.prepare(
       `INSERT INTO notification_refreshes (source, account_key, last_success_at, error)
       VALUES ('jwc', ?, NULL, ?) ON CONFLICT(source, account_key) DO UPDATE SET error = excluded.error`,
     ).run(accountKey, error instanceof Error ? error.message : String(error));
+  } finally {
+    if (!isCurrent()) nextCheckAt = 0;
   }
 }
 

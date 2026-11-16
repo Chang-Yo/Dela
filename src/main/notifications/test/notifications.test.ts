@@ -13,6 +13,7 @@ vi.mock('electron', () => ({
 }));
 vi.mock('../../database', () => ({ getDatabase: vi.fn() }));
 vi.mock('../jwc', () => ({
+  listUrl: 'https://jwc.sjtu.edu.cn/index/mxxsdtz.htm',
   refreshJwc: vi.fn(),
   getJwcNotice: vi.fn(),
   getJwcCaptcha: vi.fn(),

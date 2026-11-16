@@ -40,6 +40,7 @@ const experimentKeys: Record<ExperimentKey, string> = {
   master: 'experimental-features',
   shuiyuan: 'experimental-shuiyuan',
   videoDownload: 'experimental-video-download',
+  noticeSubscriptions: 'experimental-notice-subscriptions',
 };
 
 export function savedExperiments(): ExperimentState {
@@ -48,6 +49,7 @@ export function savedExperiments(): ExperimentState {
     master: read('master'),
     shuiyuan: read('shuiyuan'),
     videoDownload: read('videoDownload'),
+    noticeSubscriptions: read('noticeSubscriptions'),
   };
 }
 
