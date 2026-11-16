@@ -75,7 +75,7 @@ export function ToolCard({
 /** 带行号的纯文本行：bash、ls、grep、find 等不需要语法高亮的工具输出。 */
 export function PlainLines({ lines }: { lines: string[] }) {
   return (
-    <div className="py-3 font-mono text-sm leading-[1.65] text-ink-2">
+    <div className="py-3 font-mono text-xs leading-5 text-ink-2">
       <div className="relative">
         <span className="pointer-events-none absolute inset-y-0 left-5 w-px bg-line" />
         {lines.map((line, i) => (

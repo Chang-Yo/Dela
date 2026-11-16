@@ -87,7 +87,7 @@ export function CodeFileCard({
       <File
         className="bg-surface"
         file={{ name: path, contents: withFinalNewline(content) }}
-        options={{ disableFileHeader: true, theme: baseOptions.theme, themeType }}
+        options={{ disableFileHeader: true, overflow: 'wrap', theme: baseOptions.theme, themeType }}
         style={tokenStyle}
       />
     </ToolCard>
@@ -124,7 +124,7 @@ export function EditDiffCard({
       <FileDiff
         className="bg-surface"
         fileDiff={fileDiff}
-        options={{ ...baseOptions, themeType }}
+        options={{ ...baseOptions, overflow: 'wrap', themeType }}
         style={tokenStyle}
       />
     </ToolCard>
