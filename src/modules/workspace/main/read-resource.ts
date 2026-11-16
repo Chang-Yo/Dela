@@ -67,7 +67,7 @@ export function readDocument(
   };
 }
 
-export const readResourceTool = tool(
+const readResourceTool = tool(
   '读取项目文本与笔记、Canvas 页面、邮件正文；workspace 水源来源只读本地快照或摘要，shuiyuan-online 只联网读取，失败时不切换来源；图片直接附图。二进制文档与附件返回 document-reading skill 的读取指引，不在 Agent 内解析 Office/PDF。正文按字符分页；HTML 保留原始链接标记。',
   z
     .object({

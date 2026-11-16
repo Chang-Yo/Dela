@@ -31,10 +31,11 @@ vi.mock('../../../mail/main/api', () => ({
 import { prepareDocumentResource, releaseDocumentResource } from '../resources';
 import { entry, readWorkspaceEntry, workspaceFilePath } from '../api';
 import { attachmentResourceResolver, mailResourceResolver } from '../../../mail/main/resources';
-import { readResourceTool, workspaceResourceResolver } from '../read-resource';
+import { resourceDomain, workspaceResourceResolver } from '../read-resource';
 import { registerResourceResolver } from '../../../../core/capabilities/resources';
 import { assertDocumentDependency } from '../../../preview';
 
+const readResourceTool = resourceDomain.commands.read_resource;
 registerResourceResolver('workspace', workspaceResourceResolver);
 registerResourceResolver('mail', mailResourceResolver);
 registerResourceResolver('attachment', attachmentResourceResolver);
