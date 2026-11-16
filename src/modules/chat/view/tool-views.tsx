@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import type { AgentToolResult, SubagentDetails } from '../../../core/protocol/agent';
-import CodeBlock from '../../../ui/code-block';
+import { CodeXml, Terminal } from 'lucide-react';
+import { PlainLines, ToolCard } from '../../../ui/agent/tool-card';
 import { openLightbox } from '../../../ui/lightbox';
 import { Button } from '../../../ui/button';
 import { agentClient } from './client';
@@ -11,6 +12,9 @@ import { ChatMarkdown } from './markdown';
 
 const EditDiffCard = lazy(() =>
   import('./review/pierre-diff').then((module) => ({ default: module.EditDiffCard })),
+);
+const CodeFileCard = lazy(() =>
+  import('./review/pierre-diff').then((module) => ({ default: module.CodeFileCard })),
 );
 
 // 工具卡片的正文视图：按 Pi 内置工具（read/write/edit/bash/grep/find/ls）渲染输入与文本输出，
@@ -37,16 +41,28 @@ function BashView({ result, failed }: ViewProps) {
   ];
   return (
     <div className="mb-1 mt-1 min-w-0 space-y-1.5">
-      <CodeBlock
+      <ToolCard
         bodyClassName="max-h-64 overflow-y-auto"
-        code={`${command}${command && stdout ? '\n\n' : ''}${stdout}`}
-        filename="bash"
-        fill
-        lines={lines}
-        plain
-        tone={failed ? 'error' : undefined}
-      />
+        copyText={`${command}${command && stdout ? '\n\n' : ''}${stdout}`}
+        failed={failed}
+        icon={<Terminal aria-hidden className="size-3.5 shrink-0 text-ink-3" />}
+        title="bash"
+      >
+        <PlainLines lines={lines} />
+      </ToolCard>
     </div>
+  );
+}
+
+function ReadView({ result, title, failed }: ViewProps & { title: string }) {
+  const text = outputText(result);
+  if (!text) return null;
+  return (
+    <Suspense fallback={null}>
+      <div className="mb-1 mt-1 min-w-0 space-y-1.5">
+        <CodeFileCard content={text} failed={failed} path={title} />
+      </div>
+    </Suspense>
   );
 }
 
@@ -55,14 +71,15 @@ function TextView({ result, title, failed }: ViewProps & { title: string }) {
   if (!text) return null;
   return (
     <div className="mb-1 mt-1 min-w-0 space-y-1.5">
-      <CodeBlock
+      <ToolCard
         bodyClassName="max-h-80 overflow-y-auto"
-        filename={title}
-        fill
-        lines={text.split('\n')}
-        plain={result.name !== 'read'}
-        tone={failed ? 'error' : undefined}
-      />
+        copyText={text}
+        failed={failed}
+        icon={<CodeXml aria-hidden className="size-3.5 shrink-0 text-ink-3" />}
+        title={title}
+      >
+        <PlainLines lines={text.split('\n')} />
+      </ToolCard>
     </div>
   );
 }
@@ -89,19 +106,15 @@ function WriteView({ result, failed }: ViewProps) {
   const input = result.input as { path?: string; content?: string } | null;
   const text = input?.content ?? '';
   return (
-    <div className="mb-1 mt-1 min-w-0 space-y-1.5">
-      {text ? (
-        <CodeBlock
-          bodyClassName="max-h-80 overflow-y-auto"
-          filename={input?.path ?? ''}
-          fill
-          lines={text.split('\n')}
-          tone={failed ? 'error' : undefined}
-        />
-      ) : (
-        <Caption>（空文件）</Caption>
-      )}
-    </div>
+    <Suspense fallback={null}>
+      <div className="mb-1 mt-1 min-w-0 space-y-1.5">
+        {text ? (
+          <CodeFileCard content={text} failed={failed} path={input?.path ?? ''} />
+        ) : (
+          <Caption>（空文件）</Caption>
+        )}
+      </div>
+    </Suspense>
   );
 }
 
@@ -186,14 +199,15 @@ function GenericView({ result, failed }: ViewProps) {
         </p>
       ))}
       {text && (
-        <CodeBlock
+        <ToolCard
           bodyClassName="max-h-64 overflow-y-auto"
-          filename={result.name}
-          fill
-          lines={text.split('\n')}
-          plain
-          tone={failed ? 'error' : undefined}
-        />
+          copyText={text}
+          failed={failed}
+          icon={<CodeXml aria-hidden className="size-3.5 shrink-0 text-ink-3" />}
+          title={result.name}
+        >
+          <PlainLines lines={text.split('\n')} />
+        </ToolCard>
       )}
     </div>
   );
@@ -213,7 +227,7 @@ function ToolView({ result, failed }: ViewProps) {
       return result.output?.image ? (
         <ImageView failed={failed} result={result} />
       ) : (
-        <TextView failed={failed} result={result} title={str('path')} />
+        <ReadView failed={failed} result={result} title={str('path')} />
       );
     case 'ls':
       return <TextView failed={failed} result={result} title={str('path') || '.'} />;

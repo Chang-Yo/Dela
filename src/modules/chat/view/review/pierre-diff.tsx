@@ -2,7 +2,7 @@
 // 它渲染在 shadow DOM 里，外观只能经 CSS 变量传入，因此这里把 Pierre 的变量映射到 design token。
 import { useSyncExternalStore, type CSSProperties } from 'react';
 import { parseDiffFromFile } from '@pierre/diffs';
-import { FileDiff, PatchDiff, Virtualizer } from '@pierre/diffs/react';
+import { File, FileDiff, PatchDiff, Virtualizer } from '@pierre/diffs/react';
 import { ToolCard } from '../../../../ui/agent/tool-card';
 import { FileIcon } from '../../../../ui/file-icon';
 
@@ -64,6 +64,35 @@ export function DiffScroller({ children }: { children: React.ReactNode }) {
 
 // edit 的文本片段多半不带结尾换行，补齐后末行不会被判成改动。
 const withFinalNewline = (text: string) => (text && !text.endsWith('\n') ? `${text}\n` : text);
+
+/** 工具卡片里的 read/write：与 edit 同一套 Shiki 主题，按文件名识别语言，复制的是原文。 */
+export function CodeFileCard({
+  path,
+  content,
+  failed,
+}: {
+  path: string;
+  content: string;
+  failed: boolean;
+}) {
+  const themeType = useAppThemeType();
+  return (
+    <ToolCard
+      bodyClassName="max-h-80 overflow-y-auto"
+      copyText={content}
+      failed={failed}
+      icon={<FileIcon path={path} />}
+      title={path}
+    >
+      <File
+        className="bg-surface"
+        file={{ name: path, contents: withFinalNewline(content) }}
+        options={{ disableFileHeader: true, theme: baseOptions.theme, themeType }}
+        style={tokenStyle}
+      />
+    </ToolCard>
+  );
+}
 
 /** 工具卡片里的单次 edit：前后文本直接对比，固定高度内滚动，失败时左侧加色条。 */
 export function EditDiffCard({
