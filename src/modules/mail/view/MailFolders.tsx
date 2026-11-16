@@ -29,10 +29,8 @@ const FOLDER_ICONS: Record<string, LucideIcon> = {
   '\\Archive': Archive,
 };
 
-/**
- * 与主进程 SPECIAL_USE_ORDER 语义对齐的排序档位；服务器 \Drafts/\Trash 由
- * 本地草稿与本地回收站取代（见 MailView 的过滤），档位 1/4 由两个伪条目占用。
- */
+// 排序档位与主进程 SPECIAL_USE_ORDER 对齐；服务器 \Drafts/\Trash 由本地草稿与回收站取代，
+// 档位 1/4 由两个伪条目占用。
 const FOLDER_RANKS: Record<string, number> = {
   '\\Inbox': 0,
   '\\Sent': 2,
@@ -65,9 +63,6 @@ function CollapsedTip({
   );
 }
 
-/**
- * 行内文字用 grid 0fr↔1fr 过渡揭示；图标始终原位，高亮块随面板宽度连续缩放。
- */
 function RowLabel({ collapsed, children }: { collapsed: boolean; children: ReactNode }) {
   return (
     <span
@@ -157,7 +152,6 @@ type Props = {
   handleDisconnect: () => Promise<void>;
   composing: boolean;
   onCompose: () => void;
-  /** 窄屏抽屉等场景：隐藏顶部的折叠开关行。 */
   hideHeader?: boolean;
   className?: string;
 };
@@ -211,7 +205,6 @@ export function MailFolders({
       )}
       <nav
         aria-label="邮件文件夹"
-        // minmax(0,1fr): 行宽锁定为面板宽,不随文字 max-content 撑出面板外。
         className={cn(
           'grid grid-cols-[minmax(0,1fr)] content-start gap-0.5 overflow-y-auto overflow-x-hidden p-2',
           foldersCollapsed && '[scrollbar-width:none]',

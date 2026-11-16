@@ -52,7 +52,6 @@ interface SkillGroup {
   items: SkillView[];
 }
 
-/** 内置、本机各一组；每个项目各一组。组的顺序按来处，组内保持主进程给的顺序。 */
 function groupSkills(skills: SkillView[]): SkillGroup[] {
   const groups: SkillGroup[] = [];
   for (const skill of skills) {
@@ -75,14 +74,12 @@ function groupSkills(skills: SkillView[]): SkillGroup[] {
 /** 目标已存在时主进程拒绝的固定前缀：据此把冲突转成覆盖确认，而不是错误。 */
 const REMOTE_EXISTS_PREFIX = '远端已存在：';
 
-/** 可作上传目标的远端项目：path 是远端 POSIX 根目录，本地没有对应文件。 */
 const remoteProjectsOf = (entries: WorkspaceEntry[]) =>
   entries.filter(
     (entry): entry is WorkspaceEntry & { path: string } =>
       entry.kind === 'project' && !!entry.remoteId && !!entry.path,
   );
 
-/** 设置 › Skills：内置、本机目录与每个本地项目的技能，分组列出并逐个启停。 */
 export function SkillsTab() {
   const queryClient = useQueryClient();
   const setSkills = (views: SkillView[] | undefined) =>
@@ -105,7 +102,6 @@ export function SkillsTab() {
   });
   const skills = list.data;
   const [busy, setBusy] = useState(false);
-  // 按来处过滤：全部 / 内置 / 本机 / 项目（只列有内容的来处）。
   const [filter, setFilter] = useState<'all' | SkillOrigin>('all');
   const [viewing, setViewing] = useState<SkillView | null>(null);
   const [uploading, setUploading] = useState<SkillView | null>(null);
@@ -130,7 +126,6 @@ export function SkillsTab() {
     }
   };
 
-  // 即时保存 + 失败回滚（与通知/工作区页签一致）。
   const toggle = async (skill: SkillView, next: boolean) => {
     if (!window.dela || busy) return;
     setBusy(true);
@@ -330,7 +325,6 @@ export function SkillsTab() {
   );
 }
 
-/** SKILL.md 内容查看：渲染端传清单里的 id，主进程只读清单里有的路径。 */
 function SkillContentView({
   onClose,
   onReveal,
@@ -340,7 +334,6 @@ function SkillContentView({
   onReveal: () => void;
   skill: SkillView;
 }) {
-  // data 为 undefined 表示正在读取；读取失败时展示错误并保留关闭入口。
   const { data: content, error } = useQuery({
     queryKey: ['capabilities', 'skillContent', skill.id],
     queryFn: () => capabilitiesClient.readSkill(skill.id),
@@ -385,7 +378,6 @@ function SkillContentView({
   );
 }
 
-/** 上传 Skill 到远端项目：目标取自工作区里的远端项目，同名冲突时二次确认覆盖。 */
 function SkillUploadDialog({ onClose, skill }: { onClose: () => void; skill: SkillView }) {
   const projects = remoteProjectsOf(useWorkspaceStore((state) => state.workspace.entries));
   const [projectId, setProjectId] = useState<string | null>(null);

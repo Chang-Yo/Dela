@@ -12,7 +12,6 @@ import { showToast } from '../../../ui/toast';
 import { ErrorText } from '../../../ui/alert';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** 暂停期限选项与通知中心一致（同一份 workspace_settings 暂停状态）。 */
 function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
   const until = new Date();
   if (kind === '30m') until.setMinutes(until.getMinutes() + 30);
@@ -24,7 +23,6 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
   return until.toISOString();
 }
 
-/** 通用 › 系统通知；暂停状态与通知中心同源。 */
 export function SystemNotifications() {
   const queryClient = useQueryClient();
   // 未读到当前状态（data 为 undefined）时开关保持禁用，避免闪烁出错误的默认值。

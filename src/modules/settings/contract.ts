@@ -7,14 +7,11 @@ export * from './keybindings';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
-/** 应用图标底色：white 对应 Dela_white_bg.png，black 对应 Dela_black_bg.png。 */
 export type IconPreference = 'white' | 'black';
 
-/** 页面缩放档位（webContents zoom factor）：百分比阶梯与系统显示缩放一致。 */
 export const zoomLevels = [0.9, 1, 1.1, 1.25, 1.5] as const;
 export type ZoomPreference = (typeof zoomLevels)[number];
 
-/** 全局字号（px）：直接作为根元素 font-size，rem 派生的文字、间距与图标一起缩放。 */
 export const fontSizeMin = 12;
 export const fontSizeMax = 20;
 export const fontSizeDefault = 16;
@@ -44,7 +41,6 @@ export type SettingsSectionId =
   | 'privacy'
   | 'terms';
 
-/** 顺序即设置左栏与搜索结果的顺序。 */
 export const settingsSectionLabels: Record<SettingsSectionId, string> = {
   general: '通用',
   appearance: '外观',
@@ -68,10 +64,7 @@ export const settingsSectionLabels: Record<SettingsSectionId, string> = {
 export type ConsentDocument = 'terms' | 'privacy';
 
 export type BackupResult =
-  /**
-   * skipped 是没能复制成功的顶层条目名，原因不止被占用（还可能是权限、磁盘空间、符号链接），
-   * 所以只回报名字，让界面说「没复制成功」而不是断言原因。
-   */
+  /** skipped 是没复制成功的顶层条目名；原因不止被占用，所以只回报名字，不断言原因。 */
   | { status: 'exported'; path: string; skipped: string[] }
   | { status: 'cancelled' }
   /** 选定的位置不能用（例如落在 Dela 自己的数据目录里），reason 直接给用户看。 */
@@ -104,7 +97,6 @@ export const settingsContract = defineContract('settings', {
   /** 字号由渲染端设到根元素 font-size 生效，主进程只取整、夹到范围内并持久化。 */
   fontSize: { input: z.undefined(), output: z.number() },
   setFontSize: { input: z.number(), output: z.number() },
-  /** 打包版以系统启动项为准，开发运行读本地偏好。 */
   openAtLogin: { input: z.undefined(), output: z.boolean() },
   setOpenAtLogin: { input: z.boolean(), output: z.boolean() },
   /** 校园消息的系统提醒开关；关闭只停桌面通知，应用内列表不受影响。 */
@@ -119,7 +111,6 @@ export const settingsContract = defineContract('settings', {
   keybindings: { input: z.undefined(), output: z.custom<KeybindingOverrides>() },
   setKeybindings: { input: keybindingOverridesSchema, output: z.custom<KeybindingOverrides>() },
   resetKeybindings: { input: z.undefined(), output: z.custom<KeybindingOverrides>() },
-  /** Agent 的全局附加指令，空串表示不注入；长度由 core 校验。 */
   instruction: { input: z.undefined(), output: z.string() },
   setInstruction: { input: z.string(), output: z.string() },
   /** 条款接受记录只追加；revision 是正文顶部的「最后更新」日期。 */
@@ -132,7 +123,6 @@ export const settingsContract = defineContract('settings', {
   },
   /** 只在条款接受页使用：拒绝条款的用户也要能先把自己的数据拿走。 */
   exportData: { input: z.undefined(), output: z.custom<BackupResult>() },
-  /** 磁盘上可再生缓存目录的真实大小（字节）。 */
   cacheSize: { input: z.undefined(), output: z.number() },
   clearCache: { input: z.undefined(), output: z.custom<CacheClearResult>() },
 });

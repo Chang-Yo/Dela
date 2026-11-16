@@ -14,7 +14,6 @@ import { Spinner } from '../../../../ui/spinner';
 import { capabilitiesClient, onWebSearchChanged } from '../../../chat/view';
 import { errorMessage } from '../../../../core/protocol/contract';
 
-/** 按领域聚拢能力（顺序取主进程返回的领域顺序，不依赖同名项相邻）。 */
 function groupByDomain(capabilities: AgentCapabilityView[]) {
   const groups = new Map<string, { id: string; label: string; items: AgentCapabilityView[] }>();
   for (const capability of capabilities) {
@@ -30,7 +29,6 @@ function groupByDomain(capabilities: AgentCapabilityView[]) {
   return [...groups.values()];
 }
 
-/** 子 Agent 并发上限（task 开启时显示）：失焦或回车时保存，超出范围按主进程的校验报错并回滚。 */
 function SubagentLimit() {
   const queryClient = useQueryClient();
   const saved = useQuery({
@@ -83,8 +81,6 @@ function SubagentLimit() {
   );
 }
 
-/** 设置 › 内置能力：Agent 可用的内置工具按域开关；关闭即从模型工具表移除。
- *  WebSearch 的搜索服务注册入口在「网络」域头部，弹窗管理。 */
 export function CapabilitiesSection() {
   const queryClient = useQueryClient();
   // 未读到清单（data 为 undefined）时不渲染开关，避免闪烁出错误的“全开”状态。
@@ -105,7 +101,6 @@ export function CapabilitiesSection() {
     [queryClient],
   );
 
-  // 即时保存 + 失败回滚（与 Skills / MCP 页签一致）。
   const run = async (operation: () => Promise<AgentCapabilityView[]>) => {
     if (!window.dela || busy) return;
     setBusy(true);
@@ -203,7 +198,6 @@ export function CapabilitiesSection() {
                           </span>
                         </div>
                         {capability.lockedReason ? (
-                          // 常驻徽标在容器底色上要再跳一级，否则和容器同色看不见。
                           <span className="flex shrink-0 items-center gap-1 rounded-full bg-fill px-2 py-1 text-xs text-ink-3">
                             <Lock aria-hidden="true" className="size-3" />
                             常驻

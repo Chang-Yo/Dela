@@ -1,10 +1,7 @@
 import type { ReactNode } from 'react';
 import { Minus, X } from 'lucide-react';
 
-/**
- * 引导期间的窗口栏：titleBarStyle hidden 下 AppShell 标题栏不存在，
- * 这里提供拖拽区与最小化/关闭，避免用户被全屏引导页困住。配色固定，不随主题。
- */
+/** 引导期间的窗口栏：隐藏标题栏时提供拖拽区与最小化/关闭，避免用户被全屏引导页困住。 */
 export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
   return (
     <div className="relative z-10 flex h-12 shrink-0 items-center justify-end [-webkit-app-region:drag]">

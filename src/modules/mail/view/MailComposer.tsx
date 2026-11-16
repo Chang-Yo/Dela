@@ -34,9 +34,7 @@ type Props = {
   accountAddress: string;
   onClose: () => void;
   onSent: (warning?: string) => void;
-  /** 邮箱 grid 的占位类,由 MailView 按布局档位传入;Dialog 等非网格场景无需传。 */
   className?: string;
-  /** 弹窗场景:弹窗自身已是带边框的容器,去掉灰底画布与内卡描边,避免三层框嵌套。 */
   embedded?: boolean;
 };
 
@@ -592,7 +590,6 @@ export function MailComposer({
   };
 
   return (
-    // @container 宿主：撰写卡内边距按面板实宽降档（max-md 看窗口宽度，列表拖宽后失效）。
     <form
       className={cn(
         '@container flex min-h-0 min-w-0 flex-col bg-inset px-3 pb-3',
@@ -767,7 +764,6 @@ export function MailComposer({
 
         <div
           aria-label="邮件正文"
-          // 矮窗口下正文可收缩（flex-1 正常高度仍撑满），保证附件行与发送错误不被裁掉。
           className="min-h-0 flex-1 overflow-y-auto py-4 text-sm leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-ink-3 empty:before:content-['输入正文'] [&_a]:text-accent-ink [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_img]:my-3 [&_img]:block [&_img]:max-h-130 [&_img]:max-w-full [&_img]:rounded-control"
           contentEditable
           style={{ fontSynthesis: 'weight style' }}

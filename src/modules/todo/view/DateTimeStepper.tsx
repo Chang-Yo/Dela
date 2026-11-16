@@ -40,7 +40,6 @@ function step(date: Date, field: StepperField, delta: 1 | -1): Date {
   );
 }
 
-/** 年/月/日/时/分 五字段步进选择器：值左箭头减、右箭头增，按住可连发。 */
 export function DateTimeStepper({
   label = '截止时间',
   value,
@@ -59,7 +58,6 @@ export function DateTimeStepper({
     { display: `${pad(value.getMinutes())}分`, field: 'minute', label: '分钟' },
   ];
   return (
-    // flex-wrap：字体缩放或窄容器放不下五个字段时自动换行。
     <div
       aria-label={label}
       className="flex flex-wrap items-start justify-center gap-1"

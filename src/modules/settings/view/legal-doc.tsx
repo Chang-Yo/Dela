@@ -1,10 +1,7 @@
 import { LegalMarkdown } from './legal-markdown';
 import { SectionHeader } from './SectionHeader';
 
-/**
- * 设置 › 条款页骨架：正文是仓库根目录 docs 下的 Markdown，构建时以 ?raw 内联，官网发布同一份文本。
- * 限宽 42rem 保证可读行宽；元素级版式与首次启动的接受页共用 legal-markdown.tsx。
- */
+/** 设置 › 条款页骨架：正文是 docs 下的 Markdown（?raw 内联），元素级版式见 legal-markdown.tsx。 */
 const articleClass = 'max-w-168 text-sm leading-relaxed text-ink-2';
 
 export function LegalDocument({

@@ -21,9 +21,7 @@ type SettingsViewProps = {
   onSectionChange: (section: SettingsSectionId) => void;
   views: ViewDefinition[];
   navigate: Navigate;
-  /** 依赖外壳状态的分区（快捷键、工作区、远程、已归档）由外壳给出。 */
   shellSections: Partial<Record<SettingsSectionId, ReactNode>>;
-  /** 「通用」页的导航入口组，开关写外壳偏好。 */
   navEntries: ReactNode;
   fontSize: number;
   onFontSizeChange: (size: number) => Promise<void>;
@@ -51,7 +49,6 @@ export function SettingsView({
     <div className="flex min-h-0 flex-1 flex-col bg-surface md:flex-row">
       <SettingsNav onSectionChange={onSectionChange} value={section} />
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none]">
-        {/* 内容宽度 912px = 原 760px 增大 20%（用户裁决，2026-10-06）。 */}
         <div className="mx-auto w-full max-w-228 px-4 pb-8 pt-5 md:px-10 md:pt-8">
           {section === 'general' && <GeneralSection navEntries={navEntries} />}
           {section === 'appearance' && (

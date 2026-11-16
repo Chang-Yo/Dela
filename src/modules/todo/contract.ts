@@ -26,24 +26,19 @@ export interface TodoItem {
   status: TodoStatus;
   readAt: string | null;
   createdAt: string;
-  /** 仅个人待办：开启后在日历（周/月视图）中按截止时间显示。 */
   calendar?: boolean;
-  /** 仅个人待办：写入日历时的候选色；未选时渲染回退石墨色。 */
   color?: CalendarEventColor;
   courseId?: number;
-  /** 课程代码；月历与课表共用它生成稳定的课程颜色。 */
   courseCode?: string;
   courseName?: string;
   assignmentId?: number;
   url?: string;
-  /** 作业描述原始 HTML，随同步缓存，renderer 经沙箱 iframe 渲染。 */
   description?: string;
   submittedAt?: string | null;
   syncedAt?: string;
 }
 export interface TodoState {
   items: TodoItem[];
-  /** 已连接外部作业来源（如 Canvas）；未安装或未登录时为 false。 */
   connected: boolean;
   syncing: boolean;
   syncedAt: string | null;

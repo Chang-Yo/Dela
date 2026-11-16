@@ -5,19 +5,14 @@ import { OnboardingWindowBar } from './onboarding-window-bar';
 import { Button } from '../../../ui/button';
 
 type WizardShellProps = {
-  /** 当前步骤下标（0 起）。 */
   step: number;
   stepCount: number;
-  /** 回到上一步；第 0 步不传，左下角不渲染回退按钮。 */
   onBack?: () => void;
-  /** 跳过当前步骤（最后一步时即完成引导）。 */
   onSkip?: () => void;
-  /** 最后一步以完成按钮替换底部说明，沿用同一导航与过渡框架。 */
   footer?: ReactNode;
   children: ReactNode;
 };
 
-/** 全屏白色向导框架：内容列顶部锚定，各步标题起点一致、切换时视线不跳；配色固定，不随主题。 */
 export function WizardShell({
   step,
   stepCount,
@@ -57,7 +52,6 @@ export function WizardShell({
       </OnboardingWindowBar>
       <div className="grid min-h-0 content-start justify-items-center overflow-y-auto p-6 [@media(max-height:560px)]:p-4">
         <div
-          // 顶部锚定保证各步标题起点一致；矮窗口下收缩留白，给表单内容让出高度。
           className={cn(
             'w-full max-w-105 pt-16 motion-reduce:animate-none [@media(max-height:560px)]:pt-6',
             direction > 0 && 'animate-step-in-next',

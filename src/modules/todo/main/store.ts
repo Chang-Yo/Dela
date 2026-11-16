@@ -31,7 +31,6 @@ type TodoRow = {
   notice_at: string | null;
 };
 type SyncState = { syncedAt: string | null; error: string | null; courses: number[] };
-/** 已同步课程新出现的作业，由通知中心展示与提醒。 */
 export interface TaskNotice {
   todoId: string;
   title: string;
@@ -49,12 +48,10 @@ export function registerTaskSource(next: TaskSource): void {
   source = next;
 }
 
-/** 已同步过的课程出现新作业时调用，由宿主决定是否弹系统通知。 */
 export function onTaskNotice(listener: (notice: TaskNotice) => void): void {
   noticeListener = listener;
 }
 
-/** 待办状态推送后调用，通知中心据此重播含待办提醒的状态。 */
 export function onTodoChange(listener: () => void): void {
   changeListener = listener;
 }
@@ -140,7 +137,6 @@ export function removeTodo(id: string): TodoState {
   return publishTodoState();
 }
 
-/** id 为 null 时标记全部已读。 */
 export function markTodoRead(id: string | null): TodoState {
   hostPorts()
     .database()

@@ -124,7 +124,6 @@ function NotificationRow({
   );
 }
 
-/** 来源的名称与图标由清单汇总各模块的 notices 后传入。 */
 export function notificationsPage(kinds: Kinds) {
   return function NotificationsPage({ navigate }: { navigate: Navigate }) {
     return <NotificationsView kinds={kinds} navigate={navigate} />;
@@ -164,7 +163,6 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
       )
     : [];
 
-  // 隐藏滑块但保留 overflow-y:scroll 的常驻槽位，条目增减不引起内容横向位移。
   return (
     <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-y-auto px-6 py-6 [scrollbar-width:none] max-md:px-4">
       <header className="flex items-center justify-between gap-3 border-b pb-4 max-md:items-start max-md:flex-col">

@@ -3,7 +3,6 @@ import { CacheUsage } from './CacheUsage';
 import { SectionHeader } from './SectionHeader';
 import { SettingsGroup } from './SettingsGroup';
 
-/** 设置 › 存储：各模块的存储行由视图定义登记，缓存占用在最后。 */
 export function StorageSection({ views }: { views: ViewDefinition[] }) {
   return (
     <div className="grid gap-10">

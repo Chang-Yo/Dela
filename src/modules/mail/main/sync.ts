@@ -1,5 +1,3 @@
-// 邮件同步：同步状态广播、按文件夹拉取最近窗口的头信息与预取正文、服务器草稿箱一次性清理，
-// 以及账号配置/断开（二者都会使进行中的同步失效）。
 import type { ImapFlow, ListResponse } from 'imapflow';
 import { z } from 'zod';
 import { emit, hostPorts, type SqlDatabase } from '../../../core/ports';
@@ -205,9 +203,8 @@ async function syncFolder(
   }
 }
 
-// 服务器草稿箱一次性清理（用户已授权真删）：仅在键值不匹配当前账号时执行，
-// 成功（含服务器无草稿文件夹）后写入账号地址；失败抛错且不写键，下次同步重试。
-// 只允许触碰 specialUse 为 \Drafts 的文件夹，绝不影响其他文件夹。
+// 服务器草稿箱一次性清理（用户已授权真删）：键值不匹配当前账号时才执行，成功后写入账号地址；
+// 失败抛错且不写键，下次同步重试。只触碰 specialUse 为 \Drafts 的文件夹。
 async function purgeServerDrafts(client: ImapFlow, listed: ListResponse[], address: string) {
   if (readMailSetting('mail-drafts-purged') === address) return;
   const drafts = listed.find((folder) => folder.specialUse === '\\Drafts');
@@ -251,7 +248,7 @@ async function runSync(account: AccountRow, password: string): Promise<void> {
     } catch {
       // 服务器草稿箱清理失败不写键（下次同步重试），也不中断其余文件夹同步。
     }
-    // 草稿箱与已删除改为本地功能，服务器 \Drafts / \Trash 不再同步。
+    // 服务器 \Drafts / \Trash 由本地草稿与回收站取代，不同步。
     const folders = orderFolders(
       listed.filter(
         (folder) =>

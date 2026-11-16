@@ -89,7 +89,6 @@ function DayOverflow({
   );
 }
 
-/** TODO 月历网格：只消费待办数据，月份导航由 TodoView 的页头提供。 */
 export function TodoCalendar({
   items,
   month,

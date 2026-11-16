@@ -8,16 +8,12 @@ import { onUpdateEvent, updateClient } from './client';
 // 渲染层不自行推断状态：文案与可用动作全部由快照的 phase / reason / failedAt 查表得到。
 // 主进程状态机（main/state.ts）新增阶段时只有这里要跟上，漏掉分支会被 update-view.test.ts 报错。
 
-/** 更新那一条上可用的动作；组件负责把它映射到实际的 IPC 调用。 */
 export type UpdateAction = UpdateStep | 'open-download';
 
 export interface UpdateView {
-  /** 版本号右侧的状态说明；null 表示当前不提。 */
   status: string | null;
-  /** 主按钮：null 表示当前阶段没有可做的动作。 */
   action: UpdateAction | null;
   label: string | null;
-  /** 0..1，仅下载中给出。 */
   progress: number | null;
 }
 
@@ -91,14 +87,7 @@ export function updateView(state: UpdateSnapshot): UpdateView {
   }
 }
 
-/**
- * 标题栏要不要给出更新提示。
- *
- * 只在确实有东西等着用户处理时提示：可下载、下载中、待安装。下载中也算，
- * 因为用户点了下载之后多半就离开设置页去做别的事了。
- * `installing` 不提示——更新已经在落地，再亮一个图标只是噪音；
- * 失败也不提示，否则标题栏会为一个用户可能永远修不掉的原因常亮。
- */
+/** 标题栏提示：只在有东西等用户处理时亮（可下载、下载中、待安装）；installing 与失败不提示。 */
 export function pendingUpdate(state: UpdateSnapshot): boolean {
   return state.phase === 'available' || state.phase === 'downloading' || state.phase === 'ready';
 }
@@ -111,7 +100,6 @@ interface UpdateState {
   snapshot: UpdateSnapshot | null;
   preparingInstall: boolean;
   dismissedVersion: string | null;
-  /** 外壳登记的安装前保存；抛错即中止安装，错误文字展示给用户。 */
   beforeInstall: (() => Promise<void>) | null;
 }
 
@@ -122,9 +110,7 @@ export const useUpdateState = create<UpdateState>(() => ({
   beforeInstall: null,
 }));
 
-/** 接上主进程广播并读一次当前快照；监听者只写 store，整个应用生命周期不退订。 */
 export function startUpdateMirror() {
-  // 浏览器预览没有 preload，保持空快照即可。
   if (!window.dela) return;
   if (window.dela.updatedOnLaunch) {
     showToast({ variant: 'success', title: `已更新至 Dela ${window.dela.version}` });
@@ -161,7 +147,6 @@ export function startUpdateMirror() {
 // 更新动作的派发：设置页那一行与「下载完成」确认弹窗共用同一套。
 // 安装前先跑外壳登记的保存，失败就不安装；保存期间由应用级弹窗阻止继续编辑。
 
-/** 派发更新动作；缺少 API、保存失败或 IPC 失败时返回 false。 */
 export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
   if (!window.dela) return false;
   if (action === 'install') {
@@ -214,7 +199,6 @@ export async function runUpdateAction(action: UpdateAction): Promise<boolean> {
   }
 }
 
-/** 记下「下次启动时提醒」。 */
 export async function deferInstall(): Promise<boolean> {
   try {
     if (!window.dela) return false;

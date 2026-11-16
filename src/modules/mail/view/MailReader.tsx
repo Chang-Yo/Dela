@@ -15,22 +15,17 @@ type Props = {
   detail: MailMessageDetail | null;
   detailLoading: boolean;
   detailError: string | null;
-  /** 当前账户地址,用于在收件人行识别"自己"并折叠其余收件人。 */
   accountAddress: string;
   selectedMessageId: number | null;
   openMessage: (id: number, readonly: boolean) => void;
   downloadAttachment: (messageId: number, part: string) => Promise<{ ok: boolean; error?: string }>;
   onReply: (detail: MailMessageDetail) => void;
-  /** 移入本地回收站;readOnly 上下文(回收站阅读)不显示该按钮。 */
   onDelete: (detail: MailMessageDetail) => void;
-  /** 只读阅读(回收站):隐藏回复与删除按钮,重试时不标记已读。 */
   readOnly?: boolean;
-  /** 单栏态(列表/详情二选一)时显示"返回列表"按钮。 */
   showBackButton?: boolean;
   setMobileReading: (reading: boolean) => void;
 };
 
-/** 收件人行:群发时只显示自己,其余收件人与抄送折叠为"+N 收件者",悬浮展开完整列表。 */
 function RecipientRow({
   to,
   cc,
@@ -133,7 +128,6 @@ export function MailReader({
   };
 
   return (
-    // @container 宿主：正文的左右内边距按面板实宽降档（max-md 看窗口宽度，列表拖宽后失效）。
     <section className={cn('@container flex min-h-0 min-w-0 flex-col bg-inset', className)}>
       <button
         className={cn(
@@ -205,7 +199,6 @@ export function MailReader({
               {detail.to.length > 0 && (
                 <RecipientRow accountAddress={accountAddress} cc={detail.cc} to={detail.to} />
               )}
-              {/* 折叠时抄送并入"+N 收件者"悬浮列表;仅当无收件人(无法折叠)时保留独立抄送行。 */}
               {detail.to.length === 0 && detail.cc.length > 0 && (
                 <div className="flex gap-3">
                   <span className="w-14 shrink-0 text-xs leading-5 text-ink-3">抄送</span>

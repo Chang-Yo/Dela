@@ -4,23 +4,16 @@ import { Button } from '../../../ui/button';
 import { Select, SelectContent, SelectTrigger, SelectValue } from '../../../ui/select';
 import { Spinner } from '../../../ui/spinner';
 
-// 向导步骤的统一控件：纯白画布上使用固定中性配色，不随明暗主题变化。
-// 所有主按钮全宽、同一高度与圆角，保证五个步骤的排版节奏一致。
-
 export type StepButtonState = 'idle' | 'busy' | 'success';
 
 type StepButtonProps = {
   state: StepButtonState;
   idleLabel: string;
   busyLabel: string;
-  /** success 态的按钮文案，如「连接成功，下一步」；点击进入下一步。 */
   successLabel: string;
   disabled?: boolean;
   type?: ComponentProps<typeof Button>['type'];
-  /**
-   * 仅 type="button" 的独立按钮使用；表单内的提交按钮不要传，
-   * 走 form onSubmit 单通道，保证原生 required 校验对点击和回车同样生效。
-   */
+  /** 仅独立的 type="button" 使用；表单内提交按钮走 form onSubmit，保证 required 校验对点击和回车一致。 */
   onClick?: () => void;
 };
 
@@ -49,14 +42,12 @@ export function StepButton({
   );
 }
 
-/** 向导下拉：复用全局 Radix Select（弹窗样式全局统一），触发器保持向导的固定白底。 */
 export function StepSelect({
   label,
   children,
   placeholder,
   ...rest
 }: ComponentProps<typeof Select> & {
-  /** 触发器的可访问名称（Select 根不渲染 DOM，aria 属性需落在触发器上）。 */
   label: string;
   placeholder?: string;
 }) {

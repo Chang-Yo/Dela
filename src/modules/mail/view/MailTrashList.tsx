@@ -18,7 +18,6 @@ type Props = {
   onEmpty: () => void;
 };
 
-/** 本地回收站列表:行样式沿用 MailMessageList,附恢复/彻底删除操作与头部清空。 */
 export function MailTrashList({
   className,
   items,

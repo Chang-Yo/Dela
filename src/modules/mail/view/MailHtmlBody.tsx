@@ -12,12 +12,10 @@ const toolbarToggle = cn(
   'aria-[pressed=false]:text-ink-3 aria-[pressed=false]:hover:bg-hover',
 );
 
-/** 未收到高度上报前的初始正文高度(px),收到上报后替换为真实高度。 */
 const INITIAL_BODY_HEIGHT = 240;
 
 export function MailHtmlBody({ html, text }: { html: string; text: string | null }) {
-  // 远程图片默认加载（用户裁决，2026-10-10）：隐私页的说明本来就是「默认显示、可切换为隐藏」，
-  // 代码与它不一致。担心跟踪像素时按这封邮件一键隐藏，偏好不落盘。
+  // 远程图片默认加载（用户裁决）；担心跟踪像素时可按这封邮件一键隐藏，偏好不落盘。
   const [remoteImages, setRemoteImages] = useState(true);
   const [plain, setPlain] = useState(false);
   const [fitWidth, setFitWidth] = useState(false);
@@ -35,7 +33,6 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
 
   return (
     <div className="mt-3 flex flex-col">
-      {/* 三个开关并列常驻：原先「适应宽度」收在只有它一项的「更多」菜单里，等于白多一次点击。 */}
       <div className="flex items-center gap-1.5">
         <button
           aria-pressed={plain}

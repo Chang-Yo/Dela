@@ -19,7 +19,6 @@ import { errorMessage } from '../../../../core/protocol/contract';
 
 const CUSTOM = 'custom';
 
-/** 向导 · 模型服务步骤：选 Pi 内置厂商或自定义 OpenAI 兼容服务，可先检测再保存。 */
 export function LlmStep({ onDone }: { onDone: () => void }) {
   const [vendorChoice, setVendorChoice] = useState<string | null>(null);
   const [name, setName] = useState('');

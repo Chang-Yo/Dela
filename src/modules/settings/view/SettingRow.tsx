@@ -1,10 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '../../../ui/cn';
 
-/**
- * 设置分区单行：标签列贴左，控件列右对齐；窄屏也保持这个方向，
- * 控件放不下时换行右对齐，而不是压成竖排（标签列最小 11rem）。
- */
 export function SettingRow({
   children,
   description,
@@ -16,7 +12,6 @@ export function SettingRow({
   children: ReactNode;
   description?: ReactNode;
   leading?: ReactNode;
-  /** 从属行（如总开关下的子项）：缩进一级，分隔线也跟着起点内移。 */
   nested?: boolean;
   settingId: string;
   title: ReactNode;

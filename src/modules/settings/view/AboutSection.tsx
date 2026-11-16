@@ -119,7 +119,6 @@ function PersonIdentity({ person }: { person: CreditPerson }) {
   return (
     <div className="flex items-center gap-2.5">
       {person.logo ? (
-        // 明暗两版 logo 叠放在同一网格单元，复用 dela-brand 在 globals.css 的主题切换规则。
         <span aria-hidden="true" className="inline-grid size-6">
           <img
             alt=""

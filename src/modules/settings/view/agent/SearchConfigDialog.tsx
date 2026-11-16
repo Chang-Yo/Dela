@@ -24,7 +24,6 @@ import { Field } from '../../../../ui/field';
 import { capabilitiesClient } from '../../../chat/view';
 import { errorMessage } from '../../../../core/protocol/contract';
 
-/** 各类型展示名（键序即表单类型按钮的排列顺序，DeepSeek 置首）。 */
 const webSearchProviderLabels: Record<WebSearchEntry['provider'], string> = {
   deepseek: 'DeepSeek',
   brave: 'Brave Search API',
@@ -55,7 +54,6 @@ const headersText = (headers: Record<string, string> | undefined) =>
 
 const headerAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
 
-/** 列表与新增/编辑表单两态；当前使用哪一条在聊天输入框左下角选择。 */
 export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const list = useQuery({
@@ -65,12 +63,10 @@ export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   const entries = list.data;
   const setEntries = (next: WebSearchEntry[]) =>
     queryClient.setQueryData(['capabilities', 'webSearchEntries'], next);
-  /** null = 列表态；有值为表单态（无 id = 新建）。 */
   const [draft, setDraft] = useState<WebSearchEntryInput | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const shownError = error ?? (list.error ? errorMessage(list.error) : null);
-  /** 两步删除防误触：待确认的条目 id，删除键先变「确认删除」。 */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const remove = async (id: string) => {
@@ -218,7 +214,6 @@ function EntryForm({
   const [useForFetch, setUseForFetch] = useState(
     draft.provider === 'deepseek' ? draft.useForFetch : false,
   );
-  /** DeepSeek 密钥的导入来源；多于一个时在 Key 下展开选择。 */
   const [keySources, setKeySources] = useState<WebSearchKeySource[] | null>(null);
   const [sourceId, setSourceId] = useState('');
 
@@ -278,7 +273,6 @@ function EntryForm({
     onBusy(false);
   };
 
-  /** 从「模型服务」预填 DeepSeek 密钥；命中多个时展开选择，默认第一个（启用的排在前面）。 */
   const importKey = async (id?: string) => {
     if (!window.dela || busy) return;
     onBusy(true);

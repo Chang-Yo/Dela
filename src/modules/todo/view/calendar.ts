@@ -6,7 +6,6 @@ export const weekDays = ['周一', '周二', '周三', '周四', '周五', '周�
 
 export const dayMilliseconds = 86_400_000;
 
-// 候选配色与 globals.css 的 --cal-* token 对应：低饱和灰调，明暗主题各自成对。
 export const eventPalette: readonly { key: CalendarEventColor; label: string }[] = [
   { key: 'rose', label: '玫红' },
   { key: 'peach', label: '杏橙' },
@@ -25,14 +24,12 @@ export function eventColorStyle(key: CalendarEventColor): CSSProperties {
   };
 }
 
-// 课程块按课程号或课程名稳定分配候选色。
 export function colorFor(value: string): CalendarEventColor {
   let hash = 0;
   for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) | 0;
   return calendarEventColors[Math.abs(hash) % calendarEventColors.length]!;
 }
 
-// 手动事件未选色时用石墨中性色，与自动配色的课程区分。
 export function calendarToneKey(color: string | null | undefined): CalendarEventColor {
   return color && calendarEventColors.includes(color as CalendarEventColor)
     ? (color as CalendarEventColor)

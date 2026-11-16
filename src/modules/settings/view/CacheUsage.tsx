@@ -9,10 +9,7 @@ import { settingsClient } from './client';
 import { showToast } from '../../../ui/toast';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/**
- * 通用 › 缓存占用：占用量跟在标题后面（Chromium 的可再生缓存，本机实测数百 MB），右侧只放动作。
- * 缓存目录多达成千上万个小文件，量一次要扫盘，所以量完之前不显示数字也不让点。
- */
+/** 通用 › 缓存占用：缓存目录文件极多，量一次要扫盘，量完之前不显示数字也不让点。 */
 export function CacheUsage() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);

@@ -48,7 +48,6 @@ export function savedZoom(): ZoomPreference {
   return zoomSchema.catch(1).parse(Number(readSetting('zoom')));
 }
 
-/** 字号（px）：取整并夹到 12–20；非数字（含 NaN、字符串垃圾）回落默认。 */
 export function normalizeFontSize(value: unknown): number {
   const size = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(size)) return fontSizeDefault;
@@ -62,10 +61,6 @@ export function savedFontSize(): number {
 export function savedOpenAtLogin(): boolean {
   return openAtLoginSchema.parse(readSetting('open-at-login'));
 }
-
-// ---------------------------------------------------------------------------
-// 校园消息系统提醒（键由通知中心的弹出守卫读取；默认开启维持既有行为）。
-// ---------------------------------------------------------------------------
 
 const campusNotificationsSchema = z
   .string()
@@ -81,13 +76,8 @@ export function setCampusNotifications(enabled: boolean): boolean {
   return enabled;
 }
 
-// ---------------------------------------------------------------------------
-// Agent 任务通知偏好（Run completed/failed 的系统提醒）。
-// ---------------------------------------------------------------------------
-
 const taskNotificationsDefaults: TaskNotificationPrefs = { completed: false, failed: true };
 
-/** 键缺失或 JSON 损坏回退默认（failed 开、completed 关）。 */
 export function getTaskNotificationPrefs(): TaskNotificationPrefs {
   const raw = readSetting('task-notifications');
   if (raw === undefined) return { ...taskNotificationsDefaults };
@@ -102,11 +92,6 @@ export function setTaskNotificationPrefs(prefs: TaskNotificationPrefs): TaskNoti
   writeSetting('task-notifications', JSON.stringify(prefs));
   return prefs;
 }
-
-// ---------------------------------------------------------------------------
-// 快捷键覆盖项（只存用户改过的动作；默认键位留在 settings/keybindings.ts，
-// 后续调整默认值仍能到达既有用户）。
-// ---------------------------------------------------------------------------
 
 const keybindingOverridesDefaults: KeybindingOverrides = {};
 
@@ -132,11 +117,7 @@ export function getKeybindingOverrides(): KeybindingOverrides {
   return overrides;
 }
 
-/**
- * 部分合并：只写传入的动作，未传动作保持现值。
- * 不做“与默认值相同就不存”的裁剪——那会让写入结果依赖当前默认表，
- * 默认值一改旧覆盖项的语义就变了；多存一条冗余项换来可预测的读写。
- */
+/** 部分合并：只写传入的动作。不裁剪与默认值相同的项，否则默认值一改旧覆盖项语义就变了。 */
 export function setKeybindingOverrides(patch: KeybindingOverrides): KeybindingOverrides {
   const next = { ...getKeybindingOverrides(), ...patch };
   writeSetting('keybindings', JSON.stringify(next));
@@ -149,10 +130,7 @@ export function resetKeybindingOverrides(): KeybindingOverrides {
   return { ...keybindingOverridesDefaults };
 }
 
-// ---------------------------------------------------------------------------
-// 课堂视频默认下载目录（设置 › 通用 › 课堂视频）：空串 = 没设过，
-// 下载时由系统保存对话框决定初始位置。值只来自主进程的目录选择器，不做校验。
-// ---------------------------------------------------------------------------
+// 课堂视频默认下载目录：空串 = 没设过；值只来自主进程的目录选择器，不做校验。
 
 export function savedVideoDownloadDirectory(): string {
   return readSetting('video-download-directory') ?? '';
@@ -163,12 +141,8 @@ export function setVideoDownloadDirectory(value: string): string {
   return value;
 }
 
-// ---------------------------------------------------------------------------
-// 更新已下载、但用户选了「下次启动时提醒」的标记。主进程在启动后尽早准备更新，
-// 读到就清掉：只尝试一次，失败不无限重试（否则每次启动都会静默试一遍）。
-// ---------------------------------------------------------------------------
+// 「下次启动时提醒」标记：读到就清掉，只尝试一次，避免失败后每次启动静默重试。
 
-/** 键缺失或值损坏都视为没有待装：只认显式写入的 '1'。 */
 export function savedPendingInstall(): boolean {
   return readSetting('pending-install') === '1';
 }

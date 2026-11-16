@@ -4,10 +4,7 @@ import { DownloadProgressRow } from '../../../ui/download-progress';
 import { SettingRow, SettingsGroup } from '../../settings/view';
 import { useUpdateState, runUpdateAction, updateView } from './update';
 
-/**
- * 通用 › 软件更新。状态由主进程持有、经 update:state 广播，这里只读共享 store（标题栏提示读同一份）
- * 并派发动作；页面卸载不打断下载，重进设置页立刻看到进度。浏览器预览没有 preload，state 为空时不渲染。
- */
+/** 通用 › 软件更新：只读共享 store 并派发动作；页面卸载不打断下载，重进设置页立刻看到进度。 */
 export function UpdateControl() {
   const state = useUpdateState((snapshot) => snapshot.snapshot);
 
@@ -44,8 +41,7 @@ export function UpdateControl() {
               else void runUpdateAction(action);
             }}
             size="sm"
-            // 下载与安装是这一页真正的主操作，用主色；其余（检查、重试、下载安装包）用
-            // secondary，与「暂停通知」的 30 分钟按钮同一档——ghost 没有底色，看不出能点。
+            // 下载与安装用主色；其余用 secondary，ghost 没有底色看不出能点。
             variant={action === 'download' || action === 'install' ? 'default' : 'secondary'}
           >
             {action === 'open-download' ? <ExternalLink /> : null}

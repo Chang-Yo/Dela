@@ -2,7 +2,6 @@ import { SectionHeader } from './SectionHeader';
 import { SettingsGroup } from './SettingsGroup';
 import type { Navigate, ViewDefinition } from '../../../app/module';
 
-/** 设置 › 凭据：各模块的凭据行由视图定义登记。 */
 export function ConnectionsSection({
   navigate,
   views,

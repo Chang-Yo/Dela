@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { defineContract } from '../../core/protocol/contract';
 
 export interface OnboardingState {
-  /** 使用条款与隐私条款都有接受记录。 */
   consented: boolean;
   /** 首启向导走完过：只缺条款的老用户补完条款即进入应用。 */
   completed: boolean;

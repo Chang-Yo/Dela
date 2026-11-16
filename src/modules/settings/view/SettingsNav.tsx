@@ -24,7 +24,6 @@ import { useHorizontalWheel } from '../../../ui/use-horizontal-wheel';
 
 export type { SettingsSectionId };
 
-/** 分区目录：group 为侧栏分组标题（设置内只有一层分类，分组仅作视觉归拢）。 */
 const sections: Array<{ id: SettingsSectionId; group: string; icon: LucideIcon }> = [
   { id: 'general', group: '通用', icon: SlidersHorizontal },
   { id: 'appearance', group: '通用', icon: Palette },
@@ -45,7 +44,6 @@ const sections: Array<{ id: SettingsSectionId; group: string; icon: LucideIcon }
   { id: 'terms', group: '其他', icon: ScrollText },
 ];
 
-/** 按分组切分目录，保持目录顺序。 */
 const sectionGroups = sections.reduce<Array<{ title: string; items: typeof sections }>>(
   (groups, section) => {
     const last = groups.at(-1);
@@ -61,7 +59,6 @@ type SettingsNavProps = {
   onSectionChange: (section: SettingsSectionId) => void;
 };
 
-/** 宽屏为左侧纵列（带分组标题），窄屏为顶部横向分区行（分组退化为分隔线）。 */
 export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
   // 窄屏那排横向分区行靠滚轮横滚；宽屏是纵列，不横向溢出，钩子自动放行。
   const navRef = useHorizontalWheel<HTMLElement>();
@@ -72,7 +69,6 @@ export function SettingsNav({ value, onSectionChange }: SettingsNavProps) {
       className="flex shrink-0 gap-1 overflow-x-auto border-b border-line bg-page p-2 [scrollbar-width:none] max-md:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:w-50 md:flex-col md:gap-4 md:overflow-y-auto md:border-b-0 md:border-r"
       ref={navRef}
     >
-      {/* 壳层锚点：分区目录以「设置」标题开头（窄屏横向分区行不放标题）。 */}
       <span className="hidden px-2 pb-1 text-sm font-semibold text-ink md:block">设置</span>
       {sectionGroups.map((group, index) => (
         <div className="flex shrink-0 gap-1 md:grid md:gap-1" key={group.title}>

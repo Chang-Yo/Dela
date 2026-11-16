@@ -19,7 +19,6 @@ const pairFormats = {
   ':': { label: '请求头', format: 'Name: value' },
 };
 
-/** 每行一条键值（值可为空，以第一个分隔符切开）；格式错误时返回带行号的错误。 */
 export function parsePairs(
   text: string,
   separator: keyof typeof pairFormats,
@@ -52,10 +51,6 @@ export interface McpFormInput {
 
 export type McpFormParsed = { ok: true; value: McpServerInput } | { ok: false; error: string };
 
-/**
- * 解析并校验表单：名称非空且不含空白字符；新建时 command 或地址必填（编辑留空 = 保持原值）；
- * 键值行格式错误时返回可直接展示的错误文案。
- */
 export function parseMcpForm(input: McpFormInput, options: { isEdit: boolean }): McpFormParsed {
   const name = input.name.trim();
   if (!name) return { ok: false, error: '名称不能为空' };
@@ -79,7 +74,6 @@ export function parseMcpForm(input: McpFormInput, options: { isEdit: boolean }):
   };
 }
 
-/** 编辑表单 → updateMcpServer 补丁：留空的连接字段不发送（保持原值）。 */
 export function mcpUpdatePatch(value: McpServerInput): McpServerPatch {
   const patch: McpServerPatch = { name: value.name };
   if (value.transport === 'http') {
@@ -94,9 +88,7 @@ export function mcpUpdatePatch(value: McpServerInput): McpServerPatch {
 }
 
 export interface McpStatusBadge {
-  /** 徽标文案；connected 带工具数（未知时省略）。 */
   label: string;
-  /** 状态点颜色；connecting 用旋转图标代替圆点。 */
   dotClass: string;
   spin: boolean;
 }

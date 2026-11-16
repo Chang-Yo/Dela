@@ -65,7 +65,6 @@ export function markTodoRead(id: string) {
     );
 }
 
-/** 外部链接交给主窗口的打开处理（能在应用内打开的会留在应用内）。 */
 function openLink(url: string) {
   window.open(url, '_blank', 'noopener');
 }
@@ -80,11 +79,9 @@ function defaultDueAt(): Date {
   return date;
 }
 
-// 行尾操作图标：始终占位避免悬停时行内容位移，悬停/键盘聚焦时浮现，触屏常显。
 const rowActionClass =
   'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100';
 
-// 颜色与「写入日历」两行在新建和编辑面板共用，结构与日历新建事件的分组行一致。
 function CalendarOptionRows({
   calendar,
   color,
@@ -110,7 +107,6 @@ function CalendarOptionRows({
   );
 }
 
-/** 新建/编辑待办共用的底部滑出面板：标题、备注、截止时间、颜色与写入日历开关。 */
 function TodoComposer({
   item,
   busy,
@@ -291,7 +287,6 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
     setDetailId(id);
     void run(() => todo.markRead(id), { failTitle: '标记已读失败' });
   };
-  // 月份导航放在页头标题右侧，日历网格只负责展示。
   const stepMonth = (amount: number) =>
     setMonth(new Date(month.getFullYear(), month.getMonth() + amount, 1));
   return (
@@ -379,7 +374,6 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
           );
         })}
         <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-2">
-          {/* 与「写入日历」同一 Switch 语言，替代原生 checkbox 的默认渲染。 */}
           <label className="flex items-center gap-2 text-xs text-ink-3">
             <Switch
               checked={showCompleted}

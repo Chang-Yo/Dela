@@ -6,7 +6,6 @@ import { errorMessage } from '../../../core/protocol/contract';
 import { mailClient } from './use-mail';
 import { StepButton, type StepButtonState } from '../../onboarding/view';
 
-/** 向导 · 邮箱步骤：验证 IMAP 登录，成功后后台开始首次同步，按钮转为「下一步」。 */
 export function MailOnboardingStep({ onDone }: { onDone: () => void }) {
   const [state, setState] = useState<StepButtonState>('idle');
   const [error, setError] = useState<string | null>(null);

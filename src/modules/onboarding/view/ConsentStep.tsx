@@ -11,7 +11,6 @@ function revisionOf(markdown: string) {
   return /最后更新：(\S+)/.exec(markdown)?.[1] ?? 'unknown';
 }
 
-/** 两份都读到最底部并同意后才放行，这里没有跳过。 */
 const documents = [
   { key: 'terms', title: '使用条款', markdown: terms, revision: revisionOf(terms) },
   { key: 'privacy', title: '隐私条款', markdown: privacy, revision: revisionOf(privacy) },
@@ -32,18 +31,13 @@ type BackupState =
   | { kind: 'failed'; reason?: string };
 
 type ConsentStepProps = {
-  /** 本机已有数据时才给「导出本机数据」出口：全新安装没有可导出的东西。 */
   canBackup: boolean;
-  /** 两份条款都接受后回调。 */
   onAgree: () => void;
 };
 
 /**
- * 条款接受页：开场动画之后、配置向导之前。
- * 「同意并继续」在文本框滚到底部之前保持禁用；换下一份条款时滚动位置与门禁一起重置。
- *
- * 「不同意并退出」走 window.quit() 真正结束进程。窗口栏的关闭按钮走的是 close()，
- * 那只是把窗口收进托盘、后台同步继续跑（这个托盘应用的既有约定），不是这里的语义。
+ * 条款接受页：「同意并继续」滚到底部前禁用。「不同意并退出」走 window.quit() 真正结束进程；
+ * 窗口栏关闭走 close()，只把窗口收进托盘（既有约定）。
  */
 export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
   const [index, setIndex] = useState(0);
@@ -56,10 +50,8 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
   // 界面里能拿到 window.dela 才谈得上导出；浏览器预览下这一页仍然只是只读正文。
   const offersBackup = canBackup && Boolean(window.dela);
 
-  // 文本框与正文都要观察：窗口只往两侧拉宽时文本框自身高度不变（它由 grid 轨道决定），
-  // 但正文会重排——可能不再溢出，也可能多出几行，两种情况下都没有滚动事件可听。
-  // 换条款时另外把焦点交给正文：「同意并继续」在那一刻变回禁用，焦点留在它身上会被浏览器
-  // 丢回 body，键盘与读屏用户就此失去位置。首屏不抢焦点，那时还没有人失去位置。
+  // 文本框与正文都要观察：窗口仅横向拉宽时文本框高度不变而正文重排，没有滚动事件可听。
+  // 换条款时把焦点交给正文：禁用的按钮会丢焦点，键盘与读屏用户就此失去位置；首屏不抢焦点。
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
@@ -122,8 +114,6 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
     <div className="grid h-dvh grid-rows-[auto_1fr_auto] bui-light bg-surface text-ink">
       <OnboardingWindowBar />
 
-      {/* 文本框没有确定高度就不会滚：minmax(0,1fr) 与 min-h-0 让它在矮窗口里被压缩，
-       * 而不是把页面撑高。 */}
       <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] justify-items-center gap-4 px-6 pt-8">
         <header className="grid w-full max-w-168 gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">{current.title}</h1>
@@ -131,7 +121,6 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
             第 {index + 1} 份，共 {documents.length} 份 · 阅读至底部后即可继续
           </p>
         </header>
-        {/* key 让换条款时重建元素：滚动位置在提交前就归零，不必等 effect。 */}
         <div
           aria-label={`${current.title}正文`}
           className="w-full max-w-168 min-h-0 overflow-y-auto overscroll-contain rounded-card border border-line bg-page px-5 py-4 text-sm leading-relaxed text-ink-2"

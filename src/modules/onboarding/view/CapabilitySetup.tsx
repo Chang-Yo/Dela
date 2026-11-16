@@ -12,7 +12,6 @@ import { errorMessage } from '../../../core/protocol/contract';
 
 const skillsQueryKey = ['onboarding', 'skills'];
 
-/** 首次引导的最后一步：安装并启用需要额外组件的 Skill。 */
 export function CapabilitySetup({
   onDone,
   children,

@@ -33,7 +33,6 @@ export interface SponsorChannel {
 export interface CreditPerson {
   name: string;
   avatar?: string;
-  /** 品牌赞助商没有头像，改用明暗两版 logo，与 README 赞助鸣谢同一份素材。 */
   logo?: { light: string; dark: string };
   links?: SocialLink[];
   sponsor?: {
@@ -43,7 +42,6 @@ export interface CreditPerson {
 }
 
 export interface CreditSection {
-  /** 栏目标题，全表唯一，兼作列表 key */
   title: string;
   people: CreditPerson[];
 }

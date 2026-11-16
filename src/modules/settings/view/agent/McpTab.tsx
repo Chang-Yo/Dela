@@ -16,7 +16,6 @@ import { Spinner } from '../../../../ui/spinner';
 import { capabilitiesClient } from '../../../chat/view';
 import { errorMessage } from '../../../../core/protocol/contract';
 
-/** 设置 › MCP：服务器的增删改、启停与连接状态（视图由主进程持有，页面只做镜像与操作）。 */
 export function McpTab() {
   const queryClient = useQueryClient();
   // 未读到列表（data 为 undefined）时不渲染空态，避免闪烁；connecting 是中间态，
@@ -35,7 +34,6 @@ export function McpTab() {
   const [dialog, setDialog] = useState<McpEditState>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
-  // 启停即时保存 + 失败回滚（与其他设置页签一致）。
   const toggle = async (server: McpServerView, next: boolean) => {
     if (!window.dela || busy) return;
     setBusy(true);
@@ -135,7 +133,6 @@ export function McpTab() {
                         {badge.label}
                       </span>
                     </div>
-                    {/* error=红点 + 摘要可见、完整消息悬停可见（依赖状态说明原因，§4.4）。 */}
                     {server.status === 'error' && server.error ? (
                       <p className="truncate text-xs text-danger" title={server.error}>
                         {server.error}

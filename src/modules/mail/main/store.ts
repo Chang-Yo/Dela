@@ -1,5 +1,3 @@
-// 邮件缓存与账号的共享底座：行类型、IMAP 连接、账号与设置读写、回收站保留期、
-// 摘要投影与文件夹排序。同步（sync.ts）与查询/操作（api.ts）都从这里取。
 import { ImapFlow } from 'imapflow';
 import type { ListResponse } from 'imapflow';
 import { z } from 'zod';
@@ -176,7 +174,6 @@ export function toSummary(row: MessageRow): MailMessageSummary {
   };
 }
 
-/** 特殊用途文件夹的排序档位；未知或普通文件夹固定 90。 */
 export function specialUseRank(specialUse: string | false | null | undefined): number {
   return specialUse ? (SPECIAL_USE_ORDER[specialUse] ?? 90) : 90;
 }

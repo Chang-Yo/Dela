@@ -1,10 +1,9 @@
-// Run 终态的系统提醒入口（§4.4 任务通知）：由 agent/session/manager 在 finishRun 后调用。
+// Run 终态的系统提醒入口：由 agent/session/manager 在 finishRun 后调用。
 // 偏好读取失败或系统通知不可用都不影响 Run 终态落库与推送。
 import { hostPorts } from '../../../core/ports';
 import { systemNotifyToast } from '../../notifications';
 import { getTaskNotificationPrefs } from './prefs';
 
-/** completed/failed 按各自偏好提醒；stopped 为用户主动停止，不打扰。 */
 export function notifyRunFinished(sessionId: string, status: 'completed' | 'failed'): void {
   try {
     const prefs = getTaskNotificationPrefs();

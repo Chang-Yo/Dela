@@ -1,6 +1,5 @@
-// 邮箱服务器参数的唯一读取口：IMAP 连接（api.ts）与发信（send.ts）都从这里取，
-// 避免两边各存一份「交大预设」而漏掉第三方账号。列或值缺失一律回落交大预设，
-// 老库（没有 smtp_host/smtp_port 列）与交大账号都走这条回落。
+// 邮箱服务器参数的唯一读取口：IMAP 连接与发信共用，避免各存一份「交大预设」。
+// 列或值缺失（老库没有 smtp_host/smtp_port 列、交大账号）一律回落交大预设。
 import { SJTU_MAIL_SERVER, type MailServerConfig } from '../contract';
 import { hostPorts } from '../../../core/ports';
 

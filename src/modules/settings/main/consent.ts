@@ -2,7 +2,6 @@ import { app } from 'electron';
 import { hostPorts } from '../../../core/ports';
 import type { ConsentDocument } from '../contract';
 
-/** 条款接受记录只追加：条款改版、用户再次同意时写新行，不改写历史。 */
 export function recordConsent(document: ConsentDocument, revision: string): void {
   try {
     hostPorts()

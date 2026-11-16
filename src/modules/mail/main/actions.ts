@@ -10,7 +10,6 @@ function workspaceWindow() {
   return client ? BrowserWindow.fromWebContents(client as WebContents) : null;
 }
 
-// 只有一个工作窗口，写信中的状态用一个布尔记录。
 let composing = false;
 
 export function hasMailComposer() {

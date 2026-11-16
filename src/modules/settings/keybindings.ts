@@ -20,25 +20,18 @@ export type ShortcutActionId =
   | 'focus-group'
   | 'open-shortcuts';
 
-/** 动作作用域：global 在窗口级派发，workbench 只在工作台子树内派发。 */
 export type ShortcutScope = 'global' | 'workbench';
 
 export interface ShortcutAction {
   id: ShortcutActionId;
   scope: ShortcutScope;
-  /** 设置页分组标题。 */
   group: string;
   label: string;
-  /** 默认键位；null 表示默认不绑定。 */
   defaultKeys: string | null;
-  /**
-   * 键位族：`digit` 表示绑定只固定修饰键部分，末位接受 1…9
-   * （动作本身作用于“第 N 个工作组”）。
-   */
+  /** 键位族：`digit` 只固定修饰键，末位接受 1…9。 */
   family?: 'digit';
 }
 
-/** 动作目录（顺序即设置页展示顺序）。 */
 export const shortcutActions: readonly ShortcutAction[] = [
   {
     id: 'new-project',
@@ -115,13 +108,10 @@ export const shortcutActions: readonly ShortcutAction[] = [
   },
 ];
 
-/** 用户覆盖：null 表示显式解绑（该动作不再响应键盘）。未出现的动作使用默认键位。 */
 export type KeybindingOverrides = Partial<Record<ShortcutActionId, string | null>>;
 
-/** 合并后的键位表：动作 → 生效键位（null = 未绑定）。 */
 export type KeybindingMap = Record<ShortcutActionId, string | null>;
 
-/** 按键事件中本模块用到的字段（KeyboardEvent 的结构子集，便于纯函数测试）。 */
 export interface KeyEventLike {
   key: string;
   /** 物理键位；digit 族在 macOS 上按 Alt+数字会产生别的字符，故优先取它。 */
@@ -145,7 +135,6 @@ export function defaultKeybindings(): KeybindingMap {
   return map;
 }
 
-/** 默认键位叠加用户覆盖（只存覆盖项，默认值以后仍可演进）。 */
 export function mergeKeybindings(overrides: KeybindingOverrides): KeybindingMap {
   const map = defaultKeybindings();
   for (const [id, keys] of Object.entries(overrides)) {
@@ -179,7 +168,6 @@ function normalizeKey(key: string): string | null {
   return namedKeys.has(key) ? key : null;
 }
 
-/** keydown → 键位串；单独的修饰键或无法识别的键返回 null。 */
 export function acceleratorFromEvent(
   event: KeyEventLike,
   platform: 'mac' | 'other' = 'other',
@@ -220,7 +208,6 @@ function modifierPart(accelerator: string): string {
   return accelerator.slice(0, accelerator.lastIndexOf('+'));
 }
 
-/** digit 族只比较修饰键部分，末位数字接受 1…9（动作按序号作用于第 N 个工作组）。 */
 function matchesAccelerator(
   accelerator: string | null,
   event: KeyEventLike,
@@ -236,14 +223,12 @@ function matchesAccelerator(
   return digit !== null && modifierPart(pressed) === modifierPart(accelerator);
 }
 
-/** digit 族绑定的数字：优先取物理键（macOS Alt+数字输入的是其他字符），否则取 event.key。 */
 export function digitFromEvent(event: KeyEventLike): number | null {
   const fromCode = event.code?.match(/^Digit([1-9])$/)?.[1];
   if (fromCode) return Number(fromCode);
   return /^[1-9]$/.test(event.key) ? Number(event.key) : null;
 }
 
-/** 按作用域把按键事件解析为动作；未绑定或未命中返回 null（派发方据此决定是否 preventDefault）。 */
 export function matchShortcut(
   bindings: KeybindingMap,
   event: KeyEventLike,
@@ -297,7 +282,6 @@ const displayKeys: Record<string, string> = {
   Space: 'Space',
 };
 
-/** 键位串 → 逐键显示片段（设置页与帮助弹窗的 <kbd> 序列）。 */
 export function acceleratorKeys(
   accelerator: string | null,
   platform: 'mac' | 'other',
@@ -318,7 +302,6 @@ export function acceleratorKeys(
   return chips;
 }
 
-/** 设置页与帮助弹窗共用的分组视图：保持目录顺序，按 group 聚拢。 */
 export function shortcutGroups(): Array<{ title: string; actions: ShortcutAction[] }> {
   const groups: Array<{ title: string; actions: ShortcutAction[] }> = [];
   for (const action of shortcutActions) {

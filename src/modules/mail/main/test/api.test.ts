@@ -129,8 +129,6 @@ describe('mail MIME rendering', () => {
   });
 });
 
-// ---- 本地回收站 / 同步跳过 / 服务器草稿箱清理 ----
-
 function createMailDb(): Database.Database {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');

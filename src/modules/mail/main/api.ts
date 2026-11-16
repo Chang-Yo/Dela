@@ -29,7 +29,6 @@ import {
 } from './store';
 import { emitMailCacheChanged, mailSyncStatus, SYNC_WINDOW } from './sync';
 
-// 邮件查询、读信、附件、已读、本地回收站与发送；同步与账号配置在 sync.ts。
 export { downloadHtmlImages } from './parse';
 export { friendlyError, getMailTrashRetention, setMailTrashRetention } from './store';
 export {

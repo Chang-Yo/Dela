@@ -2,10 +2,8 @@ import DOMPurify from 'dompurify';
 import { renderMailHtml } from './mail-html-display';
 
 /**
- * 清洗 Canvas 网页正文，供沙箱 iframe 的 srcDoc 使用；资料详情与 TODO 详情共用。
- * rootSize 为当前根字号：iframe 是独立文档，rem 不继承外层，不注入就不随字号设置缩放。
- * htmlScrollY 决定内层文档能否纵向滚动：详情侧 iframe 随内容增高、外层滚动，保持 'hidden'；
- * 预览侧 iframe 固定为可视高度，传 'auto' 让内层自己滚。
+ * 清洗 Canvas 网页正文供沙箱 iframe 使用。rootSize：iframe 不继承外层 rem，需注入才随字号缩放；
+ * htmlScrollY：'hidden' 用于随内容增高的详情，'auto' 用于固定高度、内层自滚的预览。
  */
 export function sanitizeHtml(
   text: string | null | undefined,

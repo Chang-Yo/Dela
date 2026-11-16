@@ -29,7 +29,6 @@ export interface NoticeLink {
   group?: string;
 }
 
-/** 来源写入通知表的一行；href 由来源自己定义，展示时经 link 解释。 */
 export interface StoredNotice {
   id: string;
   source: string;
@@ -260,7 +259,6 @@ export function refreshNotifications(force = false): Promise<NotificationState> 
   return activeRefresh;
 }
 
-// 只更新当前账号名下的通知行；id 为 null 时更新全部。
 function markNotificationRowsRead(id: string | null, accounts: Array<[string, string]>): void {
   if (accounts.length === 0) return;
   database()

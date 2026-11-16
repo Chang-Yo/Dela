@@ -4,9 +4,8 @@ import { basename, join, relative } from 'node:path';
 import type { CacheClearResult } from '../contract';
 
 /**
- * Chromium 的可再生缓存目录名单：本机实测占应用数据目录的 97%。按名字在每一层认，分区里真正
- * 属于用户的数据（Local Storage、IndexedDB、Preferences）不动；`backup.ts` 导出时跳过同一份
- * 名单，两处必须同源。Crashpad 与 logs 不是缓存，但同样只对本机有意义、可随时再生，一并算进来。
+ * Chromium 可再生缓存目录名单，按名字在每一层认，分区里的用户数据不动；`backup.ts` 导出时跳过同一份
+ * 名单，两处必须同源。Crashpad 与 logs 同样只对本机有意义，一并算进来。
  */
 export const cacheDirectoryNames = new Set([
   'Cache',
@@ -28,7 +27,6 @@ function isCacheDirectory(path: string): boolean {
   return /^shuiyuan-snapshots\/\d+(?:\.partial)?\/thumbnails$/.test(localPath);
 }
 
-/** 整棵目录的字节数；链接不跟（junction 也算链接，避免量到目录树外面去）。 */
 async function treeBytes(directory: string): Promise<number> {
   let total = 0;
   for (const name of await readdir(directory)) {
@@ -44,7 +42,6 @@ async function treeBytes(directory: string): Promise<number> {
   return total;
 }
 
-/** 统计 Chromium 缓存与水源快照缩略图，其余目录继续往下找。 */
 async function cacheBytes(directory: string): Promise<number> {
   let total = 0;
   for (const name of await readdir(directory)) {
@@ -54,13 +51,12 @@ async function cacheBytes(directory: string): Promise<number> {
       if (info.isSymbolicLink() || !info.isDirectory()) continue;
       total += isCacheDirectory(path) ? await treeBytes(path) : await cacheBytes(path);
     } catch {
-      // 同上：读不到的目录跳过。
+      // 读不到的目录跳过。
     }
   }
   return total;
 }
 
-/** 删除可再生缓存，其余目录继续往下找。返回是否有内容没能删掉。 */
 async function removeCaches(directory: string): Promise<boolean> {
   let names: string[];
   try {
@@ -85,9 +81,8 @@ async function removeCaches(directory: string): Promise<boolean> {
 }
 
 /**
- * 先让 Chromium 自己放手：缓存目录里的索引文件由它持有，不先清掉，磁盘上的目录删不干净。
- * 三类调用与名单一一对应——HTTP 缓存、脚本缓存、CacheStorage 与着色器缓存；Cookie、Local Storage
- * 等真正属于用户的数据一律不碰。持久分区（如校园登录）按 Partitions 目录逐个认。
+ * 先让 Chromium 放手：缓存索引文件由它持有，不先清掉目录删不干净。Cookie、Local Storage
+ * 等用户数据不碰；持久分区（如校园登录）按 Partitions 目录逐个认。
  */
 async function releaseSessions() {
   const partitions = await readdir(join(app.getPath('userData'), 'Partitions')).catch(() => []);
@@ -103,14 +98,13 @@ async function releaseSessions() {
   }
 }
 
-/** 当前缓存占用（字节）。 */
 export function cacheSize(): Promise<number> {
   return cacheBytes(app.getPath('userData'));
 }
 
 /**
- * 清缓存并复核：返回前后各量一次得到的差值。差异可能为负——清除期间 Chromium 又在写新缓存——
- * 所以夹到 0。`blocked` 只表示有文件被正在运行的进程占住，不代表用户数据没清干净。
+ * 清缓存并复核：返回前后各量一次的差值，清除期间 Chromium 可能又写入，故夹到 0。
+ * `blocked` 只表示有文件被运行中的进程占住。
  */
 export async function clearCaches(): Promise<CacheClearResult> {
   const root = app.getPath('userData');

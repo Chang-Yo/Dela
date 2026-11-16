@@ -19,16 +19,12 @@ function backupFolderName(now: Date) {
   return `Dela 备份 ${date} ${pad(now.getHours())}-${pad(now.getMinutes())}`;
 }
 
-/** child 是否就在 parent 里面（含它本身）；同级不算。 */
 function isInside(parent: string, child: string) {
   const rel = relative(parent, child);
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
-/**
- * 跳过符号链接，包括 Windows 上的 junction（pnpm 的 node_modules 就是）：实测没有开发者模式时
- * 复刻链接直接 EPERM，会连累整个顶层条目一个文件都复制不出来；而链接指向的内容本就不在这一层。
- */
+/** 跳过符号链接（含 Windows junction）：无开发者模式时复刻链接会 EPERM，连累整个顶层条目。 */
 async function skipLinks(source: string) {
   return !(await lstat(source)).isSymbolicLink();
 }
@@ -39,7 +35,6 @@ async function skipCacheAndLinks(source: string) {
   return skipLinks(source);
 }
 
-/** 返回没复制成功的顶层条目名：界面据此如实告知，不假装备份完整。 */
 export async function exportUserData(window: BrowserWindow | null): Promise<BackupResult> {
   const options = {
     title: '选择备份保存位置',

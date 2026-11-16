@@ -35,7 +35,6 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** (lastSeen, current] 区间内的条目，新版本在前；跨版本升级时合并显示。 */
 export function notesBetween(
   notes: ReleaseNote[],
   lastSeen: string,
@@ -49,10 +48,7 @@ export function notesBetween(
     .sort((a, b) => compareVersions(b.version, a.version));
 }
 
-/**
- * 本次启动要展示的更新内容，并把当前版本记为已看过。
- * 首次记录不展示；已有版本记录时展示更新条目。
- */
+/** 本次启动要展示的更新内容，并把当前版本记为已看过；首次记录不展示。 */
 export function takePendingReleaseNotes(current: string): ReleaseNote[] {
   const lastSeen = localStorage.getItem(lastSeenKey);
   localStorage.setItem(lastSeenKey, current);

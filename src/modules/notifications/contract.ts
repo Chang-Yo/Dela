@@ -4,7 +4,6 @@ import type { NavTarget } from '../../app/module';
 
 export type NotificationCategory = 'like' | 'reply' | 'mention' | 'message' | 'other';
 
-/** 应用内的页面，或交给系统浏览器打开的外部链接。 */
 export type NotificationTarget = NavTarget | { url: string };
 
 export interface NotificationItem {
@@ -17,7 +16,6 @@ export interface NotificationItem {
   createdAt: string;
   readAt: string | null;
   target: NotificationTarget;
-  /** 同组的点赞合并成一行展示，例如同一主题下的点赞。 */
   group: string | null;
 }
 
@@ -27,7 +25,6 @@ export interface NotificationState {
   unreadCount: number;
   /** 仍在暂停期内时为到期时刻，否则为 null。 */
   snoozedUntil: string | null;
-  /** 已登录来源的最近一次刷新结果。 */
   refresh: Record<string, { lastSuccessAt: string | null; error: string | null }>;
 }
 
@@ -45,7 +42,6 @@ export const notificationsContract = defineContract(
   },
   {
     state,
-    /** 用户点击了系统桌面通知。 */
     open: z.custom<{ id: string; target: NotificationTarget }>(),
   },
 );

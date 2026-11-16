@@ -18,15 +18,11 @@ import { cn } from '../../../ui/cn';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 
-/**
- * 作业描述经清洗后放入沙箱 iframe 渲染。阅读器默认样式禁止文档纵向滚动，
- * 因此高度随内容自适应，滚动交给所在限高滚动区；链接点击转交外部打开。
- */
+/** 作业描述经清洗后放入沙箱 iframe；高度随内容自适应，滚动交给所在限高滚动区。 */
 function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => void }) {
   const rootSize = useRootFontSize();
   const doc = sanitizeHtml(html, 'https://oc.sjtu.edu.cn', rootSize);
   const [height, setBody] = useFrameBodyHeight();
-  // 白底文档以圆角卡片呈现：暗色模式下避免白色大块与面板生硬相接。
   return (
     <Card>
       <iframe

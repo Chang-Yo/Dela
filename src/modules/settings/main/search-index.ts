@@ -3,11 +3,9 @@
 import { settingsSectionLabels, type SettingsSectionId } from '../contract';
 
 export interface SettingsSearchItem {
-  /** 索引项 id（稳定键）。 */
   id: string;
   section: SettingsSectionId;
   title: string;
-  /** 关键词：分类别名、同义词与常见英文。 */
   keywords: string[];
 }
 
@@ -67,7 +65,6 @@ const settingsSearchItems: SettingsSearchItem[] = [
     title: '缓存占用',
     keywords: ['缓存', '清理', '清除', '空间', '占用', '磁盘', 'cache'],
   },
-  // 外观
   {
     id: 'theme',
     section: 'appearance',
@@ -92,14 +89,12 @@ const settingsSearchItems: SettingsSearchItem[] = [
     title: '应用图标',
     keywords: ['外观', '图标', 'logo', 'icon'],
   },
-  // 快捷键
   {
     id: 'shortcuts',
     section: 'shortcuts',
     title: '快捷键',
     keywords: ['快捷键', '键位', '按键', '热键', 'shortcut', 'key', 'keybinding'],
   },
-  // 工作区
   {
     id: 'work-directory',
     section: 'workspace',
@@ -112,14 +107,12 @@ const settingsSearchItems: SettingsSearchItem[] = [
     title: '布局重置',
     keywords: ['工作区', '布局', '重置', '分屏', '标签', 'reset'],
   },
-  // 已归档
   {
     id: 'archived-chats',
     section: 'archived',
     title: '已归档对话',
     keywords: ['归档', '恢复', '对话', '永久删除', '全部删除', 'archive'],
   },
-  // 连接
   {
     id: 'canvas',
     section: 'connections',
@@ -144,7 +137,6 @@ const settingsSearchItems: SettingsSearchItem[] = [
     title: '水源社区',
     keywords: ['连接', '水源', '社区', '论坛', 'shuiyuan'],
   },
-  // 模型服务
   {
     id: 'providers',
     section: 'providers',
@@ -188,7 +180,6 @@ const settingsSearchItems: SettingsSearchItem[] = [
     title: '远程连接',
     keywords: ['远程', 'ssh', '主机', '服务器', '连接', 'remote'],
   },
-  // 关于
   { id: 'about', section: 'about', title: '关于', keywords: ['版本', '更新', 'credits', '关于'] },
   {
     id: 'privacy',
@@ -204,7 +195,6 @@ const settingsSearchItems: SettingsSearchItem[] = [
   },
 ];
 
-/** 全局搜索 setting 入口的分组摘要（与设置内搜索共用同一份关键词）。 */
 export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   general: '开机自启动、导航入口与软件更新',
   appearance: '主题、缩放、字号与图标',
@@ -225,7 +215,6 @@ export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   terms: '使用本软件的责任划分',
 };
 
-/** 按分类聚合匹配（分类名 + 摘要 + 全部选项标题与关键词参与匹配）。 */
 export function settingsSectionsMatching(query: string): SettingsSectionId[] {
   const keyword = query.trim().toLowerCase();
   const sections = Object.keys(settingsSectionLabels) as SettingsSectionId[];

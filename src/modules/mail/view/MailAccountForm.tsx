@@ -17,9 +17,7 @@ export function MailAccountForm({
 }: {
   error: string | null;
   onSubmit: (input: MailConfigureInput) => void;
-  /** 提交按钮由调用方传入：向导要带成功态的 StepButton，应用内用 Button。 */
   submit: ReactNode;
-  /** wizard：向导画布上的 40px 控件；app：应用内的 32px 控件。 */
   variant?: 'app' | 'wizard';
 }) {
   const [mode, setMode] = useState<(typeof modes)[number]>('交大邮箱');
@@ -115,7 +113,6 @@ export function MailAccountForm({
   );
 }
 
-/** 服务器地址 + 端口一行：端口固定窄列，地址占满剩余宽度。 */
 function ServerRow({
   field,
   host,

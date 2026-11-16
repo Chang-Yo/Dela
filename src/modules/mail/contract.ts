@@ -44,7 +44,6 @@ export interface MailMessageDetail extends MailMessageSummary {
   readonly attachments: readonly MailAttachmentInfo[];
 }
 
-/** 回收站条目：本地删除的缓存邮件，附原文件夹名与删除时间。 */
 export interface MailTrashItem extends MailMessageSummary {
   readonly folderName: string | null;
   readonly deletedAt: string;
@@ -97,7 +96,6 @@ export const SJTU_MAIL_SERVER: MailServerConfig = {
 export interface MailConfigureInput {
   readonly address: string;
   readonly password: string;
-  /** 不传即交大邮箱预设；第三方 IMAP 传自填的服务器参数。 */
   readonly server?: MailServerConfig;
 }
 
@@ -162,7 +160,6 @@ export const mailContract = defineContract(
       input: z.object({
         address: z.string(),
         password: z.string(),
-        /** 第三方 IMAP 自填服务器；不带 server 即交大邮箱预设。 */
         server: z
           .object({ imapHost: host, imapPort: port, smtpHost: host, smtpPort: port })
           .optional(),
@@ -202,7 +199,6 @@ export const mailContract = defineContract(
     saveDraft: { input: z.custom<MailDraftInput>(), output: z.custom<MailDraftSummary>() },
     drafts: { input: z.string(), output: z.custom<MailDraftSummary[]>() },
     deleteDraft: { input: z.string(), output: z.void() },
-    /** 关闭写信前弹系统对话框问是否存草稿。 */
     confirmDraftClose: {
       input: z.undefined(),
       output: z.custom<'save' | 'discard' | 'cancel'>(),

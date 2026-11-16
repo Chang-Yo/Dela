@@ -5,7 +5,6 @@ export interface SearchProvider {
   id: string;
   label: string;
   icon: SearchIcon;
-  /** 空查询返回最近的记录；最多返回 limit 条。 */
   search(query: string, limit: number): SearchHit[];
 }
 

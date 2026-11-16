@@ -1,9 +1,6 @@
 /**
- * 沙箱 iframe 的高度自适应，以及可选的站内链接与灯箱图片点击上报。srcDoc 文档会继承应用 CSP（script-src 'self'），
- * 外层 CSP 因此要 pin 本脚本的 sha256（见 index.html）；脚本改动必须同步内外层 hash，
- * scripts/shuiyuan-smoke.cjs 的零控制台报错断言会拦下漂移。邮件正文与水源楼层共用这段脚本。
- * 测量 body.scrollHeight 而非 documentElement：后者不小于 iframe 视口高，短楼层会被垫出空白；
- * 两处消费方的 body 均为 margin:0 的内容自适应高度。
+ * 沙箱 iframe 高度上报脚本（邮件与水源共用）。外层 CSP 要 pin 其 sha256（见 index.html），改脚本须同步，
+ * scripts/shuiyuan-smoke.cjs 会拦下漂移。测 body.scrollHeight 而非 documentElement，否则短内容被垫高。
  */
 const FRAME_HEIGHT_SOURCE = 'dela-frame-height';
 const FRAME_LINK_SOURCE = 'dela-frame-link';

@@ -16,7 +16,6 @@ import { errorMessage } from '../../../../core/protocol/contract';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; command: ChatCommandView } | null;
 
-/** 设置 › 自定义指令：用户附加的全局指令（每次对话生效）+ 可复用的 / 指令模板。 */
 export function CommandsSection() {
   const queryClient = useQueryClient();
   const commandList = useQuery({

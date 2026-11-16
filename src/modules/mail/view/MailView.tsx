@@ -34,16 +34,11 @@ import { Callout, ErrorText } from '../../../ui/alert';
 
 const MESSAGE_LIMIT = 200;
 
-// 邮箱内容区分级降档阈值(单位 px,作用于 grid 容器实测宽度 W):
-// - STACKED_THRESHOLD = 760:折叠态四列的可读下限 = 48(图标栏) + 320(列表最小宽) + 1(分隔线)
-//   + 391(阅读区可读下限,在 380–400 间取整);W 再小则阅读区不可读,降为列表/详情二选一的单栏。
-// - 自动折叠阈值按实际 listWidth 动态计算 = 220(展开侧栏) + listWidth + 1(分隔线)
-//   + READER_COMFORT_WIDTH(阅读区舒适下限)。列表可被拖到 480,固定常数会在
-//   1000–1160px 区间漏判,把阅读区挤到 300px 以下。
+// 分级降档阈值按 grid 容器实测宽度计算；自动折叠阈值随 listWidth 浮动，
+// 固定常数会在列表被拖宽时漏判，把阅读区挤到不可读。
 const STACKED_THRESHOLD = 760;
 const FOLDERS_WIDTH = 220;
 const READER_COMFORT_WIDTH = 459;
-/** 窄屏媒体查询:窗口宽度决定走 AppShell 抽屉的单列布局。 */
 const NARROW_MEDIA_QUERY = '(max-width: 767px)';
 
 /** 回复预填不是本地草稿：不带 savedLocally，避免触发既有草稿的覆盖保存/发送后删除。 */
@@ -70,10 +65,8 @@ const visibleFolders = (list: readonly MailFolderInfo[]) =>
 
 type MailViewProps = {
   openRequest?: { messageId?: number };
-  /** 窄屏邮箱级抽屉是否展开,受控于外壳的抽屉状态。 */
   mobileDrawerOpen: boolean;
   onMobileDrawerClose?: () => void;
-  /** 外壳提供的抽屉挂载点，抽屉展开时才有。 */
   drawerContainer?: HTMLElement;
 };
 
@@ -108,7 +101,6 @@ export function MailView({
   );
 }
 
-/** 模块页面入口：跳转参数交给邮件定位，窄屏抽屉状态来自外壳。 */
 export function MailPage({
   target,
   drawer,
@@ -176,7 +168,6 @@ async function markSeen(client: QueryClient, message: MailMessageDetail) {
   );
 }
 
-/** 同步结束、恢复邮件后，文件夹未读数、列表与回收站都可能变化。 */
 function refreshMailbox(client: QueryClient) {
   void client.invalidateQueries({ queryKey: foldersKey });
   void client.invalidateQueries({ queryKey: messagesPrefix });
@@ -193,7 +184,6 @@ function DesktopMailView({
   const state = useMailState();
   const account = state?.account ?? null;
   const accountAddress = account?.address ?? '';
-  // 用户选过的视图；未选时落到收件箱。
   const [chosen, setChosen] = useState<MailSelection | null>(null);
   const [opened, setOpened] = useState<{ id: number; readonly: boolean } | null>(null);
   // 外部跳转（全局搜索、通知）要打开的邮件，用户在邮箱里另行导航即作废。
@@ -214,7 +204,6 @@ function DesktopMailView({
   const [openingDraft, setOpeningDraft] = useState(false);
   const composer = useRef<MailComposerHandle>(null);
   const narrow = useMediaQuery(NARROW_MEDIA_QUERY);
-  // 邮箱 grid 容器实测宽度,挂载前按最宽处理。
   const [contentWidth, setContentWidth] = useState(Number.POSITIVE_INFINITY);
 
   if (request !== openRequest) {
@@ -455,7 +444,6 @@ function DesktopMailView({
     setOpened(null);
   };
 
-  // 阅读页删除:纯本地移入回收站,可恢复,无需确认。
   const handleDeleteMessage = async (message: MailMessageDetail) => {
     try {
       const result = await mailClient.deleteMessage(message.id);
@@ -577,14 +565,11 @@ function DesktopMailView({
 
   const syncBusy = sync?.phase === 'syncing' || sync?.phase === 'connecting';
 
-  // 单栏态(第二级降档):窗口本身窄屏,或容器实测宽度不足。
   const stacked = narrow || contentWidth < STACKED_THRESHOLD;
-  // 第一级降档:非窄屏但容器偏窄时强制折叠文件夹栏;持久化偏好不动,宽度恢复后还原用户偏好。
-  // 阈值随当前列表宽度浮动:用户拖宽列表时同步收紧判定,避免阅读区被两头挤压。
+  // 非窄屏但容器偏窄时强制折叠文件夹栏，不改持久化偏好；阈值随当前列表宽度浮动。
   const autoCollapseFolders =
     !narrow && contentWidth < FOLDERS_WIDTH + listWidth + 1 + READER_COMFORT_WIDTH;
   const effectiveFoldersCollapsed = foldersCollapsed || autoCollapseFolders;
-  // 单栏态下内容面板的网格占位:narrow 沿用第二行整行,非 narrow 单栏落到图标栏右侧一列。
   const stackedPlacement = narrow ? 'col-span-full row-start-2' : 'col-start-2';
 
   const listLoading = messagesQuery.isFetching;
@@ -632,7 +617,6 @@ function DesktopMailView({
         ref={observeGrid}
         className={cn(
           'grid min-h-0 flex-1 transition-[grid-template-columns] duration-base ease-out',
-          // narrow 维持单列 + AppShell 抽屉;非 narrow 单栏保留 48px 图标栏;宽布局维持可拖四列。
           narrow
             ? 'grid-cols-1 grid-rows-[auto_minmax(0,1fr)]'
             : stacked
@@ -697,7 +681,6 @@ function DesktopMailView({
             )}
             aria-label="本地草稿"
           >
-            {/* 与文件夹/列表/回收站同一 h-11 头部规格，含计数。 */}
             <PanelHeader size="lg">
               <h2 className="flex items-center gap-2 text-sm font-medium">
                 <FilePenLine className="size-4" />

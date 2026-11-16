@@ -48,7 +48,6 @@ import { errorMessage } from '../../../../core/protocol/contract';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
-/** 提供商首字母块（学 ZCode 的品牌位）：没有品牌图标时的身份标识。 */
 function ProviderMonogram({ name, size }: { name: string; size: 'sm' | 'md' }) {
   return (
     <span
@@ -97,7 +96,6 @@ function ModelSettingsDialog({
   );
 }
 
-/** 编辑单个模型的草稿；最终随提供商保存，取消不会改变已有配置。 */
 function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProps) {
   const [contextWindow, setContextWindow] = useState(settings.contextWindow?.toString() ?? '');
   const [maxOutputTokens, setMaxOutputTokens] = useState(
@@ -183,7 +181,6 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm">输入类型</legend>
             <div className="flex flex-wrap gap-1.5">
-              {/* 文本输入固定开启：不是开关，是带锁的状态（学 ZCode 的 Text 锁定 chip）。 */}
               <span
                 className="flex items-center gap-1 rounded-control border border-transparent bg-selected px-2 py-1 text-xs text-ink"
                 title="文本输入固定开启"
@@ -340,7 +337,6 @@ function CatalogModelDialog({
   );
 }
 
-/** 设置 › 模型服务：左侧按内置厂商/自定义分组列出提供商，右侧编辑选中的那一个。 */
 export function LlmSection() {
   const queryClient = useQueryClient();
   const providerList = useQuery({
@@ -389,7 +385,6 @@ export function LlmSection() {
 
   const selected =
     detail?.mode === 'edit' ? ((providers ?? []).find(({ id }) => id === detail.id) ?? null) : null;
-  // 新建草稿没有 provider；编辑态的目标由列表解出。
   const detailProvider = detail?.mode === 'create' ? null : selected;
   const detailOpen = detail?.mode === 'create' || selected !== null;
   const groups = [
@@ -419,7 +414,6 @@ export function LlmSection() {
         }
         title="模型服务"
       />
-      {/* 主从两栏：左栏固定 15rem（w-60 档）承载列表，右栏是详情表单；中屏以下改为上下堆叠。 */}
       <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6">
         <div className="grid content-start gap-1">
           {groups.map(({ label, items }) =>
@@ -444,7 +438,6 @@ export function LlmSection() {
                         >
                           <ProviderMonogram name={provider.name} size="sm" />
                           <span className="truncate">{provider.name}</span>
-                          {/* 状态点：绿=启用（进入会话的模型候选），灰=停用。 */}
                           <span
                             aria-hidden="true"
                             className={cn(
@@ -462,7 +455,6 @@ export function LlmSection() {
           )}
         </div>
         {detailOpen ? (
-          // 详情面板自带底色块：窄屏下两栏堆叠时，它要和上面的提供商列表分得开。
           <SettingsGroup>
             <div className="py-4">
               <ProviderDetail
@@ -490,7 +482,6 @@ export function LlmSection() {
   );
 }
 
-/** 内置厂商的地址与模型参数取自 Pi 目录；编辑时密钥留空表示沿用已保存密钥。 */
 function ProviderDetail({
   busy,
   catalog,
@@ -500,14 +491,12 @@ function ProviderDetail({
   onSetEnabled,
   provider,
 }: {
-  /** 切换使用中与删除进行中：与列表共用同一 busy。 */
   busy: boolean;
   catalog: LlmCatalogProvider[];
   onCancelCreate: () => void;
   onRemove: (id: string) => void;
   onSaved: (provider: LlmProviderView) => void;
   onSetEnabled: (id: string, enabled: boolean) => void;
-  /** 新建草稿时为 null；编辑时为该提供商的最新视图。 */
   provider: LlmProviderView | null;
 }) {
   const creating = provider === null;
@@ -567,7 +556,6 @@ function ProviderDetail({
     invalidateDetection();
   };
 
-  /** 内置厂商不带地址，档位由主进程按目录补全。 */
   const payload = (next: typeof form) => ({
     id: provider?.id,
     name: next.name,
@@ -840,7 +828,6 @@ function ProviderDetail({
             type="password"
             value={apiKey}
           />
-          {/* 密钥去向无法从输入框本身看出，需要就地说明。 */}
           <p className="text-xs leading-relaxed text-ink-3">
             密钥经系统加密保存在本机，不会回传页面。留空即沿用已保存的密钥。
           </p>
@@ -1002,7 +989,6 @@ function ProviderDetail({
           </p>
         </div>
         {error && <ErrorText>{error}</ErrorText>}
-        {/* 创建需一次性提交（密钥与地址无法逐键生效）；编辑态全部即时保存，没有底部按钮。 */}
         {creating && (
           <div className="flex items-center justify-end gap-2">
             <Button onClick={onCancelCreate} variant="ghost">

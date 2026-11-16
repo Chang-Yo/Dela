@@ -18,7 +18,6 @@ const transports = ['stdio', 'http'] as const;
 const transportLabels = { stdio: '本地命令', http: '远程地址' };
 const secretHint = '值经系统钥匙串加密保存在本机，不会再显示在界面上。';
 
-/** MCP 添加/编辑共用表单：新建提交 addMcpServer；编辑提交部分补丁（连接字段留空保持原值，视图不携带现值）。 */
 export function McpFormDialog({
   editing,
   onClose,
@@ -26,7 +25,6 @@ export function McpFormDialog({
 }: {
   editing: Exclude<McpEditState, null>;
   onClose: () => void;
-  /** 提交成功后回传主进程返回的最新服务器列表（含 connecting 中间态）。 */
   onSaved: (views: McpServerView[]) => void;
 }) {
   const isEdit = editing.mode === 'edit';
@@ -44,7 +42,6 @@ export function McpFormDialog({
 
   const submit = async () => {
     if (!window.dela || busy) return;
-    // 先本地校验，失败保留输入就地报错；通道错误同样保留输入。
     const parsed = parseMcpForm(
       { transport, name, command, argsText, envText, url, headersText },
       { isEdit },

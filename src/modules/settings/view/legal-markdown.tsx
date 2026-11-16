@@ -2,12 +2,8 @@ import { Streamdown, type Components } from 'streamdown';
 import { Card } from '../../../ui/card';
 
 /**
- * 条款正文（仓库根目录 docs 下的 Markdown）到界面的映射：隐私页、使用条款页与首次启动的
- * 接受页三处共用，改这里三处一起变，正文只改 docs 里的文件。
- *
- * 只映射元素级样式，行宽、字号与颜色由各处的容器给。小节间距落在标题自己身上：
- * Markdown 的块是平级兄弟节点，容器给不了 grid 间距；h1 与各处页面标题重复，不渲染，
- * `first:mt-0` 兜底文档直接从 h2 开头的情况。
+ * 条款正文到界面的元素级映射，隐私页、使用条款页与首次启动接受页共用；行宽、字号、颜色由容器给。
+ * 小节间距落在标题自己身上（Markdown 块是平级兄弟，容器给不了 grid 间距）；h1 与页面标题重复，不渲染。
  */
 const components: Components = {
   h1: () => null,
@@ -17,7 +13,6 @@ const components: Components = {
   p: ({ children }) => <p className="mt-3">{children}</p>,
   strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
   ul: ({ children }) => <ul className="mt-3 grid list-disc gap-1.5 pl-4">{children}</ul>,
-  // 使用条款开头的接受声明做成卡片，段落的 mt-3 在这里要压掉。
   blockquote: ({ children }) => (
     <Card asChild className="text-ink [&_p]:mt-0" variant="inset">
       <blockquote>{children}</blockquote>
@@ -47,7 +42,6 @@ const components: Components = {
 
 export function LegalMarkdown({ markdown }: { markdown: string }) {
   return (
-    // 条款是静态正文：小节间距由元素自己给，压掉 streamdown 默认的块间距与表格控件。
     <Streamdown
       className="space-y-0"
       components={components}

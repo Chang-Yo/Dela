@@ -14,7 +14,6 @@ export type UpdateEvent =
   | { type: 'install/started' }
   | { type: 'install/failed'; reason: UpdateReason; detail?: string | null };
 
-/** 可以重新发起检查的阶段。下载与安装途中不接受新的检查。 */
 const CHECKABLE = new Set<UpdateSnapshot['phase']>([
   'idle',
   'up-to-date',

@@ -6,8 +6,6 @@ type StepGuideItem = {
   content: ReactNode;
 };
 
-/** 向导步骤内的编号引导：序号圆点 + 竖向连线，把「先去拿密钥、再回来粘贴」拆成上下两段。
- *  序号与标题同为 24px 行高，圆心与文字基线对齐；步骤之间留白远大于标题与内容之间，靠亲密性分层。 */
 export function StepGuide({ steps }: { steps: StepGuideItem[] }) {
   return (
     <ol className="grid">

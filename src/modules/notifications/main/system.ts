@@ -29,7 +29,6 @@ function snoozed(): boolean {
   return !Number.isNaN(until) && until > Date.now();
 }
 
-/** 校园通知的系统提醒，点击后跳到通知指向的页面。 */
 export function showCampusNotice(
   id: string,
   title: string,

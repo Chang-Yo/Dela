@@ -31,13 +31,9 @@ const icons: Array<{ id: IconPreference; label: string; src: string }> = [
   { id: 'black', label: '黑底', src: blackLogo },
 ];
 
-// 缩放档位标签直接由档位值换算为百分比，与系统显示缩放的写法一致。
 const zoomLabel = (zoom: ZoomPreference) => `${Math.round(zoom * 100)}%`;
 
-/**
- * 主题卡片缩略图：面板与三条骨架都取主题 token，靠 `bui-light` / `dark` 把卡片单独切到对应主题，
- * 所以深色主题下浅色卡片仍显示浅色；「跟随系统」左右各半。
- */
+/** 主题卡片缩略图：靠 `bui-light` / `dark` 把卡片单独切到对应主题；「跟随系统」左右各半。 */
 function ThemePreview({ mode }: { mode: ThemePreference }) {
   const bars = (
     <>
@@ -66,7 +62,6 @@ function ThemePreview({ mode }: { mode: ThemePreference }) {
   );
 }
 
-// 每个外观选项（主题/图标/缩放/字号）独立的写入状态：互不阻塞，失败经 toast 提示。
 function useOptionSave() {
   const [busy, setBusy] = useState(false);
   const save = async (operation: () => Promise<void>) => {
@@ -138,12 +133,9 @@ export function AppearanceSection({
   return (
     <div className="grid gap-10">
       <SectionHeader title="外观" />
-      {/* 四个设置项一行一项：标签贴左、控件右对齐同一竖线，分组容器承担边界。 */}
       <SettingsGroup>
-        {/* 主题三选一占满整行：缩略图卡片比色块更能说明「切过去长什么样」。 */}
         <div className="grid gap-3 border-b border-line py-3.5" data-setting-id="theme">
           <h3 className="text-sm font-medium text-ink">主题</h3>
-          {/* 恒三列：窗口最小宽 600px，三张卡片各约 180px 仍是可读缩略图，比堆成三行更好分辨。 */}
           <div aria-label="主题" className="grid grid-cols-3 gap-2" role="group">
             {themes.map(({ id, label }) => (
               <button
@@ -158,7 +150,6 @@ export function AppearanceSection({
                 type="button"
               >
                 <ThemePreview mode={id} />
-                {/* 选中标记贴在缩略图角上：文案不因勾选出现而位移。 */}
                 {theme === id ? (
                   <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-ink text-surface">
                     <Check className="size-2.5" strokeWidth={2.5} />
@@ -188,7 +179,6 @@ export function AppearanceSection({
             }}
           />
         </SettingRow>
-        {/* 字号是全局基准：改它等于改根元素 font-size，文字、图标与间距一起缩放。 */}
         <SettingRow settingId="font-size" title="字号">
           <StepperControl
             canDecrease={fontSize > fontSizeMin}

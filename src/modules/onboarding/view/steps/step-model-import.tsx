@@ -7,7 +7,6 @@ import { LLM_MODEL_LIMIT } from '../../../../core/protocol/llm-models';
 import { capModels, selectedModels } from './model-import';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 
-/** 向导 · 导入模型弹层：从检测到的模型列表里勾选要写进配置的那些，默认勾上已导入的。 */
 export function StepModelImportDialog({
   open,
   onOpenChange,
@@ -18,9 +17,7 @@ export function StepModelImportDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   options: string[];
-  /** 当前已导入的模型，打开时默认勾选。 */
   preselected: string[];
-  /** 按检测列表顺序回传勾选结果。 */
   onConfirm: (picked: string[]) => void;
 }) {
   return (
@@ -39,7 +36,6 @@ export function StepModelImportDialog({
   );
 }
 
-/** 弹层内容：关闭即卸载，勾选状态下次打开时按 preselected 重新初始化。 */
 function Picker({
   options,
   preselected,

@@ -1,4 +1,3 @@
-// 应用内更新：主进程持有状态，electron-updater 负责版本比较、校验、差分下载与 NSIS 安装。
 import { app, BrowserWindow, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { emit } from '../../../core/ports';
