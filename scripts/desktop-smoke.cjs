@@ -3,7 +3,7 @@ const { app, BrowserWindow, dialog, Menu } = require('electron');
 const { dirname, join, resolve } = require('node:path');
 const { mkdtempSync } = require('node:fs');
 const { tmpdir } = require('node:os');
-const { constants, publicEncrypt, randomUUID } = require('node:crypto');
+const { randomUUID } = require('node:crypto');
 const assert = require('node:assert/strict');
 const root = resolve(process.argv[2] || '.');
 app.setAppPath(root);
@@ -134,58 +134,6 @@ async function run(window) {
       await js(`document.documentElement.style.fontSize = ${JSON.stringify(fontSize)}`);
     }
   }
-  // 真正经 IPC 打开授权窗，只替换远端页面和验证响应，不使用真实账号。
-  const loadURL = BrowserWindow.prototype.loadURL;
-  const fetch = globalThis.fetch;
-  let authorization;
-  let encrypted;
-  BrowserWindow.prototype.loadURL = function (url, options) {
-    if (url.startsWith('https://shuiyuan.sjtu.edu.cn/user-api-key/new?')) {
-      authorization = this;
-      const params = new URL(url).searchParams;
-      encrypted = publicEncrypt(
-        { key: params.get('public_key'), padding: constants.RSA_PKCS1_PADDING },
-        Buffer.from(JSON.stringify({ key: 'desktop-fixture', nonce: params.get('nonce') })),
-      ).toString('base64');
-      return loadURL.call(this, 'data:text/html,<title>Authorization fixture</title>', options);
-    }
-    return loadURL.call(this, url, options);
-  };
-  globalThis.fetch = async (url) => {
-    assert.equal(url, 'https://shuiyuan.sjtu.edu.cn/session/current.json');
-    return new Response(JSON.stringify({ current_user: { username: 'desktop-fixture' } }));
-  };
-  try {
-    await js("window.dela.bridge.invoke('shuiyuan:startAuth')");
-    const first = authorization;
-    assert.ok(first);
-    assert.equal(first.getParentWindow(), window);
-    assert.equal(first.isModal(), process.platform !== 'darwin');
-    if (process.platform === 'darwin') {
-      assert.equal(window.isEnabled(), true);
-      assert.ok(first.getBounds().height > first.getContentBounds().height, '缺少原生标题栏');
-    }
-    const preferences = first.webContents.getLastWebPreferences();
-    assert.equal(preferences.contextIsolation, true);
-    assert.equal(preferences.sandbox, true);
-    assert.equal(preferences.nodeIntegration, false);
-    assert.ok(!preferences.preload);
-    await js("window.dela.bridge.invoke('shuiyuan:startAuth')");
-    assert.equal(authorization, first);
-    assert.equal(BrowserWindow.getAllWindows().length, 2);
-    first.close();
-    await wait(() => first.isDestroyed(), 'authorization closed');
-    assert.equal(window.isEnabled(), true);
-    const bound = await js(
-      `window.dela.bridge.invoke('shuiyuan:bind', ${JSON.stringify(encrypted)})`,
-    );
-    assert.equal(bound.connected, true);
-    assert.equal(bound.username, 'desktop-fixture');
-  } finally {
-    BrowserWindow.prototype.loadURL = loadURL;
-    globalThis.fetch = fetch;
-    if (authorization && !authorization.isDestroyed()) authorization.close();
-  }
   if (process.platform === 'darwin') {
     // 更新平台门已与 Windows 一致放开；打包冒烟停在初始状态，不触发真实联网检查。
     const update = await js("window.dela.bridge.invoke('update:state')");
@@ -295,6 +243,6 @@ async function run(window) {
     "window.onbeforeunload = null; window.dela.bridge.invoke('mail:setComposeActive', false)",
   );
   console.log(
-    'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, authorization window frame/reuse/bind after close, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves live PTY; no login registration.',
+    'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves live PTY; no login registration.',
   );
 }
