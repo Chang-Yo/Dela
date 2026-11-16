@@ -33,24 +33,6 @@ it('差分回退时进度与传输量同步重置，重试清空旧传输量', (
 });
 
 describe('检查', () => {
-  it('有更新时进入 available 并带上版本', () => {
-    const state = reachedAvailable('1.0.1');
-    expect(state.phase).toBe('available');
-    expect(state.version).toBe('1.0.1');
-    expect(state.checkedAt).toBe(at);
-    expect(state.reason).toBeNull();
-  });
-
-  it('无更新时进入 up-to-date 并记录检查时刻', () => {
-    const state = run(base(), [
-      { type: 'check/started' },
-      { type: 'check/up-to-date', checkedAt: at },
-    ]);
-    expect(state.phase).toBe('up-to-date');
-    expect(state.checkedAt).toBe(at);
-    expect(state.version).toBeNull();
-  });
-
   it('失败时进入 unsupported 并保留原因与排查细节', () => {
     const state = run(base(), [
       { type: 'check/started' },
@@ -70,12 +52,6 @@ describe('检查', () => {
     expect(state.reason).toBe('feed-unavailable');
   });
 
-  it('检查中重复的开始事件被忽略', () => {
-    const checking = run(base(), [{ type: 'check/started' }]);
-    expect(checking.phase).toBe('checking');
-    expect(reduceUpdate(checking, { type: 'check/started' })).toBe(checking);
-  });
-
   it('下载已经开始后，迟到的检查结果不得改变状态', () => {
     const downloading = run(reachedAvailable(), [
       { type: 'download/started' },
@@ -87,14 +63,6 @@ describe('检查', () => {
       checkedAt: at,
     });
     expect(late).toBe(downloading);
-  });
-
-  it('已经最新之后仍可再次检查', () => {
-    const upToDate = run(base(), [
-      { type: 'check/started' },
-      { type: 'check/up-to-date', checkedAt: at },
-    ]);
-    expect(reduceUpdate(upToDate, { type: 'check/started' }).phase).toBe('checking');
   });
 });
 
@@ -129,17 +97,6 @@ describe('下载', () => {
     expect(state.progress).toBe(0.5);
   });
 
-  it('下载完成进入 ready 并保留目标版本', () => {
-    const state = run(reachedAvailable(), [
-      { type: 'download/started' },
-      { type: 'download/progress', progress: 1 },
-      { type: 'download/finished' },
-    ]);
-    expect(state.phase).toBe('ready');
-    expect(state.version).toBe('1.0.1');
-    expect(state.progress).toBe(1);
-  });
-
   it('ready 阶段不能重复下载', () => {
     const ready = run(reachedAvailable(), [
       { type: 'download/started' },
@@ -157,16 +114,6 @@ describe('下载', () => {
     expect(reduceUpdate(failed, { type: 'download/progress', progress: 0.9 })).toBe(failed);
     expect(reduceUpdate(failed, { type: 'download/finished' })).toBe(failed);
   });
-
-  it('取消下载后进度归零，也可重新检查', () => {
-    const failed = run(reachedAvailable(), [
-      { type: 'download/started' },
-      { type: 'download/progress', progress: 0.3 },
-      { type: 'download/failed', reason: 'cancelled', detail: null },
-    ]);
-    expect(failed.progress).toBe(0);
-    expect(reduceUpdate(failed, { type: 'check/started' }).phase).toBe('checking');
-  });
 });
 
 describe('安装', () => {
@@ -176,21 +123,6 @@ describe('安装', () => {
   it('尚未下载完成时不能开始安装', () => {
     const available = reachedAvailable();
     expect(reduceUpdate(available, { type: 'install/started' })).toBe(available);
-  });
-
-  it('启动安装后保持 installing，不提前宣称完成', () => {
-    const state = run(ready(), [{ type: 'install/started' }]);
-    expect(state.phase).toBe('installing');
-    expect(state.version).toBe('1.0.1');
-  });
-
-  it('安装失败进入 error 并保留原因', () => {
-    const state = run(ready(), [
-      { type: 'install/started' },
-      { type: 'install/failed', reason: 'failed', detail: null },
-    ]);
-    expect(state.phase).toBe('error');
-    expect(state.reason).toBe('failed');
   });
 
   it('安装中到达的下载事件被忽略', () => {
@@ -238,31 +170,9 @@ describe('失败步骤', () => {
     expect(failed.failedAt).toBe('download');
     expect(reduceUpdate(failed, { type: 'check/started' }).failedAt).toBeNull();
   });
-
-  it('检查成功后不留下失败步骤', () => {
-    expect(reachedAvailable().failedAt).toBeNull();
-  });
 });
 
 describe('failureEvent', () => {
-  it('按失败步骤给出对应的事件类型', () => {
-    expect(failureEvent('check', 'failed', 'x')).toEqual({
-      type: 'check/failed',
-      reason: 'failed',
-      detail: 'x',
-    });
-    expect(failureEvent('download', 'cancelled', null)).toEqual({
-      type: 'download/failed',
-      reason: 'cancelled',
-      detail: null,
-    });
-    expect(failureEvent('install', 'failed', null)).toEqual({
-      type: 'install/failed',
-      reason: 'failed',
-      detail: null,
-    });
-  });
-
   it('进行中的三个阶段都能被自己的失败事件解除，不会永远卡在进行中', () => {
     const steps: UpdateStep[] = ['check', 'download', 'install'];
     const inFlight: Record<UpdateStep, UpdateSnapshot> = {

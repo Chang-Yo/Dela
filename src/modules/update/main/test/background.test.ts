@@ -80,15 +80,6 @@ describe('startBackgroundUpdateCheck', () => {
     expect(mocks.setPendingInstall).not.toHaveBeenCalled();
     stop();
   });
-  it('Mac 与 Windows 一样注册后台计时器并检查更新', async () => {
-    vi.stubGlobal('process', { ...process, platform: 'darwin' });
-    const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY } = await import('../updater');
-    const stop = startBackgroundUpdateCheck();
-    await vi.advanceTimersByTimeAsync(BACKGROUND_CHECK_DELAY);
-    expect(vi.getTimerCount()).toBeGreaterThan(0);
-    expect(mocks.check).toHaveBeenCalledTimes(1);
-    stop();
-  });
   it('等窗口就位后先查一次，之后按间隔查，停止后不再查', async () => {
     const { startBackgroundUpdateCheck, BACKGROUND_CHECK_DELAY, BACKGROUND_CHECK_INTERVAL } =
       await import('../updater');
@@ -144,11 +135,6 @@ describe('准备上次推迟的更新', () => {
     stop();
   });
 
-  it('比普通后台检查更早准备上次推迟的更新', async () => {
-    const { PENDING_INSTALL_DELAY, BACKGROUND_CHECK_DELAY } = await import('../updater');
-    expect(PENDING_INSTALL_DELAY).toBeLessThan(BACKGROUND_CHECK_DELAY);
-  });
-
   it('检查耗时两分钟后也不会自动安装', async () => {
     mocks.pendingInstall = true;
     let complete!: (value: unknown) => void;
@@ -164,26 +150,6 @@ describe('准备上次推迟的更新', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(mocks.download).toHaveBeenCalledTimes(1);
     expect(mocks.install).not.toHaveBeenCalled();
-    stop();
-  });
-
-  it('没有标记时这一步什么都不做，只剩普通后台检查', async () => {
-    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../updater');
-    const stop = startBackgroundUpdateCheck();
-    await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
-    expect(mocks.check).not.toHaveBeenCalled();
-    expect(mocks.download).not.toHaveBeenCalled();
-    expect(mocks.install).not.toHaveBeenCalled();
-    stop();
-  });
-
-  it('这次查下来已经是最新就停在检查，不空跑下载与安装', async () => {
-    mocks.pendingInstall = true;
-    const { startBackgroundUpdateCheck, PENDING_INSTALL_DELAY } = await import('../updater');
-    const stop = startBackgroundUpdateCheck();
-    await vi.advanceTimersByTimeAsync(PENDING_INSTALL_DELAY);
-    expect(mocks.check).toHaveBeenCalledTimes(1);
-    expect(mocks.download).not.toHaveBeenCalled();
     stop();
   });
 

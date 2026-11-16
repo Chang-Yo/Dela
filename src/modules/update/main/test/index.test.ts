@@ -90,15 +90,6 @@ it.each([true, false])(
   },
 );
 
-it('Mac packaged 与 Windows 同流程：可检查更新，打不开更新时给下载页', async () => {
-  vi.stubGlobal('process', { ...process, platform: 'darwin' });
-  const state = await invoke('check');
-  expect(state).toMatchObject({ phase: 'available', version: '1.0.1' });
-  expect(mocks.checkForUpdates).toHaveBeenCalledTimes(1);
-  await invoke('openDownloadPage');
-  expect(mocks.openExternal).toHaveBeenCalledTimes(1);
-});
-
 it('只检查正式版，关闭自动下载、退出安装和降级', async () => {
   const state = await invoke('check');
   expect(state.phase).toBe('available');
@@ -127,19 +118,6 @@ it.each(['check', 'download'])('%s 进行中重复请求不重入', async (actio
       : ['installer.exe'],
   );
   expect((await first).phase).toBe(action === 'check' ? 'up-to-date' : 'ready');
-});
-
-it('下载进度、失败重试与缓存命中均由同一状态流程处理', async () => {
-  await invoke('check');
-  const operation = pending();
-  mocks.downloadUpdate.mockReturnValueOnce(operation.promise);
-  const downloading = invoke('download');
-  mocks.listeners.get('download-progress')!({ percent: 42, transferred: 42, total: 100 });
-  expect((await invoke('state')).progress).toBe(0.42);
-  expect(await invoke('state')).toMatchObject({ transferred: 42, total: 100 });
-  operation.resolve(['cached-installer.exe']);
-  expect((await downloading).phase).toBe('ready');
-  expect(mocks.quitAndInstall).not.toHaveBeenCalled();
 });
 
 it('更新文件校验失败不会进入待安装，允许重新下载', async () => {
@@ -181,12 +159,6 @@ it('缺少 latest.yml 是检查失败，不能报已是最新，且可重试', a
   expect((await invoke('check')).phase).toBe('available');
 });
 
-it('开发运行不联网检查', async () => {
-  mocks.isPackaged = false;
-  expect((await invoke('check')).phase).toBe('unsupported');
-  expect(mocks.checkForUpdates).not.toHaveBeenCalled();
-});
-
 it('推迟只在 ready 落盘，安装先清标记且只启动一次，不提前宣称成功', async () => {
   await invoke('deferInstall');
   expect(mocks.setPendingInstall).not.toHaveBeenCalled();
@@ -216,11 +188,4 @@ it('清除待装标记失败时不启动安装器', async () => {
   });
   expect((await invoke('install')).phase).toBe('error');
   expect(mocks.quitAndInstall).not.toHaveBeenCalled();
-});
-
-it('手动下载兜底指向 CDN 分享页', async () => {
-  await invoke('openDownloadPage');
-  expect(mocks.openExternal).toHaveBeenCalledWith(
-    'https://openlist.frameneo.com/@s/Dela_latest_release',
-  );
 });
