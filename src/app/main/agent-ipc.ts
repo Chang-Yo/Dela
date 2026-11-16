@@ -75,7 +75,6 @@ function hasLiveSessions() {
   return hasLiveMainSessions() || hasSidechats();
 }
 
-/** 退出前结束主会话与旁问，最多等 timeoutMs。 */
 async function shutdownSessions(timeoutMs: number) {
   await Promise.race([
     Promise.all([shutdownMainSessions(timeoutMs), shutdownSidechats()]),

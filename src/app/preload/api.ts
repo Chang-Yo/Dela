@@ -1,7 +1,6 @@
 import type { Bridge } from '../../core/protocol/contract';
 
 export interface DelaApi {
-  /** 已迁入 modules/ 的模块经契约客户端调用主进程，见 core/protocol/contract。 */
   readonly bridge: Bridge;
   readonly platform: string;
   /** 拖进窗口的文件在本机磁盘上的路径；没有本地路径时为空字符串。 */

@@ -52,14 +52,11 @@ import {
 import Database from 'better-sqlite3';
 import { spawn as spawnPty } from 'node-pty';
 
-// 在数据库、窗口和托盘初始化前抢占锁，重复启动只唤起已有实例。
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
-// Chromium 默认按滚轮格数瞬时跳变；开启后对滚轮输入做逐帧插值，滚动平滑。
 app.commandLine.appendSwitch('enable-smooth-scrolling');
-// Electron 界面语言默认 en-US，原生日期/时间控件会渲染成 MM/DD/YYYY AM/PM；
-// 应用界面全中文，强制 Chromium locale 一致。
+// 默认 en-US 会让原生日期控件显示 AM/PM；强制与全中文界面一致。
 app.commandLine.appendSwitch('lang', 'zh-CN');
 registerPreviewScheme();
 
@@ -116,7 +113,6 @@ electronAutoUpdater.on('before-quit-for-update', () => {
 
 app.on('second-instance', () => {
   if (mainWindow && !mainWindow.isDestroyed()) showMainWindow(mainWindow);
-  // 窗口尚未创建时，正常启动流程会显示它，不另建窗口。
 });
 if (smokeTest) {
   setTimeout(
@@ -128,14 +124,12 @@ if (smokeTest) {
   ).unref();
 }
 
-// 注册业务 IPC；数据库在应用就绪后可用。
 app
   .whenReady()
   .then(() => {
     if (!hasSingleInstanceLock) return;
     provideHostPorts(electronPorts);
-    // Windows 系统通知按 AppUserModelID 识别应用；与 electron-builder.yml 的 appId 一致，
-    // 开发运行（未走安装器）也需要显式设置才能弹通知。
+    // Windows 通知按 AppUserModelID 识别应用，开发运行也要显式设置。
     if (process.platform === 'win32') app.setAppUserModelId('io.dela.desktop');
     if (process.platform === 'darwin') {
       const action = (value: TrayAction) => () => {
@@ -187,7 +181,7 @@ app
       SCHEMA_VERSION,
     );
     getDatabase();
-    // 随包 MinGit 与搜索工具（rg/fd）前插 PATH：终端、Agent 的子进程一开始就能用 git/grep/find；
+    // 随包 MinGit 与 rg/fd 前插 PATH，终端与 Agent 子进程开箱可用。
     prependRuntimePath();
     registerPreviewProtocol();
     applyTheme(savedTheme());
@@ -200,15 +194,13 @@ app
     registerModuleIpc(modules);
     for (const module of modules) module.register?.();
     registerSearchProvider(settingsSearch);
-    // 回收未被任何会话引用的内联图片（上次运行遗留的草稿图片等）。
     gcChatMedia();
     if (!smokeTest) {
       stopModules = modules.flatMap((module) => module.start?.() ?? []);
     }
   })
   .catch((error: unknown) => {
-    // 数据库拒绝降级打开（「由更新版本的 Dela 创建」）就是从这里冒出来的：
-    // 没有这个 catch 只会留下未处理的 rejection，用户看到的是「窗口一直不出现、也没提示」。
+    // 数据库拒绝降级打开时走这里；没有 catch 用户只会看到窗口一直不出现。
     console.error(error);
     if (!smokeTest) {
       dialog.showErrorBox('Dela 无法启动', error instanceof Error ? error.message : String(error));
@@ -216,7 +208,6 @@ app
     app.exit(1);
   });
 
-// 只把 http(s) 链接交给系统浏览器；无法解析的目标一律留在应用边界内。
 function openExternalUrl(url: string): void {
   try {
     const external = new URL(url);
@@ -224,7 +215,7 @@ function openExternalUrl(url: string): void {
       void shell.openExternal(external.href);
     }
   } catch {
-    // Keep unparseable targets inside the application boundary.
+    // 无法解析的目标不外开。
   }
 }
 
@@ -238,8 +229,7 @@ async function createWindow(): Promise<void> {
     width: 1100,
     height: 760,
     minWidth: 600,
-    // 最小高度要容得下「@ 候选菜单向上展开（最高 256px）+ composer + 头部」，
-    // 再紧就会像菜单顶出窗口上沿。
+    // 容得下 @ 候选菜单向上展开（256px）+ composer + 头部。
     minHeight: 600,
     show: !smokeTest && !startHidden,
     backgroundColor: '#f7f7f8',
@@ -301,9 +291,7 @@ async function createWindow(): Promise<void> {
     }
   });
   const session = window.webContents.session;
-  // 渲染进程的 navigator.clipboard.writeText 走 clipboard-sanitized-write 权限；
-  // 终端粘贴的 navigator.clipboard.readText 走 clipboard-read 权限；
-  // 课堂视频 <video> 的原生全屏按钮走 fullscreen 权限；其余（通知、定位等）一律拒绝。
+  // 仅放行剪贴板读写与全屏（终端粘贴、课堂视频），其余权限一律拒绝。
   const allowClipboardAndFullscreen = (_contents: unknown, permission: string) =>
     permission === 'clipboard-sanitized-write' ||
     permission === 'clipboard-read' ||
@@ -324,7 +312,6 @@ async function createWindow(): Promise<void> {
     if (new URL(devUrl).origin !== 'http://127.0.0.1:5173') {
       throw new Error('Unexpected development server origin');
     }
-    // 冒烟运行经 URL 参数告知 renderer 跳过首启开屏等一次性界面。
     await window.loadURL(smokeTest ? `${devUrl}?smoke-test=1` : devUrl);
   } else {
     await window.loadFile(
@@ -332,7 +319,7 @@ async function createWindow(): Promise<void> {
       smokeTest ? { query: { 'smoke-test': '1' } } : undefined,
     );
   }
-  // 恢复持久化的页面缩放；在页面加载后设置，避免导航重置缩放级别。
+  // 页面加载后再设置，避免导航重置缩放级别。
   window.webContents.setZoomFactor(savedZoom());
 
   if (!smokeTest) createTray(window);
@@ -355,12 +342,11 @@ async function createWindow(): Promise<void> {
         `document.querySelector('main') !== null && document.querySelector('aside[aria-label="主导航"]') !== null && window.dela?.version === ${JSON.stringify(app.getVersion())} && typeof window.dela?.bridge.invoke === 'function' && typeof window.require === 'undefined'`,
       );
       if (!rendered) throw new Error('Renderer or preload smoke check failed');
-      // Pi 是纯 ESM 包，只能经动态 import 在 CJS 产物中加载（agent/pi.ts）；
-      // 冒烟在 dev 与打包产物两条路径都跑，覆盖该加载真实可用。
+      // Pi 是纯 ESM 包，只能动态 import 加载；冒烟覆盖 dev 与打包两条路径。
       const pi = await loadPi();
       if (typeof pi.createAgentSession !== 'function')
         throw new Error('Pi runtime smoke check failed');
-      // 签名与 hardened runtime 可能让 spawn-helper / ConPTY 起不来，打包产物要真起一次 PTY。
+      // 签名与 hardened runtime 可能让 PTY 起不来，打包产物要真起一次。
       await new Promise<void>((resolve, reject) => {
         const pty = spawnPty(locateBash(), ['--noprofile', '--norc', '-c', 'echo DELA_PTY_OK'], {
           cols: 80,
@@ -453,13 +439,11 @@ app.on('will-quit', () => {
   closeDomainBridge();
   tray?.destroy();
   for (const stop of stopModules) stop();
-  // 远端 helper 不等我们说再见：它靠心跳消失后自己退出（最多 5 分钟），这里只关本地隧道。
-  // watch 的事件流要先收掉，否则它会在退出过程中试图把通道重新建起来。
+  // 远端 helper 靠心跳消失后自行退出，这里只关本地隧道；先收掉 watch，免得退出中重建通道。
   closeRemoteWatch();
   void closeHelper();
-  // 端口预览的独立隧道跟 helper 通道无关，也要收掉本地 ssh 进程。
   closeAllPortTunnels();
-  // 为「用系统默认程序打开」下载的临时文件：系统程序可能还开着它，删失败就算了（临时目录）。
+  // 系统程序可能还开着为「用系统默认程序打开」下载的临时文件，删失败即可。
   void closeRemoteOpens();
   closeDatabase();
 });

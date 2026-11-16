@@ -6,7 +6,6 @@ import { hostPorts } from '../../core/ports';
 let database: Database.Database | null = null;
 
 const schema: string[] = [
-  // 邮箱缓存（账户/文件夹/近端邮件窗口）。
   `CREATE TABLE IF NOT EXISTS mail_accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     address TEXT NOT NULL UNIQUE,
@@ -54,7 +53,6 @@ const schema: string[] = [
     UNIQUE(folder_id, uid)
   )`,
   `CREATE INDEX IF NOT EXISTS idx_mail_messages_folder_date ON mail_messages(folder_id, date DESC)`,
-  // 课表与日历。
   `CREATE TABLE IF NOT EXISTS timetable_sync (
     semester TEXT PRIMARY KEY,
     last_synced_at TEXT NOT NULL,
@@ -90,7 +88,6 @@ const schema: string[] = [
     created_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_calendar_events_time ON calendar_events(start_at, end_at)`,
-  // Canvas 课程与资料缓存。
   `CREATE TABLE IF NOT EXISTS canvas_courses (
     id INTEGER PRIMARY KEY,
     data TEXT NOT NULL,
@@ -137,7 +134,6 @@ const schema: string[] = [
     snapshot_at TEXT,
     snapshot_error TEXT
   )`,
-  // 通知中心。
   `CREATE TABLE IF NOT EXISTS notifications (
     id TEXT PRIMARY KEY,
     source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan', 'jwc', 'canvas')),
@@ -160,7 +156,6 @@ const schema: string[] = [
     error TEXT,
     PRIMARY KEY (source, account_key)
   )`,
-  // TODO：个人待办与 Canvas 作业缓存。
   `CREATE TABLE IF NOT EXISTS todo_items (
     id TEXT PRIMARY KEY,
     owner TEXT NOT NULL,

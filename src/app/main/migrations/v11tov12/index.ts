@@ -3,10 +3,7 @@ import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import type { MigrationContext } from '../types';
 
-/**
- * MCP 配置从数据库明文移到系统钥匙串加密的 mcp-servers.bin，原有服务器都是 stdio。
- * 新文件只由数据库内容决定，失败重跑直接覆盖；读不出的旧配置原样保留。
- */
+/** MCP 配置从数据库明文移到钥匙串加密的 mcp-servers.bin；新文件由数据库内容决定，失败可重跑。 */
 export function v11tov12(db: Database.Database, { userData, seal }: MigrationContext): void {
   const row = db.prepare("SELECT value FROM workspace_settings WHERE key = 'mcp-servers'").get() as
     { value: string } | undefined;

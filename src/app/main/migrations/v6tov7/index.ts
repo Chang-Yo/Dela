@@ -10,10 +10,7 @@ interface V6Provider {
   [key: string]: unknown;
 }
 
-/**
- * 模型选择从全局改成按会话：sessions 加 provider_id/model/effort，旧会话回填 v6 使用中的提供商与模型；
- * llm-providers.bin 去掉 activeId 与提供商上的 model，提供商改为 enabled 开关（全部启用）。
- */
+/** 模型选择从全局改成按会话：旧会话回填 v6 的提供商与模型，提供商改为 enabled 开关。 */
 export function v6tov7(db: Database.Database, { userData, seal }: MigrationContext): void {
   db.exec(`ALTER TABLE sessions ADD COLUMN provider_id TEXT;
     ALTER TABLE sessions ADD COLUMN model TEXT;

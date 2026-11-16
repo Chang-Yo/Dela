@@ -110,7 +110,6 @@ export interface LibraryProps {
   selected: string | null;
   onOpen(key: string): void;
   onOpenToSide(key: string): void;
-  /** 添加到项目。 */
   onLink(key: string): void;
   /** 有资料移入归档后调用，展开归档区。 */
   onArchive(): void;
@@ -128,7 +127,6 @@ export interface SourceDocumentProps {
   sourceId: string;
   content: DocumentContent;
   navigate: Navigate;
-  /** 重新读取 content。 */
   onReload: () => void;
 }
 
