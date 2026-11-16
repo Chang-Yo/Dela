@@ -5,6 +5,7 @@ import { useDebounce } from 'use-debounce';
 import { Archive, MessageSquare, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { Button } from '../../../ui/button';
+import { useDismissOnOutsidePointer } from '../../../ui/use-dismiss-on-outside-pointer';
 import { EmptyState } from '../../../ui/empty-state';
 import { IconButton } from '../../../ui/icon-button';
 import { SearchInput } from '../../../ui/search-input';
@@ -27,15 +28,9 @@ function SessionList({
   onClose: () => void;
 }) {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  useEffect(() => {
-    if (confirmingId === null) return;
-    const cancel = (event: PointerEvent) => {
-      if (!(event.target instanceof Element && event.target.closest('[data-archive-confirm]')))
-        setConfirmingId(null);
-    };
-    document.addEventListener('pointerdown', cancel);
-    return () => document.removeEventListener('pointerdown', cancel);
-  }, [confirmingId]);
+  useDismissOnOutsidePointer(confirmingId !== null, '[data-archive-confirm]', () =>
+    setConfirmingId(null),
+  );
   return (
     <>
       {sessions.map((session) => (

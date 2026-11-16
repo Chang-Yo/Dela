@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
+import { useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Archive,
@@ -53,11 +53,6 @@ function MessageActions({
   onFork: (() => void) | undefined;
 }) {
   const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
-    return () => clearTimeout(timer);
-  }, [copied]);
   return (
     <div className="mt-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/msg:opacity-100 group-hover/msg:opacity-100">
       <IconButton
@@ -65,6 +60,7 @@ function MessageActions({
         onClick={() => {
           void navigator.clipboard.writeText(content);
           setCopied(true);
+          setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
         }}
         title="复制"
       >
@@ -133,11 +129,6 @@ function UserMessage({
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(message.content);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
-    return () => clearTimeout(timer);
-  }, [copied]);
   // 已发送消息的正文不含图片 token；编辑重发时按原消息把图片补回尾部，原图随新消息保留。
   const confirmEdit = () => {
     const tokens = (message.images ?? [])
@@ -277,6 +268,7 @@ function UserMessage({
             onClick={() => {
               void navigator.clipboard.writeText(message.content);
               setCopied(true);
+              setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
             }}
             title="复制"
           >

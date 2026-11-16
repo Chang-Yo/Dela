@@ -26,6 +26,7 @@ import { ReplyCommentRail } from './reply-comment';
 import { formatDuration } from './ToolTimeline';
 import { openSubagent } from './tool-views';
 import { Button } from '../../../ui/button';
+import { useNow } from '../../../ui/use-now';
 import { IconButton } from '../../../ui/icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { ProgressRing } from '../../../ui/progress-ring';
@@ -1030,11 +1031,7 @@ function BackgroundTaskList({
   onStop: (taskId: string) => void;
 }) {
   const { navigate } = useChatTabSource();
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useNow(1000);
   return (
     <ul className="grid grid-cols-1">
       {tasks.map((task) => {
