@@ -305,7 +305,6 @@ app
     // 路径笔记不落 workspace_notes 行：文件路径即条目 id。
     let path = note.id;
     assert.equal(path, join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记.md'));
-    // 新建重名直接报错，不自动改名。
     assert.throws(
       () => createWorkspaceEntry({ name: '笔记.md', kind: 'file', parentId: child.id }),
       /已存在/,
@@ -323,7 +322,6 @@ app
     assert.equal(readFileSync(path, 'utf8'), '# 外部编辑');
     const disk = await readWorkspaceEntry(note.id);
     saveWorkspaceNote(note.id, '# 恢复测试', disk.revision!);
-    // 路径笔记移动后 id 随新路径变化，之后一律用 moved.id。
     const moved = updateWorkspaceEntry(note.id, { parentId: folder.id, name: '记录.md' });
     assert(!existsSync(path));
     path = join(profile, 'notes', 'workspace', '主题资料', '记录.md');

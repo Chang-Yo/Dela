@@ -33,7 +33,6 @@ const urls = [
   'https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.2/MinGit-2.56.0.2-64-bit.zip',
 ];
 
-// 已为同一版本准备过就直接跳过：本地连续打 dir/dist 包不重复下载。
 const fingerprint = `${version} ${sha256}`;
 if (
   existsSync(marker) &&

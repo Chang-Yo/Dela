@@ -90,7 +90,6 @@ async function run(window) {
   assert.equal(readFileSync(join(betaDir, 'hello.txt'), 'utf8').trim(), 'beta');
   assert.ok(!existsSync(join(alphaDir, 'hello.txt')));
 
-  // 续聊：模型应记得上一轮做过什么（工具调用与结果都在 Pi 会话里）。
   const followUp = await ask(a.sessionId, '刚才你在 todo.md 里写了什么？只回答那一行内容。');
   assert.match(followUp.messages.at(-1).content, /ship it/i);
   const reopened = await call(

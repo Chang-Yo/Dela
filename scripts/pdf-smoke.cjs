@@ -44,7 +44,6 @@ function fixture() {
       deflateSync(pixels),
     ),
   );
-  // Tiny JPEG2000 swatch exercises the bundled OpenJPEG WASM decoder.
   const jpx = add(
     stream(
       '/Type /XObject /Subtype /Image /Width 32 /Height 32 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode',
@@ -231,7 +230,6 @@ app
     await wait(
       `document.querySelector('[aria-label="PDF 页码"]')?.value === ${JSON.stringify(page)} && document.querySelector('.textLayer')?.textContent`,
     );
-    // Exercise cancellation while old requests and Worker setup are pending.
     for (let i = 0; i < 20; i++) {
       await open((i % 2) + 1);
       await new Promise((r) => setTimeout(r, 10));
@@ -311,7 +309,6 @@ app
       Math.abs(after.horizontal - anchor.horizontal) < 0.01,
       JSON.stringify({ anchor, after }),
     );
-    // Return to fit width, then pan sideways: there should be no tiny overflow.
     await evaluate("document.querySelector('[title=适合宽度]').click()");
     await new Promise((r) => setTimeout(r, 250));
     assert.equal(

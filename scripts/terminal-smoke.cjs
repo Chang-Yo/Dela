@@ -65,7 +65,6 @@ async function run(window) {
       async () => lines((await sessions()).find((item) => item.id === id).buffer).includes(marker),
       `output ${marker}`,
     );
-  // 标记之后重新出现提示符：shell 已回到可输入状态。
   const promptAfter = (id, marker) =>
     wait(async () => {
       const output = lines((await sessions()).find((item) => item.id === id).buffer);
@@ -117,7 +116,6 @@ async function run(window) {
   // 回归：pwsh 7 的模块路径漏给 5.1 时，PSReadLine 加载失败。
   assert.doesNotMatch(first.buffer, /Cannot load PSReadline/i);
 
-  // 真实键盘输入 + 行编辑：方向键与删除键要按终端序列送到 shell。
   await type('echo DELA_EDITX');
   for (const keyCode of ['Left', 'Delete', 'Enter']) await press(keyCode);
   await printed(first.id, 'DELA_EDIT');
@@ -144,7 +142,6 @@ async function run(window) {
   await press('Enter');
   await printed(first.id, 'DELA_PASTE');
 
-  // 拖选最后一个非空白 span，再分别用快捷键与右键复制。
   const box = await js(`(() => {
     const span = [...document.querySelectorAll('.xterm-rows span')]
       .filter(span => span.textContent.trim().length > 0)
@@ -190,7 +187,6 @@ async function run(window) {
     'project cwd',
   );
 
-  // 切到另一个工作台标签再回来，进程与输出都保留。
   await js(`document.querySelector('button[aria-label="在 ${PROJECT} 中新建对话"]').click()`);
   await waitDom(`!!document.querySelector('[role="tab"][data-tab^="chat:"]')`, 'chat tab');
   await js(`document.querySelector('[role="tab"][data-tab^="chat:"]').click()`);

@@ -25,9 +25,8 @@ const profile = mkdtempSync(join(tmpdir(), 'dela-remote-gui-'));
 app.setPath('userData', profile);
 app.setPath('documents', profile);
 app.setPath('home', profile);
-// 真实启动是 `electron .`，getAppPath() 就是仓库根；这里入口是 .tools/remote-smoke.cjs，
-// getAppPath() 会变成 .tools，于是 vendor/ 下的 helper 与随包 ssh 都找不到、静默降级成 ssh。
-// 对齐成仓库根，让冒烟真的走到 helper 通道。
+// 入口在 .tools/ 时 getAppPath() 不是仓库根，找不到 vendor/ 下的 helper 而静默降级成 ssh；
+// 对齐成仓库根，让冒烟真的走 helper 通道。
 app.getAppPath = () => process.cwd();
 registerPreviewScheme();
 
@@ -72,8 +71,7 @@ app
     });
     const evaluate = (code: string) => win.webContents.executeJavaScript(code, true);
     const wait = async (code: string, label = code) => {
-      // 30 秒：向导的「连接」现在会真的上传并启动 helper（第一次要传几 MB），
-      // 15 秒在慢链路上不够；条件一旦成立立刻返回，放宽只是让失败晚一点报出来。
+      // 向导「连接」要上传并启动 helper，慢链路上 15 秒不够。
       for (let i = 0; i < 300; i++) {
         if (await evaluate(code)) return;
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -125,8 +123,6 @@ app
     await clickLabel('新建项目');
     await wait(`document.body.innerText.includes('新建远程项目')`, '新建项目弹窗');
     await click('新建远程项目');
-    // 空档案里没有已保存的连接（本机 ~/.ssh/config 里的主机会作为候选出现在下拉框里）。
-    // 冒烟走「新建连接」那条路：从下拉框里选最后一项，填完「保存并连接」。
     await wait(`document.querySelector('[aria-label="服务器"]') !== null`, '新建远程项目面板');
     await shoot('panel-initial');
     await evaluate(
@@ -146,7 +142,6 @@ app
         (await exec(target, 'pgrep -f "[d]ela-helper --port" | wc -l')).stdout.toString().trim(),
       );
     await click('保存并连接');
-    // 连上之后面板直接显示主目录的子目录（主目录由 helper 带回，不再单独跑 ssh）。
     await wait(
       `[...document.querySelectorAll('[role="option"] button')].some(b => b.textContent.trim() === 'dela-gui-smoke')`,
       '面板里的远端目录清单',
@@ -155,7 +150,6 @@ app
     const helpersAfterConnect = await helperCount();
     await shoot('directory-home');
 
-    // 单击选中：项目名称跟着变，底部写明将添加哪个目录。
     await evaluate(
       `[...document.querySelectorAll('[role="option"] button')].find(b => b.textContent.trim() === 'dela-gui-smoke').click()`,
     );
@@ -259,7 +253,6 @@ app
     }
     assert.ok(watched, 'Dela 之外建的文件没有出现在目录树里（watch 没生效）');
 
-    // 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
     await evaluate(`(async () => {
       window.__term = { id: crypto.randomUUID(), data: '' };
       window.dela.bridge.subscribe('terminal:event', (event) => {
