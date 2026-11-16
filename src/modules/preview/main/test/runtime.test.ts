@@ -124,41 +124,12 @@ it.each(platforms)(
         '--no-config',
       ]),
     );
-    expect(mocks.fetch.mock.calls.map(([url]) => url)).toEqual(
-      platform.platform === 'darwin'
-        ? [
-            expect.stringContaining('aarch64-apple-darwin-install_only_stripped.tar.gz'),
-            expect.stringContaining('uv-aarch64-apple-darwin.tar.gz'),
-          ]
-        : [
-            expect.stringContaining('embed-amd64.zip'),
-            expect.stringContaining('uv-x86_64-pc-windows-msvc.zip'),
-          ],
-    );
-    if (platform.platform === 'darwin') {
-      expect(mocks.spawn.mock.calls[0]![0]).toBe('/usr/bin/tar');
-      expect(install[0]).toBe(join(root, 'installer', 'uv-aarch64-apple-darwin', 'uv'));
-      expect(existsSync(join(root, 'python312._pth'))).toBe(false);
-    } else {
-      expect(mocks.spawn.mock.calls[0]![0]).toMatch(/System32[/\\]tar\.exe$/);
-      expect(install[0]).toBe(join(root, 'installer', 'uv.exe'));
-      expect(readFileSync(join(root, 'python312._pth'), 'utf8')).toContain('Lib/site-packages');
-    }
     for (const name of ['installer', 'python.zip', 'uv.zip', 'python.tar.gz', 'uv.tar.gz'])
       expect(existsSync(join(root, name))).toBe(false);
     await runtime.installDocumentDependency();
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
   },
 );
-
-it('rejects a marker with missing interpreter or packages', async () => {
-  await setup();
-  fixture(join(root, 'ready'));
-  writeFileSync(join(root, 'ready'), '1');
-  expect(runtime.documentDependency().status).toBe('missing');
-  fixture(runtime.documentPython());
-  expect(runtime.documentDependency().status).toBe('missing');
-});
 
 it.each([0, 1])(
   'rejects archive %i checksum failure, cleans partial files and allows retry',

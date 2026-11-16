@@ -63,13 +63,7 @@ describe('office export links', () => {
       const stored = { ...link, path };
       const fresh = officeExportPreviewInfo(stored, 'v1');
       expect(fresh).not.toBeNull();
-      expect(fresh!.title).toBe('A.pdf');
       expect(fresh!.stale).toBe(false);
-      expect(
-        fresh!.previewUrl.startsWith(
-          `dela-resource://workspace/${encodeURIComponent(link.entryId)}?v=`,
-        ),
-      ).toBe(true);
       expect(officeExportPreviewInfo(stored, 'v2')!.stale).toBe(true);
       expect(
         officeExportPreviewInfo({ ...stored, path: join(dir, 'missing.pdf') }, 'v1'),

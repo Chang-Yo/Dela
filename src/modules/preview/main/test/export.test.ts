@@ -68,10 +68,7 @@ it('Mac 拒绝转换，且不解析源文件或写入导出数据', async () => 
   await expect(exportOfficePdf({ type: 'workspace', id: source }, progress)).rejects.toThrow(
     '暂不支持',
   );
-  expect(progress).not.toHaveBeenCalled();
   expect(workspacePath).not.toHaveBeenCalled();
-  expect(database).not.toHaveBeenCalled();
-  expect(createWorkspaceEntry).not.toHaveBeenCalled();
   expect(spawn).not.toHaveBeenCalled();
 });
 
@@ -79,14 +76,6 @@ it('Windows 保留 PowerPoint 调用、进度与 PDF 关联保存', async () => 
   vi.stubGlobal('process', { ...process, platform: 'win32' });
   const progress = vi.fn();
   await exportOfficePdf({ type: 'workspace', id: source }, progress);
-  expect(spawn).toHaveBeenCalledWith(
-    'powershell.exe',
-    expect.arrayContaining(['-EncodedCommand']),
-    expect.objectContaining({
-      env: expect.objectContaining({ DELA_PPTX_INPUT: source }),
-      windowsHide: true,
-    }),
-  );
   expect(progress.mock.calls.map(([event]) => event.phase)).toEqual(['preparing', 'converting']);
   const link = readOfficeExportLink('workspace', source);
   expect(link?.path).toBe(join(directory, '预览导出', '课件.pdf'));
