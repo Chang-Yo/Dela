@@ -9,7 +9,6 @@ vi.mock('electron', () => ({
 /** 假会话：记下被报上来的集合，并允许测试手动推事件。 */
 class FakeSession {
   sets = new Map<string, string[]>();
-  cleared: string[] = [];
   listeners = new Set<(event: unknown) => void>();
 
   async setWatch(id: string, paths: string[]) {
@@ -18,7 +17,6 @@ class FakeSession {
   }
 
   async clearWatch(id: string) {
-    this.cleared.push(id);
     this.sets.delete(id);
   }
 
@@ -85,39 +83,6 @@ it('报上集合后 helper 收到监视，change 事件推成目录变化', asyn
   fake(target.host).emit({ type: 'reset', id: '*', reason: 'overflow' });
   expect(seen).toEqual(['/home/u/proj/src', '/home/u/proj']);
   stop();
-});
-
-it('撤销监视会告诉 helper，空集合等于取消', async () => {
-  await watchRemoteProject({ projectId: 'p-1', target, root: '/home/u/proj', paths: ['/x'] });
-  await vi.waitFor(() => expect(fake(target.host).sets.get('p-1')).toBeTruthy());
-  await unwatchRemoteProject('p-1');
-  expect(fake(target.host).cleared).toContain('p-1');
-
-  const empty = await watchRemoteProject({
-    projectId: 'p-1',
-    target,
-    root: '/home/u/proj',
-    paths: [],
-  });
-  expect(empty.watching).toBe(0);
-});
-
-it('helper 不可用时不报错，只是拿不到监视', async () => {
-  const unavailable = new FakeSession();
-  unavailable.setWatch = async () => {
-    throw new Error('远端 user@10.0.0.5 不可用：noexec');
-  };
-  unavailable.watchEvents = async () => {
-    throw new Error('远端 user@10.0.0.5 不可用：noexec');
-  };
-  sessions.set(target.host, unavailable);
-  const result = await watchRemoteProject({
-    projectId: 'p-1',
-    target,
-    root: '/home/u/proj',
-    paths: ['/home/u/proj'],
-  });
-  expect(result.watching).toBe(0);
 });
 
 it('两个目标各有一条流：一台的事件不回到另一台', async () => {

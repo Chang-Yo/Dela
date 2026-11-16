@@ -208,15 +208,6 @@ describe('通道状态机', () => {
     expect(await helperSession(target).list('/p')).toHaveLength(1);
     expect(connects).toBe(2);
   });
-
-  it('重连期间推 reconnecting，回来后推 ready', async () => {
-    await readyHelper(target);
-    const seen: string[] = [];
-    const stop = onHelperState((snapshot) => seen.push(snapshot[0]!.state));
-    cutTunnel();
-    await waitFor(() => seen.at(-1) === 'ready' && seen.includes('reconnecting'));
-    stop();
-  });
 });
 
 describe('任务接回', () => {

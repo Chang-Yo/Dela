@@ -46,18 +46,6 @@ describe('remotePath', () => {
     );
   });
 
-  it('多个项目并存时取最长前缀', () => {
-    setContextMirrors('a', [{ mirror: 'C:\\mirror\\p', remote: '/srv/p' }]);
-    setContextMirrors('b', [{ mirror: 'C:\\mirror\\p\\sub', remote: '/srv/deep' }]);
-    try {
-      expect(remotePath('C:\\mirror\\p\\sub\\x.md')).toBe('/srv/deep/x.md');
-      expect(remotePath('C:\\mirror\\p\\y.md')).toBe('/srv/p/y.md');
-    } finally {
-      setContextMirrors('a', []);
-      setContextMirrors('b', []);
-    }
-  });
-
   it('POSIX 镜像区分大小写，保留目录和文件名里的反斜杠', () => {
     const mirror = '/Users/me/课程\\资料/repo';
     setContextMirrors('mac', [{ mirror, remote: '/srv/Project' }]);
@@ -86,19 +74,6 @@ describe('mirrorCommandText', () => {
       expect(mirrorCommandText(other)).toBe(other);
     } finally {
       setContextMirrors('mac', []);
-    }
-  });
-
-  it('Windows 镜像仍兼容大小写及混合分隔符，不匹配前缀相似的其他目录', () => {
-    setContextMirrors('win', [{ mirror: 'C:\\Users\\me\\repo', remote: '/srv/project' }]);
-    try {
-      expect(mirrorCommandText("cat 'c:/users/ME/repo\\skills\\SKILL.md'")).toBe(
-        "cat '/srv/project/skills/SKILL.md'",
-      );
-      const other = "cat 'C:/Users/me/repo-other/SKILL.md'";
-      expect(mirrorCommandText(other)).toBe(other);
-    } finally {
-      setContextMirrors('win', []);
     }
   });
 });

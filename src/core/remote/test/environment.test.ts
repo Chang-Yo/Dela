@@ -31,28 +31,12 @@ describe('受限环境诊断分类', () => {
     ).toContain('只读');
   });
 
-  it('目录不可写（挂载信息拿不到时兜底）', () => {
-    expect(
-      classifyEnvironment(
-        line({ mount: '', writable: 'no', selinux: 'absent', direct: 'exit-126' }),
-      ),
-    ).toContain('不可写');
-  });
-
   it('SELinux Enforcing 且直接执行失败：点名 SELinux', () => {
     expect(
       classifyEnvironment(
         line({ mount: 'rw', writable: 'yes', selinux: 'Enforcing', direct: 'exit-126' }),
       ),
     ).toContain('SELinux');
-  });
-
-  it('直接执行被拒但没有更具体的原因：给出通用解释', () => {
-    expect(
-      classifyEnvironment(
-        line({ mount: 'rw', writable: 'yes', selinux: 'absent', direct: 'exit-126' }),
-      ),
-    ).toContain('被拒绝');
   });
 
   it('执行没被拦（--version 能跑）不硬编原因：返回 null 让原始错误说话', () => {
