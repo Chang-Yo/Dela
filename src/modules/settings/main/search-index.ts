@@ -11,7 +11,7 @@ export interface SettingsSearchItem {
   keywords: string[];
 }
 
-export const settingsSearchItems: SettingsSearchItem[] = [
+const settingsSearchItems: SettingsSearchItem[] = [
   {
     id: 'nav-entries',
     section: 'general',

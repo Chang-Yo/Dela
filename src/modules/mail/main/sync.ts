@@ -64,7 +64,7 @@ export function mailSyncStatus(): MailSyncStatus {
   return syncStatus;
 }
 
-export function updateSync(patch: Partial<MailSyncStatus>): void {
+function updateSync(patch: Partial<MailSyncStatus>): void {
   syncStatus = { ...syncStatus, ...patch };
   emit(mailContract, 'syncStatus', syncStatus);
 }

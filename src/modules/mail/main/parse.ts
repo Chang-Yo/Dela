@@ -6,7 +6,7 @@ import type { MailAddress, MailMessageDetail } from '../contract';
 const BODY_MAX_BYTES = 2_000_000;
 const SNIPPET_MAX_LENGTH = 220;
 
-export async function drainStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
+async function drainStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks);
