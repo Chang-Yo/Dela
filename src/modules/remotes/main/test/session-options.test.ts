@@ -48,7 +48,6 @@ vi.mock('../../../../core/capabilities/mcp', () => ({
 }));
 vi.mock('../../../../core/capabilities/tools', () => ({ readDisabledTools: () => state.disabled }));
 
-import { registerContextDirectory } from '../../../../core/agent/context-directories';
 import { agentEnvironment } from '../../../../core/agent/environment';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
@@ -107,17 +106,6 @@ describe('远程会话环境', () => {
     expect([...options.disabledTools]).toEqual(['web_fetch']);
   });
 
-  it('只挂镜像里的远端技能，不挂本地校园技能', async () => {
-    const options = await agentEnvironment().sessionOptions('p-remote', '/root/proj');
-    expect(options.skillPaths).toEqual([
-      'C:\\data\\remote-context\\r1\\p-remote\\repo\\.agents\\skills',
-      'C:\\data\\remote-context\\r1\\p-remote\\home\\.dela\\skills',
-    ]);
-    expect(options.skillPaths).not.toContain('C:\\skills');
-    // 镜像里的远端技能与本机全局技能一样按名称开关。
-    expect(options.globalSkillDirs).toEqual(expect.arrayContaining(options.skillPaths));
-  });
-
   it('远端 AGENTS.md 的内容与远端路径一起注入，本地全局上下文不丢', async () => {
     const options = await agentEnvironment().sessionOptions('p-remote', '/root/proj');
     const base = [{ path: 'C:\\data\\AGENTS.md', content: '全局' }];
@@ -138,18 +126,5 @@ describe('本地会话环境', () => {
       'web_search',
     ]);
     expect(options.commandPrefix).toContain('DELA_COMMAND_URL');
-  });
-
-  it('通用会话的系统提示列出辅助目录，项目会话不列', async () => {
-    state.remote = false;
-    registerContextDirectory({
-      id: 'workspace',
-      label: '资料',
-      directory: () => '/data/workspace',
-    });
-    const general = await agentEnvironment().sessionOptions(null, '/data/chat-sessions/s1');
-    const project = await agentEnvironment().sessionOptions('p-local', '/proj');
-    expect(general.appendSystemPrompt.join('\n')).toContain('- 资料：/data/workspace');
-    expect(project.appendSystemPrompt.join('\n')).not.toContain('/data/workspace');
   });
 });

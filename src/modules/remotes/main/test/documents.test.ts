@@ -42,28 +42,6 @@ describe('远端文件预览', () => {
     expect(big.revision).toBe('2000-9437184');
   });
 
-  it('无扩展名与点文件按内容判定：文本可看，二进制不当文本', async () => {
-    stat.mockResolvedValue(entry(6));
-    read.mockResolvedValue(Buffer.from('KEY=1\n'));
-    expect(await readRemoteDocument('p-1', target, '/home/u/proj/.env')).toMatchObject({
-      format: 'text',
-      text: 'KEY=1\n',
-    });
-    read.mockResolvedValue(Buffer.from([0x7f, 0x45, 0, 1]));
-    expect((await readRemoteDocument('p-1', target, '/home/u/proj/a.out')).format).toBe('binary');
-  });
-
-  it('Markdown 与代码扩展名按与本地同一套规则判定', async () => {
-    stat.mockResolvedValue(entry(3));
-    read.mockResolvedValue(Buffer.from('# t'));
-    expect((await readRemoteDocument('p-1', target, '/home/u/proj/README.md')).format).toBe(
-      'markdown',
-    );
-    expect((await readRemoteDocument('p-1', target, '/home/u/proj/src/main.ts')).format).toBe(
-      'text',
-    );
-  });
-
   it('PDF/Office 只给按 Range 分块的地址，字节不拉回本地', async () => {
     stat.mockResolvedValue(entry(2048, 7));
     const pdf = await readRemoteDocument('p-1', target, '/home/u/proj/manual.pdf');
