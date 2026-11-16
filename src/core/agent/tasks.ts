@@ -186,7 +186,9 @@ function killTree(pid: number) {
   }
   try {
     process.kill(-pid, 'SIGKILL');
-  } catch {}
+  } catch {
+    // 进程已退出。
+  }
 }
 
 export type BashRunner = (

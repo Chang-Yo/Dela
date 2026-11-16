@@ -296,7 +296,9 @@ export function snapshot(id: string): WorkspaceChat {
   let choice: ModelChoice = { kind: 'none' };
   try {
     choice = modelChoice(meta);
-  } catch {}
+  } catch {
+    // 凭据不可读时只显示未配置状态。
+  }
   let cwd: string | null = entry?.cwd ?? null;
   try {
     cwd ??= sessionCwd(meta.project_id, meta.cwd);

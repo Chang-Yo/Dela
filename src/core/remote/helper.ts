@@ -422,7 +422,9 @@ function assertOk(response: HttpResponse, what: string): void {
   try {
     const parsed = JSON.parse(detail) as { error?: { message?: string } };
     if (parsed.error?.message) detail = parsed.error.message;
-  } catch {}
+  } catch {
+    // 不是 JSON 就原样带上
+  }
   throw new HelperHttpError(`${what}失败：${detail.slice(0, 300)}`, response.status);
 }
 
@@ -491,7 +493,7 @@ function openSse(
             try {
               value = JSON.parse(line.slice(6));
             } catch {
-              continue;
+              continue; // 半截 JSON 只可能是分帧异常，丢掉这一帧不影响后续
             }
             onFrame(value);
           }
