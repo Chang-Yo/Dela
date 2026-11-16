@@ -1,9 +1,9 @@
 import { Minus, Plus } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { Button } from '../../../ui/button';
-import { usePinchZoom } from './use-pinch-zoom';
+import { pinchZoomRef } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/alert';
 import { errorMessage } from '../../../core/protocol/contract';
 
@@ -59,10 +59,8 @@ function sheetTruncated(sheet: XLSX.WorkSheet): boolean {
 }
 
 export function SheetPreview({ url }: { url: string }) {
-  const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [zoom, setZoom] = useState(1);
-  usePinchZoom(scroller, setZoom, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP);
   // 解析结果只服务当前标签（外层按 url 重挂载），不留缓存。
   const workbook = useQuery({
     queryKey: ['preview', 'sheet', url],
@@ -108,7 +106,7 @@ export function SheetPreview({ url }: { url: string }) {
       </div>
       <div className="relative min-h-0 flex-1">
         <div
-          ref={scroller}
+          ref={pinchZoomRef(setZoom, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP)}
           className="absolute inset-0 overflow-auto overscroll-contain bg-surface [overflow-anchor:none] [scrollbar-gutter:stable]"
         >
           {loaded && !sheets.length && <p className="p-6 text-sm text-ink-3">工作簿没有工作表。</p>}

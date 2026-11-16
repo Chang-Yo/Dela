@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
 import { cn } from '../../../ui/cn';
 import { frameHeightFromEvent, injectFrameHeightReport } from './frame-height';
 import { useRootFontSize } from '../../../ui/root-font-size';
+import { useFrameMessages } from '../../../ui/use-frame-messages';
 
 const toolbarToggle = cn(
   'h-7 rounded-full px-3 text-xs transition-colors',
@@ -27,14 +28,10 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
   injectFrameHeightReport(doc);
   const document = renderMailHtml(doc, fitWidth, rootSize);
 
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const height = frameHeightFromEvent(event, iframeRef.current);
-      if (height !== null) setBodyHeight(height);
-    };
-    window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
-  }, []);
+  useFrameMessages((event) => {
+    const height = frameHeightFromEvent(event, iframeRef.current);
+    if (height !== null) setBodyHeight(height);
+  });
 
   return (
     <div className="mt-3 flex flex-col">

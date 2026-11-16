@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { ExternalLink, FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
+import { useNow } from '../../../ui/use-now';
 import { EmptyState } from '../../../ui/empty-state';
 import { showToast } from '../../../ui/toast';
 import { onWorkspaceEvent, workspaceClient } from '../../workspace/view';
@@ -103,13 +103,8 @@ function useOfficeExport(ref: ResourceRef | undefined, onExported: (() => void) 
   const supported = window.dela?.platform === 'win32';
   const active = useOfficeExports((state) => (ref ? state.runs[exportKey(ref)] : undefined));
   const exporting = !!active && !active.error;
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    // 开始前留下的 now 早于 startedAt，elapsed 按 0 计，首个 tick 后即准。
-    if (!exporting) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [exporting]);
+  // 开始前留下的 now 早于 startedAt，elapsed 按 0 计，首个 tick 后即准。
+  const now = useNow(1000, exporting);
   const elapsed = active ? Math.max(0, Math.round((now - active.startedAt) / 1000)) : 0;
   const run = () => {
     if (supported && ref && window.dela) useOfficeExports.getState().start(ref, onExported);

@@ -2,7 +2,7 @@ import { renderAsync } from 'docx-preview';
 import { Minus, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../ui/button';
-import { usePinchZoom } from './use-pinch-zoom';
+import { pinchZoomRef } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/alert';
 import { errorMessage } from '../../../core/protocol/contract';
 
@@ -14,7 +14,6 @@ const ZOOM_STEP = 0.1;
 /** Word 文档只读预览：经受限资源协议取回字节，docx-preview 渲染为分页页面。 */
 export function DocxPreview({ url }: { url: string }) {
   const host = useRef<HTMLDivElement>(null);
-  const scroller = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
   // 每次加载以 url+重试次数为键回报结果；键变了即视为加载中。
   const run = `${attempt}:${url}`;
@@ -22,7 +21,6 @@ export function DocxPreview({ url }: { url: string }) {
   const loading = result?.run !== run;
   const error = loading ? '' : result.error;
   const [zoom, setZoom] = useState(1);
-  usePinchZoom(scroller, setZoom, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP);
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
@@ -81,7 +79,7 @@ export function DocxPreview({ url }: { url: string }) {
       </div>
       <div className="relative min-h-0 flex-1">
         <div
-          ref={scroller}
+          ref={pinchZoomRef(setZoom, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP)}
           className="absolute inset-0 overflow-auto overscroll-contain bg-inset [overflow-anchor:none] [scrollbar-gutter:stable]"
         >
           <div ref={host} style={{ zoom }} className="docx-preview-host min-h-full" />

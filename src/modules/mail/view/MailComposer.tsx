@@ -286,8 +286,14 @@ export function MailComposer({
     const saved = await saveDraft();
     return saved !== null && JSON.stringify(snapshot()) === saved;
   });
-  useEffect(() => registerComposeClose(() => confirmClose()), []);
-  useEffect(() => registerComposeSave(() => saveBeforeUpdate()), []);
+  useEffect(() => {
+    const unregisterClose = registerComposeClose(() => confirmClose());
+    const unregisterSave = registerComposeSave(() => saveBeforeUpdate());
+    return () => {
+      unregisterClose();
+      unregisterSave();
+    };
+  }, []);
 
   const blocksUnload = useEffectEvent(() => dirty);
   useEffect(() => {

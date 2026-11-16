@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   CalendarCheck,
@@ -27,6 +27,7 @@ import {
   type TodoState,
 } from '../contract';
 import { Button } from '../../../ui/button';
+import { useNow } from '../../../ui/use-now';
 import { CountBadge } from '../../../ui/count-badge';
 import { EmptyState } from '../../../ui/empty-state';
 import { Card } from '../../../ui/card';
@@ -233,11 +234,7 @@ function TodoComposer({
 }
 
 export function TodoView({ target }: { target: NavTargets['todo'] }) {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const now = useNow(60_000);
   const query = useTodoState();
   const state = query.data ?? null;
   const error = query.error ? errorMessage(query.error) : null;

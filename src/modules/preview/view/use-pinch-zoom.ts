@@ -1,19 +1,14 @@
-import { useEffect, type RefObject } from 'react';
-
 /**
  * 触控板双指捏合缩放（Chromium 派发为 ctrl+wheel）：像素模式按 Mozilla 通用查看器的同款公式换算，
- * 行/页模式按工具栏同比例步进；普通滚轮保持原生滚动。
+ * 行/页模式按工具栏同比例步进；普通滚轮保持原生滚动。返回挂在滚动容器上的 ref 回调。
  */
-export function usePinchZoom(
-  container: RefObject<HTMLElement | null>,
+export function pinchZoomRef(
   setZoom: (update: (value: number) => number) => void,
   min: number,
   max: number,
   step: number,
 ) {
-  useEffect(() => {
-    const element = container.current;
-    if (!element) return;
+  return (element: HTMLDivElement) => {
     const wheel = (event: WheelEvent) => {
       if (!event.ctrlKey) return;
       event.preventDefault();
@@ -28,5 +23,5 @@ export function usePinchZoom(
     // 需要非 passive 监听才能 preventDefault，拦下 Chromium 对捏合的整页缩放。
     element.addEventListener('wheel', wheel, { passive: false });
     return () => element.removeEventListener('wheel', wheel);
-  }, [container, setZoom, min, max, step]);
+  };
 }
