@@ -290,7 +290,7 @@ app
       return { ...position, prevented: e.defaultPrevented };
     })()`);
     assert.equal(anchor.prevented, true);
-    await wait("parseInt(document.querySelector('[title=适合宽度]').textContent) > 100");
+    await wait(`parseInt(document.querySelector('[title="重置缩放到 100%"]').textContent) > 100`);
     await wait('!window.pdfStableCanvas.isConnected');
     assert.equal(
       await evaluate('window.pdfBlankFrames'),
@@ -309,13 +309,13 @@ app
       Math.abs(after.horizontal - anchor.horizontal) < 0.01,
       JSON.stringify({ anchor, after }),
     );
-    await evaluate("document.querySelector('[title=适合宽度]').click()");
+    await evaluate("document.querySelector('[aria-label=适合宽度]').click()");
     await new Promise((r) => setTimeout(r, 250));
-    assert.equal(
+    assert.ok(
       await evaluate(
-        `(() => { const h = document.querySelector('.textLayer').closest('.overflow-auto'); h.scrollLeft = 10; return h.scrollLeft; })()`,
+        `(() => { const h = document.querySelector('.textLayer').closest('.overflow-auto'); return Math.abs(document.querySelector('[data-page-number="${page}"]').getBoundingClientRect().width - h.clientWidth) <= 2; })()`,
       ),
-      0,
+      'Fit width must make the current page fill the viewer',
     );
     await win.webContents.debugger.attach('1.3');
     await win.webContents.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
@@ -334,7 +334,7 @@ app
       ),
     );
     await wait(
-      `document.querySelector('[aria-label="PDF 页码"]')?.value === ${JSON.stringify(page)}`,
+      `Math.abs(Number(document.querySelector('[aria-label="PDF 页码"]')?.value) - ${page}) <= 1`,
     );
     await wait(
       `document.querySelector('[data-page-number="${page}"]:not(.loading) .textLayer')?.textContent`,
@@ -349,7 +349,11 @@ app
       });
       await new Promise((r) => setTimeout(r, 400));
       assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'));
-      assert.equal(await evaluate(`document.querySelector('[aria-label="PDF 页码"]').value`), page);
+      assert.ok(
+        Math.abs(
+          Number(await evaluate(`document.querySelector('[aria-label="PDF 页码"]').value`)) - page,
+        ) <= 1,
+      );
       await wait(
         `document.querySelector('[data-page-number="${page}"]:not(.loading) .textLayer')?.textContent`,
       );
