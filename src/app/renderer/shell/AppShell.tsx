@@ -744,8 +744,7 @@ export function AppShell({
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />
-      /* 浮岛卡片：内容区以圆角卡片浮在画布色之上；分隔线仅占 1px，拖动命中范围由 Resizer
-      的透明伪元素扩展。 */
+      {/* 浮岛卡片：分隔线仅占 1px，拖动命中范围由 Resizer 的透明伪元素扩展。 */}
       <main
         className={cn(
           'relative col-start-4 row-start-2 mt-1 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-window bg-surface shadow-hairline',
