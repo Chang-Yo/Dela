@@ -1,30 +1,35 @@
 import { useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Archive,
   ArrowDown,
-  ArrowUp,
   ArrowUpRight,
   Bot,
-  Check,
-  CircleAlert,
-  Copy,
   FileText,
   GitBranch,
   MessageSquare,
   NotebookPen,
-  Package,
   Pencil,
-  RotateCcw,
   SquareTerminal,
-  X,
 } from 'lucide-react';
+import {
+  AssistantMessage as AssistantMessageFrame,
+  CompactionDivider,
+  CopyAction,
+  ErrorCard,
+  ExtensionMessage,
+  MessageActions,
+  MessageChip,
+  MessageChips,
+  MessageComments,
+  UserBubble,
+  UserMessage as UserMessageFrame,
+  UserMessageEditor,
+} from '../../../ui/agent/message';
+import { TaskNotice } from '../../../ui/agent/task';
 import { Shimmer } from '../../../ui/shimmer';
 import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
-import { Card } from '../../../ui/card';
-import { Collapse, CollapseChevron } from '../../../ui/collapse';
 import { openLightbox } from '../../../ui/lightbox';
 import { IconButton } from '../../../ui/icon-button';
 import { useMediaQuery } from '../../../ui/use-media-query';
@@ -37,45 +42,6 @@ import { fetchChatMediaPreview, getChatMediaPreview } from './media';
 import { TurnChangesCard } from './TurnChangesCard';
 
 const textAnimation = { animation: 'fadeIn', sep: 'char' } as const;
-
-const COPY_FEEDBACK_MS = 1500;
-
-function MessageActions({
-  content,
-  onSaveNote,
-  onFork,
-}: {
-  content: string;
-  onSaveNote: ((text: string) => void) | undefined;
-  onFork: (() => void) | undefined;
-}) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="mt-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/msg:opacity-100 group-hover/msg:opacity-100">
-      <IconButton
-        aria-label="复制回答"
-        onClick={() => {
-          void navigator.clipboard.writeText(content);
-          setCopied(true);
-          setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
-        }}
-        title="复制"
-      >
-        {copied ? <Check className="text-success" /> : <Copy />}
-      </IconButton>
-      {onSaveNote && (
-        <IconButton aria-label="保存为笔记" onClick={() => onSaveNote(content)} title="保存为笔记">
-          <NotebookPen />
-        </IconButton>
-      )}
-      {onFork && (
-        <IconButton aria-label="从这里分支" onClick={onFork} title="从这里分支为新对话">
-          <GitBranch />
-        </IconButton>
-      )}
-    </div>
-  );
-}
 
 function MessageImage({ id, name }: { id: string; name: string }) {
   const { data: url } = useQuery({
@@ -122,7 +88,6 @@ function UserMessage({
   onEdit: (text: string) => void;
   editable: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(message.content);
   // 已发送消息的正文不含图片 token；编辑重发时按原消息把图片补回尾部，原图随新消息保留。
@@ -134,142 +99,81 @@ function UserMessage({
     setEditing(false);
     onEdit(next);
   };
+  const images = message.images?.length ? (
+    <MessageChips>
+      {message.images.map((image) => (
+        <MessageImage id={image.id} key={image.id} name={image.name} />
+      ))}
+    </MessageChips>
+  ) : null;
   if (editing) {
     return (
-      <div className="mb-5 flex flex-col items-end">
-        <textarea
-          autoFocus
-          className="max-h-64 w-[85%] resize-none rounded-card border border-line border-line-strong bg-surface px-3.5 py-2 text-sm leading-relaxed text-ink shadow-card outline-none [field-sizing:content]"
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.nativeEvent.isComposing) return;
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault();
-              confirmEdit();
-            }
-            if (event.key === 'Escape') setEditing(false);
-          }}
-          rows={2}
-          value={text}
-        />
-        <div className="mt-1.5 flex items-center gap-1">
-          <IconButton aria-label="取消编辑" onClick={() => setEditing(false)} title="取消">
-            <X />
-          </IconButton>
-          <Button
-            aria-label="重新发送"
-            className="rounded-full"
-            disabled={!text.trim() && !message.images?.length}
-            onClick={confirmEdit}
-            size="icon-xs"
-            title="重新发送"
-          >
-            <ArrowUp />
-          </Button>
-        </div>
-        {message.images?.length ? (
-          <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
-            {message.images.map((image) => (
-              <MessageImage id={image.id} key={image.id} name={image.name} />
-            ))}
-          </div>
-        ) : null}
-      </div>
+      <UserMessageEditor
+        onCancel={() => setEditing(false)}
+        onChange={setText}
+        onSubmit={confirmEdit}
+        submitDisabled={!text.trim() && !message.images?.length}
+        value={text}
+      >
+        {images}
+      </UserMessageEditor>
     );
   }
   return (
-    <div className="group/user mb-5 flex flex-col items-end">
-      {message.comments?.length ? (
-        <div className="mb-1.5 grid max-w-[85%] justify-items-end gap-1">
-          {message.comments.map((comment, index) => (
-            <SentComment comment={comment} key={index} />
-          ))}
-        </div>
-      ) : null}
+    <UserMessageFrame>
+      {message.comments?.length ? <MessageComments comments={message.comments} /> : null}
       {message.content ? (
-        <div className="max-w-[85%] rounded-card bg-field px-3.5 py-2 text-sm leading-relaxed text-ink shadow-hairline [overflow-wrap:anywhere]">
+        <UserBubble>
           <ChatMarkdown
             className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent"
             mode="static"
           >
             {message.content}
           </ChatMarkdown>
-        </div>
+        </UserBubble>
       ) : null}
-      {message.images?.length ? (
-        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
-          {message.images.map((image) => (
-            <MessageImage id={image.id} key={image.id} name={image.name} />
-          ))}
-        </div>
-      ) : null}
+      {images}
       {message.attachments?.length ? (
-        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
+        <MessageChips>
           {message.attachments.map((attachment, index) => (
-            <span
-              className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field px-2 text-xs text-ink-2 shadow-hairline"
+            <MessageChip
+              icon={<FileText className="size-3.5 shrink-0 text-ink-3" />}
               key={`${attachment.name}:${index}`}
               title={attachment.name}
             >
-              <FileText className="size-3.5 shrink-0 text-ink-3" />
-              <span className="truncate">{attachment.name}</span>
-            </span>
+              {attachment.name}
+            </MessageChip>
           ))}
-        </div>
+        </MessageChips>
       ) : null}
       {message.sources?.length ? (
-        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
-          {message.sources.map((source) =>
-            onOpenSource ? (
-              <button
-                key={source.key}
-                className="h-7 max-w-full truncate rounded-control bg-field px-2 text-xs leading-7 text-ink-2 shadow-hairline transition-colors hover:bg-hover-strong hover:text-ink"
-                onClick={() => onOpenSource(source.key)}
-              >
-                {source.title}
-              </button>
-            ) : (
-              <span
-                key={source.key}
-                className="h-7 max-w-full truncate rounded-control bg-field px-2 text-xs leading-7 text-ink-2 shadow-hairline"
-              >
-                {source.title}
-              </span>
-            ),
-          )}
-        </div>
+        <MessageChips>
+          {message.sources.map((source) => (
+            <MessageChip
+              key={source.key}
+              onClick={onOpenSource && (() => onOpenSource(source.key))}
+            >
+              {source.title}
+            </MessageChip>
+          ))}
+        </MessageChips>
       ) : null}
       {message.sessions?.length ? (
-        <div className="mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5">
+        <MessageChips>
           {message.sessions.map((session) => (
-            <button
+            <MessageChip
+              icon={<MessageSquare className="size-3.5 shrink-0 text-ink-3" />}
               key={session.id}
-              className="flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-control bg-field px-2 text-xs text-ink-2 shadow-hairline transition-colors enabled:hover:bg-hover-strong enabled:hover:text-ink"
-              disabled={!onOpenSession}
-              onClick={() => onOpenSession?.(session.id)}
+              onClick={onOpenSession && (() => onOpenSession(session.id))}
               title={session.title}
-              type="button"
             >
-              <MessageSquare className="size-3.5 shrink-0 text-ink-3" />
-              <span className="truncate">{session.title}</span>
-            </button>
+              {session.title}
+            </MessageChip>
           ))}
-        </div>
+        </MessageChips>
       ) : null}
-      <div className="mt-0.5 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/user:opacity-100 group-hover/user:opacity-100">
-        {message.content ? (
-          <IconButton
-            aria-label="复制消息"
-            onClick={() => {
-              void navigator.clipboard.writeText(message.content);
-              setCopied(true);
-              setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
-            }}
-            title="复制"
-          >
-            {copied ? <Check className="text-success" /> : <Copy />}
-          </IconButton>
-        ) : null}
+      <MessageActions>
+        {message.content ? <CopyAction label="复制消息" text={message.content} /> : null}
         {editable && (
           <IconButton
             aria-label="编辑消息"
@@ -282,41 +186,8 @@ function UserMessage({
             <Pencil />
           </IconButton>
         )}
-      </div>
-    </div>
-  );
-}
-
-function SentComment({ comment }: { comment: ChatComment }) {
-  return (
-    <div className="grid min-w-0 max-w-full gap-0.5 rounded-card bg-inset px-3 py-1.5 text-xs leading-5 shadow-hairline [overflow-wrap:anywhere]">
-      <blockquote className="line-clamp-3 whitespace-pre-wrap border-l-2 border-line-strong pl-2 text-ink-3">
-        {comment.quote}
-      </blockquote>
-      {comment.comment && <p className="whitespace-pre-wrap text-ink-2">{comment.comment}</p>}
-    </div>
-  );
-}
-
-function ErrorCard({ reason, onRetry }: { reason: string; onRetry?: () => void }) {
-  return (
-    <div
-      role="alert"
-      className="my-3 flex items-start gap-2 rounded-card bg-danger-tint px-3 py-2 text-sm leading-6 text-ink"
-    >
-      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-danger" />
-      <p className="min-w-0 flex-1 break-words">{reason}</p>
-      {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="-my-0.5 flex h-7 shrink-0 items-center gap-1 rounded-control px-2 text-xs font-medium text-ink-2 transition-colors hover:bg-surface hover:text-ink"
-        >
-          <RotateCcw aria-hidden className="size-3.5" />
-          重试
-        </button>
-      )}
-    </div>
+      </MessageActions>
+    </UserMessageFrame>
   );
 }
 
@@ -386,10 +257,7 @@ function AssistantMessage({
     : message.content;
 
   return (
-    <div
-      className="group/msg mb-8 min-w-0 text-sm leading-7 [overflow-wrap:anywhere]"
-      data-reply-live={live || undefined}
-    >
+    <AssistantMessageFrame data-reply-live={live || undefined}>
       {live && empty && (
         <p className="h-7 text-sm leading-7" role="status">
           <Shimmer>正在思考</Shimmer>
@@ -433,13 +301,29 @@ function AssistantMessage({
         />
       )}
       {!live && content && (
-        <MessageActions
-          content={content}
-          onFork={onFork && message.entryId ? () => onFork(message.entryId!) : undefined}
-          onSaveNote={onSaveNote}
-        />
+        <MessageActions className="mt-1">
+          <CopyAction label="复制回答" text={content} />
+          {onSaveNote && (
+            <IconButton
+              aria-label="保存为笔记"
+              onClick={() => onSaveNote(content)}
+              title="保存为笔记"
+            >
+              <NotebookPen />
+            </IconButton>
+          )}
+          {onFork && message.entryId && (
+            <IconButton
+              aria-label="从这里分支"
+              onClick={() => onFork(message.entryId!)}
+              title="从这里分支为新对话"
+            >
+              <GitBranch />
+            </IconButton>
+          )}
+        </MessageActions>
       )}
-    </div>
+    </AssistantMessageFrame>
   );
 }
 
@@ -451,69 +335,23 @@ const TASK_STATUS: Record<TaskNoticeDetails['status'], string> = {
 
 function TaskNoticeMessage({ content, task }: { content: string; task: TaskNoticeDetails }) {
   const { navigate } = useChatTabSource();
-  const [open, setOpen] = useState(false);
-  const Icon = task.kind === 'bash' ? SquareTerminal : Bot;
   return (
-    <Card className="my-3" variant="inset">
-      <div className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
-        <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={1.8} />
-        <span className={`shrink-0 font-medium ${task.status === 'failed' ? 'text-danger' : ''}`}>
-          后台任务{TASK_STATUS[task.status]}
-          {task.exitCode !== undefined && task.status === 'failed' && `（退出码 ${task.exitCode}）`}
-        </span>
-        <span className="min-w-0 flex-1 truncate" title={task.label}>
-          {task.label}
-        </span>
-        <span className="shrink-0 tabular-nums">{formatDuration(task.durationMs)}</span>
-        {task.kind === 'subagent' && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => void openSubagent(task.taskId, navigate)}
-          >
-            打开子会话
-          </Button>
-        )}
-        <IconButton
-          aria-expanded={open}
-          aria-label={open ? '收起通知' : '展开通知'}
-          className="size-6"
-          onClick={() => setOpen((value) => !value)}
-        >
-          <CollapseChevron open={open} />
-        </IconButton>
-      </div>
-      <Collapse open={open}>
-        <ChatMarkdown className="pt-1.5 text-sm" mode="static">
-          {content}
-        </ChatMarkdown>
-      </Collapse>
-    </Card>
-  );
-}
-
-function ExtensionMessage({ content, customType }: { content: string; customType: string }) {
-  return (
-    <Card className="my-3 grid gap-1.5" variant="inset">
-      <span className="flex items-center gap-1.5 text-xs font-medium text-ink-3">
-        <Package aria-hidden className="size-3" strokeWidth={1.8} />
-        扩展 · {customType}
-      </span>
-      <ChatMarkdown className="text-sm" mode="static">
+    <TaskNotice
+      duration={formatDuration(task.durationMs)}
+      failed={task.status === 'failed'}
+      icon={task.kind === 'bash' ? SquareTerminal : Bot}
+      label={task.label}
+      onOpenSession={
+        task.kind === 'subagent' ? () => void openSubagent(task.taskId, navigate) : undefined
+      }
+      title={`后台任务${TASK_STATUS[task.status]}${
+        task.exitCode !== undefined && task.status === 'failed' ? `（退出码 ${task.exitCode}）` : ''
+      }`}
+    >
+      <ChatMarkdown className="pt-1.5 text-sm" mode="static">
         {content}
       </ChatMarkdown>
-    </Card>
-  );
-}
-
-function CompactionDivider({ pending }: { pending?: boolean }) {
-  return (
-    <div className="my-6 flex items-center gap-3 text-xs text-ink-3" role="status">
-      <span className="h-px flex-1 bg-line" />
-      <Archive aria-hidden className="size-3.5 shrink-0" />
-      {pending ? <Shimmer>正在压缩上下文</Shimmer> : <span>上下文已自动压缩</span>}
-      <span className="h-px flex-1 bg-line" />
-    </div>
+    </TaskNotice>
   );
 }
 
@@ -666,10 +504,13 @@ export function ChatThread({
               />
             ) : message.extension ? (
               <ExtensionMessage
-                content={message.content}
                 customType={message.extension.customType}
                 key={`${chat.sessionId}:${index}`}
-              />
+              >
+                <ChatMarkdown className="text-sm" mode="static">
+                  {message.content}
+                </ChatMarkdown>
+              </ExtensionMessage>
             ) : message.role === 'user' ? (
               <UserMessage
                 key={`${chat.sessionId}:${index}`}

@@ -3,7 +3,7 @@ import type { AgentToolResult, SubagentDetails } from '../../../core/protocol/ag
 import { CodeXml, Terminal } from 'lucide-react';
 import { PlainLines, ToolCard } from '../../../ui/agent/tool-card';
 import { openLightbox } from '../../../ui/lightbox';
-import { Button } from '../../../ui/button';
+import { SubagentCard } from '../../../ui/agent/task';
 import { agentClient } from './client';
 import type { Navigate } from '../../../app/module';
 import { useChatTabSource } from './chat-source';
@@ -156,30 +156,16 @@ function SubagentView({ result }: ViewProps) {
   const details = result.output?.details as SubagentDetails | undefined;
   const prompt = (result.input as { prompt?: string } | null)?.prompt ?? '';
   return (
-    <div className="mb-1 mt-1 grid min-w-0 gap-1.5">
-      {prompt && (
-        <p className="line-clamp-3 whitespace-pre-wrap break-words text-xs leading-5 text-ink-3">
-          {prompt}
-        </p>
-      )}
-      {details?.reply && (
-        <div className="max-h-80 overflow-y-auto rounded-card border border-line px-3 py-2 text-sm leading-6">
-          <ChatMarkdown animated={false}>{details.reply}</ChatMarkdown>
-        </div>
-      )}
-      {details && (
-        <div className="flex items-center gap-2 text-xs text-ink-3">
-          <span>{details.background ? '后台运行，结束时通知' : `共 ${details.steps} 步`}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => void openSubagent(details.taskId, navigate)}
-          >
-            打开子会话
-          </Button>
-        </div>
-      )}
-    </div>
+    <SubagentCard
+      footer={
+        details && {
+          text: details.background ? '后台运行，结束时通知' : `共 ${details.steps} 步`,
+          onOpen: () => void openSubagent(details.taskId, navigate),
+        }
+      }
+      prompt={prompt}
+      reply={details?.reply && <ChatMarkdown animated={false}>{details.reply}</ChatMarkdown>}
+    />
   );
 }
 

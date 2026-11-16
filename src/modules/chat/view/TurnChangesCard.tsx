@@ -1,124 +1,68 @@
 // 回答末尾的「本轮改动」卡片：数据取自主进程冻结的轮次 diff（目录前后快照比较，
 // 覆盖 bash 等一切写文件的途径）；默认折叠防大轮次刷屏。
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, CodeXml, FolderOpen } from 'lucide-react';
+import { CodeXml, FolderOpen } from 'lucide-react';
 import type { FileChangeSummary } from '../../../core/protocol/agent';
-import type { DiffStat } from '../../../core/protocol/diff';
-import { Button } from '../../../ui/button';
-import { Card } from '../../../ui/card';
-import { Collapse, CollapseChevron } from '../../../ui/collapse';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../../ui/dropdown-menu';
-import { useChatTabSource } from './chat-source';
-import { reviewTabId } from './review/tab-id';
-import { FileIcon } from '../../../ui/file-icon';
-import { basenameOf, dirnameOf } from './review/view-utils';
+import { ChangedFile, ChangesCard } from '../../../ui/agent/changes';
 import { showToast } from '../../../ui/toast';
 import { agentClient, chatClient } from './client';
 import { errorMessage } from '../../../core/protocol/contract';
+import { useChatTabSource } from './chat-source';
+import { reviewTabId } from './review/tab-id';
+import { basenameOf, dirnameOf } from './review/view-utils';
 
 const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源管理器';
-
-function StatSpan({ stat }: { stat: DiffStat }) {
-  return (
-    <span className="flex shrink-0 gap-1.5 font-mono text-xs">
-      {stat.added > 0 && <span className="text-success">+{stat.added}</span>}
-      {stat.deleted > 0 && <span className="text-danger">-{stat.deleted}</span>}
-    </span>
-  );
-}
 
 function TurnFileRow({
   sessionId,
   turnId,
   file,
-  stat,
   reviewEnabled,
 }: {
   sessionId: string;
   turnId: string;
   file: FileChangeSummary;
-  stat: DiffStat | null | undefined;
   reviewEnabled: boolean;
 }) {
   const { workbench } = useChatTabSource();
-  const deleted = file.status === 'deleted';
   const fail = (cause: unknown) =>
     showToast({ variant: 'error', title: '打开失败', description: errorMessage(cause) });
-  /** deleted 时必然解析失败，对应按钮已禁用。 */
-  const openInDela = () => {
-    void chatClient
-      .locateFile({ sessionId, path: file.path })
-      .then((absolute) => workbench.openDocument(absolute, { aside: true }))
-      .catch(fail);
-  };
-  const review = () =>
-    workbench.open(reviewTabId({ kind: 'turn', sessionId, turnId, path: file.path }), {
-      aside: true,
-    });
   return (
-    <li className="flex min-w-0 items-center gap-2 px-3 py-1.5" data-turn-file={file.path}>
-      <FileIcon path={file.path} />
-      <span className="shrink-0 truncate text-sm" title={file.path}>
-        {basenameOf(file.path)}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-xs text-ink-3" title={file.path}>
-        {dirnameOf(file.path)}
-      </span>
-      {reviewEnabled && stat && <StatSpan stat={stat} />}
-      {reviewEnabled && (
-        <Button className="shrink-0" onClick={review} size="sm" type="button" variant="outline">
-          审阅
-        </Button>
-      )}
-      <div className="flex h-7 shrink-0 items-center rounded-control shadow-hairline">
-        <button
-          className="grid h-full place-items-center rounded-l-control px-2.5 text-xs font-medium text-ink-2 transition-colors duration-base hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-50"
-          disabled={deleted}
-          onClick={openInDela}
-          title={deleted ? '文件已删除' : '在 Dela 中打开'}
-          type="button"
-        >
-          打开
-        </button>
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button
-              aria-label="选择打开方式"
-              className="grid h-full w-5 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-50"
-              disabled={deleted}
-              title="选择打开方式"
-              type="button"
-            >
-              <ChevronDown className="size-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onSelect={() =>
-                void chatClient.openInVsCode({ sessionId, path: file.path }).catch(fail)
-              }
-            >
-              <CodeXml className="text-accent" />
-              VS Code
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() =>
-                void chatClient.revealFile({ sessionId, path: file.path }).catch(fail)
-              }
-            >
-              <FolderOpen />
-              {fileManagerName}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </li>
+    <ChangedFile
+      counts={reviewEnabled ? (file.stat ?? undefined) : undefined}
+      deleted={file.status === 'deleted'}
+      directory={dirnameOf(file.path)}
+      name={basenameOf(file.path)}
+      onOpen={() => {
+        void chatClient
+          .locateFile({ sessionId, path: file.path })
+          .then((absolute) => workbench.openDocument(absolute, { aside: true }))
+          .catch(fail);
+      }}
+      onReview={
+        reviewEnabled
+          ? () =>
+              workbench.open(reviewTabId({ kind: 'turn', sessionId, turnId, path: file.path }), {
+                aside: true,
+              })
+          : undefined
+      }
+      openWith={[
+        {
+          key: 'vscode',
+          icon: <CodeXml className="text-accent" />,
+          label: 'VS Code',
+          onSelect: () => void chatClient.openInVsCode({ sessionId, path: file.path }).catch(fail),
+        },
+        {
+          key: 'reveal',
+          icon: <FolderOpen />,
+          label: fileManagerName,
+          onSelect: () => void chatClient.revealFile({ sessionId, path: file.path }).catch(fail),
+        },
+      ]}
+      path={file.path}
+    />
   );
 }
 
@@ -133,7 +77,6 @@ export function TurnChangesCard({
   /** 仅项目会话提供差异审阅与行数统计。 */
   reviewEnabled: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   // 冻结记录写后不变：永不过期，卡片随展开/收起与切标签重挂载时不重复走 IPC。
   const { data: record } = useQuery({
     queryKey: ['chat', 'turn-changes', sessionId, turnId, reviewEnabled],
@@ -145,7 +88,7 @@ export function TurnChangesCard({
   // 无文件的记录不渲染：远程轮次、轮前快照缺失都落在这里——不把「没有记录」伪装成空改动。
   if (!record || record.files.length === 0) return null;
 
-  const total = (reviewEnabled ? record.files : []).reduce(
+  const total = record.files.reduce(
     (sum, file) => ({
       added: sum.added + (file.stat?.added ?? 0),
       deleted: sum.deleted + (file.stat?.deleted ?? 0),
@@ -153,45 +96,26 @@ export function TurnChangesCard({
     { added: 0, deleted: 0 },
   );
   return (
-    <Card asChild>
-      <section aria-label="本轮改动" className="mt-3 text-sm">
-        <button
-          aria-expanded={open}
-          className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors duration-base hover:bg-hover"
-          onClick={() => setOpen((value) => !value)}
-          type="button"
-        >
-          <CollapseChevron className="text-ink-3" open={open} />
-          <span className="shrink-0 text-xs text-ink-3">
-            本轮改动 · {record.files.length} 个文件
-          </span>
-          <span className="flex min-w-0 gap-1.5 font-mono text-xs">
-            {total.added > 0 && <span className="text-success">+{total.added}</span>}
-            {total.deleted > 0 && <span className="text-danger">-{total.deleted}</span>}
-          </span>
-        </button>
-        <Collapse open={open}>
-          <ul className="grid border-t border-line">
-            {record.files.map((file) => (
-              <TurnFileRow
-                file={file}
-                key={file.path}
-                reviewEnabled={reviewEnabled}
-                sessionId={sessionId}
-                stat={file.stat}
-                turnId={turnId}
-              />
-            ))}
-          </ul>
-          {record.state === 'partial' && record.warnings.length > 0 && (
-            <p className="border-t border-line px-3 py-2 text-xs leading-5 text-ink-3">
-              部分内容未能记录：
-              {record.warnings[0]}
-              {record.warnings.length > 1 && ` 等 ${record.warnings.length} 项`}
-            </p>
-          )}
-        </Collapse>
-      </section>
-    </Card>
+    <ChangesCard
+      counts={reviewEnabled ? total : undefined}
+      fileCount={record.files.length}
+      warning={
+        record.state === 'partial' && record.warnings.length > 0
+          ? `部分内容未能记录：${record.warnings[0]}${
+              record.warnings.length > 1 ? ` 等 ${record.warnings.length} 项` : ''
+            }`
+          : undefined
+      }
+    >
+      {record.files.map((file) => (
+        <TurnFileRow
+          file={file}
+          key={file.path}
+          reviewEnabled={reviewEnabled}
+          sessionId={sessionId}
+          turnId={turnId}
+        />
+      ))}
+    </ChangesCard>
   );
 }
