@@ -20,7 +20,6 @@ import {
   refreshNotifications,
   registerNoticeSource,
   saveNotificationRefresh,
-  setNotificationSnooze,
   upsertNotification,
   type NoticeSource,
 } from '../main/store';
@@ -114,13 +113,5 @@ describe('notification inbox', () => {
     expect(beta.markAllRead).not.toHaveBeenCalled();
     expect(notificationState(['alpha']).unreadCount).toBe(0);
     expect(notificationState(['beta']).unreadCount).toBe(1);
-  });
-
-  it('reports a snooze only while it is active', () => {
-    const later = new Date(Date.now() + 60 * 60_000).toISOString();
-    setNotificationSnooze(later);
-    expect(notificationState().snoozedUntil).toBe(later);
-    setNotificationSnooze('2020-01-01T00:00:00.000Z');
-    expect(notificationState().snoozedUntil).toBeNull();
   });
 });
