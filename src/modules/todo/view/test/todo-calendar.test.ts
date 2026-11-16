@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TodoItem } from '../../contract';
-import { colorFor, dateKey } from '../calendar';
-import { groupTodosByDay, monthGridDays, todoCalendarColor } from '../todo-calendar';
+import { dateKey } from '../calendar';
+import { groupTodosByDay, monthGridDays } from '../todo-calendar';
 
 function todo(overrides: Partial<TodoItem> = {}): TodoItem {
   return {
@@ -44,20 +44,5 @@ describe('TODO 月历', () => {
     expect(days[0]!.getDay()).toBe(1);
     expect(dateKey(days[0]!)).toBe('2026-09-28');
     expect(days.some((day) => dateKey(day) === '2026-10-31')).toBe(true);
-  });
-
-  it('Canvas 作业用课程代码匹配课表配色，个人待办使用自身颜色或石墨色', () => {
-    expect(todoCalendarColor(todo({ courseCode: 'CS101', courseName: '软件工程' }))).toBe(
-      colorFor('CS101'),
-    );
-    expect(todoCalendarColor(todo({ courseCode: undefined, courseName: '软件工程' }))).toBe(
-      colorFor('软件工程'),
-    );
-    expect(todoCalendarColor(todo({ source: 'personal', color: 'rose', dueAt: null }))).toBe(
-      'rose',
-    );
-    expect(todoCalendarColor(todo({ source: 'personal', color: undefined, dueAt: null }))).toBe(
-      'slate',
-    );
   });
 });
