@@ -19,6 +19,12 @@ const tokenStyle = {
   '--diffs-fg-number-override': 'var(--ink-3)',
 } as CSSProperties;
 
+const reviewTokenStyle = {
+  ...tokenStyle,
+  '--diffs-font-size': 'var(--text-sm)',
+  '--diffs-line-height': 'calc(var(--spacing) * 6)',
+} as CSSProperties;
+
 const baseOptions = {
   diffStyle: 'unified',
   lineDiffType: 'word',
@@ -45,7 +51,7 @@ export function PatchDiffView({ patch }: { patch: string }) {
       className="bg-surface"
       options={{ ...baseOptions, themeType }}
       patch={patch}
-      style={tokenStyle}
+      style={reviewTokenStyle}
     />
   );
 }
