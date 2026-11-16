@@ -1,57 +1,6 @@
-// 审阅视图共用的展示件：文件类型图标、状态文案、路径切片与居中占位。
+// 审阅视图共用的展示件：状态文案、路径切片与居中占位。
 // 路径切片只用于界面呈现，不保证与宿主 path 规则一致。
 import type { ReactNode } from 'react';
-import { FileCode2, FileImage, FileText } from 'lucide-react';
-
-const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
-const codeExtensions = new Set([
-  'ts',
-  'tsx',
-  'js',
-  'jsx',
-  'mjs',
-  'cjs',
-  'py',
-  'ipynb',
-  'c',
-  'h',
-  'cpp',
-  'java',
-  'cs',
-  'go',
-  'rs',
-  'rb',
-  'php',
-  'swift',
-  'kt',
-  'sh',
-  'bat',
-  'ps1',
-  'sql',
-  'html',
-  'css',
-  'scss',
-  'vue',
-  'svelte',
-  'json',
-  'jsonc',
-  'yml',
-  'yaml',
-  'toml',
-  'xml',
-]);
-
-export function FileIcon({ path }: { path: string }) {
-  const base = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
-  const dot = base.lastIndexOf('.');
-  const extension = dot > 0 ? base.slice(dot + 1).toLowerCase() : '';
-  const Icon = imageExtensions.has(extension)
-    ? FileImage
-    : codeExtensions.has(extension)
-      ? FileCode2
-      : FileText;
-  return <Icon aria-hidden className="size-3.5 shrink-0 text-ink-3" />;
-}
 
 export const STATUS_TEXT = { added: '新增', modified: '修改', deleted: '删除' } as const;
 

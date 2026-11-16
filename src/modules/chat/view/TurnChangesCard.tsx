@@ -16,7 +16,8 @@ import {
 } from '../../../ui/dropdown-menu';
 import { useChatTabSource } from './chat-source';
 import { reviewTabId } from './review/tab-id';
-import { FileIcon, basenameOf, dirnameOf } from './review/view-utils';
+import { FileIcon } from '../../../ui/file-icon';
+import { basenameOf, dirnameOf } from './review/view-utils';
 import { showToast } from '../../../ui/toast';
 import { agentClient, chatClient } from './client';
 import { errorMessage } from '../../../core/protocol/contract';

@@ -3,7 +3,8 @@
 import { useSyncExternalStore, type CSSProperties } from 'react';
 import { parseDiffFromFile } from '@pierre/diffs';
 import { FileDiff, PatchDiff, Virtualizer } from '@pierre/diffs/react';
-import { FileIcon } from './view-utils';
+import { ToolCard } from '../../../../ui/agent/tool-card';
+import { FileIcon } from '../../../../ui/file-icon';
 
 const tokenStyle = {
   '--diffs-font-family': 'var(--font-mono)',
@@ -84,29 +85,19 @@ export function EditDiffCard({
   const added = fileDiff.hunks.reduce((sum, hunk) => sum + hunk.additionLines, 0);
   const deleted = fileDiff.hunks.reduce((sum, hunk) => sum + hunk.deletionLines, 0);
   return (
-    <div className="relative w-full overflow-hidden rounded-card bg-surface shadow-card">
-      {failed && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[0.1875rem] bg-danger"
-        />
-      )}
-      <div className="flex min-h-11 items-center gap-2 border-b border-line px-4 py-2 text-sm">
-        <FileIcon path={path} />
-        <span className="min-w-0 truncate font-mono leading-normal text-ink">{path}</span>
-        <span className="ml-auto inline-flex shrink-0 items-center gap-2 font-mono text-xs leading-none tabular-nums">
-          <span className="text-success">+{added}</span>
-          <span className="text-danger">-{deleted}</span>
-        </span>
-      </div>
-      <div className="max-h-80 overflow-y-auto">
-        <FileDiff
-          className="bg-surface"
-          fileDiff={fileDiff}
-          options={{ ...baseOptions, themeType }}
-          style={tokenStyle}
-        />
-      </div>
-    </div>
+    <ToolCard
+      bodyClassName="max-h-80 overflow-y-auto"
+      failed={failed}
+      icon={<FileIcon path={path} />}
+      stats={{ added, deleted }}
+      title={path}
+    >
+      <FileDiff
+        className="bg-surface"
+        fileDiff={fileDiff}
+        options={{ ...baseOptions, themeType }}
+        style={tokenStyle}
+      />
+    </ToolCard>
   );
 }
