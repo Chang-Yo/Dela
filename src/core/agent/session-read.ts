@@ -27,7 +27,7 @@ export interface SessionTurn {
 }
 
 /** 一次 session_read 返回的总字数上限；超出时截断，用 before 续读更早的轮次。 */
-export const READ_LIMIT = 20_000;
+const READ_LIMIT = 20_000;
 
 /** 当前分支按轮切分：插队消息与所在轮共用 turnId，并进同一轮；压缩点前后的原文都在。 */
 export function sessionTurns(branch: SessionEntry[], runningTurn?: string): SessionTurn[] {

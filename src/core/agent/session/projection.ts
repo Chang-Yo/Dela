@@ -186,9 +186,7 @@ export function projectMessages(
 }
 
 /** 按会话记录投影：每条消息带上它所在的条目，已完成的回复因此有分支锚点。 */
-export function storedMessages(
-  manager: Pick<SessionManager, 'buildSessionProjection'>,
-): ChatMessage[] {
+function storedMessages(manager: Pick<SessionManager, 'buildSessionProjection'>): ChatMessage[] {
   const projected = manager
     .buildSessionProjection()
     .entries.flatMap(({ sourceEntry, messages }) =>

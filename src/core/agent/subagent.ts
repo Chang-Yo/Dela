@@ -11,7 +11,7 @@ import { insertSubagentSession, row } from './session/store';
 import { taskRunning, trackTask, type TaskParent } from './tasks';
 
 const LIMIT_KEY = 'subagent-limit';
-export const SUBAGENT_LIMIT = { min: 1, max: 16, default: 4 };
+const SUBAGENT_LIMIT = { min: 1, max: 16, default: 4 };
 const limitSchema = z.number().int().min(SUBAGENT_LIMIT.min).max(SUBAGENT_LIMIT.max);
 
 export function readSubagentLimit(): number {

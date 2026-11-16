@@ -339,7 +339,7 @@ interface HttpResponse {
 }
 
 /** 隧道层面的失败（连不上、断在半路、超时）：重连能救。HTTP 非 2xx 不是这一类。 */
-export class HelperTransportError extends Error {
+class HelperTransportError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'HelperTransportError';
@@ -347,7 +347,7 @@ export class HelperTransportError extends Error {
 }
 
 /** helper 用非 2xx 回答了一个业务问题（路径不存在、参数越界）：这是结果，不是通道故障。 */
-export class HelperHttpError extends Error {
+class HelperHttpError extends Error {
   constructor(
     message: string,
     readonly status: number,

@@ -22,9 +22,6 @@ export function tool<T extends z.ZodType>(
   return { description, schema, execute: (input: unknown) => execute(schema.parse(input)) };
 }
 
-/** dela 命令契约：description + zod schema + execute（commands.ts 经命令桥调用）。 */
-export type AgentTool = ReturnType<typeof tool>;
-
 export function match(value: string, keyword: string) {
   return value.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
 }

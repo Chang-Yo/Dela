@@ -41,7 +41,7 @@ const bodySchema = z
 const nameSchema = z.string().trim().min(1).max(64);
 const uuid = z.string().uuid();
 
-export const webSearchEntrySchema = z.discriminatedUnion('provider', [
+const webSearchEntrySchema = z.discriminatedUnion('provider', [
   z
     .object({
       id: uuid,

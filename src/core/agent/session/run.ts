@@ -306,11 +306,7 @@ function undeliveredNotices(entry: Live, run: Run): TaskNotice[] {
  * 后台任务结束的通知：父会话运行中插进本轮，收尾中等它结束，空闲时开一轮（界面显示运行中）。
  * wake=false 时（用户在面板上手动停止）只追加进记录，不开新的一轮。
  */
-export async function deliverTaskNotice(
-  id: string,
-  notice: TaskNotice,
-  wake: boolean,
-): Promise<void> {
+async function deliverTaskNotice(id: string, notice: TaskNotice, wake: boolean): Promise<void> {
   const entry = await ensureLive(id);
   if (!wake) {
     // 运行中 Pi 把它留到本轮结束再追加，不插进工具调用与结果之间。

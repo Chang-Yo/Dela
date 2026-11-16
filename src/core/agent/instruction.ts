@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { hostPorts } from '../ports';
 
-export const instructionSchema = z.string().trim().max(2000);
+const instructionSchema = z.string().trim().max(2000);
 
 /** 键缺失、超长或数据损坏一律回退空串：注入端只关心“有没有内容”。 */
 export function getAgentInstruction(): string {
