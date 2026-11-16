@@ -38,7 +38,7 @@ export interface ExplorerItem {
   importable?: boolean;
 }
 
-export const explorerDragType = 'application/x-dela-entry';
+const explorerDragType = 'application/x-dela-entry';
 
 /** 行内新建：在 parentId 的子项最上方（null 为树根）插入一行名称输入框。 */
 export interface ExplorerPending {

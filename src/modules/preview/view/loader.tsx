@@ -28,7 +28,7 @@ export interface ContentLoader {
   onExported?(tabKey: TabId): void;
 }
 
-export const ContentLoaderContext = createContext<ContentLoader | null>(null);
+const ContentLoaderContext = createContext<ContentLoader | null>(null);
 
 export function ContentLoaderProvider({
   loader,

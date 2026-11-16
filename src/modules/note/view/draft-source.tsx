@@ -26,7 +26,7 @@ export interface NoteDraftSource {
   saveAsNewNote?(entryId: string, text: string): void;
 }
 
-export const NoteDraftSourceContext = createContext<NoteDraftSource | null>(null);
+const NoteDraftSourceContext = createContext<NoteDraftSource | null>(null);
 
 export function NoteDraftSourceProvider({
   source,
