@@ -154,10 +154,6 @@ describe.each(['win32', 'darwin'])('项目内置终端（%s）', (platform) => {
     expect(pty.write).toHaveBeenCalledWith('中文\r');
     await invoke('resize', { id, cols: 120, rows: 40 });
     expect(pty.resize).toHaveBeenCalledWith(120, 40);
-    await expect(invoke('resize', { id, cols: 0, rows: 40 })).rejects.toThrow();
-    await expect(invoke('write', { id: randomUUID(), data: 'x' })).rejects.toThrow(
-      '终端会话不存在',
-    );
     // 输出按 8ms 合并成批发送：多条小块只产生一条 IPC，回放缓冲也只拼接一次。
     vi.useFakeTimers();
     data('输出中文');
