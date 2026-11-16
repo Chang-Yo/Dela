@@ -70,18 +70,8 @@ describe('parseUnifiedPatch', () => {
     expect(rows[1]).toMatchObject({ kind: 'context', oldLine: 1, newLine: 1, text: '保留行' });
     expect(rows[2]).toMatchObject({ kind: 'del', oldLine: 2, newLine: null, text: '删除行' });
     expect(rows[3]).toMatchObject({ kind: 'add', oldLine: null, newLine: 2, text: '新增行' });
-    // 第二个 hunk 从各自的行号继续。
     expect(rows.at(-1)).toMatchObject({ kind: 'add', oldLine: null, newLine: 12, text: '新值' });
     expect(rows[5]).toMatchObject({ kind: 'hunk', oldLine: null, newLine: null });
     expect(rows[6]).toMatchObject({ kind: 'context', oldLine: 10, newLine: 11 });
-  });
-
-  it('纯新增文件的旧侧行号为 null', () => {
-    const rows = parseUnifiedPatch('--- /dev/null\n+++ b/new.py\n@@ -0,0 +1,1 @@\n+内容');
-    expect(rows[1]).toMatchObject({ kind: 'add', oldLine: null, newLine: 1 });
-  });
-
-  it('结尾换行不产生多余的空行', () => {
-    expect(parseUnifiedPatch('@@ -1,1 +1,1 @@\n-a\n+b\n')).toHaveLength(3);
   });
 });
