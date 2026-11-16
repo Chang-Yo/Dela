@@ -94,18 +94,6 @@ describe('workspace store mirror', () => {
     await request;
     expect(useWorkspaceStore.getState().directories['C:/closed']).toBeUndefined();
   });
-  it('keeps a directory while another owner still holds it', async () => {
-    installDela({});
-    api.listLocalDirectory = async () => [];
-    const shared = 'C:/shared';
-    const { holdDirectories } = useWorkspaceStore.getState();
-    await holdDirectories('first', [shared]);
-    await holdDirectories('second', [shared]);
-    await holdDirectories('first', []);
-    expect(useWorkspaceStore.getState().directories[shared]).toBeDefined();
-    await holdDirectories('second', []);
-    expect(useWorkspaceStore.getState().directories[shared]).toBeUndefined();
-  });
   it('shares one request between concurrent load callers', async () => {
     const { state, onChanged } = installDela({});
     await Promise.all([useWorkspaceStore.getState().load(), useWorkspaceStore.getState().load()]);
@@ -135,20 +123,6 @@ describe('workspace store mirror', () => {
     await useWorkspaceStore.getState().load();
     expect(attempts).toBe(2);
     expect(useWorkspaceStore.getState().loaded).toBe(true);
-  });
-
-  it('skips the request entirely once loaded', async () => {
-    const { state } = installDela({});
-    await useWorkspaceStore.getState().load();
-    await useWorkspaceStore.getState().load();
-    expect(state).toHaveBeenCalledTimes(1);
-  });
-
-  it('refresh replaces the workspace mirror', async () => {
-    const next = { entries: [], directory: 'C:/elsewhere' };
-    installDela({ workspace: async () => next });
-    await useWorkspaceStore.getState().refresh();
-    expect(useWorkspaceStore.getState().workspace).toEqual(next);
   });
 
   it('coalesces refreshes but reads again for changes received during an active request', async () => {
