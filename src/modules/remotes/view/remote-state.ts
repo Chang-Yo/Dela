@@ -6,11 +6,8 @@ import type { RemoteChannelState, RemoteSetupProgress, SshConfigHost } from '../
 import { onRemotesEvent, remotesClient } from './client';
 
 interface RemoteState {
-  /** 目的地 → 通道状态：最近一次推送的快照；还没推送过时为 null，改读 helperStates 的结果。 */
   pushedChannels: Record<string, RemoteChannelState> | null;
-  /** 目的地 → 远端主目录（连上时由 helper 带回）。 */
   homes: Record<string, string>;
-  /** 最近一次连接过程的逐行日志；进度推送本身不带目的地。 */
   setupLog: RemoteSetupProgress[];
   setHome: (destination: string, home: string) => void;
   clearSetupLog: () => void;
@@ -64,7 +61,6 @@ export function useRemoteChannels(enabled = true): Record<string, RemoteChannelS
   return pushed ?? snapshot.data ?? noChannels;
 }
 
-/** 连接增删后，连接列表与 ssh config 候选（已保存的主机会从候选里消失）都要重读。 */
 export function refreshRemoteConnections(client: QueryClient) {
   return Promise.all([
     client.invalidateQueries({ queryKey: remoteConnectionsQuery.queryKey }),
@@ -72,7 +68,6 @@ export function refreshRemoteConnections(client: QueryClient) {
   ]);
 }
 
-/** 状态点：未连接（灰）、可用（绿）、连接中/重连中（橙）、不可用（红）。 */
 export function channelDot(state: RemoteChannelState | undefined): {
   className: string;
   label: string;

@@ -86,7 +86,6 @@ function insertFileEntry(db: Database.Database, path: string, kind: 'file') {
   return id;
 }
 
-/** 工作区根目录（存储目录为 <root>/Dela）。 */
 const workspaceRoot = () => join(state.root, 'Dela', 'workspace');
 const localPathOf = (id: string) => entry(id).path!;
 
@@ -433,7 +432,6 @@ describe('saveNoteImage / resolveWorkspaceAsset', () => {
     const resolved = resolveWorkspaceAsset(note.id, 'assets/截图.png');
     expect(resolved.mime).toBe('image/png');
     expect(existsSync(resolved.path)).toBe(true);
-    // 中文与空格文件名（Windows 下载常见的"文件 (1)"样式）往返一致。
     expect(saveNoteImage(note.id, 'my pic (1).png', PNG)).toBe('assets/my pic (1).png');
     const spaced = resolveWorkspaceAsset(note.id, 'assets/my pic (1).png');
     expect(spaced.mime).toBe('image/png');
@@ -473,7 +471,6 @@ describe('笔记移动携带图片', () => {
     const move = updateWorkspaceEntry(note.id, { parentId: folderB.id });
     const moved = move.toPath!;
     expect(dirname(moved)).toBe(localPathOf(folderB.id));
-    // 正文不变（草稿 revision 不受移动影响），图片已按原相对路径复制到位。
     expect(readFileSync(moved, 'utf8')).toBe('![图](assets/fig.png)\n');
     expect(existsSync(join(localPathOf(folderB.id), 'assets', 'fig.png'))).toBe(true);
     expect(existsSync(join(localPathOf(folderA.id), 'assets', 'fig.png'))).toBe(true);
@@ -520,11 +517,9 @@ describe('folder↔project 转换', () => {
     expect(isAbsolute(folder.id)).toBe(true);
     const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
     expect(promoted.id).not.toBe(folder.id);
-    // 项目目录即 local_path：会话 cwd 从这里解析。
     expect(
       db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(promoted.id),
     ).toEqual({ path: folder.id });
-    // 升格后路径与 UUID 都解析到同一项目身份。
     expect(entry(folder.id)).toMatchObject({ id: promoted.id, kind: 'project' });
 
     updateWorkspaceEntry(promoted.id, { name: '毕业设计' });
@@ -601,7 +596,6 @@ describe('导入已有文件夹作为项目', () => {
       parentId: null,
       path: external(),
     });
-    // 项目身份 = 条目 UUID + local_path：会话 cwd 从这里解析，目录本身不搬动。
     expect(isAbsolute(project.id)).toBe(false);
     expect(
       db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(project.id),

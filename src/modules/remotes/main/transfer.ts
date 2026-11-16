@@ -1,7 +1,4 @@
-/**
- * 远端文件二进制传输：下载分块写 .part 再改名，上传整篇读入（helper 侧临时文件 + rename），
- * 两条路失败都不留半个文件；「用系统默认程序打开」下载到临时目录，退出时清理。
- */
+// 下载分块写 .part 再改名，上传经 helper 侧临时文件 + rename，失败都不留半个文件。
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { mkdir, readFile, rename, rm } from 'node:fs/promises';
@@ -12,7 +9,6 @@ import { remoteJoin } from './api';
 import { readRemoteRange, statRemoteFile, writeRemoteFile } from '../../../core/remote/operations';
 import type { RemoteTarget } from '../../../core/remote/transport';
 
-/** 一次拉回的字节数：与预览协议同量级，避免单次请求过大把通道占满。 */
 const chunkSize = 1024 * 1024;
 
 export async function downloadRemoteFile(
@@ -59,7 +55,6 @@ export async function uploadLocalFile(
 
 const openedFiles = new Set<string>();
 
-/** 下载到临时目录再交给系统默认程序；按连接 + 路径哈希命名，避免同名互踩。 */
 export async function openRemoteFile(target: RemoteTarget, remotePath: string): Promise<void> {
   const directory = join(app.getPath('temp'), 'dela-remote-open');
   await mkdir(directory, { recursive: true });

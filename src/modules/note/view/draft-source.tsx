@@ -10,19 +10,12 @@ export type NoteDraft = {
   error: string | null;
 };
 
-/** NoteTab 的草稿操作（注入接口）；草稿状态由 NoteTab 直接订阅 useNoteDrafts。 */
 export interface NoteDraftSource {
-  /** Markdown 正文里的图片地址 → 可显示的地址；本地与远端文件的相对路径解析方式不同。 */
   resolveImage(entryId: string, src: string): string;
-  /** 建立或刷新草稿；force 时等在途保存结束后重读磁盘。 */
   acquire(entryId: string, force?: boolean): Promise<void>;
-  /** 修改正文（进入防抖自动保存队列）。 */
   edit(entryId: string, text: string): void;
-  /** 立即保存；干净（或已干净）时 resolve true。 */
   save(entryId: string): Promise<boolean>;
-  /** 关闭入口前冲盘并释放草稿；仍有未保存内容时 resolve false。 */
   release(entryId: string): Promise<boolean>;
-  /** 保存失败后的兜底：把当前正文另存为新笔记；未接线时不显示。 */
   saveAsNewNote?(entryId: string, text: string): void;
 }
 

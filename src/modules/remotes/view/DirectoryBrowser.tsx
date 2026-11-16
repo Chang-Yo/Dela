@@ -1,9 +1,5 @@
-// 远端目录选择器：只列目录。单击选中、双击（或 →）进入、← / Backspace 返回上一级；
-// 路径栏平时是面包屑，点一下变成输入框，可粘贴路径回车跳转。
-// 已读过的目录走查询缓存：返回上一级、再进来都是即时的，后台再静默刷新一次。
-// 读取中不禁用任何东西：路径栏立刻变，列表显示占位，用户可以继续往别处点。
-// 底栏「新建文件夹」在当前目录下建一层，建好后重读清单并选中它，可直接作为项目目录；
-// 失败是瞬时结果，走 toast，输入框保留原名方便改了再试。
+// 远端目录选择器：只列目录，单击选中、双击进入；路径栏平时是面包屑，点一下变输入框。
+// 读取中不禁用任何东西；已读过的目录先显示缓存再静默刷新。新建文件夹失败走 toast，输入框保留原名。
 import { useState, type KeyboardEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Clock, Folder, FolderPlus, House } from 'lucide-react';
@@ -27,7 +23,6 @@ function crumbs(path: string): { name: string; path: string }[] {
   ];
 }
 
-/** 主目录里的路径显示成 `~/…`：短，也是用户在终端里习惯的写法。 */
 export function tildePath(path: string, home: string | null): string {
   if (!home || home === '/') return path;
   if (path === home) return '~';
@@ -38,7 +33,6 @@ interface Scratch {
   path: string;
   filter: string;
   typed: string;
-  /** 新建文件夹的名字；null 表示没在新建。 */
   creating: string | null;
 }
 
@@ -58,10 +52,8 @@ export function DirectoryBrowser({
 }: {
   draft: RemoteDraft;
   home: string | null;
-  /** 这台服务器上已登记过的项目目录：一键跳过去。 */
   recent: string[];
   path: string;
-  /** 选中的子目录；null 表示项目目录就是当前路径。 */
   selected: string | null;
   onNavigate: (path: string) => void;
   onSelect: (path: string | null) => void;
@@ -69,7 +61,6 @@ export function DirectoryBrowser({
   const queryClient = useQueryClient();
   const [showHidden, setShowHidden] = useState(false);
   const [editing, setEditing] = useState(false);
-  // 筛选、路径输入与新建行只属于当前目录：记下它们属于哪个路径，换目录就回到初值。
   const [stored, setStored] = useState(() => scratchOf(path));
   const scratch = stored.path === path ? stored : scratchOf(path);
   const { filter, typed, creating } = scratch;

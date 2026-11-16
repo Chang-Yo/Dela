@@ -1,7 +1,4 @@
-/**
- * 远程连接：单表 CRUD + 连接自检 + 目录选择器。私钥路径随连接保存（它不是密钥本身），
- * 真正的凭据始终由 ssh 自己从 ~/.ssh 与 agent 读取，Dela 不落任何密码。
- */
+// 私钥路径随连接保存，真正的凭据始终由 ssh 从 ~/.ssh 与 agent 读取，Dela 不落任何密码。
 import { randomUUID } from 'node:crypto';
 import { hostPorts } from '../../../core/ports';
 import type {
@@ -52,7 +49,6 @@ export function remoteById(id: string): RemoteConnection {
   return fromRow(row);
 }
 
-/** 草稿与已存连接共用的传输参数：向导里未保存的连接也能直接测与浏览。 */
 export function targetOf(draft: RemoteDraft): RemoteTarget {
   return { host: draft.host, port: draft.port ?? null, keyPath: draft.keyPath ?? null };
 }
@@ -84,8 +80,7 @@ export function saveRemote(draft: RemoteDraft & { id?: string | null }): RemoteC
   return remoteById(id);
 }
 
-/** 删除连接＝连同名下项目一起按「移除项目」语义带走（会话删、远端目录留）：
- *  想删服务器的用户不该被逼着先逐个清理项目。动态导入避开工作区模块 → 本模块的既有环。 */
+/** 删除连接连同名下项目按「移除项目」语义带走（会话删、远端目录留）；动态导入避开模块环。 */
 export async function removeRemote(id: string): Promise<void> {
   remoteById(id);
   const projects = hostPorts()
@@ -99,7 +94,6 @@ export async function removeRemote(id: string): Promise<void> {
   hostPorts().database().prepare('DELETE FROM remotes WHERE id=?').run(id);
 }
 
-/** 本机 ssh config 里还没保存为连接的主机：向导下拉框里作为候选。 */
 export function configHostCandidates(): SshConfigHost[] {
   const saved = new Set(listRemotes().map((connection) => connection.host));
   return sshConfigHosts().filter((host) => !saved.has(host.alias));
@@ -109,17 +103,13 @@ export async function probeConnection(draft: RemoteDraft): Promise<RemoteProbe> 
   const parsed = remoteDraftSchema.parse(draft);
   try {
     const probe = await probeRemote(targetOf(parsed));
-    // 只回一行摘要：四个结构化字段没有任何消费方（界面要的就是这一行）。
     return { ok: true, message: `${probe.hostname} · ${probe.system} ${probe.machine}` };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
   }
 }
 
-/**
- * 向导「连接」：引导 helper（已经连上就直接返回）。远程项目的全部能力都经 helper：
- * 它起不来，这台服务器就不能当远程项目用。SSH 本身不通的原因由引导的第一步（探测）报出。
- */
+/** 远程项目的全部能力都经 helper，它起不来这台服务器就不能用；SSH 不通由引导的探测步报出。 */
 export async function prepareRemote(
   draft: RemoteDraft,
   onProgress?: (progress: RemoteSetupProgress) => void,
@@ -131,7 +121,6 @@ export async function prepareRemote(
   return { ok: true, message: '', home };
 }
 
-/** 目录选择器里新建文件夹：只建一层，名字不许带路径分隔符。 */
 export async function createRemoteDirectory(
   draft: RemoteDraft,
   parent: string,

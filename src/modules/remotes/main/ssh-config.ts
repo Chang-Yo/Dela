@@ -1,9 +1,5 @@
-/**
- * 读本机 `~/.ssh/config` 里的主机别名，作为「新建远程项目」的候选服务器：用户在终端里早就连通过的
- * 机器，不该在 Dela 里再填一遍。只读别名与 HostName/User/Port（用于展示），不读任何密钥内容；
- * 连接本身照旧把别名交给 ssh，认证与跳板都由 ssh 按 config 解析。
- * 候选不落库：选中并连上之后才保存为连接，config 里删掉的主机不会在 Dela 里留下幽灵条目。
- */
+// 读 `~/.ssh/config` 的主机别名作为候选；只读别名与展示字段，不读密钥内容，认证与跳板仍由 ssh 解析。
+// 候选不落库：连上之后才保存为连接，config 里删掉的主机不会留下幽灵条目。
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
@@ -16,7 +12,6 @@ function expandHome(path: string): string {
   return path.startsWith('~') ? join(homedir(), path.slice(1)) : path;
 }
 
-/** Include 的相对路径相对 `~/.ssh`；支持末段 `*` 通配（最常见的 `config.d/*`）。 */
 function includeTargets(pattern: string): string[] {
   const full = expandHome(pattern);
   const path = isAbsolute(full) ? full : join(homedir(), '.ssh', full);
@@ -39,7 +34,7 @@ function includeTargets(pattern: string): string[] {
   }
 }
 
-/** 解析出 config 里的具体主机（跳过带通配符的 Host 与 Match 块）。同名以先出现的为准，与 ssh 一致。 */
+/** 跳过带通配符的 Host 与 Match 块；同名以先出现的为准，与 ssh 一致。 */
 export function parseSshConfig(text: string, depth = 0): SshConfigHost[] {
   const hosts: SshConfigHost[] = [];
   let current: SshConfigHost[] = [];
@@ -78,7 +73,6 @@ export function parseSshConfig(text: string, depth = 0): SshConfigHost[] {
   return hosts.filter((host) => (seen.has(host.alias) ? false : (seen.add(host.alias), true)));
 }
 
-/** 本机 `~/.ssh/config` 的主机；文件不存在或读不了时返回空数组（候选只是方便，不是前提）。 */
 export function sshConfigHosts(): SshConfigHost[] {
   const path = join(homedir(), '.ssh', 'config');
   try {

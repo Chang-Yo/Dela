@@ -11,7 +11,6 @@ import { terminalContract, type TerminalSession } from '../contract';
 
 const SSH_CONNECT_TIMEOUT_SECONDS = 10;
 
-/** 交互终端跟随用户自己的 shell：Windows 优先 PowerShell 7，再用系统自带 5.1；Mac 用登录 shell。 */
 function systemShell(): { file: string; args: string[]; title: string } {
   if (process.platform === 'win32') {
     const pwsh = [
@@ -57,7 +56,6 @@ export function createTerminal(projectId: string, id: string): TerminalSession {
   let pty: IPty;
   let title: string;
   if (location.kind === 'remote') {
-    // 远程终端：本地 ssh -tt 申请远端 PTY，远端不需要部署 node-pty。
     // 不加 BatchMode：交互终端可以让 ssh 自己问密码或询问主机指纹。
     const connection = remoteById(location.remoteId);
     const sshArgs = [
@@ -85,7 +83,6 @@ export function createTerminal(projectId: string, id: string): TerminalSession {
       cwd: location.path,
       cols: 80,
       rows: 24,
-      // 与 VS Code 默认一致，使用随包分发的 ConPTY，避免系统版本的关闭竞态。
       ...(process.platform === 'win32' ? { useConptyDll: true } : {}),
       env: { ...process.env, TERM: 'xterm-256color' },
     });
@@ -95,7 +92,7 @@ export function createTerminal(projectId: string, id: string): TerminalSession {
   const current = { projectId, pty, snapshot };
   sessions.set(id, current);
   const live = () => sessions.get(id) === current;
-  // ConPTY 高吞吐时每个小块一条 IPC；8ms 合并成批，交互延迟无感，IPC 频率与重复拼接降一个数量级。
+  // ConPTY 高吞吐时每个小块一条 IPC；8ms 合并成批。
   let pendingData = '';
   let dataFlushTimer: ReturnType<typeof setTimeout> | undefined;
   const flushData = () => {
@@ -114,7 +111,6 @@ export function createTerminal(projectId: string, id: string): TerminalSession {
   pty.onExit(({ exitCode }) => {
     if (dataFlushTimer !== undefined) {
       clearTimeout(dataFlushTimer);
-      // 退出前先冲刷积压数据，保证渲染端按序收到全部输出。
       flushData();
     }
     snapshot.exitCode = exitCode;

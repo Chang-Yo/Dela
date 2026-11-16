@@ -1,5 +1,4 @@
-// 新建 / 编辑 SSH 连接的表单：「新建远程项目」面板与「设置 › 远程」共用这一份。
-// Dela 只存目的地、端口与私钥路径；密码与密钥内容都交给 ssh 自己读取。
+// 「新建远程项目」面板与「设置 › 远程」共用的 SSH 连接表单；密码与密钥内容都交给 ssh 自己读取。
 import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
@@ -15,7 +14,6 @@ import { Spinner } from '../../../ui/spinner';
 import { Field } from '../../../ui/field';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** 端口上限与 ssh 自身一致；空串表示交给 ssh 按 config 解析。 */
 const MAX_PORT = 65535;
 
 export function ConnectionForm({
@@ -27,15 +25,12 @@ export function ConnectionForm({
   onOpenProject,
   onProjectsRemoved,
 }: {
-  /** 编辑已有连接；缺省为新建。 */
   connection?: RemoteConnection;
-  /** 新建时的预填（如从 ssh config 候选来）。 */
   initial?: RemoteDraft;
   onBack: () => void;
   onSaved: (connection: RemoteConnection) => void;
   onRemoved?: (id: string) => void;
   onOpenProject: (projectId: string) => void;
-  /** 名下项目被级联移除后的工作台清场，参数为仍存活的条目 id 全集。 */
   onProjectsRemoved: (liveIds: Set<string>) => void;
 }) {
   const queryClient = useQueryClient();
@@ -49,7 +44,6 @@ export function ConnectionForm({
   const [removeConfirm, setRemoveConfirm] = useState(false);
   // 选择器必须返回稳定引用（useSyncExternalStore 的 getSnapshot 缓存要求），过滤放渲染期。
   const entries = useWorkspaceStore((state) => state.workspace.entries);
-  // 名下项目随连接一并移除：这里列出它们是删除后果的预告，也方便删除前跳进去看一眼。
   const projects = connection
     ? entries.filter((entry) => entry.kind === 'project' && entry.remoteId === connection.id)
     : [];

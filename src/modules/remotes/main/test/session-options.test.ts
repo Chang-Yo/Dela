@@ -9,7 +9,6 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('electron', () => ({ app: { getPath: () => 'C:\\data' } }));
-// 真实实现要动态加载 Pi（纯 ESM）：这里只关心名字与组合，工具体换成空壳。
 vi.mock('../../../../core/remote/operations', () => ({ remoteBackend: () => ({}) }));
 vi.mock('../../../../core/agent/remote-tools', () => ({
   remoteTools: async (_cwd: string, _backend: unknown): Promise<ToolDefinition[]> =>
@@ -21,7 +20,6 @@ vi.mock('../../../../core/agent/remote-tools', () => ({
       execute: async () => ({ content: [], details: undefined }),
     })),
 }));
-// 镜像要真的 ssh：这里只验证「镜像结果怎么接给 Pi」。
 vi.mock('../../../../core/remote/context', () => ({
   syncRemoteContext: async () => ({
     skillPaths: [

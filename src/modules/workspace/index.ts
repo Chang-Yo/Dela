@@ -147,7 +147,6 @@ export const workspaceModule = defineModule({
       return created;
     },
     listRemoteDirectory: ({ projectId, path }) => listRemote(projectId, path),
-    // 远端文件预览只回 DocumentContent，界面与本地条目走同一个预览标签。
     readRemoteDocument: ({ projectId, path }) => {
       const { target, root } = remoteTargetOf(projectId);
       return readRemoteDocument(projectId, target, remotePathIn(root, path));

@@ -77,10 +77,8 @@ describe('远端路径归属', () => {
   it('只有根目录之内才算项目内', () => {
     expect(withinRemoteRoot('/root/proj', '/root/proj')).toBe(true);
     expect(withinRemoteRoot('/root/proj', '/root/proj/src/a.ts')).toBe(true);
-    // 同前缀的兄弟目录不算项目内。
     expect(withinRemoteRoot('/root/proj', '/root/proj2/a.ts')).toBe(false);
     expect(withinRemoteRoot('/root/proj', '/root')).toBe(false);
-    // 根目录项目包含所有绝对路径。
     expect(withinRemoteRoot('/', '/etc/hosts')).toBe(true);
   });
 });
@@ -182,7 +180,6 @@ describe('远端条目身份', () => {
     const first = await importRemoteProject(remoteId, '/root/proj');
     const second = await importRemoteProject(secondRemoteId, '/root/proj');
     expect(second.id).not.toBe(first.id);
-    // 条目 id 是「项目 id + 远端路径」：据此精确回到所属项目。
     expect(remoteProjectOf(`${first.id}:${nodePath}`)?.id).toBe(first.id);
     expect(remoteProjectOf(`${second.id}:${nodePath}`)?.id).toBe(second.id);
     // 裸远端路径同时落在两个项目里：不猜，直接说清。

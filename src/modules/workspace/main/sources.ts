@@ -4,10 +4,8 @@ import type { ResourceContent } from './resources';
 
 export interface WorkspaceSource {
   owns(sourceId: string): boolean;
-  /** 新建引用前确认来源存在，不存在时抛出面向用户的错误。 */
   validate(sourceId: string): void;
   added?(sourceId: string): void;
-  /** 引用条目被移除后回收不再被引用的本地数据。 */
   collect?(): Promise<void>;
   filePath?(sourceId: string): Promise<string>;
   preview(sourceId: string): Promise<DocumentContent>;

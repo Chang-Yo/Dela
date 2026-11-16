@@ -1,9 +1,5 @@
-// Markdown 即时渲染（Obsidian 式 live preview）：文档始终是磁盘上的原文，这里只加装饰——
-// 光标不在的行隐藏标记符号、按语法树给标题/强调/代码/引用上样式，图片在行下方显示（光标不在时只留图片）；
-// 光标不在公式、mermaid 代码块或表格里时，原文替换成渲染结果，光标移进去即回到原文。
-// 不做所见即所得的往返序列化：用户不改的字节一个都不会变（列表符号、空行、转义、换行符）。
-// 表格等 GFM 语法要求调用方以 markdownLanguage 为 base 解析；代码 token 由调用方的 codeHighlightStyle 着色，
-// 正文保持中性，不叠加 markdownHighlightStyle。
+// Markdown 即时渲染（Obsidian 式）：文档始终是磁盘上的原文，只加装饰，用户不改的字节一个都不会变；
+// 光标进入公式、mermaid、表格即回到原文。表格要求调用方以 markdownLanguage 为 base 解析。
 import { syntaxTree } from '@codemirror/language';
 import { RangeSetBuilder, StateField, type EditorState, type Extension } from '@codemirror/state';
 import {
@@ -17,7 +13,6 @@ import {
 import { mermaidConfig, renderMermaid } from '../../preview/view';
 import { findMath, renderMath } from './math';
 
-/** 光标所在行（含多选区）保持原文，便于编辑标记本身。 */
 function activeLines(state: EditorState): Set<number> {
   const lines = new Set<number>();
   for (const range of state.selection.ranges) {
@@ -46,7 +41,7 @@ class ImageWidget extends WidgetType {
     image.loading = 'lazy';
     image.className = 'cm-md-image';
     if (!this.block) return image;
-    // 块级挂件的外边距不计入编辑器高度测量，外包一层 flow-root 把图片外边距收进盒子里。
+    // 块级挂件的外边距不计入高度测量，外包一层 flow-root 收进盒子里。
     const wrapper = document.createElement('div');
     wrapper.className = 'cm-md-image-block';
     wrapper.append(image);
@@ -73,7 +68,6 @@ class MathWidget extends WidgetType {
     element.innerHTML = renderMath(this.tex, this.display);
     return element;
   }
-  // 点击公式交给编辑器定位光标：光标落进原文区间后公式回到可编辑的原文。
   ignoreEvent() {
     return false;
   }
@@ -127,7 +121,6 @@ class BulletWidget extends WidgetType {
   }
 }
 
-/** 任务列表复选框：点击只翻转 `[ ]`/`[x]` 里那一个字符，不移动光标。 */
 class TaskWidget extends WidgetType {
   constructor(
     readonly checked: boolean,
@@ -149,7 +142,7 @@ class TaskWidget extends WidgetType {
       const at = view.posAtDOM(box) + this.markerOffset + 1;
       view.dispatch({ changes: { from: at, to: at + 1, insert: this.checked ? ' ' : 'x' } });
     });
-    // 勾选状态只由正文决定：浏览器自己的切换一律撤销，正文改动后组件会重建。
+    // 勾选状态只由正文决定：浏览器自己的切换一律撤销。
     box.addEventListener('click', (event) => event.preventDefault());
     return box;
   }
@@ -223,12 +216,10 @@ const quoteLine = line('cm-md-quote');
 const codeLine = line('cm-md-codeblock');
 const hrLine = line('cm-md-hr');
 const imageSource = mark('cm-md-image-src');
-// 嵌套列表逐层换符号。
 const bullets = ['•', '◦', '▪'].map((glyph) =>
   Decoration.replace({ widget: new BulletWidget(glyph) }),
 );
 
-// 光标离开后隐藏的标记符号；URL 与链接括号随 Link 一起隐藏，只留可读文本。
 const hiddenMarks = new Set([
   'HeaderMark',
   'EmphasisMark',
@@ -244,7 +235,6 @@ type Range = { from: number; to: number; value: Decoration };
 
 const codeNodes = new Set(['InlineCode', 'FencedCode', 'CodeBlock', 'CodeText']);
 
-/** 位置落在行内代码或代码块里：公式扫描跳过它，`$` 在代码里只是字符。 */
 function inCode(state: EditorState, pos: number): boolean {
   let node = syntaxTree(state).resolveInner(pos, 1);
   while (!codeNodes.has(node.name)) {
@@ -254,15 +244,12 @@ function inCode(state: EditorState, pos: number): boolean {
   return true;
 }
 
-/** 选区是否碰到 [from, to]：碰到就显示原文。 */
 function touches(state: EditorState, from: number, to: number): boolean {
   return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 }
 
 type SyntaxNode = ReturnType<typeof syntaxTree>['topNode'];
 
-/** 单元格内的行内语法拆成带样式的文本段；标记符号与链接地址不显示，转义只留字符本身，
- *  行内公式整体换成一个公式段（公式里被误解析出的强调等标记一并吞掉）。 */
 function cellSegments(state: EditorState, cell: SyntaxNode): Segment[] {
   const pieces: { from: number; to: number; className: string }[] = [];
   const walk = (node: SyntaxNode, className: string) => {
@@ -299,8 +286,6 @@ function cellSegments(state: EditorState, cell: SyntaxNode): Segment[] {
   return segments;
 }
 
-/** GFM 表格：对齐取自分隔行；空单元格没有 TableCell 节点，按竖线计列，多余列丢弃、缺列补空。
- *  引用里的表格节点夹着各行的 QuoteMark，只取表头、数据行与分隔行。 */
 function tableWidget(state: EditorState, table: SyntaxNode, from: number): TableWidget {
   let align: string[] = [];
   const rows: Segment[][][] = [];
@@ -335,7 +320,7 @@ function tableWidget(state: EditorState, table: SyntaxNode, from: number): Table
   );
 }
 
-/** 返回 null 表示这张「图片」不按图片显示（如水源的音视频附件），保持原文。 */
+/** 返回 null 表示不按图片显示（如水源的音视频附件），保持原文。 */
 export type ImageResolver = (src: string, alt: string) => string | null;
 
 function imageWidget(
@@ -350,7 +335,6 @@ function imageWidget(
   return src === null ? null : new ImageWidget(src, match[1]!, block);
 }
 
-/** 图片独占一行（允许缩进）时返回该行：光标不在时整行换成图片，不留一行原文。 */
 function imageLine(state: EditorState, node: SyntaxNode) {
   const line = state.doc.lineAt(node.from);
   const whole =
@@ -360,7 +344,7 @@ function imageLine(state: EditorState, node: SyntaxNode) {
   return whole ? line : null;
 }
 
-/** 跨行的块级渲染（$$ 公式、mermaid 代码块、表格、独占一行的图片）：块装饰只能来自 StateField，不能来自 ViewPlugin。 */
+/** 块装饰只能来自 StateField，不能来自 ViewPlugin。 */
 function blockWidgets(state: EditorState, resolveImage: ImageResolver): DecorationSet {
   const ranges: Range[] = [];
   syntaxTree(state).iterate({
@@ -380,8 +364,7 @@ function blockWidgets(state: EditorState, resolveImage: ImageResolver): Decorati
         return false;
       }
       if (node.name === 'Table') {
-        // 块级替换必须覆盖整行：引用、列表里的表格连同行首的 `> `/缩进一起替换；
-        // 首行前面还有列表符号等其他内容时放不下，保持原文。
+        // 块级替换必须覆盖整行；行首还有列表符号等内容时放不下，保持原文。
         const from = state.doc.lineAt(node.from).from;
         const whole =
           /^[ \t>]*$/.test(state.sliceDoc(from, node.from)) &&
@@ -416,7 +399,7 @@ function blockWidgets(state: EditorState, resolveImage: ImageResolver): Decorati
   });
   for (const math of findMath(state.sliceDoc(), 0, (pos) => inCode(state, pos))) {
     if (!math.display || touches(state, math.from, math.to)) continue;
-    // 块级替换必须覆盖整行：$$ 前后同一行还有别的文字时退回行内显示。
+    // 块级替换必须覆盖整行：$$ 前后还有文字时退回行内显示。
     const first = state.doc.lineAt(math.from);
     const last = state.doc.lineAt(math.to);
     const whole = first.from === math.from && last.to === math.to;
@@ -430,7 +413,7 @@ function blockWidgets(state: EditorState, resolveImage: ImageResolver): Decorati
   const builder = new RangeSetBuilder<Decoration>();
   let end = -1;
   for (const range of ranges) {
-    if (range.from < end) continue; // 公式写在 mermaid 块里等重叠情况：先到者得。
+    if (range.from < end) continue;
     builder.add(range.from, range.to, range.value);
     end = range.to;
   }
@@ -480,7 +463,6 @@ function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
           return false;
         }
         if (name === 'ListMark' && !editing && node.node.parent?.parent?.name === 'BulletList') {
-          // 任务项的圆点与复选框合并显示，由下方 TaskMarker 一起替换。
           if (node.node.nextSibling?.name === 'Task') return;
           let depth = 0;
           for (let list = node.node.parent.parent.parent; list; list = list.parent)
@@ -504,7 +486,6 @@ function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
             const at = state.doc.line(n).from;
             ranges.push({ from: at, to: at, value: codeLine });
           }
-          // 代码块内的标记（围栏）照原样显示：编辑语言名与内容都需要看见它。
           return false;
         }
         if (name === 'Blockquote') {
@@ -515,8 +496,7 @@ function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
           return;
         }
         if (name === 'Image') {
-          // 独占一行且光标不在时由 blockWidgets 整行替换；其余情况图片显示在行下方，
-          // 原文编辑时弱化成源码样式、离开后隐藏，不被误当成正文。
+          // 独占一行且光标不在时由 blockWidgets 整行替换。
           const widget = imageWidget(state, node.node, resolveImage);
           if (!widget || (!editing && imageLine(state, node.node))) return false;
           const end = lineOf(node.to).to;
@@ -530,7 +510,6 @@ function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
         if (style && node.to > node.from)
           ranges.push({ from: node.from, to: node.to, value: style });
         if (!editing && hiddenMarks.has(name) && node.to > node.from) {
-          // 标题标记连同其后的空格一起隐藏，否则标题首字前留一个空位。
           const after =
             name === 'HeaderMark' && state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
           ranges.push({ from: node.from, to: node.to + after, value: hidden });
@@ -550,15 +529,13 @@ function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
       });
     }
   }
-  // RangeSetBuilder 要求按起点排序；同一起点 line 装饰须先于 mark/replace。
   ranges.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide);
   const builder = new RangeSetBuilder<Decoration>();
   for (const range of ranges) builder.add(range.from, range.to, range.value);
   return builder.finish();
 }
 
-// 只引用基础变量（--inset、--danger 等）和一定会输出的 theme 变量：Tailwind v4 会裁掉没被工具类
-// 用到的 --color-*，引用它们可能落空。标题用 em，跟随编辑器正文字号缩放。
+// 只引用基础变量与一定会输出的 theme 变量：Tailwind v4 会裁掉未被工具类用到的 --color-*。
 const theme = EditorView.theme({
   '.cm-md-h': { fontWeight: '600', color: 'var(--ink)' },
   '.cm-md-h1': { fontSize: '1.6em', lineHeight: '1.4' },
@@ -633,8 +610,7 @@ const theme = EditorView.theme({
   '.cm-md-mermaid-error': { color: 'var(--danger)', textAlign: 'left' },
 });
 
-/** 粘贴或拖入图片：交给 save 落盘（同目录 assets/），在光标/落点插入相对路径引用。
- *  只插入用户这一次的引用文本，不碰文档其他部分。 */
+/** 粘贴或拖入图片：交给 save 落盘，只在落点插入这一次的引用文本。 */
 export function markdownImageInsert(
   save: (file: File) => Promise<string>,
   onError: (error: unknown) => void,
@@ -681,7 +657,6 @@ export function markdownImageInsert(
   });
 }
 
-/** resolveImage 把正文里的相对图片地址换成受限资源协议地址（只影响显示，不改正文）。 */
 export function markdownLivePreview(resolveImage: ImageResolver): Extension {
   return [
     theme,

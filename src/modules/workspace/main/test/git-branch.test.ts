@@ -33,7 +33,6 @@ it('不是 Git 仓库或目录已不存在时没有分支，也列不出、切�
   await expect(gitBranchOf(join(root, 'missing'))).resolves.toBeNull();
 });
 
-/** 建一次空提交：新建分支要有提交，否则分支还处于未出生状态。 */
 function commit(message = 'x'): void {
   git(
     '-c',

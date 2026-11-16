@@ -21,8 +21,7 @@ function terminalColor(value: string): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-// 选区底色在前景色上叠透明度，亮暗主题下文字均保持可读；
-// terminalColor 只输出 rgb，透明色直接拼 rgba 字符串（xterm 主题原生支持），不再过画布取样。
+// 选区底色在前景色上叠透明度；terminalColor 只输出 rgb，透明色直接拼 rgba 字符串。
 function withAlpha(color: string, alpha: number): string {
   return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
 }
@@ -41,7 +40,6 @@ export function TerminalTab({ tabId }: { tabId: string }) {
   const host = useRef<HTMLDivElement>(null);
   const screen = useRef<Terminal | null>(null);
 
-  // 上次选中的会话已不在了就落到第一个。
   const active = tabs.find((item) => item.id === remembered) ?? tabs[0];
   const activeId = active?.id ?? null;
 
@@ -57,7 +55,7 @@ export function TerminalTab({ tabId }: { tabId: string }) {
     setCreating(false);
   };
 
-  // 打开标签时读一次清单；没有会话就新建一个。离开标签即丢弃，下次打开重读。
+  // 打开标签时读一次清单；没有会话就新建一个。
   const opened = useQuery({
     queryKey: ['terminal', 'open', projectId],
     queryFn: async () => {
@@ -109,7 +107,6 @@ export function TerminalTab({ tabId }: { tabId: string }) {
         background: terminalColor(style.backgroundColor),
         foreground,
         cursor: foreground,
-        // block 光标内文字取终端背景色，与光标块形成反色。
         cursorAccent: terminalColor(style.backgroundColor),
         selectionBackground: withAlpha(foreground, 0.28),
         selectionInactiveBackground: withAlpha(foreground, 0.16),
@@ -159,7 +156,6 @@ export function TerminalTab({ tabId }: { tabId: string }) {
       if (replaying) return;
       void terminalClient.write({ id: activeId, data }).catch(reportError);
     });
-    // 缓冲与订阅在同一刻取得：之后到的输出直接写进终端，store 里同时累积供下次回放。
     let lastSequence = session.sequence;
     const stopEvents = onTerminalEvent('event', (event) => {
       if (event.id !== activeId || event.sequence <= lastSequence) return;

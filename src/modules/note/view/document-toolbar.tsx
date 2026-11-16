@@ -3,11 +3,10 @@ import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/cn';
 import { Spinner } from '../../../ui/spinner';
 
-/** Markdown 编辑模式（本次会话内按文档记忆）：即时渲染或纯源码，两者编辑的都是同一份原文。 */
+/** 即时渲染或纯源码，编辑的都是同一份原文。 */
 export type NoteMode = 'live' | 'source';
 
-/** 文件内容级工具栏：保存状态低干扰展示、即时渲染/源码切换、文件夹定位与重载。
- *  正常状态不常驻保存按钮（自动保存已覆盖该路径）；失败重试与「另存为新笔记」入口在 NoteTab 错误条。 */
+/** 正常状态不常驻保存按钮（自动保存已覆盖）；失败重试与「另存为新笔记」在 NoteTab 错误条。 */
 export function DocumentToolbar({
   path,
   markdown,
@@ -21,13 +20,11 @@ export function DocumentToolbar({
   onReload,
 }: {
   path: string[];
-  /** Markdown 才有即时渲染/源码切换；其他文本始终是代码编辑器。 */
   markdown: boolean;
   mode: NoteMode;
   onModeChange: (mode: NoteMode) => void;
   saving: boolean;
   dirty: boolean;
-  /** 保存失败时状态文字转警示色（详情在错误条）。 */
   failed: boolean;
   dueAt?: string | null;
   onOpenInFolder?: () => void;

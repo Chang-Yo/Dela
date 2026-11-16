@@ -10,7 +10,6 @@ import { projectLocation, resolveWorkspaceAsset, workspacePreviewPath } from './
 
 const previewScheme = 'dela-resource';
 
-/** 模块经 dela-resource://<hostname>/… 提供的预览字节；失败统一回 404。 */
 type PreviewHost = (request: Request, url: URL) => Promise<Response>;
 const previewHosts = new Map<string, PreviewHost>();
 
@@ -32,7 +31,6 @@ export function registerPreviewScheme(): void {
     },
   ]);
 }
-// 预览协议放行的文件类型与响应 content-type；路径放行由各 host 的解析函数决定。
 const previewContentType = (): Record<string, string> => ({
   '.pdf': 'application/pdf',
   '.docx': officeZipMime.docx,
@@ -40,7 +38,6 @@ const previewContentType = (): Record<string, string> => ({
   '.pptx': officeZipMime.pptx,
 });
 
-/** Range 请求的响应头与区间：本地文件与远端文件共用一份，416 直接返回 Response。 */
 function rangePlan(
   request: Request,
   size: number,
@@ -83,7 +80,6 @@ function documentHeaders(request: Request, contentType: string): Headers {
   });
 }
 
-/** 只接受单段 Range；多段或越界返回 null，由调用方回 416。 */
 function rangeOf(
   header: string | null,
   size: number,
@@ -106,13 +102,10 @@ function rangeOf(
   return { start, end: last, status: 206 };
 }
 
-/** 远端文档一次拉回的字节数：Range 语义与本地一致，但字节由 helper 分块拉，不整篇进内存。 */
+/** 字节由 helper 分块拉，不整篇进内存。 */
 const remoteChunkSize = 1024 * 1024;
 
-/**
- * dela-resource://remote/<projectId>?path=<远端绝对路径>：PDF/Office 预览的字节流。
- * 只服务项目根目录内的文件；每次 pull 只向 helper 要一块，PDF 阅读器跳页取消流即停。
- */
+/** 每次 pull 只向 helper 要一块，PDF 阅读器跳页取消流即停。 */
 async function remoteFileResponse(
   projectId: string,
   path: string,
@@ -164,15 +157,13 @@ export function registerPreviewProtocol(): void {
       const url = new URL(request.url);
       const host = previewHosts.get(url.hostname);
       if (host) return await host(request, url);
-      // 远端文档：dela-resource://remote/<projectId>?path=<远端绝对路径>（PDF/Office 按 Range 分块拉）；
-      // remote-raw 同一实现，供 Markdown 里的相对图片取字节（都只放行项目根目录内的路径）。
+      // remote-raw 与 remote 同一实现，供 Markdown 里的相对图片取字节；只放行项目根目录内的路径。
       if (url.hostname === 'remote' || url.hostname === 'remote-raw') {
         const projectId = decodeURIComponent(url.pathname.slice(1));
         const path = url.searchParams.get('path');
         if (!projectId || !path) throw new Error('无效的远端文档地址');
         return await remoteFileResponse(projectId, path, request);
       }
-      // 笔记/导入文档的相对图片：dela-resource://note-asset/<ref>?id=<条目ID>。
       // 协议只是显示通道；解析按条目目录约束，不向 renderer 开放任意磁盘读取。
       if (url.hostname === 'note-asset') {
         const id = url.searchParams.get('id');

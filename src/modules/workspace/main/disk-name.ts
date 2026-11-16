@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
-// A single path component, including Windows device names and trailing dots/spaces.
 export function diskName(name: string) {
   let value = name
     // oxlint-disable-next-line no-control-regex -- Windows filenames prohibit C0 control characters.

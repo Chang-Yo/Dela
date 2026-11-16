@@ -26,7 +26,6 @@ export interface RemoteConnection {
   createdAt: string;
 }
 
-/** 未保存的连接草稿：向导里边填边测，不必先落库。 */
 export interface RemoteDraft {
   label?: string;
   host: string;
@@ -36,9 +35,7 @@ export interface RemoteDraft {
 
 /** `~/.ssh/config` 里的一台具体主机：新建远程项目时作为候选，选中并连上后才保存为连接。 */
 export interface SshConfigHost {
-  /** Host 别名，就是交给 ssh 的目的地。 */
   alias: string;
-  /** 以下只用于展示，连接时一律交给 ssh 按 config 解析。 */
   hostName: string | null;
   user: string | null;
   port: number | null;
@@ -50,12 +47,9 @@ export interface RemoteProbe {
   message: string;
 }
 
-/** 连接（引导 helper）的结果：通过才能浏览目录。 */
 export interface RemotePrepare {
   ok: boolean;
-  /** 失败的原因（SSH 不通，或 helper 在这台服务器上起不来）。 */
   message: string;
-  /** 远端主目录：目录选择器从这里起步；失败时为 null。 */
   home: string | null;
 }
 
@@ -66,13 +60,11 @@ export interface RemotePortEntry {
   process?: string;
 }
 
-/** 一条已建立的端口隧道：浏览器从本机回环访问远端端口。 */
 export interface RemotePortTunnel {
   remotePort: number;
   localPort: number;
 }
 
-/** 端口预览面板的一次快照：清单与已开隧道一起回，面板不用自己记状态。 */
 export interface RemotePortsState {
   ports: RemotePortEntry[];
   tunnels: RemotePortTunnel[];
@@ -80,11 +72,9 @@ export interface RemotePortsState {
 
 export interface RemoteDirectoryEntry {
   name: string;
-  /** 远端绝对路径（POSIX）。 */
   path: string;
   directory: boolean;
   size: number | null;
-  /** epoch 毫秒；远端未返回时为 null。 */
   modifiedAt: number | null;
 }
 
@@ -94,13 +84,11 @@ export function remoteNodeId(projectId: string, path: string): string {
   return `${projectId}:${path}`;
 }
 
-/** 是否在远端项目根目录内（渲染端构造地址时用；主进程会再校验一次）。 */
 export function withinRemotePath(root: string, path: string): boolean {
   return path === root || path.startsWith(root === '/' ? '/' : `${root}/`);
 }
 
-/** 远端 Markdown 里的相对图片：按 Markdown 所在目录解析成可取字节的地址（dela-resource://remote-raw）。
- *  越界的相对路径与绝对地址原样返回，由渲染端按加载失败处理。 */
+/** 远端 Markdown 里的相对图片按所在目录解析；越界的相对路径与绝对地址原样返回。 */
 export function remoteAssetUrl(
   projectId: string,
   root: string,
@@ -120,11 +108,9 @@ export function remoteAssetUrl(
   return `dela-resource://remote-raw/${encodeURIComponent(projectId)}?path=${encodeURIComponent(target)}`;
 }
 
-/** 条目 id 是否带项目身份（项目 id 是 UUID，与本地磁盘路径的盘符冒号不会混淆）。 */
 const remoteNodeIdPattern =
   /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(\/.+)$/i;
 
-/** 解析带项目身份的远端条目 id；本地条目 id（UUID 或磁盘路径）返回 null。 */
 export function parseRemoteNodeId(id: string): { projectId: string; path: string } | null {
   const [, projectId, path] = remoteNodeIdPattern.exec(id) ?? [];
   if (!projectId || !path) return null;
@@ -133,9 +119,7 @@ export function parseRemoteNodeId(id: string): { projectId: string; path: string
 
 export interface RemoteBrowseResult {
   path: string;
-  /** 上一级目录；已在根目录时为 null。 */
   parent: string | null;
-  /** 只列目录：选择项目目录时不需要文件。 */
   directories: RemoteDirectoryEntry[];
 }
 
@@ -169,12 +153,10 @@ export const remotesContract = defineContract(
     },
     remove: { input: remoteId, output: z.void() },
     probe: { input: draft, output: z.custom<RemoteProbe>() },
-    /** 目录选择器：列出某个远端目录下的子目录（含隐藏目录，由界面决定显示与否）。 */
     browse: {
       input: z.object({ draft, path: directory }),
       output: z.custom<RemoteBrowseResult>(),
     },
-    /** 在 parent 下新建一层文件夹，返回新目录的完整路径。 */
     mkdir: {
       input: z.object({
         draft,
@@ -191,21 +173,17 @@ export const remotesContract = defineContract(
       }),
       output: z.string(),
     },
-    /** 私钥文件选择器：取消返回 null。 */
     pickKey: { input: z.undefined(), output: z.custom<string | null>() },
-    /** 本机 `~/.ssh/config` 里还没保存为连接的主机。 */
     configHosts: { input: z.undefined(), output: z.custom<SshConfigHost[]>() },
     /** 连接：把 helper 引导起来（已连上就直接返回），过程经 setupProgress 一行行推送。 */
     prepare: { input: draft, output: z.custom<RemotePrepare>() },
-    /** 全部 helper 通道的当前快照；之后的变化经 helperState 推送。 */
     helperStates: { input: z.undefined(), output: z.custom<RemoteChannelState[]>() },
-    /** 这个连接上的远端任务（在跑的与最近结束的）；通道不可用时报错。 */
     tasks: { input: remoteId, output: z.custom<RemoteTask[]>() },
     cancelTask: {
       input: z.object({ remoteId, taskId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/) }),
       output: z.void(),
     },
-    /** 手动重试：通道不可用时立刻重新引导，不等自动重试的间隔。 */
+    /** 通道不可用时立刻重新引导，不等自动重试的间隔。 */
     retry: { input: remoteId, output: z.custom<RemoteChannelState>() },
   },
   {

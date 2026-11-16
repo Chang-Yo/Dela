@@ -26,7 +26,6 @@ vi.mock('node-pty', () => ({ spawn: mocks.spawn }));
 vi.mock('../../../../core/ports', () => ({ emit: mocks.emit }));
 vi.mock('../../../remotes', () => ({ remoteById: vi.fn() }));
 vi.mock('../../../workspace', () => ({
-  // 终端只认 projectLocation 的结果：本地项目给出磁盘目录。
   projectLocation: (id: unknown) => ({ kind: 'local', path: mocks.directory(id) }),
 }));
 import { closeAllTerminals, terminalModule } from '../..';
@@ -196,7 +195,6 @@ describe.each(['win32', 'darwin'])('项目内置终端（%s）', (platform) => {
     await invoke('closeProject', projectId);
     expect(pty.kill).toHaveBeenCalledTimes(2);
     await invoke('create', { projectId, id: randomUUID() });
-    // 工作窗口关闭时 main/index.ts 调用 closeAllTerminals。
     closeAllTerminals();
     expect(pty.kill).toHaveBeenCalledTimes(3);
     expect(await invoke('list', projectId)).toEqual([]);

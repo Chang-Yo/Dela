@@ -19,7 +19,6 @@ import { Spinner } from '../../../ui/spinner';
 import { ConfirmDialog } from '../../../ui/dialog';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** Markdown 文件的图片粘贴/拖入：落盘到同目录 assets/，插入相对路径引用。 */
 const imageInsert = (entryId: string) =>
   markdownImageInsert(
     async (file) => {
@@ -46,17 +45,13 @@ export function parseNoteTabId(tabId: string): string | null {
   return entryId || null;
 }
 
-/**
- * 文本文件的编辑标签：草稿经注入的 NoteDraftSource 读写，远端 Markdown 只读。Markdown 默认即时渲染（光标所在行显示原文），
- * 可切到纯源码；其余文本按语言高亮。编辑器只把用户改的字节写回去，不做任何格式化。
- */
+/** 草稿经注入的 NoteDraftSource 读写；编辑器只把用户改的字节写回去，不做格式化。 */
 export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const entryId = parseNoteTabId(tabId);
   const scrollKey = `${tabId}:${groupId}`;
   const source = useNoteDraftSource();
   const draft = useNoteDrafts((state) => (entryId === null ? undefined : state.drafts[entryId]));
   const entries = useWorkspaceStore((state) => state.workspace.entries);
-  // 失败按条目记：标签改指向别的文件后，旧文件的读取错误不再显示。
   const [failure, setFailure] = useState<{ entryId: string; message: string } | null>(null);
   const error = failure && failure.entryId === entryId ? failure.message : null;
   const [confirmReload, setConfirmReload] = useState(false);
@@ -74,7 +69,6 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
     void source
       .acquire(entryId)
       .catch((cause) => setFailure({ entryId, message: errorMessage(cause) }));
-    // 卸载即释放引用：草稿先冲盘，最后一个引用才移除（note/drafts 语义）。
     return () => void source.release(entryId);
   }, [entryId, source]);
 
@@ -197,7 +191,6 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
           文件超过 1 MB，这里只读显示开头部分。要编辑完整内容请用外部编辑器打开。
         </p>
       )}
-      {/* 模式切换换一个编辑器实例（key 不同）：即时渲染与源码各自保留撤销历史与光标。 */}
       <MarkdownEditor
         key={markdown ? mode : 'code'}
         value={draft.text}

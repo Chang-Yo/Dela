@@ -19,7 +19,6 @@ const tunnels = new Map<string, TunnelEntry>();
 const tunnelKey = (target: RemoteTarget, remotePort: number) =>
   `${targetKey(target)}#${remotePort}`;
 
-/** 端口清单 + 该目标当前已开的隧道：面板一次拿全。helper 不可用时抛错（面板展示原因）。 */
 export async function remotePortsState(target: RemoteTarget): Promise<RemotePortsState> {
   const ports = await helperSession(target).listPorts();
   const keyPrefix = `${targetKey(target)}#`;
@@ -49,7 +48,6 @@ export function closeRemotePort(target: RemoteTarget, remotePort: number): void 
   entry.tunnel.close();
 }
 
-/** 应用退出时的收尾：所有端口隧道都是本地 ssh 进程，直接杀。 */
 export function closeAllPortTunnels(): void {
   for (const entry of tunnels.values()) entry.tunnel.close();
   tunnels.clear();

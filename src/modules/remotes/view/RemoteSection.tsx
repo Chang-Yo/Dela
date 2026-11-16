@@ -1,6 +1,4 @@
-// 设置 › 远程：已保存的 SSH 连接与它们的实时通道状态。编辑与新建用「新建远程项目」面板里同一份表单，
-// 状态点读 helper 通道的推送，不再是一次性的「测试连接」结果。
-// Dela 不保存密码与密钥，凭据由 ssh 从 ~/.ssh 与 agent 读取。
+// 设置 › 远程：已保存的 SSH 连接与实时通道状态；Dela 不保存密码与密钥，凭据由 ssh 读取。
 import { useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Cloud, Plus } from 'lucide-react';
@@ -19,7 +17,6 @@ export function RemoteSection({
   onOpenProject,
   onProjectsRemoved,
 }: {
-  /** 「新建远程项目」面板属于工作区外壳，由设置页传入。 */
   NewProjectDialog: ComponentType<{
     initialConnectionId?: string;
     onClose: () => void;

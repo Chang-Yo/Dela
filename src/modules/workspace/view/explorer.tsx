@@ -26,25 +26,21 @@ export interface ExplorerItem {
   container?: boolean;
   project?: boolean;
   badge?: ReactNode;
-  /** 自定义行图标（如水源来源的水滴、远端项目的云朵）：给了就顶掉容器/项目的默认图标。 */
   icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
-  /** 行图标的强调色（CSS 颜色值）：同源的多行共用一色，视觉上归为一组。 */
   accent?: string;
-  /** 行提示（默认条目名）；远端条目用它显示「目的地:路径」。 */
   title?: string;
-  /** 只读条目：可展开可选中，但不参与内部拖拽与拖放落点（远端条目只做浏览）。 */
+  /** 可展开可选中，但不参与内部拖拽与落点（远端条目只做浏览）。 */
   readOnly?: boolean;
-  /** 只读但仍接收外部文件拖放（远端目录：本地文件上传到远端，内部移动照旧被 readOnly 拦住）。 */
+  /** 只读但仍接收外部文件拖放（远端目录上传）。 */
   importable?: boolean;
 }
 
 const explorerDragType = 'application/x-dela-entry';
 
-/** 行内新建：在 parentId 的子项最上方（null 为树根）插入一行名称输入框。 */
 export interface ExplorerPending {
   parentId: string | null;
   kind: 'file' | 'folder';
-  /** 回车或失焦时提交；返回错误文案则输入框保持打开并标红，返回 null 表示成功。 */
+  /** 返回错误文案则输入框保持打开并标红，null 表示成功。 */
   onSubmit: (name: string) => Promise<string | null>;
   onCancel: () => void;
 }
@@ -80,12 +76,9 @@ export function Explorer({
   onMove?: (dragId: string, targetId: string | null) => void;
   canDrop?: (dragId: string, targetId: string) => boolean;
   onImportFiles?: (files: File[], targetId: string | null) => void;
-  /** 修饰键单击时在另一编辑器组打开条目。 */
   onOpenToSide?: (id: string) => void;
-  /** 仅对不依赖业务顺序的树启用文件夹优先自然排序。 */
   sortItems?: boolean;
   pending?: ExplorerPending | null;
-  /** 双击行：叶子条目「打开并保留」（预览转常驻）；目录行双击不触发。 */
   onActivate?: (id: string) => void;
 }) {
   'use no memo';
@@ -93,7 +86,7 @@ export function Explorer({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [externalDropTarget, setExternalDropTarget] = useState<string | null>(null);
-  // 定位（面包屑 reveal 等）只展开祖先链不滚动树；选中行在视口外时滚到可见，否则点了像没反应。
+  // reveal 只展开祖先链；选中行在视口外时滚到可见，否则点了像没反应。
   useEffect(() => {
     if (!selected) return;
     const index = visible.findIndex((row) => row.item.id === selected);
@@ -146,7 +139,6 @@ export function Explorer({
         })()
     : null;
   const pendingAnchor = pendingAt ? Math.min(pendingAt.index, visible.length - 1) : -1;
-  // 大树按滚动视口挂载；小树保留原生完整 DOM，避免为短列表引入滚动测量。
   const virtualized = visible.length > 100;
   const [scrollMargin, setScrollMargin] = useState(0);
   const [rowHeight, setRowHeight] = useState(28);
@@ -156,7 +148,7 @@ export function Explorer({
       element = element.parentElement;
     return element;
   };
-  // Explorer 显式退出自动 memo；虚拟行必须在每次滚动渲染时读取。
+  // 有意保留手写 useMemo：虚拟列表库不受 React Compiler 接手，Explorer 已退出自动 memo。
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
     count: visible.length,
@@ -186,7 +178,6 @@ export function Explorer({
       const spacing = Number.parseFloat(
         getComputedStyle(root.current).getPropertyValue('--spacing'),
       );
-      // Tailwind spacing 默认 0.25rem；行高由现有 h-7 token 决定。
       const rootStyle = getComputedStyle(root.current);
       const token = rootStyle.getPropertyValue('--spacing').trim();
       const unit = token.endsWith('rem')
@@ -220,7 +211,6 @@ export function Explorer({
       pendingFocus.current = null;
     }
   });
-  // 缩进对齐线：亮段跟随选中项的祖先链（含自身），同 VS Code 的 active guide。
   const parentOf = useMemo(() => new Map(items.map((item) => [item.id, item.parentId])), [items]);
   const trailOf = (id: string | null): string[] => {
     const chain: string[] = [];
@@ -275,8 +265,6 @@ export function Explorer({
       !event.altKey &&
       !event.nativeEvent.isComposing
     ) {
-      // KeyboardEvent.timeStamp is monotonic for the current event stream and
-      // keeps the handler pure from the renderer's point of view.
       const now = event.timeStamp;
       const query =
         now - typeahead.current.at < 700 ? typeahead.current.query + event.key : event.key;
@@ -295,9 +283,7 @@ export function Explorer({
     drag !== target &&
     !items.some((item) => item.id === target && item.readOnly) &&
     (!canDrop || canDrop(drag, target));
-  // 拖拽悬停叶子行时，落点解析到所属目录（VS Code 式：整块目录区域都是落点）；
-  // 内部拖拽中所属目录不可落（如拖动目录本身悬停在其子项上）则返回 null。
-  // 文件拖放（drag === null）额外允许「只读但可接收文件」的落点：远端目录能上传，但不接受内部移动。
+  // 悬停叶子行时落点解析到所属目录；内部拖拽中不可落的目录返回 null，文件拖放额外允许只读可导入目录。
   const anchorBranch = (item: ExplorerItem, drag: string | null): string | null =>
     item.parentId !== null &&
     !items.some(
@@ -310,7 +296,6 @@ export function Explorer({
       ? item.parentId
       : null;
   const isFileDrag = (event: DragEvent) => event.dataTransfer.types.includes('Files');
-  /** 文件拖放的落点：目录行本身（可接收文件的只读远端目录也算），否则落到所属目录。 */
   const fileDropTarget = (item: ExplorerItem, branch: boolean): string | null =>
     branch && (!item.readOnly || item.importable) ? item.id : anchorBranch(item, null);
   const dragProps =
@@ -358,7 +343,6 @@ export function Explorer({
           onDrop: (event: DragEvent) => {
             if (onImportFiles && isFileDrag(event)) {
               const target = fileDropTarget(item, branch);
-              // 顶层叶子行不接收，交给树根落点。
               if (target === null) return;
               event.preventDefault();
               onImportFiles(Array.from(event.dataTransfer.files), target);
@@ -373,8 +357,6 @@ export function Explorer({
           },
         })
       : undefined;
-  // 落点区域：目标目录行与其全部可见后代行连成一块高亮（VS Code 式），
-  // 叶子行悬停时经由 anchorBranch 落到所属目录，区域因此覆盖整个子树。
   const activeDrop = dropTarget ?? externalDropTarget;
   return (
     <div
@@ -392,7 +374,6 @@ export function Explorer({
           : undefined
       }
       onDragLeave={(event) => {
-        // 指针离开整棵树才清除落点；行间移动由各行的 onDragOver 接力更新。
         if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
         resetDrag();
       }}
@@ -416,9 +397,7 @@ export function Explorer({
       )}
       {rendered.map(({ item, level, index, start }) => {
         const branch = Boolean(item.container || children.has(item.id));
-        // 目录行默认不画 folder 图标（折叠箭头已表达目录语义）；例外是携带信息的行：
-        // 项目行的看板图标标记项目身份，强调色（远端同源分组）需要图标作颜色载体。
-        // 文件行用逐扩展名的彩色图标（material-icon-theme 精选），未收录的回落文档图标。
+        // 目录行默认不画 folder 图标（折叠箭头已表达）；项目行与带强调色的行例外。
         const fileIcon = !branch && !item.icon ? fileIconUrl(item.name) : null;
         const Icon = item.icon ?? (item.project ? FolderKanban : branch ? Folder : FileText);
         const showIcon = !branch || item.project || item.accent !== undefined;
@@ -487,16 +466,12 @@ export function Explorer({
                 'group isolate relative flex h-7 min-w-0 cursor-default items-center gap-1 rounded-chip pr-1 text-sm outline-none before:pointer-events-none before:absolute before:inset-y-0 before:left-(--highlight-left) before:right-0 before:-z-10 before:rounded-chip before:transition-colors focus-visible:ring-2 focus-visible:ring-accent',
                 selected === item.id
                   ? 'before:bg-selected font-medium text-ink'
-                  : // 目录列底色为 inset，hover 用 hover-strong 才与其拉开层次。
-                    'text-ink-2 hover:text-ink hover:before:bg-hover-strong',
-                // 落点区域行去圆角，使目录子树区域连成一块整色；强调色浅底与选中态的
-                // 中性灰区分。
+                  : 'text-ink-2 hover:text-ink hover:before:bg-hover-strong',
                 dropRegion && 'rounded-none bg-accent-tint text-ink',
               )}
               style={
                 {
                   paddingLeft: `calc(var(--spacing) * ${2 + (level - 1) * 4})`,
-                  // 叶子行保留图标前一格内边距；目录行包含折叠箭头。
                   '--highlight-left': `calc(var(--spacing) * ${(branch ? 2 : 6) + (level - 1) * 4})`,
                 } as CSSProperties
               }
@@ -560,8 +535,6 @@ export function Explorer({
   );
 }
 
-/** 新建条目的名称输入行：回车或失焦提交，Esc 取消；空名失焦等于取消。
- *  提交失败时边框标红、错误挂在下方，输入内容不丢，可直接改名重试。 */
 function PendingRow({ pending, level }: { pending: ExplorerPending; level: number }) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);

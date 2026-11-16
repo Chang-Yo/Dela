@@ -61,7 +61,6 @@ describe('远端文件传输（真机）', () => {
     await openRemoteFile(target, remotePath);
     const { openPath } = await import('electron').then((m) => m.shell);
     const opened = vi.mocked(openPath).mock.calls.at(-1)?.[0] ?? '';
-    // 命名是「连接 + 路径的哈希前缀 + 原名」：同名文件在临时目录里不会互相覆盖。
     expect(opened).toContain(join('dela-remote-open', ''));
     expect(opened.endsWith('-open.txt')).toBe(true);
     expect(readFileSync(opened, 'utf8')).toBe('打开我\n');

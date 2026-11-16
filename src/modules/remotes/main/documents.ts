@@ -1,7 +1,5 @@
-/**
- * 远端文件只读预览：格式判定与本地共用 core/protocol/files。字节来自远端且不能整篇进内存，
- * 文本/图片只读限长片段，PDF/docx/xlsx 交给 dela-resource 按 Range 拉取；PPTX 导出依赖本地路径，按不支持处理。
- */
+// 远端文件只读预览：字节不能整篇进内存，文本/图片只读限长片段，PDF/Office 经 dela-resource 按 Range 拉取。
+// PPTX 导出依赖本地路径，按不支持处理。
 import type { DocumentContent } from '../../workspace/contract';
 import {
   TEXT_EDIT_MAX_BYTES,
@@ -13,20 +11,17 @@ import {
 import { readRemoteRange, statRemoteFile } from '../../../core/remote/operations';
 import type { RemoteTarget } from '../../../core/remote/transport';
 
-/** 图片直传上限：再大就按不支持处理，避免整张图进主进程内存。 */
 const IMAGE_LIMIT = 32 * 1024 * 1024;
 
 function remoteDocumentTitle(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1);
 }
 
-/** 远端文档的流式地址：projectId 定位连接与根目录，path 是远端绝对路径。 */
 function remotePreviewUrl(projectId: string, path: string, revision: string): string {
   const query = `path=${encodeURIComponent(path)}&v=${encodeURIComponent(revision)}`;
   return `dela-resource://remote/${encodeURIComponent(projectId)}?${query}`;
 }
 
-/** 预览协议的 content-type：远端没有可信 mime，按扩展名给。 */
 export function remoteDocumentMime(path: string): string {
   const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
   if (ext === '.pdf') return 'application/pdf';

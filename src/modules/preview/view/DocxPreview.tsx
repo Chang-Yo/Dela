@@ -6,16 +6,13 @@ import { pinchZoomRef } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/alert';
 import { errorMessage } from '../../../core/protocol/contract';
 
-// 缩放范围与步进：与 PdfReader 的 10% 步进一致。
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
 
-/** Word 文档只读预览：经受限资源协议取回字节，docx-preview 渲染为分页页面。 */
 export function DocxPreview({ url }: { url: string }) {
   const host = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
-  // 每次加载以 url+重试次数为键回报结果；键变了即视为加载中。
   const run = `${attempt}:${url}`;
   const [result, setResult] = useState<{ run: string; error: string } | null>(null);
   const loading = result?.run !== run;
@@ -33,9 +30,8 @@ export function DocxPreview({ url }: { url: string }) {
         const container = host.current;
         if (!container) return;
         container.replaceChildren();
-        // useBase64URL：图片/字体以 data: URL 内联（CSP 的 img-src/font-src 均已放行 data:）。
-        // 库默认的 blob 路径实测不产出 img src，且 font-src 未放行 blob:。
-        // renderAltChunks:false：altChunk 默认渲染为无 sandbox 的 srcdoc iframe，直接关闭。
+        // useBase64URL：图片/字体内联为 data: URL（blob 路径实测不出图，且 font-src 未放行 blob:）；
+        // renderAltChunks:false：altChunk 默认渲染为无 sandbox 的 srcdoc iframe。
         await renderAsync(await response.arrayBuffer(), container, undefined, {
           useBase64URL: true,
           renderAltChunks: false,

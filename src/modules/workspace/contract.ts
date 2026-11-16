@@ -19,7 +19,6 @@ export const workspaceEntryIdSchema = z
     { message: '请选择工作区文件路径或有效的条目' },
   );
 
-// Workspace references accept real file paths and registered entry UUIDs; other resources retain domain IDs.
 export const resourceRefSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('workspace'), id: workspaceEntryIdSchema }).strict(),
   z.object({ type: z.literal('canvas'), id: z.string().min(1).max(512) }).strict(),
@@ -52,7 +51,6 @@ export interface DocumentContent {
   updatedAt?: string | null;
   revision?: string;
   shuiyuanSnapshot?: { postCount: number; pageSize: number };
-  /** pptx 的导出关联；存在 export 时直接内嵌渲染导出的 PDF。 */
   office?: { export?: OfficeExportInfo };
 }
 
@@ -63,20 +61,17 @@ export interface OfficeExportInfo {
   stale: boolean;
 }
 
-/** pptx 导出过程阶段；bytes 为输出 PDF 已写入的字节数（仅 writing 阶段）。 */
 export interface OfficeExportProgress {
   phase: 'preparing' | 'converting' | 'writing';
   bytes?: number;
 }
 
-/** 进度事件载荷：附带上报时定位用的资源引用，并发导出时可区分归属。 */
 export interface OfficeExportEvent extends OfficeExportProgress {
   ref: ResourceRef;
 }
 
 export interface WorkspaceEntryUpdate {
   id: string;
-  /** 应用内移动/重命名时同步已有标签与草稿。 */
   fromPath?: string;
   toPath?: string;
 }
@@ -133,7 +128,6 @@ const resourceRef = z.custom<ResourceRef>();
 export const workspaceContract = defineContract(
   'workspace',
   {
-    /** 读取工作区状态，并开始监视顶层目录的变化。 */
     state: { input: z.undefined(), output: z.custom<WorkspaceState>() },
     listLocalDirectory: { input: entryId.nullable(), output: entries },
     /** 新的搜索会中止同一根目录上进行中的搜索；空查询返回空数组。 */
@@ -164,7 +158,6 @@ export const workspaceContract = defineContract(
       }),
       output: z.string(),
     },
-    /** 把新插入的本地图片存入 Markdown 文件同目录的 assets/，返回相对路径。 */
     saveNoteImage: {
       input: z.object({
         id: entryId,
@@ -196,7 +189,6 @@ export const workspaceContract = defineContract(
       }),
       output: z.void(),
     },
-    /** 把 pptx 经 PowerPoint 导出为 PDF（仅 Windows），进度经 officeExportProgress 推送。 */
     exportOfficePdf: { input: resourceRef, output: z.void() },
     openResourceFile: { input: resourceRef, output: z.void() },
     importFiles: { input: entryId.nullable(), output: z.void() },
@@ -204,9 +196,7 @@ export const workspaceContract = defineContract(
       input: z.object({ parentId: entryId.nullable(), paths: localPaths.min(1) }),
       output: z.void(),
     },
-    /** 选择已有文件夹登记为项目（目录留在原处）；取消返回 null。 */
     importProjectFolder: { input: z.undefined(), output: z.custom<WorkspaceEntry | null>() },
-    /** 把远端目录登记为远程项目；同一目录重复登记返回已有项目。 */
     importRemoteProject: {
       input: z.object({ remoteId: z.string(), path: z.string(), name: z.string().optional() }),
       output: z.custom<WorkspaceEntry>(),
@@ -251,7 +241,6 @@ export const workspaceContract = defineContract(
     },
   },
   {
-    /** 本地目录下有条目增删或改名。 */
     changed: z.custom<string[]>(),
     officeExportProgress: z.custom<OfficeExportEvent>(),
     /** 远端某个目录可能变了（工具写过文件、跑过 bash 或远端监视报告）。 */

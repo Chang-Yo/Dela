@@ -18,10 +18,7 @@ const EXPORT_FOLDER_NAME = '预览导出';
 const EXPORT_FOLDER_SETTING = 'preview-export-folder';
 const EXPORT_TIMEOUT_MS = 5 * 60 * 1000;
 
-/**
- * Windows PowerShell 5.1 兼容脚本（不用 PS7 独有语法）：COM 调 PowerPoint 无窗口另存 PDF。
- * 输入/输出路径经环境变量传入，不拼接进命令文本。
- */
+// PowerShell 5.1 兼容（不用 PS7 语法）；路径经环境变量传入，不拼接进命令文本。
 const powerShellScript = [
   "$ErrorActionPreference = 'Stop'",
   '$code = 1',
@@ -192,7 +189,6 @@ async function runOfficeExport(
   const folder = ensureExportFolder();
   const pdfName = `${basename(path, extname(path))}.pdf`;
   const previous = readOfficeExportLink(ref.type, String(ref.id));
-  // 重复导出覆盖同一文件（避免产生「A (2).pdf」）；首次落盘用 availablePath 防撞名。
   const target =
     previous && existsSync(previous.path) ? previous.path : availablePath(folder.path, pdfName);
   // 先写到临时名再改回目标名：转换失败时不破坏上一次的导出。
@@ -200,7 +196,6 @@ async function runOfficeExport(
   try {
     await enqueueConversion(async () => {
       onProgress({ phase: 'converting' });
-      // PowerPoint 在保存末段才写输出；轮询临时文件让用户看到「正在写入」的进展。
       const poll = setInterval(() => {
         try {
           const stats = statSync(temporary);
@@ -234,7 +229,6 @@ async function runOfficeExport(
   writeOfficeExportLink(ref.type, String(ref.id), link);
 }
 
-// 同一文件并发导出只跑一次（对齐 Canvas 下载的去重模式）。
 const inFlight = new Map<string, Promise<void>>();
 
 export function exportOfficePdf(

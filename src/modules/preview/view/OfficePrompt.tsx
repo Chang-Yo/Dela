@@ -34,9 +34,7 @@ const exportKey = (ref: ResourceRef) =>
 interface OfficeExportRun {
   progress: OfficeExportProgress | null;
   startedAt: number;
-  /** 导出进程已成功退出，等文档重读翻转到 PDF 渲染。 */
   opening: boolean;
-  /** 非空表示上次导出失败；保留到再次发起，切走又切回仍能看到失败原因。 */
   error: string;
 }
 
@@ -57,8 +55,7 @@ const useOfficeExports = create<{
       },
     }));
     workspaceClient.exportOfficePdf(ref).then(
-      // PowerShell 退出码 0 且输出文件存在即成功；这里保持动画直到重读翻转到 PDF，
-      // 避免闪回按钮被误点而触发重复导出。
+      // 保持动画直到重读翻转到 PDF，避免闪回按钮被误点而重复导出。
       async () => {
         set((state) => {
           const run = state.runs[key];
@@ -103,7 +100,6 @@ function useOfficeExport(ref: ResourceRef | undefined, onExported: (() => void) 
   const supported = window.dela?.platform === 'win32';
   const active = useOfficeExports((state) => (ref ? state.runs[exportKey(ref)] : undefined));
   const exporting = !!active && !active.error;
-  // 开始前留下的 now 早于 startedAt，elapsed 按 0 计，首个 tick 后即准。
   const now = useNow(1000, exporting);
   const elapsed = active ? Math.max(0, Math.round((now - active.startedAt) / 1000)) : 0;
   const run = () => {
@@ -126,8 +122,7 @@ export interface OfficePromptProps {
   onExported: (() => void) | undefined;
 }
 
-/** pptx 的确认卡片：Windows 经 PowerPoint 导出 PDF 预览，需用户主动触发；
- *  也可以不经导出，直接用系统默认应用（如 PowerPoint）打开原文件。 */
+/** pptx 的确认卡片：经 PowerPoint 导出 PDF 预览需用户主动触发，也可直接用系统默认应用打开。 */
 export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptProps) {
   const { supported, exporting, opening, error, run, progress, elapsed } = useOfficeExport(
     officeRef,
@@ -188,7 +183,6 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
   );
 }
 
-/** 已建立导出关联时的提示：内容未过期时收纳为紧凑的重导出入口，过期/出错才完整展示警示条。 */
 export function OfficeExportBanner({
   exported,
   officeRef,

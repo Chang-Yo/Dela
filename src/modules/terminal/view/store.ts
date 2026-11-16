@@ -1,5 +1,4 @@
-// 终端会话在渲染端的唯一副本：主进程推来的输出事件在这里累积成回放缓冲，标签只订阅标题与退出状态，
-// 逐块输出不会刷新界面。事件订阅在 store 创建时建立一次。
+// 终端会话在渲染端的唯一副本：输出累积成回放缓冲，标签只订阅标题与退出状态，逐块输出不刷新界面。
 import { create } from 'zustand';
 import type { TerminalEvent, TerminalSession } from '../contract';
 import { onTerminalEvent, terminalClient } from './client';
@@ -10,11 +9,8 @@ type TerminalMeta = Pick<TerminalSession, 'id' | 'title' | 'exitCode'>;
 type Output = Pick<TerminalSession, 'buffer' | 'sequence'>;
 
 interface TerminalStore {
-  /** 项目 id → 它的会话；输出不在这里，订阅标签的组件不会随输出重渲。 */
   tabs: Record<string, TerminalMeta[]>;
-  /** 会话 id → 回放缓冲与已应用的最大序号。 */
   output: Record<string, Output>;
-  /** 项目 id → 上次选中的会话：关掉标签再打开仍回到它。 */
   active: Record<string, string>;
   /** 读取清单或创建会话期间先到的事件：快照装入后按序号补上。 */
   pending: TerminalEvent[];
@@ -56,7 +52,6 @@ export const useTerminalStore = create<TerminalStore>((set, get) => {
         ),
       };
     });
-  /** 把先到的事件补进快照，再按项目装入；`keep` 为真时保留项目里已有的会话。 */
   const install = (projectId: string, items: TerminalSession[], keep: boolean) =>
     set((state) => {
       const merged = items.map((item) =>

@@ -8,12 +8,9 @@ import { errorMessage } from '../../../core/protocol/contract';
 
 type Store = {
   drafts: Record<string, NoteDraft>;
-  /** 读取（或复用）一份草稿；force 时先等在途保存结束再重读，不新增引用计数。 */
   acquire: (key: string, force?: boolean) => Promise<void>;
-  /** Flush a draft before releasing it. False means it is still present and dirty. */
   release: (key: string) => Promise<boolean>;
   edit: (key: string, text: string) => void;
-  /** Resolves true only when the current draft is clean (or was already clean). */
   save: (key: string) => Promise<boolean>;
   relocatePaths: (from: string, to: string) => void;
   /** 以下四张表是命令式句柄，不驱动渲染：在途读取、在途保存、防抖定时器、每个 key 的持有入口数。 */
@@ -82,9 +79,7 @@ export const useNoteDrafts = create<Store>((set, get) => {
             ? await workspaceClient.readSource(sourceId)
             : await workspaceClient.read(key);
         const current = get().drafts[key];
-        // A refresh must never replace edits made while it was reading. A confirmed
-        // reload may discard the snapshot that existed when it started, but a newer
-        // edit always wins.
+        // 刷新读取期间的新编辑不能被覆盖；确认过的重载可丢弃开始时的快照，更新的编辑总是胜出。
         if (
           started &&
           current &&
@@ -111,7 +106,6 @@ export const useNoteDrafts = create<Store>((set, get) => {
     },
     release: async (key) => {
       const refs = get().refcounts[key] ?? 0;
-      // 其他入口仍持有同一草稿：不冲盘不移除。
       if (refs > 1) {
         setHandle('refcounts', key, refs - 1);
         return true;

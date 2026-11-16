@@ -21,14 +21,12 @@ import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 const watchers = new Map<string, FSWatcher>();
 let changedTimer: ReturnType<typeof setTimeout> | undefined;
 const changedPaths = new Set<string>();
-/** @ 候选上限：超长索引没有实用价值，还会拖慢 composer。 */
 const REMOTE_REFERENCE_LIMIT = 3000;
 
 function watchWorkspace(state: WorkspaceState) {
   const roots = new Set([
     join(state.directory, 'workspace'),
     ...state.entries
-      // 远程项目的 path 是远端路径，本地没有可监听目录。
       .filter((item) => item.parentId === null && item.path && !item.remoteId)
       .map((item) =>
         item.kind === 'folder' || item.kind === 'project' ? item.path! : dirname(item.path!),
@@ -114,7 +112,6 @@ export async function searchLocal(rootId: string | null, query: string) {
   }
 }
 
-/** 事件带资源引用：并发导出时界面能把进度归到对应文件。 */
 export function exportOfficePdfOf(ref: unknown) {
   const parsed = resourceRefSchema.parse(ref);
   return exportOfficePdf(parsed, (progress) =>
@@ -139,8 +136,7 @@ export async function pickProjectFolder(): Promise<string | null> {
   return picked.canceled || !path ? null : path;
 }
 
-// 远端通道共用入口：projectId 解成目标与项目根，路径参数一律先判「在项目根之内」；
-// 集中一处校验，否则哪个通道漏判一处就是越界读写。
+// 远端通道共用入口：路径一律先判「在项目根之内」，集中一处校验，漏判即越界读写。
 export function remoteTargetOf(projectId: string) {
   const location = projectLocation(projectId);
   if (location.kind !== 'remote') throw new Error('该项目不是远程项目');
@@ -156,7 +152,6 @@ export function remotePathIn(root: string, value: string) {
   return path;
 }
 
-// 远程目录按需拉取：展开一层拉一层，主进程不缓存（远端是唯一事实来源）。
 export async function listRemote(projectId: string, path: string) {
   const { target, root } = remoteTargetOf(projectId);
   const wanted = remotePathIn(root, path);
@@ -183,7 +178,6 @@ export async function downloadRemote(projectId: string, path: string) {
   return result.filePath;
 }
 
-/** paths 为 null 即「选文件上传」：对话框拿到的路径与拖放的路径走同一条写入。 */
 export async function uploadRemote(projectId: string, directory: string, paths: string[] | null) {
   const { target, root } = remoteTargetOf(projectId);
   const wanted = remotePathIn(root, directory);
@@ -198,7 +192,6 @@ export async function uploadRemote(projectId: string, directory: string, paths: 
   if (!chosen.length) return [];
   const written: string[] = [];
   for (const local of chosen) written.push(await uploadLocalFile(target, local, wanted));
-  // 远端监视也会推变化，这里先报一次：上传完的文件不用等推。
   notifyRemoteChange(wanted);
   return written;
 }
@@ -213,12 +206,10 @@ export function watchRemote(projectId: string, paths: string[]) {
     projectId,
     target,
     root,
-    // 根永远在集合里：reset 时按它报一次，且根被折叠也不该整个失去监视。
     paths: wanted.includes(root) ? wanted : [root, ...wanted],
   });
 }
 
-/** 上限下推到 helper：@ 候选只要前 N 条。 */
 export async function remoteReferences(projectId: string) {
   const { target, root } = remoteTargetOf(projectId);
   const files = await remoteFileIndex(target, root, REMOTE_REFERENCE_LIMIT);

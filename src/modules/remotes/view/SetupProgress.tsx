@@ -1,6 +1,4 @@
-// 连接一台服务器时的过程展示：上面一排步骤标签（探测 → 校验 → 上传 → 启动 → 隧道 → 握手），
-// 上传时一条真实的字节进度条，下面是逐行日志（默认展开，可折叠）。失败时标题说清楚卡在哪，
-// 并给出「重试 / 编辑连接」。产物已在服务器上时整个过程一两秒，不会出现上传那一步。
+// 连接一台服务器时的过程展示：步骤标签、上传字节进度条与逐行日志；失败时标题说清卡在哪一步。
 import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
@@ -19,7 +17,6 @@ const stepLabels: Record<RemoteSetupStep, string> = {
   ready: '就绪',
 };
 
-/** 标签栏只放有意义的几步；ready 是收尾，不单独占一格。 */
 const visibleSteps: RemoteSetupStep[] = [
   'probe',
   'verify',
@@ -50,7 +47,6 @@ function formatBytes(bytes: number): string {
     : `${Math.round(bytes / 1024)} KB`;
 }
 
-/** 失败标题：按卡住的那一步说人话，原因放在下一行原样给出。 */
 function failureTitle(step: RemoteSetupStep | undefined): string {
   switch (step) {
     case 'probe':
@@ -68,7 +64,7 @@ function failureTitle(step: RemoteSetupStep | undefined): string {
   }
 }
 
-/** 日志区固定高度：每来一行新日志，末尾的锚点重新挂载，借此把阅读位置贴到底。 */
+/** 每来一行新日志，末尾锚点重新挂载，借此把阅读位置贴到底。 */
 const stickToBottom = (anchor: HTMLElement | null) => {
   if (anchor?.parentElement) anchor.parentElement.scrollTop = anchor.parentElement.scrollHeight;
 };
@@ -82,7 +78,6 @@ export function SetupProgress({
 }: {
   log: RemoteSetupProgress[];
   running: boolean;
-  /** 失败原因；null 表示没失败（或还在跑）。 */
   failure: string | null;
   onRetry: () => void;
   onEdit?: () => void;

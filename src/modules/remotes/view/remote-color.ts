@@ -2,8 +2,7 @@
 // 只用主题里已有的 calendar 调色板（浅色与深色两套都给了值），不新造颜色、不写死色值。
 const accentNames = ['blue', 'teal', 'sage', 'sand', 'peach', 'rose', 'lilac', 'slate'] as const;
 
-/** 由连接 id 稳定派生颜色：hash 只用来选色相，同一个 id 永远同一色，换台机器也一样。
- *  用 FNV-1a 再取高位（低位对相似 id 会扎堆），保证「a1/b2/c3」这种相邻 id 也散得开。 */
+/** FNV-1a 取高位选色相（低位对相似 id 会扎堆），同一个 id 永远同一色。 */
 export function remoteAccent(
   remoteId: string | null | undefined,
   part: 'text' | 'bg' = 'text',

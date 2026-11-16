@@ -4,12 +4,9 @@
 const markdownImageRefRe = /!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 
 interface MarkdownImageRef {
-  /** 括号内的原始路径（未解码）。 */
   path: string;
   alt: string;
-  /** 整段引用的起始偏移。 */
   index: number;
-  /** 整段引用长度。 */
   length: number;
 }
 
@@ -22,7 +19,6 @@ export function matchMarkdownImageRefs(text: string): MarkdownImageRef[] {
   }));
 }
 
-/** 相对资源路径：无协议、非站内锚点、非绝对路径或 Windows 盘符。 */
 export function isRelativeAssetPath(path: string): boolean {
   if (!path || path.startsWith('#')) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return false;
@@ -40,7 +36,6 @@ export function decodeAssetPath(path: string): string {
   }
 }
 
-/** 受限资源协议下的图片展示地址；协议按条目 ID 解析实际文件，不暴露磁盘路径。 */
 export function noteAssetUrl(entryId: string, ref: string): string {
   return `dela-resource://note-asset/${encodeURIComponent(ref)}?id=${encodeURIComponent(entryId)}`;
 }

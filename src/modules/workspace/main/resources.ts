@@ -31,7 +31,6 @@ export async function readWorkspaceResource(id: string): Promise<ResourceContent
   if (item.kind === 'source' && item.sourceId)
     return workspaceSource(item.sourceId).read(item.sourceId);
   if (item.kind !== 'file') throw new Error('请选择要读取的文件');
-  // 名字已能判定的 PDF/Office 直接交给文档 skill，不碰文件；其余才读内容判定。
   const named = formatByName(item.path ?? item.name);
   if (named && named !== 'markdown' && named !== 'image')
     return { title: item.name, format: 'file' };
@@ -123,8 +122,7 @@ export async function copyResourceToProject(input: unknown) {
   });
 }
 
-/** 用系统默认应用打开资源的本地源文件（pptx 关联通常指向 PowerPoint）。邮件附件要落临时目录，
- *  启动竞态下会被清理，所以只放行有持久文件的资源。 */
+/** 邮件附件落在临时目录，启动竞态下会被清理，所以只放行有持久文件的资源。 */
 export async function openResourceFile(ref: ResourceRef): Promise<void> {
   const parsed = resourceRefSchema.parse(ref);
   const { path } = resourceResolver(parsed.type);

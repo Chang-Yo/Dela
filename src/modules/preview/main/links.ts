@@ -3,7 +3,7 @@ import { basename } from 'node:path';
 import { hostPorts } from '../../../core/ports';
 import type { OfficeExportInfo } from '../../workspace/contract';
 
-/** pptx 导出 PDF 的关联记录，按资源引用（type + id）存取；version 为导出时源文件的 mtime-size。 */
+/** version 为导出时源文件的 mtime-size。 */
 export interface OfficeExportLink {
   entryId: string;
   path: string;
@@ -13,7 +13,6 @@ export interface OfficeExportLink {
 
 const officeExportKey = (kind: string, id: string) => `preview-export:${kind}:${id}`;
 
-/** 读取关联；键不存在或存储损坏时返回 null，文件是否仍存在由调用方判断。 */
 export function readOfficeExportLink(kind: string, id: string): OfficeExportLink | null {
   try {
     const row = hostPorts()
@@ -34,14 +33,12 @@ export function writeOfficeExportLink(kind: string, id: string, link: OfficeExpo
     .run(officeExportKey(kind, id), JSON.stringify(link));
 }
 
-/** 由关联记录构造 renderer 直接渲染 PDF 所需的信息；导出文件或其条目已不存在时返回 null。 */
 export function officeExportPreviewInfo(
   link: OfficeExportLink,
   version: string,
 ): OfficeExportInfo | null {
   try {
-    // 条目可能已被用户删除（仓库约定删除条目不删磁盘文件）：此时协议按条目 id 解析会 404，
-    // 返回 null 让读取方回退到导出确认卡片。
+    // 条目被用户删除时（磁盘文件仍在）协议会 404，返回 null 让读取方回退到确认卡片。
     if (
       !hostPorts()
         .database()

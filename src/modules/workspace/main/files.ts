@@ -26,7 +26,6 @@ function readHead(path: string, size: number): Buffer {
   }
 }
 
-/** 本地文件格式：专用格式只看名字，其余读开头嗅探。目录与读不了的文件交给调用方处理。 */
 export function localFileFormat(path: string): FileFormat {
   const named = formatByName(path);
   if (named) return named;
@@ -44,8 +43,7 @@ export type LocalText =
     }
   | { kind: 'binary' };
 
-/** 读文本文件：编辑上限内整篇可编辑；超出只读头部；超过预览上限不读内容。
- *  Markdown 也要过同一遍嗅探——扩展名对，内容不一定是 UTF-8。 */
+/** Markdown 也要过同一遍嗅探：扩展名对，内容不一定是 UTF-8。 */
 export function readLocalText(path: string, format: 'markdown' | 'text'): LocalText {
   const size = statSync(path).size;
   if (size > TEXT_PREVIEW_MAX_BYTES) return { kind: 'binary' };
@@ -58,7 +56,6 @@ export function readLocalText(path: string, format: 'markdown' | 'text'): LocalT
   return { kind: 'text', format, text, readOnly: truncated, truncated };
 }
 
-/** 原地覆写文本：revision 是打开时整篇内容的哈希，外部改过就拒绝，草稿留在界面上。 */
 export function writeLocalText(path: string, text: string, revision: string): string {
   if (statSync(path).size > TEXT_EDIT_MAX_BYTES) throw new Error('文件超过 1 MB，只能只读查看');
   const disk = readFileSync(path, 'utf8');

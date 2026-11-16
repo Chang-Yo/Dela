@@ -22,9 +22,7 @@ describe('sanitizeTableHtml', () => {
   });
 
   it('escapes attribute-injection payloads via DOMParser round-trip', () => {
-    // SheetJS data-z 属性逃逸形态：属性值里带引号闭合 + 标签注入。
-    // 序列化规范对属性值只转义 & 和 "（< > 保留），因此字符串里可能出现 <img 文本；
-    // 判定标准是重新解析后不产生真实元素、载荷完整留在属性值内。
+    // SheetJS data-z 属性逃逸：判定标准是重新解析后不产生真实元素、载荷完整留在属性值内。
     const html =
       '<table><tr><td data-z="&quot;&gt;&lt;img src=x onerror=alert(1)&gt;">x</td></tr></table>';
     const clean = sanitizeTableHtml(html);
@@ -47,8 +45,7 @@ describe('sanitizeTableHtml', () => {
   });
 
   it('blocks entity-encoded scheme smuggling that defeats a regex blacklist', () => {
-    // 实体解码后的 tab/换行会被 URL 解析从 scheme 中剥掉（java\tscript: → javascript:），
-    // 正则黑名单匹配不到；白名单须按解析后的 protocol 判定。相对链接同样剥除。
+    // 实体解码后的 tab/换行会被 URL 解析从 scheme 剥掉，须按解析后的 protocol 白名单判定。
     const html =
       '<table><tr>' +
       '<td><a href="java&#9;script:alert(1)">a</a></td>' +

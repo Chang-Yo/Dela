@@ -7,9 +7,7 @@ import { pinchZoomRef } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/alert';
 import { errorMessage } from '../../../core/protocol/contract';
 
-// 单工作表最多解析的行数：防超大表同步渲染冻结 renderer。
 const SHEET_ROW_LIMIT = 2000;
-// 缩放范围与步进：与 PdfReader 的 10% 步进一致。
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
@@ -20,10 +18,7 @@ interface SheetTab {
   truncated: boolean;
 }
 
-/**
- * SheetJS 的 html 输出对富文本与自定义数字格式存在未转义的注入面，
- * 经 DOMParser 清理（与邮件 HTML 预览同一模式）后再上屏。
- */
+// SheetJS 的 html 输出存在未转义的注入面，经 DOMParser 清理后再上屏。
 export function sanitizeTableHtml(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   doc
@@ -33,11 +28,9 @@ export function sanitizeTableHtml(html: string): string {
     for (const attr of Array.from(el.attributes))
       if (attr.name.startsWith('on') || attr.name === 'srcdoc') el.removeAttribute(attr.name);
   });
-  // 链接协议走 URL 白名单而非正则黑名单：URL 解析会剥掉 scheme 内的 tab/换行，
-  // `java&#9;script:` 这类实体编码可绕过黑名单（解析后即 javascript:）。
+  // 链接协议走 URL 白名单：`java&#9;script:` 这类实体编码会绕过正则黑名单。
   doc.querySelectorAll('a[href]').forEach((a) => {
     try {
-      // 无文档基址：相对链接一并剥除，只保留绝对 http(s)。
       if (!['https:', 'http:'].includes(new URL(a.getAttribute('href')!).protocol))
         a.removeAttribute('href');
     } catch {
@@ -61,7 +54,6 @@ function sheetTruncated(sheet: XLSX.WorkSheet): boolean {
 export function SheetPreview({ url }: { url: string }) {
   const [active, setActive] = useState(0);
   const [zoom, setZoom] = useState(1);
-  // 解析结果只服务当前标签（外层按 url 重挂载），不留缓存。
   const workbook = useQuery({
     queryKey: ['preview', 'sheet', url],
     queryFn: async ({ signal }): Promise<SheetTab[]> => {

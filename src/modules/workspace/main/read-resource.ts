@@ -34,7 +34,6 @@ export function readDocument(
   limit: number,
 ) {
   const cached = freshness('cached');
-  // 图片直接作为图片消息附给视觉模型。
   if (content.format === 'image' && content.bytes && content.mime) {
     return {
       ref,

@@ -40,9 +40,7 @@ const nameSchema = z.string().trim().min(1).max(200);
 const entryColumns =
   'id, parent_id AS parentId, name, kind, source_id AS sourceId, remote_id AS remoteId, updated_at AS updatedAt';
 
-// 插入图片的大小上限（与助手内联图片的常规体积一致量级）。
 const NOTE_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
-/** 图片整张读进主进程再交给 renderer：超过就请用户在外部打开。 */
 const IMAGE_READ_MAX_BYTES = 50 * 1024 * 1024;
 
 function entryLocalPath(item: WorkspaceEntry): string {
@@ -72,14 +70,12 @@ const underRemoteRoot = (root: string, path: string) => {
   return path === base || path.startsWith(`${base}/`);
 };
 
-/** 条目（项目 UUID、带项目身份的远端条目 id，或裸远端绝对路径）所属的远程项目根；
- *  本地条目返回 null。所有会碰本地文件系统的入口都必须先问这里：远端路径 `/root/x`
- *  在 Windows 上会被 isAbsolute 判真并解析成 `E:\root\x`，直接 statSync 就是读错位置。 */
+/** 条目所属的远程项目根，本地条目返回 null。远端路径在 Windows 上会被 isAbsolute 判真，
+ *  所有会碰本地文件系统的入口都必须先问这里，否则读到错位置。 */
 export function remoteProjectOf(id: string): RemoteRoot | null {
   const roots = remoteRoots();
   const byId = roots.find((root) => root.id === id);
   if (byId) return byId;
-  // 远端条目 id 自带项目身份：两台连接上的同路径目录不会互相认领。
   const node = parseRemoteNodeId(id);
   if (node) {
     const owner = roots.find((root) => root.id === node.projectId);
@@ -115,8 +111,7 @@ export const workspaceProjects: Projects = {
   },
 };
 
-/** 把远端目录登记为远程项目。目录留在远端，本地只补一条身份行；
- *  项目与子条目的 `local_path` 是远端 POSIX 路径，`remoteId` 指向连接。 */
+/** 目录留在远端，本地只补一条身份行；`local_path` 是远端 POSIX 路径。 */
 export async function importRemoteProject(
   remoteId: unknown,
   path: unknown,
@@ -136,7 +131,6 @@ export async function importRemoteProject(
   const location = await locateRemote(targetOf(connection), remotePath);
   if (location.kind !== 'directory') throw new Error(`远端目录不存在：${remotePath}`);
   const database = hostPorts().database();
-  // 同一远端目录只登记一次：重复导入返回已有项目。
   const existing = database
     .prepare(
       `SELECT ${entryColumns}, local_path AS path FROM workspace_entries
@@ -160,7 +154,6 @@ export async function importRemoteProject(
   return entry(id);
 }
 
-/** 图片/笔记资源的解析结果：受限资源协议按它读取文件，只服务图片格式。 */
 export function resolveWorkspaceAsset(id: string, ref: string): { path: string; mime: string } {
   const item = entry(id);
   if (item.kind !== 'file') throw new Error('此条目没有本地目录');
@@ -175,7 +168,6 @@ export function resolveWorkspaceAsset(id: string, ref: string): { path: string; 
   return { path, mime };
 }
 
-/** 新插入的本地图片保存到 Markdown 文件同目录的 assets/ 下，返回可写入正文的相对路径。 */
 export function saveNoteImage(id: string, name: string, bytes: Uint8Array): string {
   prepareStorage();
   const item = entry(id);
@@ -191,7 +183,6 @@ export function saveNoteImage(id: string, name: string, bytes: Uint8Array): stri
   return relative(noteDir, path).split(sep).join('/');
 }
 
-/** 笔记移动到其他目录时，把正文引用的相对图片按原相对路径复制过去；正文不改写。 */
 function carryNoteAssets(fromFile: string, toFile: string, text: string): void {
   const fromDir = dirname(fromFile);
   const toDir = dirname(toFile);
@@ -206,7 +197,7 @@ function carryNoteAssets(fromFile: string, toFile: string, text: string): void {
     const relativePath = decodeAssetPath(ref.path);
     const source = join(fromDir, ...relativePath.split('/'));
     if (!existsSync(source) || !statSync(source).isFile()) continue;
-    if (!inside(source)) continue; // 工作区外的引用不携带
+    if (!inside(source)) continue;
     const target = join(toDir, ...relativePath.split('/'));
     if (existsSync(target) || !inside(target)) continue;
     mkdirSync(dirname(target), { recursive: true });
@@ -227,8 +218,7 @@ export function projectDirectory(id: unknown): string {
   return path;
 }
 
-/** 项目位置：本地项目给出磁盘目录，远程项目给出远端路径与连接。
- *  terminal、会话 cwd 与目录树都经这里分支，避免把远端路径当本地目录使用。 */
+/** 本地项目给出磁盘目录，远程项目给出远端路径与连接，避免把远端路径当本地目录用。 */
 export function projectLocation(
   id: unknown,
 ): { kind: 'local'; path: string } | { kind: 'remote'; remoteId: string; path: string } {
@@ -269,7 +259,7 @@ function managedPath(item: WorkspaceEntry): string | null {
   return stored.path;
 }
 
-/** 根目录迁移/移动后，把库里记录的所有受管路径改写到新位置之下；须在调用方事务内执行。 */
+/** 根目录迁移/移动后改写库里所有受管路径；须在调用方事务内执行。 */
 function rewriteStoredPaths(from: string, to: string) {
   const db = hostPorts().database();
   const relocate = (path: string) => {
@@ -308,8 +298,7 @@ function finishMove(move: PendingMove) {
   })();
 }
 
-/** 归档文件夹身份：种子行 local_path 缺失或目录丢失时重新落定（复用根目录已有「归档」，否则创建）。
- *  只在行存在时生效（内存测试库无种子行）。路径落定一次后只读，改名/移除另有守卫。 */
+/** 归档文件夹身份：路径缺失或目录丢失时重新落定，之后只读。 */
 function ensureArchiveFolder() {
   const db = hostPorts().database();
   const stored = db
@@ -364,7 +353,6 @@ export function getWorkspaceState(): WorkspaceState {
     visited.add(path);
     entries.push(item);
     if (item.kind !== 'folder' && item.kind !== 'project') return;
-    // 保留目录入口，避免递归遍历工具生成的依赖与 Git 数据。
     if (['node_modules', '.git'].includes(item.name)) return;
     let children;
     try {
@@ -379,9 +367,7 @@ export function getWorkspaceState(): WorkspaceState {
   };
   for (const child of readdirSync(root, { withFileTypes: true }))
     if (!child.isSymbolicLink()) scan(join(root, child.name), null);
-  // 更改默认保存目录不会迁移旧目录；旧挂载点继续可见。
-  // 远程项目跳过本地扫描：它们的 local_path 是远端路径，本地没有对应文件；
-  // 子条目由渲染端展开时经 workspace:list-remote 逐层拉取。
+  // 远程项目的 local_path 是远端路径，跳过本地扫描。
   for (const item of stored)
     if (item.kind !== 'source' && item.path && !item.remoteId && !visited.has(resolve(item.path)))
       scan(item.path, null);
@@ -397,7 +383,6 @@ export function getWorkspaceState(): WorkspaceState {
   for (const item of stored.filter((item) => item.kind === 'source'))
     entries.push({ ...item, path: undefined, parentId: parentOf(item) });
   return {
-    // 归档文件夹自身不进条目列表（资料树只经归档区呈现它，子条目仍带其 parentId）。
     entries: entries.filter((item) => item.id !== workspaceArchiveId),
     directory: hostPorts().paths.storage(),
   };
@@ -406,11 +391,8 @@ export function getWorkspaceState(): WorkspaceState {
 export function entry(id: string): WorkspaceEntry {
   workspaceEntryIdSchema.parse(id);
   if (isAbsolute(id)) {
-    // 远端路径在 Windows 上同样过 isAbsolute，必须先挡下来：本地没有这个文件。
     if (remoteProjectOf(id)) throw new Error('远程条目请通过远程接口访问，本地没有对应文件');
-    // 路径条目可能有数据库身份（升格的项目、资料引用、旧 UUID 行）：按 local_path 匹配，
-    // 命中时沿用其 id 与 kind，未命中即纯磁盘文件夹/文件。source 行的 local_path 是其
-    // 容器目录路径（去重键），不代表该目录的身份，必须排除，否则容器会被误判成 source。
+    // source 行的 local_path 是容器目录（去重键），不代表目录身份，必须排除。
     const stored = hostPorts()
       .database()
       .prepare(
@@ -465,10 +447,8 @@ function checkParent(parentId: string | null, movingId?: string) {
   }
 }
 
-/** 新建名里的 `/`、`\` 是路径分隔符（与 VS Code 一致）：`a/b.md` 建出文件夹 a 与其中的 b.md，
- *  中间的文件夹已存在就复用。每段单独过 diskName（Windows 保留名、非法字符仍会被替换），
- *  `.` 与 `..` 段直接拒绝，结果因此必定落在父目录之内；以分隔符结尾（`aaa/`）一律建文件夹。
- *  最后一段已存在时报错而不是自动改名：名字是用户明确敲进来的，悄悄变成「b (2).md」不如让他改。 */
+/** 新建名里的路径分隔符（与 VS Code 一致）会建出中间文件夹，`aaa/` 一律建文件夹；
+ *  `.` 与 `..` 段拒绝，结果必定落在父目录之内。最后一段已存在时报错而不是自动改名。 */
 function createAtPath(
   parentId: string | null,
   name: string,
@@ -551,8 +531,7 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
   return entry(id);
 }
 
-/** 把电脑上已有的文件夹登记为项目：目录留在原处，只补一条项目身份行。
- *  身份与受管项目完全等价，因此重命名、移动都会真的动这个目录。 */
+/** 目录留在原处，只补一条项目身份行；重命名、移动都会真的动这个目录。 */
 export function linkProjectFolder(path: unknown): WorkspaceEntry {
   const resolved = resolve(z.string().min(1).max(32_767).parse(path));
   prepareStorage();
@@ -561,7 +540,6 @@ export function linkProjectFolder(path: unknown): WorkspaceEntry {
   if (resolved === resolve(containerPath(null)))
     throw new Error('这是 Dela 的工作区目录本身，请在其中新建项目');
   const db = hostPorts().database();
-  // 同一目录只登记一次：重复导入返回已有项目，不产生两个身份。
   const existing = db
     .prepare(
       `SELECT ${entryColumns}, local_path AS path FROM workspace_entries WHERE local_path=? AND kind='project' AND remote_id IS NULL`,
@@ -596,7 +574,6 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     .parse(input);
   const current = entry(id);
   if (id === workspaceArchiveId) throw new Error('归档文件夹不能修改');
-  // 远程项目只能改 Dela 里登记的名字：远端目录不动，也不能挪到别的文件夹下。
   if (remoteProjectOf(id)) {
     if (parsed.parentId !== undefined || parsed.kind) throw new Error('远程项目不能移动');
     if (parsed.name !== undefined)
@@ -610,7 +587,6 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     checkParent(parsed.parentId, current.kind === 'source' ? undefined : id);
   if (parsed.kind && current.kind !== 'folder' && current.kind !== 'project')
     throw new Error('只有文件夹可以作为项目开展');
-  // 降格同样删除项目行：名下还有子项目时与移除一样拒绝。
   if (parsed.kind === 'folder' && current.kind === 'project') assertNoChildProjects(current.id);
   if (current.kind === 'source') {
     hostPorts()
@@ -649,7 +625,6 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)")
       .run(JSON.stringify(move));
     try {
-      // Markdown 移动前快照正文，移动后按原相对路径携带图片；正文不改写，草稿 revision 不受影响。
       const noteText =
         current.kind === 'file' && localFileFormat(from) === 'markdown'
           ? readFileSync(from, 'utf8')
@@ -678,7 +653,6 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
       );
   let nextId = isAbsolute(id) ? to : id;
   if (parsed.kind === 'project' && current.kind === 'folder') {
-    // 升格：纯路径文件夹补建条目行（项目身份 = 条目 UUID + local_path）；已有行只改 kind。
     if (isAbsolute(current.id)) {
       nextId = linkProjectFolder(to).id;
     } else {
@@ -689,7 +663,6 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
         .run(nextId);
     }
   } else if (parsed.kind === 'folder' && current.kind === 'project') {
-    // 降格：删除条目行（项目会话经 FK 转为通用），目录回到纯路径身份。
     hostPorts().database().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
     void collectWorkspaceSources();
     nextId = to;
@@ -699,7 +672,6 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
 
 export function importWorkspaceFiles(parentId: string | null, paths: string[]): WorkspaceEntry[] {
   checkParent(parentId);
-  // 远端项目的 local_path 是远端的 POSIX 路径：拿它当本地目录写会落到 `\home\u\…` 这种地方。
   if (parentId && remoteProjectOf(parentId))
     throw new Error('远程项目内暂不支持导入本地文件，请拖到远端目录上上传');
   prepareStorage();
@@ -717,7 +689,6 @@ export function importWorkspaceFiles(parentId: string | null, paths: string[]): 
   }
 }
 
-// 受限预览协议放行的本地格式：PDF 与三类 OOXML 交给 renderer 按 Range 拉取。
 const streamedFormats = new Set(['pdf', 'docx', 'xlsx', 'pptx']);
 
 export function workspacePreviewPath(id: string): string {
@@ -762,7 +733,6 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
       text: read.text,
       readOnly: read.readOnly || undefined,
       truncated: read.truncated || undefined,
-      // 只读片段没有可保存的版本；可编辑全文的 revision 是内容哈希，保存时据此判外部修改。
       revision: read.readOnly ? version : textRevision(read.text),
     };
   }
@@ -809,8 +779,7 @@ export function saveWorkspaceNote(id: string, text: string, revision: string): s
   return next;
 }
 
-/** 删除/降格项目行之前的守卫：外键级联会带走子项目的登记行，却删不掉它们的会话
- *  （残留成随聊）。拒绝并点名，让用户逐个处理。 */
+/** 外键级联删不掉子项目的会话（会残留成随聊），所以先拒绝并点名。 */
 function assertNoChildProjects(projectId: string): void {
   const children = hostPorts()
     .database()
@@ -829,7 +798,7 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
   if (item.kind === 'project') {
     assertNoChildProjects(item.id);
     // 「移除项目」＝项目终结：名下会话（含归档）一并删除，目录与文件保留。
-    // 动态导入避开 agent/session → workspace/api 的既有环；deleteSession 负责中止运行与清理 JSONL。
+    // 动态导入避开 agent/session → workspace/api 的环。
     const { deleteSession } = await import('../../../core/agent/session/commands');
     const { invalidateSessions } = await import('../../../core/agent/session/run');
     const ids = hostPorts()
@@ -847,6 +816,5 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     await collectWorkspaceSources();
     return;
   }
-  // 用户在应用中明确移除文件时才调用回收站；失败保留原文件，不退化为永久删除。
   await hostPorts().desktop.trash(entryLocalPath(item));
 }

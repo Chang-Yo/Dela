@@ -18,7 +18,6 @@ declare const __PDF_ASSET_DIR__: string;
 GlobalWorkerOptions.workerSrc = workerUrl;
 // Bound each page bitmap to 16 MiB; the official viewer owns its LRU and render queue.
 const MAX_PIXELS = 4 * 1024 * 1024;
-// Match the generic PDF.js viewer's default drawing delay.
 const DRAWING_DELAY = 400;
 
 export function PdfReader({
@@ -56,7 +55,6 @@ export function PdfReader({
       annotationMode: AnnotationMode.DISABLE,
       enableAutoLinking: false,
       maxCanvasPixels: MAX_PIXELS,
-      // Use the full-page fallback at the pixel cap, without a second detail bitmap.
       enableDetailCanvas: false,
       abortSignal: lifecycle.signal,
     };
@@ -74,7 +72,6 @@ export function PdfReader({
     };
     const savePosition = () => {
       if (!initialized || disposed) return;
-      // Persist page + relative offset using actual page geometry, not equal-height slots.
       const index = instance.currentPageNumber - 1;
       const page = instance.getPageView(index).div;
       if (!page.clientHeight) return;
@@ -114,7 +111,6 @@ export function PdfReader({
     const wheel = (event: WheelEvent) => {
       if (!event.ctrlKey || !initialized) return;
       event.preventDefault();
-      // Same pixel-mode pinch conversion as Mozilla's generic viewer.
       instance.update();
       const bounds = element.getBoundingClientRect();
       instance.updateScale({
@@ -122,7 +118,6 @@ export function PdfReader({
           ? { scaleFactor: Math.exp(-event.deltaY / 100) }
           : { steps: -Math.sign(event.deltaY) }),
         drawingDelay: DRAWING_DELAY,
-        // PDFViewer uses offset-parent coordinates for its zoom origin.
         origin: [
           event.clientX - bounds.left + element.offsetLeft,
           event.clientY - bounds.top + element.offsetTop,
@@ -191,7 +186,7 @@ export function PdfReader({
   };
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* safe 居中：工具组窄于容器时居中，放不下时对齐起点并横向滚动（居中溢出会把两侧按钮裁成不可达）。 */}
+      {/* safe 居中：放不下时对齐起点并横向滚动，否则居中溢出会把两侧按钮裁掉。 */}
       <div className="flex shrink-0 items-center justify-center-safe gap-2 overflow-x-auto border-b px-3 py-1 text-xs">
         <Button
           size="icon-sm"
@@ -234,7 +229,6 @@ export function PdfReader({
         >
           <Minus />
         </Button>
-        {/* 与 Docx/Sheet 预览统一：点击百分比重置为 100%，适合宽度走独立按钮。 */}
         <button
           title="重置缩放到 100%"
           aria-label="重置缩放到 100%"

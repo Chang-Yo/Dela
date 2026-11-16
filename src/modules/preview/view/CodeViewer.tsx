@@ -36,17 +36,12 @@ const viewerTheme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
 });
 
-/** 按文件名匹配语言：Dockerfile、Makefile 这类无后缀名也能命中。 */
-// Compartment 只是配置槽的标识，可在多个视图间共用。
 const wrappingConf = new Compartment();
 
 function languageForFilename(filename: string): LanguageDescription | null {
   return LanguageDescription.matchFilename(languages, filename);
 }
 
-/**
- * 只读代码/文本文件查看器：CodeMirror 只读装配，滚动位置由上层按标签记忆。
- */
 export function CodeViewer({
   value,
   filename,
@@ -98,7 +93,6 @@ export function CodeViewer({
       viewRef.current = null;
       view.destroy();
     };
-    // value/filename/initialScroll 仅取初值：标签切换由上层重挂载，外部重读走下方同步。
   }, []);
 
   useEffect(() => {

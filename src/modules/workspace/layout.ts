@@ -10,24 +10,19 @@ export type SplitOrientation = 'vertical' | 'horizontal';
 
 export interface GroupNode {
   type: 'group';
-  /** 组内唯一；WorkbenchLayout.focus/maximized 按它引用。 */
   id: string;
   tabs: TabId[];
   active: TabId | null;
-  /** 预览标签（VS Code 语义）：组内至多一个，下一次预览打开就地替换它；编辑、双击、拖动后转常驻。 */
+  /** 预览标签（VS Code 语义）：组内至多一个，下次预览就地替换；编辑、双击后转常驻。 */
   preview?: TabId;
-  /** 固定标签（VS Code 语义）：恒为 tabs 的前缀子集，批量关闭不波及；store 维护该不变量，
-   *  schema 只校验形状，引用失效/乱序由载入时的归一修复。 */
+  /** 固定标签（VS Code 语义）：恒为 tabs 的前缀子集；schema 只校验形状，失效引用载入时归一。 */
   pinned?: TabId[];
 }
 
 export interface SplitNode {
   type: 'split';
-  /** vertical = 左右并排（flex-row）；horizontal = 上下堆叠（flex-col）。 */
   orientation: SplitOrientation;
-  /** 第一个子节点占的比例，其余子节点均分剩余空间；2 子时即旧 primary/secondary 语义。 */
   ratio: number;
-  /** ≥2，支持嵌套组合出三屏（结构上是多叉树，store 只产生二元 split）。 */
   children: LayoutNode[];
 }
 
@@ -35,22 +30,17 @@ export type LayoutNode = GroupNode | SplitNode;
 
 export interface WorkbenchLayout {
   root: LayoutNode;
-  /** 焦点组 id：openTab 无显式目标时的落点。 */
   focus: string;
-  /** 最大化组 id；null = 正常布局。 */
   maximized: string | null;
 }
 
 export const ratioMin = 0.05;
 export const ratioMax = 0.95;
-/** 整棵树的节点数（组 + split）上限：约等于 4 层满二叉分割，防止持久化数据无限膨胀。 */
+/** 节点数（组 + split）上限，防止持久化数据无限膨胀。 */
 export const maxLayoutNodes = 31;
-/** 单组标签上限，量级与旧 MAX_EDITOR_TABS 的单组实际占用一致。 */
 export const maxTabsPerGroup = 30;
-/** split 子节点数上限（schema 容忍历史多叉数据；store 只写二元）。 */
 const maxSplitChildren = 4;
 
-// 模板串类型 TabId 的运行时校验：templateLiteral 让推断类型就是 `${TabKind}:${string}`。
 const tabIdSchema = z
   .templateLiteral([z.enum(tabKinds), z.literal(':'), z.string().min(1)])
   .refine((value) => value.length <= 512, { message: 'TabId 过长' });

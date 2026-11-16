@@ -10,7 +10,6 @@ type Store = {
   directories: Record<string, WorkspaceEntry[]>;
   ensureDirectory: (id: string, force?: boolean) => Promise<void>;
   releaseDirectory: (id: string) => void;
-  /** 目录按持有者计数：同一目录被多个视图持有时，最后一个放手才释放。 */
   holdDirectories: (owner: string, ids: string[]) => Promise<void>;
   directoryOwners: Record<string, string[]>;
   rememberEntries: (entries: WorkspaceEntry[]) => void;
@@ -19,7 +18,6 @@ type Store = {
   load: () => Promise<void>;
   refresh: (paths?: string[]) => Promise<void>;
   setError: (error: unknown) => void;
-  // 请求去重：并发调用共享在途请求，刷新期间到达的变化排进队列再读一轮。
   loading: Promise<void> | null;
   refreshing: Promise<void> | null;
   refreshQueue: { all: boolean; paths: string[] } | null;
@@ -144,19 +142,14 @@ export const useWorkspaceStore = create<Store>((set, get) => ({
   setError: (error) => set({ error: error === null ? null : errorMessage(error) }),
   load: () => {
     if (get().loaded || !window.dela) return Promise.resolve();
-    // 磁盘为准的文件树：外部文件变化经 main 的 fs.watch 推送 workspace:changed，
-    // 这里刷新条目镜像；编辑中的草稿独立持有，不受刷新影响。
     if (!get().watchingChanges) {
       set({ watchingChanges: true });
       onWorkspaceEvent('changed', (paths) => {
-        // 推送驱动的后台刷新失败不打扰用户，下一轮变更推送会重试。
         void get()
           .refresh(paths)
           .catch((cause) => console.error('[workspace] 刷新条目镜像失败', cause));
       });
     }
-    // Concurrent callers (StrictMode double-invocation included) share one request;
-    // cleared on settle so a failed load can be retried.
     const pending = get().loading;
     if (pending) return pending;
     const loading = (async () => {

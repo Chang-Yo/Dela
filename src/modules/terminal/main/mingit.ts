@@ -2,7 +2,6 @@ import { app } from 'electron';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** 随包 MinGit：打包产物在 resources/mingit，开发模式对应 prepare-runtime.ts 的产出。 */
 function bundledDir(): string {
   if (app.isPackaged) return join(process.resourcesPath, 'mingit');
   return join(app.getAppPath(), '.build', 'mingit');
@@ -24,8 +23,7 @@ function systemBash(): string | null {
   return candidates.find((path) => existsSync(path)) ?? null;
 }
 
-/** macOS 使用系统 Bash；Windows 先用系统安装的 Git for Windows，再用随包 MinGit。
- *  不回退 PATH 上的 bash（可能是 WSL）；都缺失说明安装包被破坏，交给用户自行修复。 */
+/** Windows 优先系统的 Git for Windows，再用随包 MinGit；不回退 PATH 上的 bash（可能是 WSL）。 */
 export function locateBash(): string {
   if (process.platform === 'darwin') {
     const bash = systemBash();
@@ -40,8 +38,7 @@ export function locateBash(): string {
   return bash;
 }
 
-/** 随包搜索工具（rg/fd）：内核 grep/find 直接 spawn 它们，缺失时 pi 会从
- *  GitHub 直连下载（大陆大概率失败），所以随安装包分发并前插 PATH。 */
+/** 缺失时 pi 会从 GitHub 直连下载（大陆大概率失败），所以随安装包分发并前插 PATH。 */
 function searchToolsDir(): string | null {
   const root = app.isPackaged
     ? join(process.resourcesPath, 'bin')

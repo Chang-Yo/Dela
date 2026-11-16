@@ -82,7 +82,6 @@ async function readDirectory(path: string, parentId: string | null, stored: Work
       kind: child.isDirectory() ? (identity?.kind ?? 'folder') : 'file',
       sourceId: null,
       path: file,
-      // 列表只需要名称和类型；mtime 在文件读取时获取，避免每行额外 stat。
       updatedAt: identity?.updatedAt ?? '',
     });
   }
@@ -137,7 +136,6 @@ export async function localEntryAncestors(id: string): Promise<WorkspaceEntry[]>
   return chain;
 }
 
-/** 导入只返回根清单和已登记身份；目录后代由展开、检索分别读取。 */
 export async function getLocalWorkspaceState(): Promise<WorkspaceState> {
   prepareStorage();
   const directory = hostPorts().paths.storage();
@@ -203,7 +201,6 @@ export async function getLocalWorkspaceState(): Promise<WorkspaceState> {
   };
 }
 
-/** 名称检索与引用独立于目录缓存，不读取文件正文，也不要求先展开目录。 */
 export async function searchLocalWorkspace(
   rootId: string | null,
   query: string,
@@ -239,7 +236,6 @@ export async function searchLocalWorkspace(
   }
   const results = [...found.values()];
   if (!query.trim()) return results;
-  // 搜索结果按根批量修饰，避免遍历每个目录时启动 Git。
   const directories = rootId
     ? roots
         .filter((root) => root.path)

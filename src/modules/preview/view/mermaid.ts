@@ -2,8 +2,7 @@
 // mermaid 本体体积大，只在首次渲染图表时才动态加载。
 import type { MermaidConfig } from '@streamdown/mermaid';
 
-// mermaid 渲染的 svg 文本默认用 trebuchet ms 等字体，与界面割裂；字体栈取自界面自身
-// （globals.css 的 --font-sans），不再手工同步一份副本。
+// mermaid 默认字体与界面割裂，字体栈取自界面自身。
 function interfaceFontFamily(): string {
   return getComputedStyle(document.documentElement).fontFamily;
 }
@@ -21,7 +20,6 @@ export function mermaidConfig(): MermaidConfig {
   return cached.config;
 }
 
-/** 渲染一张图，返回 svg 文本；语法错误时抛出 mermaid 的报错。 */
 export async function renderMermaid(id: string, chart: string, config?: MermaidConfig) {
   const { mermaid } = await import('@streamdown/mermaid');
   return mermaid.getMermaid(config ?? mermaidConfig()).render(id, chart);

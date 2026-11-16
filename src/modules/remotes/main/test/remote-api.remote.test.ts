@@ -56,7 +56,6 @@ function createDb(): Database.Database {
 beforeAll(async () => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-remote-api-'));
   state.db = createDb();
-  // 自带夹具：不依赖别的套件或冒烟脚本先在远端建好目录。
   const target = targetOf({ host, keyPath });
   await writeRemoteFile(target, `${testRoot}/a b.txt`, Buffer.from('hello\n'));
   await writeRemoteFile(target, `${testRoot}/sub/nested.md`, Buffer.from('nested\n'));
@@ -110,7 +109,6 @@ describe('远程项目主进程链路（真机）', () => {
     const files = await remoteFileIndex({ host, keyPath }, testRoot, 1000);
     expect(files).toContain('a b.txt');
     expect(files).toContain('sub/nested.md');
-    // 索引给的是相对路径，渲染端再与项目根拼成候选 key。
     expect(files.every((file) => !file.startsWith('/'))).toBe(true);
   }, 90_000);
 

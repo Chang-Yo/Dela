@@ -23,7 +23,6 @@ const editorTheme = EditorView.theme({
     lineHeight: '1.625',
     padding: '1.5rem',
   },
-  // 与富文本（note-editor.css 的 60rem 居中）一致，超宽窗口下行宽不无限拉伸。
   '.cm-content': { caretColor: 'var(--syntax-caret)', maxWidth: '60rem', margin: '0 auto' },
   '&.cm-source-file .cm-scroller': { padding: '1.5rem 0' },
   '&.cm-source-file .cm-content': {
@@ -85,15 +84,14 @@ function replaceDocument(current: string, next: string) {
   return { from, to: currentEnd, insert: next.slice(from, nextEnd) };
 }
 
-/** 换行符跟随文件：CodeMirror 默认把任何换行都拆成行、再以 \n 拼回，CRLF 文件改一个字就整篇变 LF。
- *  按第一个换行判定（与 VS Code 一致），新输入的行沿用它；混用换行的文件里另一种会被统一。
- *  装配时只取一次：同一个编辑器会话里换行风格不变。 */
+/** 换行符跟随文件（按第一个换行判定，与 VS Code 一致）：CodeMirror 默认以 \n 拼回，
+ *  CRLF 文件改一个字就整篇变 LF。 */
 export function lineSeparatorOf(text: string): '\r\n' | '\n' {
   const first = text.indexOf('\n');
   return first > 0 && text[first - 1] === '\r' ? '\r\n' : '\n';
 }
 
-/** 不传文件名（水源回复等撰写框）按 Markdown；文件按名字找语言，Dockerfile/Makefile 这类无后缀名也能匹配。 */
+/** 不传文件名（回复撰写框）按 Markdown；按名字找语言，无后缀的 Dockerfile 也能匹配。 */
 function languageForFilename(filename: string | undefined): ResolvedLanguage {
   if (!filename) return { kind: 'markdown' };
   if (formatByName(filename) === 'markdown') return { kind: 'markdown' };
@@ -125,22 +123,16 @@ export function MarkdownEditor({
   onScroll: (top: number) => void;
   /* initialScroll 与 lineNumbers/ariaLabel/saveOnBlur 仅取初值：只装配于首次挂载，此后变化不生效。 */
   initialScroll?: () => number;
-  /** 占位文案；回复编辑器等非笔记场景使用，变化时热替换。 */
   placeholderText?: string;
-  /** 行号 gutter；笔记默认开启，回复编辑器可关闭。 */
   lineNumbers?: boolean;
   ariaLabel?: string;
   /** 失焦即保存是笔记语义；回复编辑器传 false 防止误触发发送。 */
   saveOnBlur?: boolean;
   /** 传入后在切换标签时保留撤销历史、光标和滚动位置。每个编辑器组应使用不同值。 */
   editorStateKey?: string;
-  /** Markdown 即时渲染：传入相对图片的显示地址解析；不传为纯源码。仅取初值。 */
   livePreview?: ImageResolver;
-  /** 只读：仍可聚焦、搜索与复制（超过编辑上限或远端文件）。 */
   readOnly?: boolean;
-  /** 调用方附加的扩展（如 Markdown 文件的图片粘贴）；仅取初值。 */
   extensions?: Extension[];
-  /** 无视全局换行设置始终自动换行（水源回复等撰写框）。 */
   alwaysWrap?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -176,7 +168,6 @@ export function MarkdownEditor({
     });
   };
   const appliedFilename = useRef(filename);
-  /* 异步加载语言包后挂载到 languageConf；视图销毁或文件名已切换则丢弃。 */
   const loadLanguage = (
     current: EditorView,
     language: LanguageDescription,
@@ -200,7 +191,6 @@ export function MarkdownEditor({
           ? markdown({ base: markdownLanguage, codeLanguages: languages })
           : [],
       ),
-      // 即时渲染自己给正文上样式；只有看原文时才给 Markdown 正文着色。
       previewConf.of(
         livePreview && initial.kind === 'markdown'
           ? markdownLivePreview(livePreview)
@@ -267,7 +257,6 @@ export function MarkdownEditor({
           if (saveOnBlur) handlers.get(instanceKey)?.onSave();
           return false;
         },
-        // 组文结束后（CM6 微任务冲完组文变更）补一次被跳过的外部值同步。
         compositionend: () => {
           window.setTimeout(() => handlers.get(instanceKey)?.sync(), 0);
           return false;
@@ -325,7 +314,6 @@ export function MarkdownEditor({
       view.current = null;
       if (handlers.get(instanceKey)?.sync === boundHandlers.sync) handlers.delete(instanceKey);
     };
-    // value/filename/initialScroll 只在首次挂载装配；后续外部变更由下方 effect 单向同步。
   }, []);
   useEffect(() => {
     view.current?.dispatch({
@@ -337,7 +325,6 @@ export function MarkdownEditor({
       effects: readOnlyConf.reconfigure(EditorState.readOnly.of(readOnly)),
     });
   }, [readOnly]);
-  /* aria-label 变化时重建 compartment 内容；拼写检查恒为关，与聊天输入框一致。 */
   useEffect(() => {
     view.current?.dispatch({
       effects: contentAttributesConf.reconfigure(
@@ -371,7 +358,7 @@ export function MarkdownEditor({
     };
     const resolved = languageForFilename(filename);
     if (resolved.kind === 'code') {
-      apply([]); // 语言加载期间先回到纯文本，不沿用上一文档的语言解析
+      apply([]);
       loadLanguage(current, resolved.language, filename);
     } else {
       apply(
@@ -381,7 +368,6 @@ export function MarkdownEditor({
       );
     }
   }, [filename]);
-  /* 占位文案热替换；重挂载复用 session 携带旧值时也在此纠正。 */
   useEffect(() => {
     view.current?.dispatch({
       effects: placeholderConf.reconfigure(placeholder(placeholderText)),

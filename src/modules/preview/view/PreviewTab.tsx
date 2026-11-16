@@ -24,8 +24,7 @@ const DocxPreview = lazy(() =>
 const SheetPreview = lazy(() =>
   import('./SheetPreview').then((module) => ({ default: module.SheetPreview })),
 );
-/** 分流决策（纯函数）：模块来源优先于格式。预览里的文本都是只读的（远端、资料）：
- *  本地文本文件与所有 Markdown 走 note: 标签，不进这里。 */
+/** 模块来源优先于格式；本地文本文件与所有 Markdown 走 note: 标签，不进这里。 */
 export type PreviewBranch =
   'source' | 'html' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'text' | 'binary';
 
@@ -45,11 +44,8 @@ function previewBranchOf(doc: LoadedDocument): PreviewBranch {
   return 'text';
 }
 
-/** 文件预览标签内容：按 DocumentContent.format 分流到各预览器。文档加载经注入的
- *  ContentLoader，本域不感知条目树与读取 IPC。 */
 export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const loader = useContentLoader();
-  // 文档可能带着整份文件字节，只为打开中的标签保留。
   const query = useQuery({
     queryKey: ['preview', tabId],
     queryFn: () => loader.loadDocument(tabId),
@@ -57,7 +53,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
     gcTime: 0,
   });
   const doc = query.data;
-  // 首次加载失败用占位错误（带重试）；已加载后的重读失败走浮窗，不打断当前内容。
   const error = query.isError && !doc && !query.isFetching ? errorMessage(query.error) : null;
   const scrollKey = `${tabId}:${groupId}`;
   const initialScroll = () => previewScrollOf(scrollKey);
@@ -73,7 +68,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
         });
     });
 
-  // 本地磁盘文件可能被外部编辑：窗口聚焦时重读（只读预览无草稿，直接重读）。
   const watchesDisk = doc?.watchesDisk === true;
   const reloadOnFocus = useEffectEvent(load);
   useEffect(() => {
@@ -84,10 +78,8 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   }, [watchesDisk]);
 
   const content = doc?.content;
-  /* HTML 消毒基址：Canvas 来源的相对地址补全到 Canvas 域；本地/导入条目（watchesDisk，
-     Loader 接线里即 entry kind local/imported 的近似标记）不补外域 base——空 base 下
-     绝对 http(s) 链接保留、相对地址剥除，避免相对地址被补到 Canvas 域造成跨域请求泄露。
-     iframe 固定为可视高度、无高度上报，内层文档自己滚（'auto'），阅读位置才记得住。 */
+  /* HTML 消毒基址：本地/导入条目（watchesDisk）不补外域 base、相对地址剥除，
+     避免被补到 Canvas 域造成跨域请求泄露。 */
   const rootSize = useRootFontSize();
   const html =
     content?.format === 'html' && !doc?.source
@@ -147,7 +139,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           sourceId={doc.source!.id}
         />
       )}
-      {/* 白底文档以圆角卡片呈现：暗色模式下避免白色大块与深色界面生硬相接。 */}
       {branch === 'html' && (
         <Card className="min-h-0 flex-1">
           <iframe
