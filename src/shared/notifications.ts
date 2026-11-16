@@ -60,6 +60,8 @@ export interface NoticeSubscription {
   pageUrl: string;
   acquisition: 'http' | 'rendered';
   lastSuccessAt: string | null;
+  entryCount: number;
+  unreadCount: number;
   error: string | null;
 }
 
@@ -80,6 +82,7 @@ export interface NoticePreview {
     entries: { title: string; url: string; publishedAt: string | null }[];
   }[];
   feeds: { title: string; url: string }[];
+  sectionLinks?: { title: string; url: string }[];
   diagnostics: string[];
 }
 

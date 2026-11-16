@@ -124,6 +124,21 @@ export function noticeSubscriptionIds(): string[] {
 
 export function listNoticeSubscriptions(): NoticeSubscription[] {
   const db = getDatabase();
+  const counts = new Map(
+    (
+      db
+        .prepare(
+          `SELECT account_key, COUNT(*) AS total,
+        SUM(read_at IS NULL AND source_unread = 1) AS unread
+        FROM notifications WHERE source = 'notice' GROUP BY account_key`,
+        )
+        .all() as {
+        account_key: string;
+        total: number;
+        unread: number;
+      }[]
+    ).map((row) => [row.account_key, row]),
+  );
   const refreshes = new Map(
     (
       db
@@ -136,6 +151,7 @@ export function listNoticeSubscriptions(): NoticeSubscription[] {
   return storedRows().map(({ id, value }) => {
     const state = parseSubscription(value);
     const refresh = refreshes.get(id);
+    const count = counts.get(id);
     if (!state) {
       return {
         id,
@@ -143,6 +159,8 @@ export function listNoticeSubscriptions(): NoticeSubscription[] {
         pageUrl: '',
         acquisition: 'http',
         lastSuccessAt: refresh?.last_success_at ?? null,
+        entryCount: count?.total ?? 0,
+        unreadCount: count?.unread ?? 0,
         error: refresh?.error ?? '订阅状态损坏，请移除后重新添加',
       };
     }
@@ -152,6 +170,8 @@ export function listNoticeSubscriptions(): NoticeSubscription[] {
       pageUrl: state.rule.pageUrl,
       acquisition: state.acquisition ?? 'http',
       lastSuccessAt: refresh?.last_success_at ?? state.checkedAt,
+      entryCount: count?.total ?? 0,
+      unreadCount: count?.unread ?? 0,
       error: refresh?.error ?? null,
     };
   });
@@ -207,6 +227,7 @@ export async function previewNoticeSubscription(
       })),
     })),
     feeds: analysis.feeds,
+    sectionLinks: analysis.sectionLinks,
     diagnostics: analysis.diagnostics,
   };
 }

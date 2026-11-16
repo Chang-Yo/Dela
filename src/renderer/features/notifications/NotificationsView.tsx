@@ -175,12 +175,21 @@ function LikeGroupRow({
   );
 }
 
-function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
+function SubscriptionsPanel({
+  noticeEnabled,
+  notificationState,
+  onViewNotices,
+}: {
+  noticeEnabled: boolean;
+  notificationState: NotificationState | null;
+  onViewNotices: () => void;
+}) {
   const [subscriptions, setSubscriptions] = useState<NotificationSubscriptions | null>(null);
   const [busy, setBusy] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [url, setUrl] = useState('');
-  const [sampleTitle, setSampleTitle] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [preview, setPreview] = useState<NoticePreview | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState(0);
   const [expandedCandidates, setExpandedCandidates] = useState<number[]>([]);
@@ -197,7 +206,7 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
 
   useEffect(() => {
     void loadSubscriptions();
-  }, [noticeEnabled]);
+  }, [noticeEnabled, notificationState]);
 
   const toggleJwc = async (next: boolean) => {
     if (!window.dela?.notifications || busy) return;
@@ -213,15 +222,35 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
     }
   };
 
+  const keywords = keyword.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  const candidates = (preview?.candidates ?? [])
+    .map((candidate, index) => ({
+      candidate,
+      index,
+      entries: candidate.entries.filter((entry) =>
+        keywords.every((word) =>
+          `${candidate.label} ${entry.title}`.toLocaleLowerCase().includes(word),
+        ),
+      ),
+    }))
+    .filter(({ entries }) => entries.length > 0);
+  const selectedIndex = candidates.some(({ index }) => index === selectedCandidate)
+    ? selectedCandidate
+    : candidates[0]?.index;
+  const sectionLinks = (preview?.sectionLinks ?? []).filter((link) =>
+    keywords.every((word) => link.title.toLocaleLowerCase().includes(word)),
+  );
+
   const handlePreview = async (targetUrl = url, render = false) => {
     if (!window.dela?.notifications || !targetUrl.trim() || busy) return;
     setBusy(true);
     setPanelError(null);
     setPreview(null);
+    setSuccessMessage(null);
     try {
       const result = await window.dela.notifications.previewNoticeSubscription(
         targetUrl.trim(),
-        sampleTitle.trim() || undefined,
+        undefined,
         render,
       );
       setPreview(result);
@@ -235,14 +264,17 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
   };
 
   const handleConfirm = async () => {
-    if (!window.dela?.notifications || !preview || busy) return;
+    if (!window.dela?.notifications || !preview || selectedIndex === undefined || busy) return;
     setBusy(true);
     setPanelError(null);
     try {
-      await window.dela.notifications.addNoticeSubscription(preview.token, selectedCandidate);
+      await window.dela.notifications.addNoticeSubscription(preview.token, selectedIndex);
+      const candidate = preview.candidates[selectedIndex]!;
+      const label = candidate.label.replace(/\s*查看更多\s*$/, '');
+      setSuccessMessage(`已订阅「${label}」；${candidate.entries.length} 条公告已加入通知列表。`);
       setPreview(null);
       setUrl('');
-      setSampleTitle('');
+      setKeyword('');
       await loadSubscriptions();
     } catch (cause) {
       setPanelError(cause instanceof Error ? cause.message : String(cause));
@@ -257,6 +289,7 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
     setPanelError(null);
     try {
       await window.dela.notifications.removeNoticeSubscription(id);
+      setSuccessMessage(null);
       setConfirmingRemoveId(null);
       await loadSubscriptions();
     } catch (cause) {
@@ -271,6 +304,26 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
       aria-label="订阅管理"
       className="mt-4 flex flex-col gap-3 rounded-card bg-inset px-4 py-3"
     >
+      {noticeEnabled ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-13 font-medium text-ink">已订阅</h2>
+            <p className="mt-1 text-xs text-ink-3">
+              自动检查更新，新公告显示为未读，已有公告标为已读。
+            </p>
+          </div>
+          {subscriptions?.notices.length || successMessage ? (
+            <Button onClick={onViewNotices} size="sm" variant="outline">
+              查看订阅公告
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {successMessage ? (
+        <p className="text-13 text-ink-2" role="status">
+          {successMessage}
+        </p>
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-13 font-medium text-ink">教务处</div>
@@ -292,7 +345,7 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
             <div className="flex flex-col gap-2 pt-1">
               {subscriptions.notices.map((item) => (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-control bg-surface px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-control bg-surface px-3 py-2"
                   key={item.id}
                 >
                   <div className="min-w-0 flex-1">
@@ -300,6 +353,15 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
                     <div className="truncate text-xs text-ink-3">
                       {item.pageUrl}
                       {item.acquisition === 'rendered' ? ' · 页面渲染' : ''}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-3">
+                      <span>
+                        已收集 {item.entryCount} 条 · {item.unreadCount} 条未读
+                      </span>
+                      <span>
+                        {item.error ? '更新失败' : '自动更新中'}
+                        {item.lastSuccessAt ? ` · 最近检查 ${formatTime(item.lastSuccessAt)}` : ''}
+                      </span>
                     </div>
                     {item.error ? <div className="mt-1 text-xs text-red">{item.error}</div> : null}
                   </div>
@@ -338,21 +400,25 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
           ) : null}
 
           <div className="flex flex-col gap-2 pt-1">
+            <h3 className="text-13 font-medium text-ink">添加订阅</h3>
             <div className="flex gap-2 max-md:flex-col">
               <Input
                 aria-label="公告列表页网址"
                 disabled={busy}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder="输入学院或官网公告列表页 URL，如 https://..."
+                onChange={(event) => {
+                  setUrl(event.target.value);
+                  setPreview(null);
+                }}
+                placeholder="官网或公告列表页网址"
                 value={url}
               />
               <Input
-                aria-label="样本公告标题"
+                aria-label="查找栏目或公告"
                 className="md:max-w-64"
                 disabled={busy}
-                onChange={(event) => setSampleTitle(event.target.value)}
-                placeholder="可选：某条公告标题（辅助定位）"
-                value={sampleTitle}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="关键词：栏目或公告标题"
+                value={keyword}
               />
               <Button
                 className="shrink-0"
@@ -368,10 +434,9 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
 
             {preview ? (
               <div className="flex flex-col gap-2 rounded-control bg-surface p-3">
-                <div className="flex items-center justify-between gap-2 text-xs text-ink-3">
-                  <span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="min-w-0 break-words text-13 font-medium text-ink-2">
                     {preview.title || '页面预览'}
-                    {preview.diagnostics.length > 0 ? ` · ${preview.diagnostics.join('；')}` : ''}
                   </span>
                   {preview.acquisition === 'http' ? (
                     <Button
@@ -405,52 +470,96 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
                   </div>
                 ) : null}
                 {preview.candidates.length === 0 ? (
-                  <p className="text-13 text-ink-3">未识别到可订阅的公告列表。</p>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-13 text-ink-3">
+                      {preview.sectionLinks?.length
+                        ? '当前页面未识别出公告列表，请选择栏目继续。'
+                        : '未识别到可订阅的公告列表。请尝试公告列表页网址。'}
+                    </p>
+                    {sectionLinks.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {sectionLinks.map((link) => (
+                          <Button
+                            disabled={busy}
+                            key={link.url}
+                            onClick={() => {
+                              setUrl(link.url);
+                              setKeyword('');
+                              void handlePreview(link.url);
+                            }}
+                            size="sm"
+                            title={link.url}
+                            variant="outline"
+                          >
+                            {link.title}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : preview.sectionLinks?.length ? (
+                      <p className="text-xs text-ink-3">没有匹配的栏目或公告，请更换关键词。</p>
+                    ) : null}
+                  </div>
                 ) : (
                   <>
                     <div className="flex flex-col gap-1.5">
-                      {preview.candidates.map((candidate, index) => {
+                      {candidates.length === 0 ? (
+                        <p className="px-3 py-2 text-13 text-ink-3">
+                          没有匹配的栏目或公告，请更换关键词。
+                        </p>
+                      ) : null}
+                      {candidates.map(({ candidate, index, entries }) => {
                         const expanded = expandedCandidates.includes(index);
                         const label = candidate.label.replace(/\s*查看更多\s*$/, '');
                         return (
                           <div
                             className={cn(
                               'rounded-control transition-colors duration-150',
-                              selectedCandidate === index ? 'bg-inset' : 'hover:bg-hover',
+                              selectedIndex === index ? 'bg-inset' : 'hover:bg-hover',
                             )}
                             key={`${candidate.label}-${index}`}
                           >
                             <button
                               aria-label={`选择栏目：${label}`}
-                              aria-pressed={selectedCandidate === index}
+                              aria-pressed={selectedIndex === index}
                               className="flex w-full flex-col gap-1 rounded-control px-3 py-2 text-left"
                               onClick={() => setSelectedCandidate(index)}
                               type="button"
                             >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-13 font-medium text-ink">{label}</span>
-                                <span className="text-xs tabular-nums text-ink-3">
-                                  {candidate.entries.length} 条
-                                  {candidate.reasons.length > 0
-                                    ? ` · ${candidate.reasons.join('、')}`
-                                    : ''}
+                              <div className="flex w-full flex-wrap items-center justify-between gap-2">
+                                <span className="flex min-w-0 items-center gap-2 text-13 font-medium text-ink">
+                                  <Check
+                                    aria-hidden="true"
+                                    className={cn(
+                                      'size-4 shrink-0',
+                                      selectedIndex !== index && 'invisible',
+                                    )}
+                                  />
+                                  {label}
+                                </span>
+                                <span
+                                  className="text-xs tabular-nums text-ink-3"
+                                  title={candidate.reasons.join('、')}
+                                >
+                                  {keywords.length > 0
+                                    ? `匹配 ${entries.length} / 共 ${candidate.entries.length} 条`
+                                    : `${candidate.entries.length} 条`}
                                 </span>
                               </div>
-                              {(expanded ? candidate.entries : candidate.entries.slice(0, 3)).map(
-                                (entry) => (
-                                  <div
-                                    className="flex items-baseline justify-between gap-2 text-xs text-ink-3"
-                                    key={entry.url}
-                                  >
-                                    <span className="truncate">{entry.title}</span>
-                                    <span className="shrink-0 tabular-nums">
-                                      {entry.publishedAt ?? '日期未知'}
-                                    </span>
-                                  </div>
-                                ),
-                              )}
+                              {(expanded ? entries : entries.slice(0, 3)).map((entry) => (
+                                <div
+                                  className="flex w-full items-baseline justify-between gap-2 text-xs text-ink-3"
+                                  key={entry.url}
+                                >
+                                  <span className="min-w-0 truncate" title={entry.title}>
+                                    {entry.title}
+                                  </span>
+                                  <span className="shrink-0 tabular-nums">
+                                    {entry.publishedAt ?? '日期未知'}
+                                  </span>
+                                </div>
+                              ))}
                             </button>
-                            {candidate.entries.length > 3 ? (
+                            {entries.length > 3 ? (
                               <div className="flex justify-end px-3 pb-2">
                                 <Button
                                   aria-expanded={expanded}
@@ -482,12 +591,22 @@ function SubscriptionsPanel({ noticeEnabled }: { noticeEnabled: boolean }) {
                       >
                         取消
                       </Button>
-                      <Button disabled={busy} onClick={() => void handleConfirm()} size="sm">
+                      <Button
+                        disabled={busy || selectedIndex === undefined}
+                        onClick={() => void handleConfirm()}
+                        size="sm"
+                      >
                         订阅所选栏目
                       </Button>
                     </div>
                   </>
                 )}
+                {preview.diagnostics.length > 0 ? (
+                  <details className="text-xs text-ink-3">
+                    <summary className="cursor-pointer">识别详情</summary>
+                    <p className="mt-2 break-words">{preview.diagnostics.join('；')}</p>
+                  </details>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -663,7 +782,16 @@ export function NotificationsView({
         </div>
       </header>
 
-      {subscriptionsOpen ? <SubscriptionsPanel noticeEnabled={noticeEnabled} /> : null}
+      {subscriptionsOpen ? (
+        <SubscriptionsPanel
+          noticeEnabled={noticeEnabled}
+          notificationState={allState}
+          onViewNotices={() => {
+            useNotificationSourceFilter.setState({ sources: ['notice'] });
+            setSubscriptionsOpen(false);
+          }}
+        />
+      ) : null}
 
       {snoozed ? (
         <div className="mt-4 flex items-start gap-2 rounded-card border border-line bg-inset px-4 py-3 text-13 text-ink-3">

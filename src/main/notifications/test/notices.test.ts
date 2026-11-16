@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../todo', () => ({
@@ -163,6 +164,44 @@ describe('notice subscriptions host adapter', () => {
     );
   });
 
+  it('follows the real innovation center section and imports its linked notices', async () => {
+    setExperiment('master', true);
+    setExperiment('noticeSubscriptions', true);
+    const homepageUrl = 'https://www.si.sjtu.edu.cn/';
+    const listUrl =
+      'https://www.si.sjtu.edu.cn/content/news-list?menuIds=2,8,18&params=5&singlePage=1';
+    const fixture = (name: string) =>
+      readFileSync(new URL(`../notice-subscriptions/test/fixtures/${name}`, import.meta.url));
+    vi.mocked(fetchNoticePage).mockResolvedValueOnce({
+      url: homepageUrl,
+      body: fixture('innovation-home.html'),
+      charset: 'utf-8',
+      fetchedAt: '2026-11-16T08:00:00.000Z',
+    });
+    const homepage = await previewNoticeSubscription(homepageUrl);
+    expect(homepage.candidates).toEqual([]);
+    expect(homepage.sectionLinks).toContainEqual({ title: '通知公告', url: listUrl });
+
+    vi.mocked(fetchNoticePage).mockResolvedValueOnce({
+      url: listUrl,
+      body: fixture('innovation-notices.html'),
+      charset: 'utf-8',
+      fetchedAt: '2026-11-16T08:00:00.000Z',
+    });
+    const list = await previewNoticeSubscription(listUrl);
+    const state = confirmNoticeSubscription(list.token, 0);
+    expect(state.items).toHaveLength(12);
+    expect(state.unreadCount).toBe(0);
+    expect(getNotificationSubscriptions().notices[0]).toMatchObject({
+      pageUrl: listUrl,
+      entryCount: 12,
+      unreadCount: 0,
+    });
+    expect(state.items.every((item) => item.href.kind === 'notice' && item.href.publishedAt)).toBe(
+      true,
+    );
+  });
+
   it('supports explicit rendered preview and persists rendered acquisition across refreshes', async () => {
     const pageUrl = 'https://dynamic.sjtu.edu.cn/notices/index.html';
     vi.mocked(renderNoticePage).mockResolvedValueOnce({
@@ -210,6 +249,11 @@ describe('notice subscriptions host adapter', () => {
     expect(stateAfterConfirm.unreadCount).toBe(0);
     expect(stateAfterConfirm.items).toHaveLength(2);
     expect(stateAfterConfirm.items.every((item) => item.readAt !== null)).toBe(true);
+    expect(getNotificationSubscriptions().notices[0]).toMatchObject({
+      entryCount: 2,
+      unreadCount: 0,
+      lastSuccessAt: '2026-11-14T08:00:00.000Z',
+    });
     expect(stateAfterConfirm.items[0]).toMatchObject({
       source: 'notice',
       title: '关于2026年秋季学期研究生开题报告的通知',
@@ -242,6 +286,15 @@ describe('notice subscriptions host adapter', () => {
       expect.any(String),
     );
     expect(stateAfterRefresh.unreadCount).toBe(1);
+    expect(getNotificationSubscriptions().notices[0]).toMatchObject({
+      entryCount: 3,
+      unreadCount: 1,
+    });
+    await markAllNotificationsRead(['notice']);
+    expect(getNotificationSubscriptions().notices[0]).toMatchObject({
+      entryCount: 3,
+      unreadCount: 0,
+    });
   });
 
   it('isolates multiple subscriptions, aggregates errors without overwriting state, and cleans up on removal', async () => {
@@ -282,6 +335,15 @@ describe('notice subscriptions host adapter', () => {
     expect(state.refresh.notice?.error).toContain('HTTP 502');
     expect(state.refresh.notice?.lastSuccessAt).toBe('2026-11-14T09:00:00.000Z');
     expect(state.unreadCount).toBe(1);
+    expect(getNotificationSubscriptions().notices).toEqual([
+      expect.objectContaining({
+        id: subs[0]!.id,
+        entryCount: 2,
+        unreadCount: 0,
+        error: 'HTTP 502',
+      }),
+      expect.objectContaining({ id: subs[1]!.id, entryCount: 3, unreadCount: 1, error: null }),
+    ]);
 
     await markAllNotificationsRead(['notice']);
     expect(getNotificationState().unreadCount).toBe(0);

@@ -50,6 +50,7 @@ export interface NoticeAnalysis {
   status: 'ok' | 'needs-selection' | 'unsupported';
   candidates: NoticeCandidate[];
   feeds: { title: string; url: string }[];
+  sectionLinks?: { title: string; url: string }[];
   diagnostics: string[];
 }
 
@@ -409,7 +410,8 @@ function labelFor($: CheerioAPI, container: HtmlNode, fallback: string): string 
   const hint = (element: ReturnType<CheerioAPI>): string | null => {
     if (
       !element.length ||
-      element.is('ul,ol,table') ||
+      element.is('ul,ol,table,button,input,select,[role="button"],[role="tablist"]') ||
+      element.find('button,input,select,[role="button"],[role="tablist"]').length > 0 ||
       element.find('a[href]').length > 1 ||
       element.find('ul,ol,table').length > 0
     )
@@ -440,6 +442,8 @@ function labelFor($: CheerioAPI, container: HtmlNode, fallback: string): string 
       const label = hint($(sibling));
       if (label) return label;
     }
+    const navigation = 'nav,[role="navigation"],[role="menu"],[role="menubar"]';
+    if (element.siblings(navigation).length || element.siblings().find(navigation).length) break;
     current = element.parent().get(0);
   }
   return fallback;
@@ -523,6 +527,7 @@ export function analyzeNoticePage(
     status: 'unsupported',
     candidates: [],
     feeds: [],
+    sectionLinks: [],
     diagnostics: [],
   };
   if (isFeed) {
@@ -536,6 +541,21 @@ export function analyzeNoticePage(
         rule: { version: 1, kind: 'feed', pageUrl, label: title || 'Feed' },
       });
   } else {
+    const sectionLinks = new Map<string, { title: string; url: string }>();
+    $('a[href]').each((_, node) => {
+      const sectionTitle = normalizeText($(node).attr('title') || $(node).text());
+      if (
+        sectionTitle.length > 30 ||
+        !/通知|公告|公示|信息发布|新闻|资讯|要闻|动态|\b(?:news|notices?|announcements?)\b/i.test(
+          sectionTitle,
+        )
+      )
+        return;
+      const url = articleUrl($(node).attr('href') ?? '', linkBase);
+      if (url && new URL(url).origin === new URL(pageUrl).origin)
+        sectionLinks.set(url, { title: sectionTitle, url });
+    });
+    result.sectionLinks = [...sectionLinks.values()];
     $('link[rel~="alternate"]').each((_, node) => {
       if (!/application\/(?:rss|atom)\+xml/i.test($(node).attr('type') ?? '')) return;
       const url = articleUrl($(node).attr('href') ?? '', linkBase);
