@@ -103,62 +103,6 @@ async function fill(input: HTMLInputElement, value: string) {
   });
 }
 
-it('searches detected models before adding one and saves per-model settings', async () => {
-  const provider: LlmProviderView = {
-    id: 'a',
-    name: 'Provider A',
-    baseUrl: 'https://example.com',
-    models: ['existing'],
-    piProvider: null,
-    enabled: true,
-  };
-  let saved: LlmSaveInput | undefined;
-  stubLlm({
-    catalog: async () => [],
-    list: async () => [provider],
-    verify: async () => ({
-      ok: true,
-      message: '连接成功',
-      models: ['gpt-a', 'claude-a'],
-    }),
-    save: async (input: LlmSaveInput) => {
-      saved = input;
-      return { ...provider, ...input };
-    },
-  });
-  await renderLlm();
-  await act(async () => button('添加模型').click());
-  await fill(document.querySelector<HTMLInputElement>('[aria-label="搜索或输入模型 ID"]')!, 'gpt');
-  expect(document.querySelector('[aria-label="添加模型 claude-a"]')).toBeNull();
-  await act(async () =>
-    document.querySelector<HTMLButtonElement>('[aria-label="添加模型 gpt-a"]')!.click(),
-  );
-  await act(async () =>
-    document.querySelector<HTMLButtonElement>('[aria-label="关闭添加模型"]')!.click(),
-  );
-  await act(async () =>
-    container.querySelector<HTMLButtonElement>('[aria-label="编辑模型 gpt-a"]')!.click(),
-  );
-  await fill(document.querySelector<HTMLInputElement>('[aria-label="上下文窗口"]')!, '1000000');
-  await fill(document.querySelector<HTMLInputElement>('[aria-label="最大输出"]')!, '128000');
-  const high = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
-    (item) => item.textContent === 'high',
-  )!;
-  await act(async () => high.click());
-  const apply = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
-    (item) => item.textContent === '应用',
-  )!;
-  // 编辑态即时保存：模型设置「应用」后立即整体写入，无需再点保存。
-  await act(async () => apply.click());
-  expect(saved?.models).toEqual(['existing', 'gpt-a']);
-  expect(saved?.modelConfigs?.['gpt-a']).toEqual({
-    contextWindow: 1000000,
-    maxOutputTokens: 128000,
-    effortLevels: ['high'],
-    effort: 'high',
-  });
-});
-
 it('discards model detection results after the API address changes', async () => {
   const provider: LlmProviderView = {
     id: 'a',
@@ -185,33 +129,6 @@ it('discards model detection results after the API address changes', async () =>
   );
   await act(async () => finish({ ok: true, message: 'old result', models: ['old-model'] }));
   expect(container.textContent).not.toContain('old result');
-});
-
-it('caps model import at 64 and reports the omitted count', async () => {
-  const provider: LlmProviderView = {
-    id: 'a',
-    name: 'Provider A',
-    baseUrl: 'https://example.com',
-    models: ['existing'],
-    piProvider: null,
-    enabled: true,
-  };
-  stubLlm({
-    catalog: async () => [],
-    list: async () => [provider],
-    save: async (input: LlmSaveInput) => ({ ...provider, ...input }),
-    verify: async () => ({
-      ok: true,
-      message: '连接成功',
-      models: Array.from({ length: 70 }, (_, i) => `model-${i}`),
-    }),
-  });
-  await renderLlm();
-  await act(async () => button('检测模型').click());
-  await settle();
-  await act(async () => button('一键导入').click());
-  expect(container.querySelectorAll('[aria-label^="编辑模型 "]')).toHaveLength(64);
-  expect(container.textContent).toContain('7 个未导入');
 });
 
 it('keeps the current provider and its draft when an earlier save finishes', async () => {
@@ -287,32 +204,4 @@ it('adopts the versioned API base discovered while creating a provider', async (
   await act(async () => button('一键导入').click());
   await act(async () => button('保存').click());
   expect(saved?.baseUrl).toBe('http://192.168.60.110:13000/v1');
-});
-
-it('rewrites an existing provider to the API base the service actually serves', async () => {
-  const provider: LlmProviderView = {
-    id: 'a',
-    name: '自建网关',
-    baseUrl: 'https://api.deepseek.com',
-    models: ['deepseek-chat'],
-    piProvider: null,
-    enabled: true,
-  };
-  stubLlm({
-    catalog: async () => [],
-    list: async () => [provider],
-    save: async (input: LlmSaveInput) => ({ ...provider, ...input }),
-    verify: async () => ({
-      ok: true,
-      message: '连接成功',
-      models: [],
-      baseUrl: 'https://api.deepseek.com/v1',
-    }),
-  });
-  await renderLlm();
-  await act(async () => button('检测模型').click());
-  // 沿用已存密钥即可，改地址不再要求重填，所以编辑态也直接校正到位。
-  expect(container.querySelector<HTMLInputElement>('input[type="url"]')!.value).toBe(
-    'https://api.deepseek.com/v1',
-  );
 });

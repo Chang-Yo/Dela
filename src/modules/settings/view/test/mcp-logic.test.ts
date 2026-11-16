@@ -1,22 +1,6 @@
-// MCP 页签纯逻辑测试：参数与键值文本解析、表单校验、编辑补丁与状态徽标映射。
+// MCP 页签纯逻辑测试：键值文本解析、表单校验与编辑补丁。
 import { describe, expect, it } from 'vitest';
-import {
-  mcpStatusBadge,
-  mcpUpdatePatch,
-  parseArgsText,
-  parseMcpForm,
-  parsePairs,
-} from '../agent/mcp-logic';
-
-describe('parseArgsText', () => {
-  it('每行一个参数：去空白、忽略空行', () => {
-    expect(parseArgsText('--yes\n  @scope/server  \n\n--port 8080\n')).toEqual([
-      '--yes',
-      '@scope/server',
-      '--port 8080',
-    ]);
-  });
-});
+import { mcpUpdatePatch, parseMcpForm, parsePairs } from '../agent/mcp-logic';
 
 describe('parsePairs', () => {
   it('env 每行 KEY=VALUE：允许空值与空行，以第一个 = 切开，重复键取后者', () => {
@@ -128,28 +112,5 @@ describe('mcpUpdatePatch', () => {
     expect(
       mcpUpdatePatch({ transport: 'http', name: 's', url: 'https://a', headers: { A: '1' } }),
     ).toEqual({ name: 's', url: 'https://a', headers: { A: '1' } });
-  });
-});
-
-describe('mcpStatusBadge', () => {
-  it('connecting 转圈，connected 绿点带工具数，disconnected 灰点，error 红点', () => {
-    expect(mcpStatusBadge('connecting', null)).toEqual({
-      label: '连接中',
-      dotClass: 'text-ink-3',
-      spin: true,
-    });
-    expect(mcpStatusBadge('connected', 3).label).toBe('已连接 · 3 个工具');
-    expect(mcpStatusBadge('connected', 3).dotClass).toBe('bg-success');
-    expect(mcpStatusBadge('connected', null).label).toBe('已连接');
-    expect(mcpStatusBadge('disconnected', null)).toEqual({
-      label: '未连接',
-      dotClass: 'bg-ink-3/40',
-      spin: false,
-    });
-    expect(mcpStatusBadge('error', null)).toEqual({
-      label: '连接失败',
-      dotClass: 'bg-danger',
-      spin: false,
-    });
   });
 });

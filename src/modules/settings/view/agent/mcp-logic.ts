@@ -7,7 +7,7 @@ import type {
   McpTransportConfig,
 } from '../../../../core/protocol/capabilities';
 
-export function parseArgsText(text: string): string[] {
+function parseArgsText(text: string): string[] {
   return text
     .split('\n')
     .map((line) => line.trim())
