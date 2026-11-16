@@ -1,5 +1,4 @@
-// 项目文件树：条目动作、远端上传/下载都经 props 交给接线方；
-// 远端子目录懒加载（./remote-tree），条目只读，不参与内部拖拽与移动。
+// 条目动作与远端上传/下载都经 props 交给接线方；远端条目只读，不参与内部拖拽与移动。
 import {
   Archive,
   Cloud,
@@ -54,12 +53,10 @@ import { errorMessage } from '../../../core/protocol/contract';
 
 export type { EntryAction };
 
-/** 连接过渡的延迟：热通道列一层只要几十毫秒，立刻画转圈等于每次打开都闪一下；
- *  冷启动（实测 3 秒级）才会越过它，那时空白必须被解释清楚。 */
+/** 热通道列一层只要几十毫秒，立刻画转圈会每次都闪；冷启动（约 3 秒）才越过它。 */
 const CONNECT_HINT_DELAY_MS = 200;
 const emptyExcludedIds: string[] = [];
 
-/** 首次连接远端时的过渡：只转圈，细节（连的是哪台）留给项目行的悬浮提示。 */
 function ConnectingHint() {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
@@ -108,14 +105,11 @@ export function ProjectFileTree({
   onImportFiles?: (files: File[], targetId: string | null) => void;
   onOpenToSide?: (id: string) => void;
   onOpenProject?: (id: string) => void;
-  /** 远端条目动作。端口预览是项目级动作，在文件树 header，不进条目菜单。 */
   onRemoteAction?: (action: 'download' | 'open' | 'upload', id: string) => void;
-  /** 资料树传入资料根目录：根目录之外的项目与远程项目连同后代不显示（搜索结果同样）。 */
   libraryRoot?: string;
   query: string;
   excludeIds?: string[];
   archived?: boolean;
-  /** 行内新建；parentId 用条目 id，树根（rootId）由这里换成 Explorer 的 null。 */
   pending?: ExplorerPending | null;
   onActivate?: (id: string) => void;
 }) {
@@ -201,7 +195,6 @@ export function ProjectFileTree({
     }
   }
   const visible = entries.filter((entry) => included.has(entry.id));
-  /** 条目级文件动作：失败统一走浮窗，不打断文件树。 */
   const runFileCommand = (title: string, command: () => Promise<void> | undefined) => {
     void Promise.resolve(command()).catch((cause: unknown) =>
       showToast({ variant: 'error', title, description: errorMessage(cause) }),
@@ -223,16 +216,12 @@ export function ProjectFileTree({
       name: e.name,
       project: e.kind === 'project',
       container: e.kind === 'folder' || e.kind === 'project',
-      // 模块来源条目用模块的图标；远端项目行自己就是云朵，行内不再另挂标记。
       icon: source?.icon ?? (e.remoteId ? Cloud : undefined),
-      // 角标与 Canvas 课程行的同步标记一致：进行中显示进度，失败标「!」。
       badge: Badge && <Badge sourceId={e.sourceId!} />,
-      // 远端项目行提示「目的地:路径」，且不参与拖放写入。
       title:
         e.remoteId && e.path ? remoteTitle(remote.destinations[e.remoteId], e.path) : undefined,
       readOnly: Boolean(e.remoteId),
       gitIgnored: e.gitIgnored,
-      // 同一台服务器的行同色：取色只看连接 id，同连接的项目行与子条目自然一致。
       accent,
     };
   });
@@ -274,7 +263,6 @@ export function ProjectFileTree({
     if (id) rememberResult(id);
     onEntryAction(action, id);
   };
-  /** 远端目录点击展开，文件走只读预览（读取在接线方）。 */
   const selectNode = (id: string) => {
     if (remoteDirs.has(id)) {
       onExpand(id, !expanded.includes(id));
@@ -283,10 +271,8 @@ export function ProjectFileTree({
     rememberResult(id);
     onSelect(id);
   };
-  // 失败出口与本地条目动作一致：接线方用 runEntryWork 收进 workspace store 的错误条。
   const runRemote = (action: 'download' | 'open' | 'upload', id: string) =>
     onRemoteAction?.(action, id);
-  /** 两个菜单共用的触发器与「在侧边打开」：本地菜单的其余项远端一个都不能给。 */
   const menuTrigger = (name: string) => (
     <DropdownMenuTrigger asChild>
       <IconButton
@@ -395,7 +381,6 @@ export function ProjectFileTree({
           pending && { ...pending, parentId: pending.parentId === rootId ? null : pending.parentId }
         }
         actions={(item) =>
-          // 远端子条目不是本地条目：给远端自己的菜单（下载/打开/上传），本地动作一个不留。
           remoteIds.has(item.id) ? (
             onRemoteAction ? (
               remoteMenu(item)
@@ -458,7 +443,6 @@ export function ProjectFileTree({
                   </>
                 )}
                 {onOpenToSide && openToSideItem(item.id)}
-                {/* 远端项目只能改 Dela 里登记的名字（远端目录不动）；移动/归档对它没有意义。 */}
                 <DropdownMenuItem onSelect={() => onAction('rename', item.id)}>
                   <Pencil />
                   重命名

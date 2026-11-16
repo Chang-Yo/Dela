@@ -6,7 +6,6 @@ export type RemotePhase = 'connecting' | 'ready' | 'failed';
 
 export interface RemoteActivity {
   phase: RemotePhase;
-  /** 直接展示给用户的失败原因。 */
   reason?: string;
 }
 

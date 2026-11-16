@@ -1,5 +1,4 @@
 // 应用根组件：launch 阶段（首启引导）、AppShell 壳与视图切换。
-// 视图路由在 ./navigation；主题/缩放在 ./theme；工作台在 workbench/WorkbenchShell。
 import { useEffect, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
@@ -32,10 +31,7 @@ import { useAppearance } from './theme';
 import { WorkbenchShell } from '../workbench/WorkbenchShell';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** 项目会话导航的数据装配：sessions 镜像预热 + 按项目摘要（近期优先由 main 排序保证）。
- *  通用池（键 'general'）不入项目树，但保留镜像预热：会话标签标题解析（registry
- *  的 chatTitleOf）与通用聊天定位都读它。
- *  运行徽标不在此订阅：SessionRow 按行订阅 runs 镜像，run 事件不再全 App 重渲。 */
+/** 通用池会话不入项目树，但仍预热镜像：会话标签标题与通用聊天定位都读它。 */
 function useSessionNavData(): { sessionsByProject: Record<string, NavSessionSummary[]> } {
   const lists = useSessions((state) => state.lists);
   // 选择器必须返回稳定引用（useSyncExternalStore 的 getSnapshot 缓存要求），过滤放渲染期。
@@ -107,14 +103,12 @@ export default function App() {
   });
   const activeSessionId =
     view === 'home' ? homeSessionId : view === 'workbench' ? workbenchSessionId : null;
-  // 焦点组活动标签是否为会话：通用池里据此互斥高亮「通用聊天」（会话标签）与「资料」
-  // （笔记/预览标签或空工作台）。
+  // 通用池里据此互斥高亮「通用聊天」与「资料」。
   const activeTabIsChat = useWorkbenchLayout((state) => {
     const group = walkGroups(state.root).find((node) => node.id === state.focus);
     return group?.active?.startsWith('chat:') ?? false;
   });
 
-  // 会话静默后的条目/干净草稿刷新（工具可能写过工作区）。
   useEffect(() => {
     return onAgentEvent('session-update', ({ sessionId, chat }) => {
       if (chat.running) return;
@@ -125,8 +119,7 @@ export default function App() {
         if (draft.text === draft.saved)
           void useNoteDrafts.getState().acquire(id, true).catch(console.error);
       }
-      // 首条消息会给会话命名（标题在 run 开始时落库）：终态时重读所属池的列表镜像，
-      // 导航与会话列表的标题不再陈旧；只做终态刷新，运行中标题变化无即时展示需求。
+      // 首条消息会给会话命名：终态时重读所属池的列表镜像，标题才不陈旧。
       const lists = useSessions.getState().lists;
       for (const [pool, list] of Object.entries(lists)) {
         if (list.some((session) => session.id === sessionId)) {
@@ -152,7 +145,6 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', beforeUnload);
   }, []);
 
-  // 托盘与原生菜单共用动作入口。
   useEffect(() => {
     return window.dela?.window.onTrayAction((action) => {
       const navigation = useNavigationStore.getState();
@@ -176,7 +168,6 @@ export default function App() {
     importFromDialog(view === 'workbench' ? useNavigationStore.getState().projectId : null);
   };
 
-  // 侧栏「资料」入口：通用工作台即旧资料页（课程资料/我的资料/归档 + 文档标签）。
   // 已在通用池时与「通用聊天」对称：把焦点让给已有的文档标签；没有则保持现状。
   const openSources = () => {
     const navigation = useNavigationStore.getState();
@@ -235,7 +226,6 @@ export default function App() {
             closeTabEverywhere(`chat:${sessionId}`);
           }}
           onOpenSession={(sessionId) => {
-            // 会话行只带 sessionId：所属项目从镜像列表反查，未命中按通用池。
             const lists = useSessions.getState().lists;
             let owner: string | null = null;
             for (const [pool, list] of Object.entries(lists)) {
@@ -253,11 +243,9 @@ export default function App() {
         >
           <div
             className="flex min-h-0 flex-1 animate-view-in flex-col motion-reduce:animate-none"
-            // home 与工作台共用装配壳和 key；主动打开项目或资料时复用宿主，
-            // 避免整壳重挂与布局重复载入。
+            // home 与工作台共用装配壳和 key：打开项目或资料时复用宿主，避免整壳重挂。
             key={view === 'home' || view === 'workbench' ? 'workspace' : view}
           >
-            {/* 视图切换层的错误边界：单个视图渲染崩溃降级为静态提示，可重试重挂载。 */}
             <ErrorBoundary title="此视图遇到错误">
               {(view === 'workbench' || view === 'home') && (
                 <WorkbenchShell home={view === 'home'} />

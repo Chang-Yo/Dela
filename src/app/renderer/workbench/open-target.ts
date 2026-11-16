@@ -13,7 +13,6 @@ import type { TabId } from '../../../modules/workspace/contract';
 import { findGroup, walkGroups } from './layout-schema';
 import { previewable, useWorkbenchLayout } from './layout-store';
 
-/** 焦点组右侧相邻的组；最右时返回 null。 */
 function groupRightOfFocus(): string | null {
   const { root, focus } = useWorkbenchLayout.getState();
   const groups = walkGroups(root);
@@ -21,8 +20,6 @@ function groupRightOfFocus(): string | null {
   return groups[index + 1]?.id ?? null;
 }
 
-/** 按规则打开标签。aside：放到焦点组右侧（必要时分屏），用于「对照着看」。
- *  布局未就绪时只落焦点组（不分屏），由调用方保证就绪后再调用以获得完整语义。 */
 export function openTarget(tabId: TabId, options: { aside?: boolean } = {}): void {
   const store = useWorkbenchLayout.getState();
   const preview = previewable(tabId) && store.projectId !== null;

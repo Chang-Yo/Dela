@@ -11,11 +11,8 @@ import { settingsClient } from '../../../modules/settings/view';
 
 type Store = {
   bindings: KeybindingMap;
-  /** 读取覆盖项（失败保持默认值：快捷键属于偏好，不因 IPC 故障整体失效）。 */
   load: () => Promise<void>;
-  /** 写入单个动作的键位；null 表示解绑。写入失败向上抛出，由调用方就地提示。 */
   setBinding: (id: ShortcutActionId, accelerator: string | null) => Promise<void>;
-  /** 清空全部覆盖，回到默认键位。 */
   resetAll: () => Promise<void>;
 };
 

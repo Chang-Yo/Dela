@@ -6,7 +6,6 @@ import type { WorkspaceChat } from '../../../core/protocol/agent';
 
 // 契约客户端在模块加载时取 bridge，须先于导入装好。
 const creates = vi.hoisted(() => {
-  /** 每次 create-session 的入参。 */
   const creates: Array<{ projectId: string | null }> = [];
   const handlers: Record<string, (input: never) => unknown> = {
     'agent:create-session': (input: { projectId: string | null }) => {

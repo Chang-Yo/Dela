@@ -24,9 +24,7 @@ const ROOT_SELECT_VALUE = '__root__';
 export interface EntryDialogRequest {
   action: EntryAction | 'link';
   id: string | null;
-  /** note（新建文件）弹窗的正文预填：带正文时是「保存为笔记」，名称预填 .md。 */
   text?: string;
-  /** link/move 打开时预选的目标位置。 */
   initialTarget?: string;
 }
 
@@ -41,7 +39,6 @@ const titles: Partial<Record<EntryDialogRequest['action'], string>> = {
   link: '添加到项目',
 };
 
-/** 标签页与目录共用的条目标题解析。 */
 export function titleOf(key: string, client: QueryClient): string {
   const { workspace } = useWorkspaceStore.getState();
   // 远端预览标签的 key 是「项目 id + 远端绝对路径」，条目树里没有它，标题取文件名。
@@ -66,13 +63,9 @@ export function EntryDialogs({
   onOpenProject,
 }: {
   request: EntryDialogRequest | null;
-  /** 取消或成功提交后关闭；busy 期间不可关。 */
   onClose: () => void;
-  /** create/link 成功后回调：打开新建文件、展开父级等由接线方决定。 */
   onCreated?: (entry: WorkspaceEntry) => void;
-  /** remove 成功后回调仍存活的条目 id 集合；接线方据此清理标签与草稿、退出已删项目。 */
   onRemoved?: (liveIds: Set<string>) => void;
-  /** 新建项目后打开（promote 的打开在 entry-actions.promoteEntry 回调）。 */
   onOpenProject?: (id: string) => void;
 }) {
   const workspace = useWorkspaceStore((s) => s.workspace);
@@ -88,7 +81,6 @@ export function EntryDialogs({
   const [target, setTarget] = useState(request?.initialTarget ?? '');
   const [busy, setBusy] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  /** 远程向导：自带对话框与进行中状态，打开时让出外层弹窗（避免两层遮罩叠在一起）。 */
   const [wizard, setWizard] = useState(false);
 
   if (request !== shownRequest) {
@@ -117,7 +109,6 @@ export function EntryDialogs({
     return names.join(' / ');
   };
 
-  /** 导入电脑上已有的文件夹作为项目：目录留在原处，成功后与新建项目走同一套后续动作。 */
   const importFolder = async () => {
     if (!window.dela || busy) return;
     setBusy(true);
@@ -142,7 +133,7 @@ export function EntryDialogs({
     event.preventDefault();
     if (!request || !window.dela) return;
     if (request.action === 'promote' || request.action === 'import' || request.action === 'archive')
-      return; // 类型上仍可能出现（壳的 openDialog 入参未收窄），但表单对它们没有意义。
+      return;
     setBusy(true);
     setModalError(null);
     const save = async () => {
@@ -311,12 +302,10 @@ export function EntryDialogs({
           </div>
         </form>
       </DialogContent>
-      {/* 向导有自己的对话框：外层弹窗打开它时关闭，取消后回到新建项目。 */}
       <NewRemoteProjectDialog
         open={wizard}
         onClose={() => setWizard(false)}
         onImported={(entry) => {
-          // 与「导入已有文件夹」同一套后续动作：刷新镜像已由向导完成。
           setWizard(false);
           onClose();
           onOpenProject?.(entry.id);

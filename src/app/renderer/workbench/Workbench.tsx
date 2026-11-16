@@ -8,7 +8,6 @@ import { findGroup, walkGroups } from './layout-schema';
 import { SplitNodeView } from './SplitNode';
 import { TabGroup } from './TabGroup';
 
-/** 键位表与「新建对话」由装配层传入（workbench 不反向依赖 app 的 store）。 */
 export function Workbench({
   bindings,
   onNewChat,
@@ -32,7 +31,6 @@ export function Workbench({
     if (!macCloseTab && target?.closest('input, textarea, .cm-editor, [contenteditable="true"]'))
       return;
     const store = useWorkbenchLayout.getState();
-    // Alt+数字聚焦第 N 组。
     if (action === 'focus-group') {
       const digit = digitFromEvent(event.nativeEvent);
       const group = digit === null ? undefined : walkGroups(store.root)[digit - 1];
@@ -66,9 +64,7 @@ export function Workbench({
     }
   };
 
-  if (!ready)
-    // 布局加载中：保持工作台底色稳定，不闪默认空组。
-    return <div className="flex min-h-0 flex-1 overflow-hidden bg-surface" />;
+  if (!ready) return <div className="flex min-h-0 flex-1 overflow-hidden bg-surface" />;
 
   const maximizedGroup = maximized ? findGroup(root, maximized) : null;
   const content = maximizedGroup ? (

@@ -70,7 +70,6 @@ import { errorMessage } from '../../../core/protocol/contract';
 const platform = window.dela?.platform === 'darwin' ? 'mac' : 'other';
 const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源管理器';
 
-/** 侧栏文字随折叠状态淡入/淡出,与宽度过渡同步(参照 Chrome 垂直标签页)。 */
 const labelFade = 'transition-opacity duration-slow ease-out';
 
 function ShortcutSection({ children, title }: { children: ReactNode; title: string }) {
@@ -156,7 +155,6 @@ type AppShellProps = {
   onNavigate: (next: ShellView | NavTarget) => void;
   mobileDrawer?: MobileDrawer | null;
   onMobileDrawerChange?: (drawer: MobileDrawer | null) => void;
-  /** 页面抽屉的挂载点，窄屏时由当前页面往里渲染。 */
   onDrawerSlot: (element: HTMLElement | null) => void;
   onBack: () => void;
   onForward: () => void;
@@ -165,12 +163,10 @@ type AppShellProps = {
   zoom: ZoomPreference;
   onZoomChange: (zoom: ZoomPreference) => void;
   children: ReactNode;
-  /** 工作台导入目标（当前项目）；无项目时导入到根。 */
   onImportFiles: () => void;
   onNewProject: () => void;
   onSearch: () => void;
   notificationCount: number;
-  /** TODO 未读数（readAt === null）：顶栏 TODO 图标据此变蓝，判定同系统通知的 todo 口径。 */
   todoUnreadCount: number;
   sessionsByProject: Record<string, NavSessionSummary[]>;
   runBadge: (sessionId: string) => SessionRunBadge;
@@ -180,9 +176,7 @@ type AppShellProps = {
   onOpenSession: (sessionId: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onOpenGeneralChat: () => void;
-  /** 「资料」入口：进入通用（资料）工作台。 */
   onOpenSources: () => void;
-  /** 焦点工作组的活动标签是否为会话；通用池内据此互斥高亮「通用聊天/资料」。 */
   activeTabIsChat: boolean;
   onNavigateBusiness: (id: BusinessNavId) => void;
 };
@@ -232,7 +226,6 @@ export function AppShell({
   const projectIsRemote = useWorkspaceStore(
     (state) => state.workspace.entries.find((item) => item.id === projectId)?.remoteId != null,
   );
-  // 远端项目在本地没有目录：资源管理器入口不渲染，快捷图标也只指向 VS Code(SSH)。
   const effectiveOpenTarget: 'vscode' | 'explorer' = projectIsRemote ? 'vscode' : projectOpenTarget;
   const vscodeOpenLabel = projectIsRemote ? '在 VS Code 中打开（SSH）' : '在 VS Code 打开项目';
 
@@ -245,12 +238,10 @@ export function AppShell({
 
   const navHidden = narrow ? !navDrawerOpen : sidebarCollapsed;
   const visibleEntries = useVisibleNavEntries();
-  /** 「资料」入口高亮：通用池内看文档标签时才算资料（与会话标签互斥）。 */
   const sourcesActive = view === 'workbench' && projectId === null && !activeTabIsChat;
 
   const openProjectDirectory = (target: 'vscode' | 'explorer') => {
     if (view !== 'workbench' || !projectId || !window.dela) return;
-    // 远端项目没有本地目录：入口只留 VS Code(SSH)，这里再兜一层，快捷图标不会掉进必然失败的路径。
     const effective: 'vscode' | 'explorer' = projectIsRemote ? 'vscode' : target;
     if (effective === target) setPreference('projectOpenTarget', target);
     void workspaceClient
@@ -270,7 +261,6 @@ export function AppShell({
       onMobileDrawerChange?.(typeof next !== 'string' && pageHasDrawer(next.page) ? 'page' : null);
   };
 
-  // Ctrl/⌘ +/-/0 的缩放步进：在设置页同一组档位间移动，两端保持不动；0 重置。
   const stepZoom = (direction: 1 | -1 | 0) => {
     if (direction === 0) {
       onZoomChange(1);
@@ -323,7 +313,6 @@ export function AppShell({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) return;
-      // 动作由键位表解析：用户改键后此处无需改动，未绑定/未命中即不拦截。
       const action = matchShortcut(useShortcuts.getState().bindings, event, 'global', platform);
       if (!action) return;
       event.preventDefault();
@@ -398,7 +387,6 @@ export function AppShell({
           >
             <ArrowRight strokeWidth={1.8} />
           </IconButton>
-          {/* 侧栏折叠后首页与功能入口随侧栏隐藏，这里补回可达入口（与侧栏同一份可见性，窄屏由抽屉承载）。 */}
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] ml-2 flex h-full items-center gap-1">
               <IconButton
@@ -439,11 +427,9 @@ export function AppShell({
               </IconButton>
             </div>
           )}
-          {/* 更新提示固定排在左侧这一组的最右端：它是状态提示，不属于前进/后退那串导航动作。 */}
           <UpdateBadge onOpen={() => useNavigationStore.getState().openSettings('general')} />
         </div>
         <div className="flex h-full items-center">
-          {/* 侧栏折叠后铃铛/搜索随侧栏隐藏，这里补回可达入口（窄屏由抽屉承载）。 */}
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] flex h-full items-center gap-1 pr-1">
               <IconButton
@@ -544,7 +530,6 @@ export function AppShell({
               </IconButton>
             </div>
           )}
-          {/* 资料页（通用工作台）的聊天入口：新对话落为工作台标签，单组分屏、多组进最右组。 */}
           {view === 'workbench' && projectId === null && window.dela && (
             <IconButton
               aria-label="新聊天"
@@ -570,7 +555,6 @@ export function AppShell({
             <DialogClose className="-mr-1 -mt-1" />
           </DialogHeader>
           <div className="mt-8 grid items-start gap-x-12 gap-y-8 sm:grid-cols-2">
-            {/* 提示按当前生效键位渲染：用户在设置里改键后此处同步。 */}
             {shortcutGroups().map((group) => (
               <ShortcutSection key={group.title} title={group.title}>
                 {group.actions.map((action) => {
@@ -605,7 +589,6 @@ export function AppShell({
       <aside
         aria-label="主导航"
         className={cn(
-          // 滚动收敛在 ProjectSessionNav 内部的单一滚动容器，避免 aside/置顶/项目三层滚动嵌套。
           'flex min-h-0 flex-col overflow-hidden bg-page pb-3 text-ink',
           narrow
             ? cn(
@@ -621,7 +604,6 @@ export function AppShell({
         )}
         id="main-nav"
       >
-        {/* 宽屏内容按目标宽度固定排版:展开/收起动画期间被容器裁剪显示,而非回流换行。 */}
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col',
@@ -630,7 +612,6 @@ export function AppShell({
           style={narrow ? undefined : { width: effectiveSidebarWidth }}
         >
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
-            {/* 纯品牌展示；回首页由下方「首页」行承担，避免相邻双入口。 */}
             <div className="flex min-w-0 items-center gap-2 px-1 py-0.5">
               <DelaBrand className="h-4.5 w-auto" />
               <span
@@ -763,9 +744,8 @@ export function AppShell({
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />
-      {/* relative + id：供页内悬浮面板（如会话历史）portal 锚定到内容区。 */}
-      {/* 浮岛卡片：标题栏与侧栏同为画布色，内容区以圆角卡片浮在其上，仅保留外圈细边框。
-          侧栏不额外预留间隙；分隔线仅占 1px，拖动命中范围由 Resizer 的透明伪元素扩展。 */}
+      /* 浮岛卡片：内容区以圆角卡片浮在画布色之上；分隔线仅占 1px，拖动命中范围由 Resizer
+      的透明伪元素扩展。 */
       <main
         className={cn(
           'relative col-start-4 row-start-2 mt-1 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-window bg-surface shadow-hairline',

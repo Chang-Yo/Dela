@@ -2,8 +2,6 @@ import { LayoutGrid, SquarePen } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { EmptyState } from '../../../ui/empty-state';
 
-/** 组空态，「新建对话」与侧栏同一入口。窄组按 TabGroup 根 section 的容器查询降级：
- *  ≤280px 收起副文案，≤180px 缩图标、主文案单行省略。 */
 export function GroupEmptyState({ onNewChat }: { onNewChat: () => void }) {
   return (
     <EmptyState

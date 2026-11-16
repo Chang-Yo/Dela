@@ -16,7 +16,6 @@ export const useExplorerState = create<Store>(() => ({
   narrow: typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches,
 }));
 
-// 媒体查询镜像 + 切到宽屏时收起所有抽屉（否则折叠目录后缩窗会永远打不开目录）。
 if (typeof window !== 'undefined') {
   const media = window.matchMedia(NARROW_QUERY);
   media.addEventListener('change', () => {
@@ -26,7 +25,6 @@ if (typeof window !== 'undefined') {
   });
 }
 
-/** 目录隐藏时的展开入口：出现在最左上组的标签栏左端。 */
 export function ExplorerRevealButton({ className }: { className?: string }) {
   const narrow = useExplorerState((s) => s.narrow);
   const mobileOpen = useMobileDrawer((s) => s.drawer === 'explorer');

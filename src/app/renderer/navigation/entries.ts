@@ -1,6 +1,5 @@
 // 功能入口的单一真源：侧栏、折叠后标题栏图标与设置 › 通用 的显示开关都读这里。
 // 隐藏只影响导航，能力仍在。首页固定显示，不在此列表。
-// 模块页面的入口来自视图清单（docs/adr/0019）。
 import type { ComponentType } from 'react';
 import { FolderOpen } from 'lucide-react';
 import type { NavTargets } from '../../module';

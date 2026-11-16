@@ -32,8 +32,6 @@ import { errorMessage } from '../../../core/protocol/contract';
 
 const PERSIST_DEBOUNCE_MS = 800;
 
-// 容量超限（单组 maxTabsPerGroup / 全树 maxLayoutNodes）只发应用内通知浮窗：
-// 三个动作保持现有签名，调用方不必处理新的失败返回。
 const CAPACITY_LIMIT_REACHED = '工作组容量已达上限，已忽略本次操作';
 
 function notifyCapacityLimit() {
@@ -50,41 +48,27 @@ type Store = {
   root: LayoutNode;
   focus: string;
   maximized: string | null;
-  /** init 完成前不渲染布局，避免默认空组闪一帧再被真实布局替换。 */
   ready: boolean;
-  /** 目标项目的布局尚未就绪时暂存的打开请求，init 完成后兑现。keep：打开后直接保留，不作预览。 */
   pendingReveal: { tabId: TabId; projectId: string | null; keep: boolean } | null;
-  /** 载入项目布局；无保存时用默认单组。rapid 切换由 token 竞态保护。 */
   init(projectId: string | null): Promise<void>;
-  /** 在指定项目的布局里打开标签；该项目布局未就绪时暂存到 init 完成。 */
   reveal(tabId: TabId, projectId: string | null, keep?: boolean): void;
-  /** 聚焦已有标签（无显式目标时）；显式目标组允许跨组重复打开（并排第二视图）。
-   *  preview：作为该组的预览标签打开，就地替换组里现有的预览标签；已存在的常驻标签不降级。 */
   openTab(tabId: TabId, targetGroupId?: string, options?: { preview?: boolean }): void;
-  /** 预览标签转常驻（编辑、双击、拖动）；不是预览标签时无动作。 */
   keepTab(tabId: TabId, groupId?: string): void;
   closeTab(tabId: TabId, groupId?: string): void;
-  /** 批量关闭：others = 除锚点外，right = 锚点右侧，all = 整组（含组本身）；固定标签受保护。 */
   closeTabs(groupId: string, mode: 'others' | 'right' | 'all', anchor?: TabId): void;
-  /** 固定/取消固定：固定挪入固定区末尾，取消固定落到未固定区开头（VS Code 语义）。 */
   togglePin(tabId: TabId, groupId: string): void;
-  /** 组内排序 / 跨组移动（跨组去重：目标组已有同 id 标签时移动到新位置，不复制）。 */
   moveTab(tabId: TabId, fromGroupId: string, toGroupId: string, targetIndex?: number): void;
-  /** 边缘拖放：在目标组的指定边缘分出新组并移入标签。 */
   moveTabToEdge(tabId: TabId, fromGroupId: string, targetGroupId: string, zone: EdgeZone): void;
-  /** 把组包进新的二元 split（三屏经嵌套组合）；新组复制当前活动标签（VS Code 行为）。 */
   splitGroup(groupId: string, orientation: SplitOrientation, emptyNew?: boolean): void;
   setMaximized(groupId: string | null): void;
   setRatio(path: number[], ratio: number): void;
   focusGroup(groupId: string): void;
   relocatePaths(from: string, to: string): void;
-  /** 内部字段：落盘去抖计时器、在途保存与 init 竞态令牌。 */
   persistTimer: ReturnType<typeof setTimeout> | null;
   pendingSaves: Promise<boolean>[];
   initToken: number;
 };
 
-// 拖拽中高频变化的 ratio 延迟落盘；只有最后一次变更会真正发出 layout:save。
 function saveLayoutNow() {
   if (typeof window === 'undefined' || !window.dela) return Promise.resolve(false);
   const { projectId, root, focus, maximized } = useWorkbenchLayout.getState();
@@ -111,7 +95,6 @@ export async function saveWorkbenchLayout(): Promise<boolean> {
   return saveLayoutNow();
 }
 
-/** 工作台端口的 close：同一标签可能在多个组里打开，逐组关闭。 */
 export function closeTabEverywhere(tabId: TabId): void {
   for (const group of walkGroups(useWorkbenchLayout.getState().root))
     if (group.tabs.includes(tabId)) useWorkbenchLayout.getState().closeTab(tabId, group.id);
@@ -176,10 +159,8 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
   },
 
   init: async (projectId) => {
-    // 同项目布局已在用（home↔工作台切换会重挂载宿主）：复用现态直接返回，不再置
-    // ready=false 重走 IPC——那会让切换瞬间工作台空白一次，观感如同整页重载。
+    // 同项目布局已在用（home↔工作台切换会重挂载宿主）：复用现态，不再置 ready=false 重走 IPC，免得切换瞬间空白。
     if (get().ready && get().projectId === projectId) return;
-    // 先冲刷上个项目在途的布局保存（快照仍属旧项目），否则 800ms 内切项目会丢该次变更。
     flushPersist();
     const token = get().initToken + 1;
     set({ initToken: token, ready: false });
@@ -203,7 +184,6 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       if (pendingReveal.projectId === projectId)
         get().reveal(pendingReveal.tabId, projectId, pendingReveal.keep);
     }
-    // 读取失败时不覆盖已存布局。
     if (!loadFailed) schedulePersist();
   },
 
@@ -234,7 +214,6 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       schedulePersist();
       return;
     }
-    // 预览打开就地顶替组里的预览标签（同一位置），否则追加；替换不占新的容量。
     const replaced = options?.preview ? group.preview : undefined;
     if (!replaced && group.tabs.length >= maxTabsPerGroup) {
       notifyCapacityLimit();
@@ -283,7 +262,6 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     });
     let nextFocus = focus;
     let nextMaximized = maximized;
-    // 空组删除并收敛树（根组保留空态）；焦点落到相邻组。
     if (!tabs.length && root.type === 'split') {
       const order = walkGroups(root).map((node) => node.id);
       const position = order.indexOf(group.id);
@@ -309,7 +287,6 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     if (!group) return;
     const anchorTab = anchor ?? group.active;
     const index = anchorTab ? group.tabs.indexOf(anchorTab) : -1;
-    // 固定标签受保护（VS Code 语义）：批量关闭只清未固定区，逐个显式关闭不受限。
     const pinned = group.pinned ?? [];
     const notPinned = (tab: TabId) => !pinned.includes(tab);
     const victims =
@@ -365,7 +342,6 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     else pinnedSet.delete(tabId);
     const nextPinned = destinationTabs.filter((tab) => pinnedSet.has(tab));
     let nextRoot = updateGroup(root, fromGroupId, (group) => {
-      // 拖动过的标签是用户主动安排的：转常驻（VS Code 语义）。
       const preview = group.preview === tabId ? undefined : group.preview;
       if (sameGroup)
         return {
@@ -423,8 +399,6 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
     const { root } = get();
     const group = findGroup(root, groupId);
     if (!group?.active) return;
-    // 手动分屏像 VS Code 一样把当前聚焦标签带进新组；emptyNew 留空新组
-    // （标题栏「新聊天」用它给新会话腾一个干净的分屏）。
     const newGroup: GroupNode = {
       type: 'group',
       id: nextGroupId(root),
@@ -441,7 +415,6 @@ export const useWorkbenchLayout = create<Store>((set, get) => ({
       notifyCapacityLimit();
       return;
     }
-    // 分屏后需要看到两侧：清掉最大化态。
     set({ root: nextRoot, focus: newGroup.id, maximized: null });
     schedulePersist();
   },

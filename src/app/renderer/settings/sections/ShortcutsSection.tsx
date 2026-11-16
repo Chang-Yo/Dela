@@ -19,13 +19,11 @@ import { errorMessage } from '../../../../core/protocol/contract';
 
 const platform = window.dela?.platform === 'darwin' ? 'mac' : 'other';
 
-/** 键位串 → 可读文本（错误提示用）。 */
 function acceleratorText(accelerator: string | null, family?: 'digit'): string {
   if (!accelerator) return '未绑定';
   return acceleratorKeys(accelerator, platform, family).join(' + ');
 }
 
-/** 设置 › 快捷键：查看并修改全局与工作台快捷键（局部编辑器键位不在此表内）。 */
 export function ShortcutsSection() {
   const bindings = useShortcuts((state) => state.bindings);
   const [recording, setRecording] = useState<ShortcutActionId | null>(null);
@@ -78,7 +76,6 @@ export function ShortcutsSection() {
       void apply(recording, null);
       return;
     }
-    // 只按修饰键时继续等待完整组合。
     if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return;
     const accelerator = acceleratorFromEvent(event, platform);
     if (!accelerator) return;

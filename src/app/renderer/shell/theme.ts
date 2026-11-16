@@ -1,4 +1,3 @@
-// 主题/缩放/字号的应用与 localStorage 镜像。
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -21,14 +20,12 @@ function initialTheme(): ThemePreference {
   return theme === 'light' || theme === 'dark' ? theme : 'system';
 }
 
-// 与主题同理：localStorage 缓存避免启动瞬间回退默认字号。
 function initialFontSize(): number {
   const stored = Number(localStorage.getItem(fontSizeStorageKey));
   if (Number.isFinite(stored) && stored > 0) return clampFontSize(stored);
   return fontSizeDefault;
 }
 
-/** 桌面端主题/缩放事实在主进程 DB；这里读进查询缓存、应用 CSS 效果并镜像到 localStorage。 */
 export function useAppearance() {
   const queryClient = useQueryClient();
   const enabled = Boolean(window.dela);
@@ -45,8 +42,7 @@ export function useAppearance() {
       enabled,
     }).data ?? initialFontSize();
 
-  // 生效主题只由 .dark / .light 表达：跟随系统时按媒体查询解析，让所有 token（含 beautiful-ui
-  // 只认 .dark 的那套）走同一条路径。
+  // 生效主题只由 .dark / .light 表达：跟随系统时按媒体查询解析，所有 token 走同一条路径。
   useEffect(() => {
     const root = document.documentElement;
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -62,7 +58,6 @@ export function useAppearance() {
     return () => media.removeEventListener('change', apply);
   }, [theme]);
 
-  // 根元素字号即用户设置：rem 派生的文字、间距与图标一起缩放。
   // 浏览器预览没有主进程缩放，用 CSS zoom 降级；桌面端由主进程 setZoomFactor 生效。
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;

@@ -4,9 +4,6 @@ import { useNavigationStore } from '../navigation/view';
 import { useWorkbenchLayout } from './layout-store';
 import { walkGroups } from './layout-schema';
 
-/** liveIds 为移除后仍存活的条目 id 全集：关掉指向死条目的标签（chat 与资料预览不指向
- *  条目，照旧放行；草稿随标签卸载自动冲盘释放），退出已死的项目工作台，并清掉
- *  前后退栈里的死项目路由——后退不再跳回已删除的项目。 */
 export function purgeRemovedEntries(liveIds: Set<string>): void {
   const layout = useWorkbenchLayout.getState();
   const keep = (tabId: TabId) =>

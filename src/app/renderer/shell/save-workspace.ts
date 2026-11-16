@@ -4,7 +4,6 @@ import { useNoteDrafts } from '../../../modules/note/view';
 import { saveChatDrafts, runBadge, useRuns } from '../../../modules/chat/view';
 import { saveWorkbenchLayout } from '../workbench/layout-store';
 
-/** 保存所有已打开文件、聊天文字草稿、邮件草稿和工作台布局。 */
 export async function saveWorkspace(): Promise<void> {
   if (
     Object.values(useRuns.getState().bySession).some((run) => runBadge(run.status) === 'running')

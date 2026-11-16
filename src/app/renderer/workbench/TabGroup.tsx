@@ -21,7 +21,6 @@ import {
   type EdgeZone,
 } from './tab-dnd';
 
-/** 懒加载内容域的首帧占位：静态色块，不做动画。 */
 function TabSuspenseFallback() {
   return <div className="min-h-0 min-w-0 flex-1 bg-inset" />;
 }
@@ -90,7 +89,6 @@ export function TabGroup({ group, onNewChat }: { group: GroupNode; onNewChat: ()
     event.dataTransfer.dropEffect = 'move';
     const zone = zoneAt(event);
     const sameGroup = getCurrentTabDrag()?.fromGroup === group.id;
-    // 原组中央没有移动效果；单标签也不能向自身分出空组。
     if (sameGroup && (!zone || group.tabs.length === 1)) {
       clearDropPreview();
       return;
@@ -103,7 +101,6 @@ export function TabGroup({ group, onNewChat }: { group: GroupNode; onNewChat: ()
     );
   };
   const onDragLeave = (event: DragEvent<HTMLElement>) => {
-    // 标签栏 → 正文属于组内移动，只有离开整组才清除反馈。
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       clearDropPreview();
     }
@@ -150,7 +147,6 @@ export function TabGroup({ group, onNewChat }: { group: GroupNode; onNewChat: ()
             id={`tabpanel-${group.id}`}
             role="tabpanel"
           >
-            {/* 单标签崩溃只降级该标签；key 随活动标签切换，旧错误态不污染新标签。 */}
             <ErrorBoundary key={active} title="此标签遇到错误">
               <GroupTabContent groupId={group.id} tabId={active} />
             </ErrorBoundary>

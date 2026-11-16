@@ -1,5 +1,4 @@
-// 工作台目录侧栏（装配层）：项目文件树 + 同步来的资料 + 归档区。树的展开/筛选/选中态在
-// navigation/store，条目动作经 onAction 交给 EntryDialogs（壳）；折叠/抽屉开合在 explorer-state。
+// 工作台目录侧栏的装配层：项目文件树 + 同步来的资料 + 归档区；树的展开/筛选/选中态在 navigation/store。
 import { useEffect, useRef, useState } from 'react';
 import {
   Archive,
@@ -56,11 +55,9 @@ import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../../modul
 import { errorMessage } from '../../../core/protocol/contract';
 
 const SIDEBAR_MIN_WIDTH = 160;
-/** 目录宽度上界：再宽会明显挤占右侧内容栏。 */
 const SIDEBAR_MAX_WIDTH = 360;
 
-/** 新建弹窗的目标容器：选中/活动文档所在文件夹，缺省回落到根（旧 currentContainer）。
- *  切换项目后 selected 可能仍指向上一个项目的条目：不属于当前根的一律回落到根，避免建到别的项目里。 */
+/** 切换项目后 selected 可能仍指向上一个项目的条目：不属于当前根的一律回落到根。 */
 export function currentContainerOf(activeKey: string | null, rootId: string | null): string | null {
   const byId = new Map(
     useWorkspaceStore.getState().workspace.entries.map((entry) => [entry.id, entry]),
@@ -97,7 +94,6 @@ export function WorkbenchExplorer({
   onAction: (action: EntryAction | 'link', id: string | null) => void;
   onOpenDocument: (key: string) => void;
   onOpenToSide: (key: string) => void;
-  /** 行内新建成功后（打开新文件、选中新文件夹等由接线方决定，与弹窗新建同一出口）。 */
   onCreated: (entry: WorkspaceEntry) => void;
 }) {
   const entries = useWorkspaceStore((s) => s.workspace.entries);
@@ -107,7 +103,6 @@ export function WorkbenchExplorer({
   // 打开的若是远程项目，这棵树本轮只读：拖入的落点是远端 POSIX 路径，
   // 本地写入入口（importDroppedFiles / moveEntry）会把它当本地目录，必须关掉。
   const remoteRoot = Boolean(root?.remoteId);
-  // 标题上的连接提示与目录树说同一件事：目的地来自连接列表，状态由目录树写进 store。
   const connections = useRemoteConnections();
   const activity = useRemoteActivity((s) => s.byProject);
   const selected = useTreeState((s) => s.selected);
@@ -123,7 +118,6 @@ export function WorkbenchExplorer({
   const drawerRef = useRef<HTMLElement>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
 
-  // 窄屏抽屉打开时把焦点移入容器、Escape 收起；收起态由 aside 的 inert 兜底。
   useEffect(() => {
     if (!narrow || !mobileOpen) return;
     drawerRef.current?.focus();
@@ -155,7 +149,6 @@ export function WorkbenchExplorer({
     else onOpenToSide(key);
   };
 
-  /** 双击文件：打开并保留（预览标签转常驻）。 */
   const keepDocument = (key: string) =>
     void useAppNavigation.getState().openDocument(key, { keep: true });
 
@@ -197,7 +190,6 @@ export function WorkbenchExplorer({
         });
     });
   };
-  /** 新建文件/文件夹在树里行内输入（VS Code 式），不开弹窗；落点为 null 时落在当前树根。 */
   const startCreate = (kind: 'file' | 'folder', parentId: string | null) => {
     const target = parentId ?? rootId;
     const chain = target ? ancestorChainOf(entries, target) : [];
@@ -226,8 +218,6 @@ export function WorkbenchExplorer({
     },
   };
 
-  // 归档/升级为项目/导入/新建文件与文件夹不弹窗，直连 entry-actions 或行内输入；
-  // 展开归档区、打开项目等后续 UI 也只有在这层接线才拿得到。
   const treeAction = (action: EntryAction, id: string | null) => {
     if (action === 'note') startCreate('file', id);
     else if (action === 'folder') startCreate('folder', id);
@@ -242,8 +232,6 @@ export function WorkbenchExplorer({
   const visible = narrow ? mobileOpen : !collapsed;
   const effectiveWidth = Math.min(width, Math.max(200, Math.round(viewportWidth * 0.28)));
   const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-ink-3';
-  // 区块小标题：比组头浅一档的分层提示（同步 / 文件两区），纯展示不可交互；归档区靠底部
-  // 分隔线 + 自身组头分层，不另加小标题以免与"归档"组头文字重复。
   const eyebrowClass = 'px-3 pt-3 pb-1 text-xs font-medium tracking-wider text-ink-3/70';
   const libraryProps = {
     query,
@@ -258,7 +246,6 @@ export function WorkbenchExplorer({
 
   return (
     <>
-      {/* 窄屏抽屉遮罩：点外关闭，与主导航抽屉同一交互模型。 */}
       {narrow && mobileOpen && (
         <div
           aria-hidden="true"
@@ -282,7 +269,6 @@ export function WorkbenchExplorer({
       >
         <div
           className={cn(
-            // 壳动内容不动：折叠动画中内容保持展开宽度、被外壳裁切并淡出。
             'flex min-h-0 flex-1 flex-col transition-opacity duration-base motion-reduce:transition-none max-md:!w-full',
             collapsed && !narrow && 'pointer-events-none opacity-0',
           )}
@@ -361,7 +347,6 @@ export function WorkbenchExplorer({
                   </Button>
                 </>
               )}
-              {/* 远端项目没有本地目录，新建/导入的落点只可能是本地路径：入口整个收掉。 */}
               {!remoteRoot && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -458,7 +443,6 @@ export function WorkbenchExplorer({
                 if (drag) move(drag, null);
               }}
             >
-              {/* 同步来的资料只在通用（无项目）工作台显示；项目工作台只呈现项目自己的文件。 */}
               {projectId === null && libraries.length > 0 && (
                 <>
                   <div className={eyebrowClass}>同步</div>

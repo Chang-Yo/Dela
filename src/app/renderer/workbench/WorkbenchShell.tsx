@@ -1,5 +1,4 @@
-// 工作台装配层：三个内容 Provider（chat/note/preview）挂在工作台根部，目录侧栏、
-// EntryDialogs 都在这里（保持 app/App.tsx 小）；布局与标签本体在 workbench/。
+// 工作台装配层：三个内容 Provider（chat/note/preview）、目录侧栏与 EntryDialogs 都挂在这里。
 import { useEffect, type ReactNode } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
@@ -12,7 +11,6 @@ import {
   type ResourceRef,
 } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../../modules/remotes/contract';
-// 模块出口里的标签组件懒加载，这里静态引入 Provider 不影响 registry 的分包。
 import {
   ChatTabSourceProvider,
   type ChatTabSource,
@@ -53,7 +51,6 @@ import { officeRefOf, opensInApp, referenceQueries, sourceOf, sourceOfLink } fro
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** TabId → 旧文档键（entryId 或 source:{sourceId}）；chat 无对应文档。 */
 function tabDocumentKey(tabId: TabId | null): string | null {
   if (!tabId) return null;
   if (tabId.startsWith('preview:')) return tabId.slice('preview:'.length);
@@ -64,7 +61,6 @@ function tabDocumentKey(tabId: TabId | null): string | null {
 const flattenReferences = (results: Array<{ data?: Array<{ path: string; title: string }> }>) =>
   results.flatMap((result) => result.data ?? []);
 
-/** 空组空态的「新建对话」：与侧栏同一入口，按当前池落位（项目内落焦点组，通用池分屏）。 */
 function newChatInCurrentPool() {
   void useNavigationStore.getState().newChat(useWorkbenchLayout.getState().projectId);
 }
@@ -116,10 +112,8 @@ function ReferenceEntries({
   return children(useReferenceEntries(projectId, cwd));
 }
 
-// @ 引用候选即 cwd 下的文件路径；通用池另并入资料目录与模块登记的候选，如已下载的课件。
 const referenceSource: ReferenceSource = {
   Entries: ReferenceEntries,
-  // 发送前冲盘引用笔记；仍无法保存时抛错阻止发送。
   flushReference: async (key) => {
     if (!(await useNoteDrafts.getState().save(key)))
       throw new Error('引用的笔记尚未保存成功，请先保存或移除该引用');
@@ -139,7 +133,6 @@ const draftBase: Omit<NoteDraftSource, 'saveAsNewNote'> = {
   acquire: (key, force) => useNoteDrafts.getState().acquire(key, force),
   release: (key) => useNoteDrafts.getState().release(key),
   edit: (key, text) => {
-    // 改过的文件不再是「只是看看」：预览标签转常驻，不会被下一次单击替换掉。
     useWorkbenchLayout.getState().keepTab(`note:${key}`);
     useNoteDrafts.getState().edit(key, text);
   },
@@ -150,10 +143,8 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
   const projectId = useNavigationStore((s) => (home ? null : s.projectId));
   const generalChat = useNavigationStore((s) => s.generalChat);
   const loaded = useWorkspaceStore((s) => s.loaded);
-  // 订阅键位表：用户改键后工作台快捷键立即跟随（Workbench 不自行订阅 app 的 store）。
   const bindings = useShortcuts((s) => s.bindings);
   const workspaceError = useWorkspaceStore((s) => s.error);
-  // 订阅镜像仅为让标签标题随条目/会话变化重渲染（registry 的 title 是同步读取）。
   useWorkspaceStore((s) => s.workspace.entries);
   useSessions((s) => s.lists);
   const dialog = useEntryDialog((s) => s.request);
@@ -180,7 +171,7 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
     });
 
   const onCreated = async (entry: WorkspaceEntry) => {
-    if (entry.kind === 'project') return; // EntryDialogs 已回调 onOpenProject。
+    if (entry.kind === 'project') return;
     if (window.dela && entry.path) {
       try {
         useWorkspaceStore
@@ -190,7 +181,6 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
         useWorkspaceStore.getState().setError(error);
       }
     }
-    // 名称可带子路径（a/b/c.md）：沿祖先链全部展开并选中，新条目才看得见。
     if (entry.kind === 'file' || entry.kind === 'folder')
       useTreeState
         .getState()
@@ -250,7 +240,6 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
       if ('sourceId' in target) sourceId = target.sourceId;
       else {
         entryId = target.entryId;
-        // 远端文件不在条目树里：读取走远端只读通道（远端内容变了不自动重读，需要时重开标签）。
         const remote = parseRemoteNodeId(entryId);
         if (remote)
           return {
@@ -279,7 +268,6 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
         watchesDisk: entry?.kind === 'file',
       };
     },
-    // 已同步的资料在标签页打开；其余交给主进程按模块分流，最后才是系统浏览器。
     openLink: (url) => {
       const sourceId = sourceOfLink(url, queryClient);
       if (sourceId) void useNavigationStore.getState().openDocument(`source:${sourceId}`);
@@ -287,7 +275,6 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
     },
     navigate: (target) => useNavigationStore.getState().navigate(target),
     onExported: () => {
-      // 导出会在我的资料里新增「预览导出」条目，目录树需一并刷新。
       void useWorkspaceStore
         .getState()
         .refresh()

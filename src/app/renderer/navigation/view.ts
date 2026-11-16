@@ -15,10 +15,8 @@ import type { NavTarget, NavTargets } from '../../module';
 import { pageOf, views } from '../../views';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** 仍由外壳渲染的视图；页面迁入模块后从这里移除，改由 app/views.ts 登记。 */
 export type ShellView = 'home' | 'workbench' | 'settings';
 
-/** 由外壳自己分发的跳转目标：工作台里的标签与尚未迁移的页面。 */
 type ShellTarget = 'projects' | 'chat' | 'sources' | 'settings';
 
 export type AppView = ShellView | Exclude<keyof NavTargets, ShellTarget>;
@@ -27,38 +25,26 @@ const projectStorageKey = 'dela.workspace.project';
 
 interface NavigationState {
   view: AppView;
-  /** 模块页面的跳转参数；外壳视图为 null。 */
   target: NavTarget | null;
-  /** 当前工作台项目；null = 通用池。 */
   projectId: string | null;
   backStack: NavigationRoute[];
   forwardStack: NavigationRoute[];
-  /** 设置页当前分区；离开设置页回到「通用」。 */
   settingsSection: SettingsSectionId;
-  /** 首页聊天请求，由工作台装配层交给首页。 */
   generalChat: HomeChatRequest | null;
-  /** 首页聊天请求的序号，单调递增：同一请求再次发出时首页据此重建会话。 */
   homeSeq: number;
-  /** 唯一的跳转入口：外壳视图传名字，其余传 NavTarget（docs/adr/0019）。 */
   navigate(next: ShellView | NavTarget): boolean;
   goBack(): boolean;
   goForward(): boolean;
-  /** 打开项目工作台；id 为空串/null 切到通用池。 */
   openProject(id: string): boolean;
-  /** 通用聊天入口（导航「通用聊天」/托盘「新建对话」）。 */
   openGeneralChat(create: boolean): boolean;
   newChat(projectId: string | null): Promise<string | null>;
-  /** 项目会话定位到项目工作台；随聊会话在资料工作台里就地开标签，否则回首页聊天。 */
   openChat(sessionId: string, projectId: string | null): boolean;
-  /** 打开文档（entryId 或 source: 资料键）为工作台标签，留在当前工作台；keep 时不作预览。 */
   openDocument(key: string, options?: { keep?: boolean }): boolean;
   openTerminal(projectId: string): boolean;
   openSettings(section?: SettingsSectionId): boolean;
-  /** 新建项目弹窗（先回到工作台）。 */
   newProject(): boolean;
 }
 
-/** 历史条目：视图、跳转参数与项目（后退要能回到同一个项目面板）。 */
 interface NavigationRoute {
   view: AppView;
   target: NavTarget | null;
@@ -72,7 +58,6 @@ function routeOf(state: NavigationState): NavigationRoute {
   return { view: state.view, target: state.target, projectId: state.projectId };
 }
 
-/** 记住当前项目：设置页「重置当前项目布局」读取此键。 */
 function rememberProject(id: string | null): void {
   try {
     localStorage.setItem(projectStorageKey, id ?? '');
@@ -89,8 +74,7 @@ function currentProjectLive(): boolean {
   );
 }
 
-/** 文档键（entryId 或 source:{sourceId}）→ TabId；本地文本文件开编辑标签，远端 Markdown 开只读的编辑标签，
- *  专用格式与资料走预览。 */
+/** 本地文本文件开编辑标签，远端 Markdown 开只读的编辑标签，专用格式与资料走预览。 */
 export function documentTabId(key: string): TabId {
   if (key.startsWith('source:')) return `preview:${key}`;
   const remote = parseRemoteNodeId(key);
@@ -103,7 +87,6 @@ export function documentTabId(key: string): TabId {
 }
 
 export const useNavigationStore = create<NavigationState>((set, get) => {
-  /** 切到指定项目的工作台，并由布局 store 在其布局就绪后打开标签。 */
   const revealInProject = (tabId: TabId, projectId: string | null, keep = false): boolean => {
     if (projectId !== get().projectId) {
       if (!get().openProject(projectId ?? '')) return false;
@@ -126,7 +109,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
         if (next.page === 'projects') return get().openProject(next.entryId);
         if (next.page === 'chat') {
           if (next.sessionId) return get().openChat(next.sessionId, next.projectId);
-          // 首页发起的随聊留在首页，其余就地开在工作台焦点组。
           if (next.projectId === null && get().view === 'home') return get().openGeneralChat(true);
           void get().newChat(next.projectId);
           return true;
@@ -246,7 +228,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
     },
 
     openChat: (sessionId, projectId) => {
-      // 已在通用（资料）工作台里打开随聊历史：就地开标签，不跳回首页。
       if (projectId === null && get().view === 'workbench' && get().projectId === null)
         return revealInProject(`chat:${sessionId}`, null);
       if (projectId !== null) return revealInProject(`chat:${sessionId}`, projectId);

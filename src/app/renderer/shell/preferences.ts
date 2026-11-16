@@ -66,7 +66,6 @@ const legacyKeys = [
   'dela.remote.lastDirectory',
 ];
 
-/** 升级后第一次启动：把分散的旧键并成新值，写入新键后删除旧键。 */
 function migrateLegacyPreferences(): string {
   const state: PreferenceValues = {
     shellSidebarCollapsed: localStorage.getItem('dela.shell.sidebar-collapsed') === 'true',

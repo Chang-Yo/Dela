@@ -15,7 +15,6 @@ const GROUP_MIN_HEIGHT = 64;
 interface SplitNodeProps {
   node: LayoutNode;
   path: number[];
-  /** 空组空态的「新建对话」，由装配层注入。 */
   onNewChat: () => void;
 }
 
@@ -24,7 +23,6 @@ export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
   const [dimension, setDimension] = useState(0);
   const vertical = node.type === 'split' && node.orientation === 'vertical';
 
-  // 挂载即测量一次，避免首帧按 0 宽布局；后续交给 ResizeObserver。
   const observeSize = (element: HTMLDivElement) => {
     const update = () => {
       const rect = element.getBoundingClientRect();
@@ -69,11 +67,7 @@ export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
         onChange={(next) => {
           if (dimension > 0) setRatio(path, next / dimension);
         }}
-        className={cn(
-          // 两个白色页面相邻，保留一条淡线作分界。
-          'bg-line/60',
-          vertical ? 'w-px' : 'h-px',
-        )}
+        className={cn('bg-line/60', vertical ? 'w-px' : 'h-px')}
       />
       {node.children.slice(1).map((child, index) => (
         <div

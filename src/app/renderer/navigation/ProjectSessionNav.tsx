@@ -1,5 +1,4 @@
-// 项目会话导航：顶部功能入口，中部按项目分组的会话历史（前 3 条 + 「显示更多」）。
-// 会话数据与运行徽标由接入方注入（本组件不 import sessions/）；通用池会话不入项目树。
+// 顶部功能入口与按项目分组的会话历史；会话数据与运行徽标由接入方注入，本组件不 import sessions/。
 import { useState } from 'react';
 import { Button } from '../../../ui/button';
 import { useDismissOnOutsidePointer } from '../../../ui/use-dismiss-on-outside-pointer';
@@ -63,19 +62,14 @@ const fileManagerName = window.dela?.platform === 'darwin' ? 'Finder' : '资源�
 
 export type { NavSessionSummary, SessionRunBadge };
 
-/** 底部业务入口 id（邮箱/课表/课堂视频/水源；TODO 入口在顶栏铃铛旁，跳转由 onNavigateBusiness 注入）。 */
 export type BusinessNavId = Exclude<NavEntryId, 'sources'>;
 
-/** 每项目默认展示的近期会话条数（§4.1「前 3 条 + 显示更多」）。 */
 const RECENT_SESSIONS = 3;
 
-/** 侧栏文字随折叠状态淡入/淡出（与 AppShell 壳的宽度过渡同步）。 */
 const labelFade = 'transition-opacity duration-slow ease-out';
 
 export function ProjectSessionNav({
-  /** 按项目 id 注入的近期会话（近期优先排序），来自 sessions/ 镜像。 */
   sessionsByProject,
-  /** 会话运行状态徽标，来自 sessions/runs 镜像。 */
   runBadge,
   onOpenSession,
   onDeleteSession,
@@ -83,17 +77,13 @@ export function ProjectSessionNav({
   onOpenProject,
   onNewProject,
   onNewChat,
-  /** 顶部「通用聊天」入口（无项目会话池，§4.1 保留）。 */
   onOpenGeneralChat,
   generalChatActive = false,
-  /** 顶部「资料」入口（通用/资料工作台）与互斥高亮。 */
   onOpenSources,
   sourcesActive = false,
   activeProjectId = null,
-  /** 底部业务入口跳转（邮箱/课表/水源），由接线方注入。 */
   onNavigateBusiness,
   activeBusinessId = null,
-  /** 侧栏折叠时文字淡出（与 AppShell 折叠动画同步）。 */
   collapsed = false,
 }: {
   sessionsByProject: Record<string, NavSessionSummary[]>;
@@ -127,8 +117,7 @@ export function ProjectSessionNav({
       (a, b) =>
         Number(Boolean(preferences[b.id]?.pinned)) - Number(Boolean(preferences[a.id]?.pinned)),
     );
-  // 远端项目的悬浮提示要「连的是哪台」与「此刻在不在连」：连接取自共享的连接缓存，
-  // 取数状态由目录树写、这里读（两处说法因此一致）。
+  // 连接取自共享缓存，取数状态由目录树写、这里读，两处说法因此一致。
   const connections = useRemoteConnections();
   const activity = useRemoteActivity((state) => state.byProject);
   const [entryRequest, setEntryRequest] = useState<EntryDialogRequest | null>(null);
@@ -155,9 +144,6 @@ export function ProjectSessionNav({
   };
   const hidden = cn('truncate', labelFade, collapsed && 'opacity-0');
 
-  /** 会话历史组（通用对话/项目）共用的一段：折叠头 + 近期会话 + 「显示更多」。
-   *  行点击即展开/折叠该组；打开项目工作台走项目菜单的「打开项目」。
-   *  图标与配色跟着项目走：远端项目用云朵与该连接的配色，和资源管理器里是同一副样子。 */
   const sessionGroup = (
     project: WorkspaceEntry,
     sessions: NavSessionSummary[],
@@ -172,15 +158,13 @@ export function ProjectSessionNav({
     const unpinned = sessions.filter((session) => !session.pinned);
     const visible = full ? unpinned : unpinned.slice(0, RECENT_SESSIONS);
     // 会话行已高亮时项目行不再叠加底色：位置强调只落在最深的一个可见行上。
-    // 可见 = 置顶区的置顶会话，或展开后列出的近期会话（折叠、藏在「显示更多」后的不算）。
     const shownActiveSession =
       expanded && visible.some((session) => session.id === activeSessionId);
     const rowActive =
       groupActive &&
       !shownActiveSession &&
       !sessions.some((session) => session.pinned && session.id === activeSessionId);
-    // 远端项目行挂连接提示：连的是哪台、远端根在哪、此刻在不在连（本机行不需要）。
-    // 挂在项目名按钮上而不是整行：键盘聚焦时也能看到，而且鼠标移到右侧动作区时提示该让位。
+    // 远端项目行挂连接提示；挂在名称按钮上而非整行，键盘聚焦时也能看到。
     const labelButton = (
       <button
         aria-current={rowActive ? 'page' : undefined}
@@ -289,7 +273,6 @@ export function ProjectSessionNav({
                     <FolderOpen />在 {fileManagerName} 中显示
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {/* 「新建对话」由悬停按钮承担，不进菜单；行点击用于展开/折叠会话组。 */}
                   <DropdownMenuItem disabled={archiving} onSelect={() => setConfirmArchive(key)}>
                     <Archive />
                     归档项目对话
@@ -386,7 +369,6 @@ export function ProjectSessionNav({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* 功能入口、置顶与「项目」标题行固定在顶部；滚动只发生在项目列表项。 */}
       <nav aria-label="功能入口" className="grid shrink-0 gap-px">
         <button
           aria-current={generalChatActive ? 'page' : undefined}
@@ -416,7 +398,6 @@ export function ProjectSessionNav({
           );
         })}
       </nav>
-      {/* 置顶与「项目」标题行固定：钉住的内容常驻可见，滚动条也只覆盖项目列表项。 */}
       {(projects.some((project) => preferences[project.id]?.pinned) ||
         projects.some((project) =>
           sessionsByProject[project.id]?.some((session) => session.pinned),

@@ -1,5 +1,4 @@
 // 扁平标签栏：组内拖拽排序、跨组拖放、中键关闭、上下文菜单、激活滚动可见。
-// 视觉：标签栏与内容区同底色，活动标签融入背景，非活动标签为淡灰块；切换不做飞入飞出。
 import { useEffect, useRef, type DragEvent, type KeyboardEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
@@ -35,12 +34,9 @@ export function TabBar({
   const moveTab = useWorkbenchLayout((s) => s.moveTab);
   const togglePin = useWorkbenchLayout((s) => s.togglePin);
   const keepTab = useWorkbenchLayout((s) => s.keepTab);
-  // 标签多到溢出时接住纵向滚轮横滚（VS Code 行为），同一 ref 也用于激活标签滚入可见区。
   const listRef = useHorizontalWheel<HTMLDivElement>();
-  // roving tabindex 的焦点登记：方向键把焦点移到目标标签（选中态跟随，自动激活模式）。
   const tabRefs = useRef(new Map<TabId, HTMLDivElement>());
 
-  // 激活的标签滚动到可见区（VS Code 行为）：标签栏溢出时新激活的标签落在视口外毫无反馈。
   useEffect(() => {
     if (!group.active) return;
     listRef.current
@@ -53,7 +49,6 @@ export function TabBar({
     else tabRefs.current.delete(tab);
   };
 
-  // APG tabs 键盘模式：←/→/Home/End 移动并激活，Enter/Space 激活当前。
   const onTabKeyDown = (event: KeyboardEvent<HTMLDivElement>, tab: TabId) => {
     if (event.target !== event.currentTarget) return;
     const index = group.tabs.indexOf(tab);
@@ -105,7 +100,6 @@ export function TabBar({
     if (target) {
       const tab = target.dataset.tab as TabId;
       index = Math.max(0, group.tabs.indexOf(tab));
-      // 悬停标签后半段 → 插到其后；反馈克制，不移动既有标签位置。
       const rect = target.getBoundingClientRect();
       if (event.clientX > rect.left + rect.width / 2) index += 1;
     }
@@ -117,7 +111,6 @@ export function TabBar({
 
   return (
     <div className="@container flex h-10 min-w-0 shrink-0 bg-surface px-2 pt-1">
-      {/* 目录折叠时的展开入口：只在最左上组的标签栏左端。 */}
       {showReveal && <ExplorerRevealButton className="mb-1 self-end" />}
       <div
         ref={listRef}
@@ -158,7 +151,6 @@ export function TabBar({
                     active && (unfocused ? 'before:bg-ink/25' : 'before:bg-ink'),
                   )}
                   onClick={() => openTab(tab, group.id)}
-                  // 双击预览标签转常驻（VS Code 语义）。
                   onDoubleClick={() => keepTab(tab, group.id)}
                   onKeyDown={(event) => onTabKeyDown(event, tab)}
                   onDragStart={(event) => {
@@ -181,7 +173,6 @@ export function TabBar({
                   <span
                     className={cn(
                       'min-w-0 flex-1 truncate px-0.5 text-left text-xs',
-                      // 斜体只留给预览标签（会被下一次打开替换）；固定标签由缺省的关闭钮区分。
                       isPreview && 'italic',
                       unfocused && 'opacity-55',
                     )}
@@ -216,7 +207,6 @@ export function TabBar({
                 <ContextMenuItem onSelect={() => closeTabs(group.id, 'others', tab)}>
                   关闭其他
                 </ContextMenuItem>
-                {/* 锚点右侧没有未固定标签时无对象可关（固定区受保护），与 closeTabs 的空切片一致。 */}
                 <ContextMenuItem
                   disabled={
                     !group.tabs

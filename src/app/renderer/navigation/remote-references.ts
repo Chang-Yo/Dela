@@ -13,7 +13,6 @@ export interface RemoteReference {
 const noRemoteReferences: RemoteReference[] = [];
 const noLocalFiles: WorkspaceEntry[] = [];
 
-/** 本地目录变动后合并这个窗口内的通知再重读，别一次写入一次请求。 */
 const LOCAL_CHANGE_DEBOUNCE_MS = 300;
 
 const normalized = (value: string) =>

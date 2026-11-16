@@ -6,7 +6,6 @@
 @source '../../../sjtu';
 @source '../../../ui';
 
-/* 品牌图随明暗主题切换：浅色用白底、深色用黑底。 */
 .dela-brand-dark {
   display: none;
 }
@@ -106,11 +105,8 @@
   }
 }
 
-/* 滚动容器常驻竖向滚动条槽位：轨道透明，未溢出时不可见；内容增长只淡入滑块，
-   不再挤占内容宽度触发重排。置于层外以覆盖 Tailwind 的 overflow-y:auto，
-   新增滚动区域自动获得此行为；横向滚动条仍按需出现，不预留高度。
-   例外：Radix 浮层内容容器（data-slot 以 -content 结尾，如 Select / DropdownMenu
-   的弹层）尺寸紧贴内容，常驻槽位会在面板内多出一条空竖槽，故排除，滚动条按需出现。 */
+/* 滚动容器常驻竖向滚动条槽位：轨道透明，内容增长只淡入滑块，不挤占内容宽度。
+   例外：Radix 浮层内容容器（data-slot 以 -content 结尾）尺寸紧贴内容，排除之。 */
 .overflow-y-auto:not([data-slot$='-content']),
 .overflow-auto:not([data-slot$='-content']) {
   overflow-y: scroll;
@@ -119,7 +115,6 @@
 .sidebar-title {
   overflow: hidden;
   white-space: nowrap;
-  /* 沿用 size-6 按钮的间距尺度，只让尾部文字渐隐，不模糊正文。 */
   mask-image: linear-gradient(to right, black calc(100% - var(--spacing) * 6), transparent);
 }
 
@@ -149,7 +144,6 @@
   background: transparent !important;
 }
 
-/* 非 Markdown 文件的预览靠左，PDF / Word 页内原有排版保持不变。 */
 .pdfViewer.dela-pdf-pages .page {
   margin-left: 0;
 }
@@ -158,9 +152,6 @@
   align-items: flex-start;
 }
 
-/* 终端块状光标加圆角：DOM renderer 的光标是真实 DOM 节点（.xterm-rows 行内的
-   .xterm-cursor.xterm-cursor-block），CSS 可直接作用；xterm 注入样式只管底色/前景色，
-   不含圆角，无覆盖冲突。 */
 .xterm .xterm-rows .xterm-cursor-block {
   border-radius: 0.125rem;
 }
@@ -180,19 +171,15 @@
     animation-duration: 0.01ms !important;
   }
 
-  /* 同步/加载指示是必要的活动反馈，保持旋转。 */
   .animate-spin {
     animation-duration: 1s !important;
   }
 }
 
-/* 回复评论：写评论时标出被评论的原文（reply-comment.tsx）。 */
 ::highlight(dela-reply-comment) {
   background-color: color-mix(in oklch, var(--accent) 24%, transparent);
 }
 
-/* 旁问面板：新建与关闭沿右边界整体进出（含 right-3 的 0.75rem）；收起与展开以右上角
-   为原点缩放，与胶囊交叉过渡。 */
 @keyframes slide-in-right {
   from {
     translate: calc(100% + 0.75rem) 0;

@@ -25,7 +25,6 @@ void useShortcuts.getState().load();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {/* 根部兜底：AppShell/侧栏抛错时降级为可重试的错误页，而非整树卸载成白屏。 */}
     <ErrorBoundary title="应用遇到错误">
       <QueryClientProvider client={queryClient}>
         <App />

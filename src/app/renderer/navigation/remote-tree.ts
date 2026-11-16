@@ -12,24 +12,18 @@ import { useRemoteActivity } from './remote-activity';
 import { useRemoteConnections } from './remote-connections';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** 项目根的 path 可能带尾斜杠，远端子路径一律不带：统一后再作缓存与展开键。 */
 const trimSlash = (path: string) => path.replace(/\/+$/, '');
 
-/** 远端变化通知的合并窗口：一次工具调用常连写几个文件，攒一下再重读，别一文件一请求。 */
 const CHANGE_DEBOUNCE_MS = 300;
 
-/** 上报 watch 的合并窗口：展开/收起常成串发生，攒一下只报最终集合。 */
 const WATCH_DEBOUNCE_MS = 150;
 
 const directoryQueries = ['workspace', 'listRemoteDirectory'];
 
-/** 是否落在变化目录之内（含它自己）：这些清单都要重读。 */
 const withinChange = (path: string, changed: string) =>
   path === changed || path.startsWith(`${changed}/`);
 
-/** 展开的远端目录报给主进程做 watch：Dela 之外改的远端文件因此也能自己出现在树里。 */
 function createRemoteWatcher() {
-  /** 已经报给主进程的监视集合（项目 id → 序列化后的路径列表）：没变就不重报。 */
   const reported = new Map<string, string>();
   let wanted = new Map<string, string[]>();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -48,7 +42,6 @@ function createRemoteWatcher() {
     }
   };
   return {
-    /** 窗口内只记最新集合，窗口结束才发；不再展开的项目由 flush 补一次空集合取消监视。 */
     report(next: Map<string, string[]>) {
       wanted = next;
       timer ??= setTimeout(flush, WATCH_DEBOUNCE_MS);
@@ -69,22 +62,14 @@ export const remoteTitle = (destination: string | undefined, path: string) =>
   destination ? `${destination}:${trimSlash(path)}` : trimSlash(path);
 
 export interface RemoteTree {
-  /** 远端项目已缓存子目录对应的树节点（本地条目之外的部分）。 */
   items: ExplorerItem[];
-  /** 远端连接 id → ssh 目的地；行提示用。 */
   destinations: Record<string, string>;
-  /** 正在读取或读取失败的说明；无则 null。 */
   status: string | null;
-  /** helper 通道不可用或重连中的提示（对准这棵树里可见的项目）；无则 null。 */
   degraded: string | null;
-  /** 打开的项目正在首次连接（冷启动几秒）且还没有任何内容：面板该给过渡而不是空着。 */
   connecting: boolean;
 }
 
-/**
- * 传入的必须是这棵树里可见的条目（外加 rootId 自身）：展开态被多棵树共用，不可见的远程
- * 项目不该触发远端请求。rootId 是打开的项目 id，此时项目行不显示，内容直接落在顶层。
- */
+/** 传入的必须是这棵树里可见的条目（外加 rootId）：展开态被多棵树共用，不可见的远程项目不该触发远端请求。 */
 export function useRemoteTree(
   entries: WorkspaceEntry[],
   expanded: string[],
@@ -98,19 +83,16 @@ export function useRemoteTree(
     Object.entries(connections).map(([id, connection]) => [id, connection.host]),
   );
   const [watcher] = useState(createRemoteWatcher);
-  /** 项目自身的展开键与打开的项目 id 等价：项目打开时它必然展开，行本身不在树里。 */
   const isOpen = (key: string) => key === rootId || expanded.includes(key);
 
   const projects = entries.filter(
     (entry) => entry.kind === 'project' && entry.remoteId && entry.path,
   );
   const channels = Object.values(useRemoteChannels(projects.length > 0));
-  /** 远端目录在树里的键：项目根用条目 id（与树里项目行一致），子目录带上项目身份。
-   *  归属只由「从哪个项目走下来」决定，远端路径本身不再参与跨项目的解释。 */
+  /** 子目录键带项目身份：归属由「从哪个项目走下来」决定，远端路径本身不跨项目解释。 */
   const keyOf = (project: WorkspaceEntry, path: string) =>
     trimSlash(project.path!) === path ? project.id : remoteNodeId(project.id, path);
 
-  // 展开且可达的远端目录各是一条查询：子目录要等父目录的清单回来才知道，所以沿缓存往下走。
   const openDirectories: { key: string; projectId: string; path: string; root: boolean }[] = [];
   const visit = (project: WorkspaceEntry, path: string, key: string) => {
     if (!isOpen(key)) return;
@@ -130,9 +112,8 @@ export function useRemoteTree(
     queries: openDirectories.map(({ projectId, path, root }) => ({
       queryKey: [...directoryQueries, projectId, path],
       gcTime: 0,
-      // 项目根这一层就是「连接」：冷启动（探测+上传+启动+隧道+握手）全在这里等，
-      // 所以在状态里报出来，让面板与悬浮提示说的是同一件事。重复读取也照报——
-      // 面板只在「没有任何内容」时才画过渡，热通道那几十毫秒够不到 200ms 的门槛。
+      // 项目根这一层就是「连接」：冷启动全在这里等，所以在状态里报出来；
+      // 面板只在没有任何内容时才画过渡，热通道的几十毫秒够不到 200ms 门槛。
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
         if (root) setPhase(projectId, 'connecting');
         try {
@@ -165,8 +146,7 @@ export function useRemoteTree(
   }, [watcher, watchKey]);
   useEffect(() => watcher.dispose, [watcher]);
 
-  // 远端工具写过文件、跑过 bash，或远端自己变了（watch）：这层自己变了，或它下面的目录变了
-  // ——新条目要现出来，受影响的展开目录重读。
+  // 远端工具改过文件或 watch 报告变化：受影响的展开目录重读。
   useEffect(() => {
     const changed = new Set<string>();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -194,7 +174,6 @@ export function useRemoteTree(
   for (const project of projects) {
     if (!isOpen(project.id)) continue;
     const destination = project.remoteId ? destinations[project.remoteId] : undefined;
-    // 与项目行的云朵取同一个连接色：同一台服务器的行看起来是一家人。
     const accent = remoteAccent(project.remoteId, 'text');
     const walk = (path: string, parentId: string | null) => {
       for (const child of listings[keyOf(project, path)] ?? []) {
@@ -206,7 +185,6 @@ export function useRemoteTree(
           name: child.name,
           container: child.directory,
           readOnly: true,
-          // 远端目录接收本地文件拖放（上传）；内部移动仍被 readOnly 拦住。
           importable: child.directory,
           accent,
           title: remoteTitle(destination, child.path),
@@ -220,9 +198,7 @@ export function useRemoteTree(
   // 只报失败：读取中的提示会在每次展开/收起时插进、抽走一行，整棵树跟着上下跳。
   const status = results.find((result) => result.isError)?.error.message ?? null;
 
-  // 不可用提示按目的地对准：这棵树里有项目连着那台服务器才显示，消息里带上目的地。
-  // 多条通道各自不可用时，一台恢复只让它自己那条从快照里消失，别的提示不受影响。
-  // 不可用优先于重连中：两台服务器各在一种状态时，先说用不了的那台。
+  // 不可用提示按目的地对准：这棵树里有项目连着那台服务器才显示；不可用优先于重连中。
   const visible = channels.filter((channel) =>
     projects.some((project) => destinations[project.remoteId!] === channel.destination),
   );
@@ -234,8 +210,7 @@ export function useRemoteTree(
       ? `与 ${reconnecting.destination} 的连接中断，正在重连；远端正在运行的命令不受影响`
       : null;
 
-  // 首次连接这台服务器时整棵树还没有内容：面板给一个过渡，而不是空着让人以为没有文件。
-  // 逐层展开的读取几十毫秒就回来（还有内容在），不在这里报——那会让树上下跳。
+  // 首次连接时整棵树还没有内容才给过渡；逐层展开的读取很快，报了会让树上下跳。
   const connecting = rootActivity?.phase === 'connecting' && items.length === 0;
 
   return { items, destinations, status, degraded: degradedText, connecting };

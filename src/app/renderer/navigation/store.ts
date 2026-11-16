@@ -12,28 +12,22 @@ export function ancestorChainOf(entries: WorkspaceEntry[], id: string): string[]
   return chain;
 }
 
-/** 目录树里待命名的新条目（VS Code 式行内输入）：parentId 为 null 表示当前树根。 */
 export type PendingCreate = { parentId: string | null; kind: 'file' | 'folder' };
 
 type Store = {
-  /** 同一时刻至多一个；开新的会顶掉旧的（旧的输入未提交即作废）。 */
   pendingCreate: PendingCreate | null;
   startCreate: (pending: PendingCreate) => void;
   cancelCreate: () => void;
   query: string;
   setQuery: (query: string) => void;
-  /** 文件/资料树节点展开态。 */
   expanded: string[];
   expand: (id: string, open: boolean) => void;
-  /** 展开祖先链并选中末位；滚动由树组件负责。 */
   reveal: (chain: string[]) => void;
   collapseAll: () => void;
   selected: string | null;
   select: (id: string | null) => void;
-  /** 项目会话导航：展开的项目区。'general'（通用对话组）默认展开——侧栏中部即会话历史。 */
   openProjects: string[];
   toggleProject: (id: string, open?: boolean) => void;
-  /** 已点「显示更多」的项目；其余项目只显示前几条近期会话。 */
   fullSessionLists: string[];
   toggleFullSessionList: (id: string) => void;
 };

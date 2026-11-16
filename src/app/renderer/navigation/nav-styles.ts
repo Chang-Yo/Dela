@@ -1,4 +1,3 @@
-// 侧栏与标题栏共用样式（beautiful-ui token）。
 import { cn } from '../../../ui/cn';
 
 export const navRow = (active: boolean) =>
@@ -18,6 +17,5 @@ export const navSubRow = (active: boolean) =>
 
 export const navSectionTitle = 'px-2 pb-1 text-xs font-medium text-ink-3';
 
-/** 行尾悬浮操作区：盖住被截断的标题尾部。 */
 export const rowActions =
   'pointer-events-none absolute right-1 flex items-center gap-0.5 opacity-0 transition-opacity duration-base group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100 max-md:pointer-events-auto max-md:opacity-100';

@@ -14,7 +14,6 @@ import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../../modul
 import { showToast } from '../../../ui/toast';
 import { errorMessage } from '../../../core/protocol/contract';
 
-/** 重命名前先冲盘，成功后一次迁移本窗口已知路径与草稿。 */
 export async function updateEntry(
   id: string,
   input: { name?: string; parentId?: string | null; kind?: 'folder' | 'project' },
@@ -53,7 +52,6 @@ export const runEntryWork = async (work: () => Promise<void>) => {
   }
 };
 
-/** id 是否位于 ancestor 的子树内（含多级）；移动落点合法性检查用。 */
 export function isDescendant(entries: WorkspaceEntry[], id: string, ancestor: string): boolean {
   let parent = entries.find((e) => e.id === id)?.parentId;
   while (parent) {
@@ -63,7 +61,6 @@ export function isDescendant(entries: WorkspaceEntry[], id: string, ancestor: st
   return false;
 }
 
-/** 拖放移动条目；移进自身子树的操作静默忽略。 */
 export function moveEntry(
   dragId: string,
   targetId: string | null,
@@ -80,7 +77,6 @@ export function moveEntry(
   });
 }
 
-/** 拖放导入本地文件到目标目录（targetId 为 null 时落到 rootId）。 */
 export function importDroppedFiles(
   files: File[],
   targetId: string | null,
@@ -103,7 +99,6 @@ export function importFromDialog(parentId: string | null) {
   });
 }
 
-/** 归档条目（移入归档区）；onArchived 用于展开「归档」区。 */
 export function archiveEntry(id: string, onArchived?: () => void) {
   void runEntryWork(async () => {
     await updateEntry(id, { parentId: workspaceArchiveId });
@@ -120,7 +115,6 @@ export function promoteEntry(id: string, onOpenProject: (id: string) => void) {
   });
 }
 
-/** 保存为笔记的正文预填：显式 text 优先；否则按当前打开的资料拼来源 header。 */
 export function prefillNoteText(
   activeKey: string | null,
   text: string,

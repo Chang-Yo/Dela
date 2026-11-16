@@ -1,6 +1,5 @@
-// 新建远程项目：一个面板走完。上面是项目名称与服务器下拉框（已保存的连接 + ~/.ssh/config 里的主机），
-// 选中服务器就自动连上（已连上的直接跳过），下面是目录选择器。连接表单在同一个面板里切换，
-// 与「设置 › 远程」共用。事实都在主进程；这里只记「每台服务器上次停在哪个目录」这类偏好。
+// 新建远程项目：一个面板走完，选中服务器就自动连上，下面是目录选择器；连接表单与「设置 › 远程」共用。
+// 事实都在主进程；这里只记「每台服务器上次停在哪个目录」这类偏好。
 import { useState } from 'react';
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Settings2 } from 'lucide-react';
@@ -62,7 +61,6 @@ const destinationOf = (connection: Pick<RemoteConnection, 'host' | 'port'>) =>
 
 const basename = (path: string) => path.split('/').filter(Boolean).at(-1) ?? '';
 
-/** 下拉框里候选的副标题：config 里的 User@HostName:Port，没写的就不显示。 */
 function candidateDetail(host: SshConfigHost): string {
   const target = host.hostName ? `${host.user ? `${host.user}@` : ''}${host.hostName}` : '';
   return `${target}${host.port ? `:${host.port}` : ''}` || 'ssh config';
@@ -74,7 +72,6 @@ export function NewRemoteProjectDialog({
   open,
   onClose,
   onImported,
-  /** 打开时直接选中的连接（设置页「新建项目」或项目行进来时）。 */
   initialConnectionId,
 }: {
   open: boolean;
@@ -140,7 +137,6 @@ function NewRemoteProjectPanel({
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // 默认选中传进来的、或上次用过的那台、或第一台；用户选过之后以用户的为准。
   const preferred =
     connections?.find((item) => item.id === initialConnectionId) ??
     connections?.find((item) => lastDirectory[item.host]) ??
@@ -149,10 +145,8 @@ function NewRemoteProjectPanel({
   const connection = connections?.find((item) => item.id === connectionId) ?? null;
   const destination = connection?.host ?? '';
   const home = connection ? (homes[destination] ?? null) : null;
-  // 目录就是用户上次停在的位置，没有就从主目录起步。
   const path = connection ? (lastDirectory[destination] ?? home) : null;
   const target = selected ?? path;
-  // 名字默认跟着目录走；用户自己改过就不再跟。
   const name = typedName ?? (target ? basename(target) || target : '');
 
   // 选中服务器就连：同一时刻只认当前这台，换台之后旧的结果落不到新的服务器上。
@@ -169,7 +163,6 @@ function NewRemoteProjectPanel({
       : skipToken,
     gcTime: 0,
   });
-  // 已经连上过：直接回到上次的位置，连接在后台确认一遍，不打扰。
   const warm = channels[destination]?.state === 'ready' && home !== null;
   const connecting = prepare.isFetching && !warm;
   const failure = prepare.isFetching
@@ -218,7 +211,6 @@ function NewRemoteProjectPanel({
     rememberDirectory(destination, next);
   };
 
-  // 这台服务器上已登记过的项目目录，最近的在前。
   const recent = projects
     .filter((entry) => entry.kind === 'project' && entry.remoteId === connectionId && entry.path)
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
@@ -306,7 +298,6 @@ function NewRemoteProjectPanel({
                             className={cn('size-1.5 shrink-0 rounded-full', dot.className)}
                           />
                           <span className="truncate">{item.label}</span>
-                          {/* 名称默认就是目的地：两者相同时不重复写一遍。 */}
                           {destinationOf(item) !== item.label && (
                             <span className="truncate font-normal text-ink-3">
                               {destinationOf(item)}

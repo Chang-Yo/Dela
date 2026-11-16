@@ -14,7 +14,6 @@ export function encodeTabDrag(payload: TabDragPayload): string {
   return JSON.stringify(payload);
 }
 
-/** 解析拖拽负载；数据缺失或来自无关拖拽源时返回 null（调用方静默忽略）。 */
 export function parseTabDrag(raw: string | null | undefined): TabDragPayload | null {
   if (!raw) return null;
   try {
@@ -36,7 +35,6 @@ export function hasTabDrag(dataTransfer: { types: readonly string[] }): boolean 
   return dataTransfer.types.includes(tabDragType);
 }
 
-/** 边缘拖放分屏的目标区：left/right → 左右（vertical），top/bottom → 上下（horizontal）。 */
 const edgeZones = ['left', 'right', 'top', 'bottom'] as const;
 export type EdgeZone = (typeof edgeZones)[number];
 

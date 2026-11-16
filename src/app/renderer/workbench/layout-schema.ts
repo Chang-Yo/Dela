@@ -1,5 +1,4 @@
-// 布局类型 re-export与树操作纯函数。
-// 类型与校验 schema 的唯一事实来源是 modules/workspace/layout.ts；本文件是 renderer 侧的工作台适配层。
+// 类型与校验 schema 的唯一事实来源是 modules/workspace/layout.ts；本文件是 renderer 侧的树操作适配层。
 import {
   ratioMax,
   ratioMin,
@@ -25,10 +24,8 @@ export {
   ratioMin,
 } from '../../../modules/workspace/contract';
 
-/** 固定区恒在未固定区之前（VS Code 语义）：载入时归一，过滤失效引用，容忍手工改动。 */
 function normalizeGroup(group: GroupNode): GroupNode {
   const pinned = [...new Set(group.pinned ?? [])].filter((tab) => group.tabs.includes(tab));
-  // 预览标签必须仍在组内且未固定；失效引用直接丢掉（标签保留为常驻）。
   const preview =
     group.preview && group.tabs.includes(group.preview) && !pinned.includes(group.preview)
       ? group.preview
@@ -41,7 +38,6 @@ function normalizeGroup(group: GroupNode): GroupNode {
   };
 }
 
-/** 持久化数据（IPC 或其他来源）→ 布局；不合法返回 null，由调用方落到种子/默认。 */
 export function parseWorkbenchLayout(value: unknown): WorkbenchLayout | null {
   const parsed = workbenchLayoutSchema.safeParse(value);
   if (!parsed.success) return null;
@@ -60,7 +56,6 @@ export function countNodes(node: LayoutNode): number {
     : 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
 }
 
-/** split 嵌套深度（组 = 0）；测试断言布局嵌套用。 */
 export function splitDepth(node: LayoutNode): number {
   return node.type === 'group' ? 0 : 1 + Math.max(...node.children.map(splitDepth));
 }
@@ -81,7 +76,6 @@ export function nextGroupId(root: LayoutNode): string {
   return `g${n}`;
 }
 
-/** 不可变更新指定组；update 返回仍须是组节点。 */
 export function updateGroup(
   node: LayoutNode,
   id: string,
@@ -90,7 +84,6 @@ export function updateGroup(
   return replaceGroupNode(node, id, (group) => update(group));
 }
 
-/** 用任意布局节点替换指定组（splitGroup/边缘分屏用它把组包进新 split）。 */
 export function replaceGroupNode(
   node: LayoutNode,
   id: string,
@@ -100,7 +93,6 @@ export function replaceGroupNode(
   return { ...node, children: node.children.map((child) => replaceGroupNode(child, id, next)) };
 }
 
-/** 删除指定组并收敛树：split 只剩一个子节点时上提该子节点。根组不删除（空组合法）。 */
 export function removeGroup(node: LayoutNode, id: string): LayoutNode {
   if (node.type === 'group') return node;
   const remaining = node.children
@@ -110,7 +102,6 @@ export function removeGroup(node: LayoutNode, id: string): LayoutNode {
   return { ...node, children: remaining };
 }
 
-/** 从根到节点的子索引路径（setRatio 用它定位 split）。 */
 export function nodeAtPath(root: LayoutNode, path: readonly number[]): LayoutNode | null {
   let node: LayoutNode | null = root;
   for (const index of path) {
@@ -142,7 +133,6 @@ export function createDefaultLayout(): WorkbenchLayout {
   return { root, focus: 'primary', maximized: null };
 }
 
-/** 载入布局或拖走最后一个标签后，只保留有内容的组；根空组仍可接收打开内容。 */
 export function collapseEmptyGroups(layout: WorkbenchLayout): WorkbenchLayout {
   const prune = (node: LayoutNode): LayoutNode | null => {
     if (node.type === 'group') return node.tabs.length ? node : null;

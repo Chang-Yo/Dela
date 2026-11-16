@@ -37,12 +37,10 @@ export function SessionRow({
 }: {
   session: NavSessionSummary;
   projectName?: string;
-  /** 所属项目是远端时，悬停卡里的项目图标与侧栏一样用云朵。 */
   remoteId?: string | null;
   badge?: SessionRunBadge;
   active?: boolean;
   onOpen: (id: string) => void;
-  /** 兼容装配接口名；此回调现在仅归档。 */
   onDelete?: (id: string) => void | Promise<void>;
 }) {
   const ProjectIcon = remoteId ? Cloud : Folder;

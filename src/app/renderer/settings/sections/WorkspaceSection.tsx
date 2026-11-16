@@ -21,7 +21,6 @@ function currentProjectId(): string | null {
   return raw ? raw : null;
 }
 
-/** 设置 › 工作区：工作目录与当前项目布局重置。 */
 export function WorkspaceSection() {
   const directory = useWorkspaceStore((state) => state.workspace.directory);
   const [busy, setBusy] = useState(false);
@@ -37,7 +36,6 @@ export function WorkspaceSection() {
       );
   };
 
-  // 重置 = 把当前项目布局写回默认单组：下次进入该项目（或重启）时生效。
   const resetLayout = async () => {
     if (!window.dela || busy) return;
     setBusy(true);
