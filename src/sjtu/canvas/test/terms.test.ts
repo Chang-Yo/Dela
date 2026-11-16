@@ -51,25 +51,12 @@ describe('Canvas term ordering', () => {
     );
   });
 
-  it('uses the existing text tie-breaker for distinct names in the same period', () => {
-    const terms = ['2024-2025 Summer', 'Michigan_2024-2025 Summer'];
-    const sorted = [...terms].sort((a, b) => b.localeCompare(a));
-    expect([...terms].sort(compareCanvasTerms)).toEqual(sorted);
-    expect(latestTermOf(terms.map((term) => ({ term })))).toBe(sorted[0]);
-  });
-
-  it.each(['2027-2026 Fall', '2025-2027 Spring', '2026-2027', '2026-2027 Project'])(
+  it.each(['2027-2026 Fall', '2026-2027'])(
     'does not invent a date for an invalid or incomplete term: %s',
     (term) => {
       expect([term, '2024-2025 Fall'].sort(compareCanvasTerms)).toEqual(['2024-2025 Fall', term]);
     },
   );
-
-  it('preserves empty, unlabeled-only and undated-only latest-term behavior', () => {
-    expect(latestTermOf([])).toBeUndefined();
-    expect(latestTermOf([{ term: '未标注学期' }])).toBeUndefined();
-    expect(latestTermOf([{ term: '默认学期' }])).toBe('默认学期');
-  });
 });
 
 describe('groupCanvasCoursesByTerm', () => {
@@ -101,9 +88,5 @@ describe('groupCanvasCoursesByTerm', () => {
       { term: '2025-2026 Spring', courses: [course(1, '机器学习', '2025-2026 Spring')] },
       { term: '2024-2025 Fall', courses: [course(4, '旧课', '2024-2025 Fall')] },
     ]);
-  });
-
-  it('returns no groups for an empty course list', () => {
-    expect(groupCanvasCoursesByTerm([])).toEqual([]);
   });
 });

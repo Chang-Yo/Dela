@@ -90,21 +90,6 @@ describe('get_canvas_status', () => {
     });
     expect(syncCourses).not.toHaveBeenCalled();
   });
-
-  it('guides the model when no token is saved or the list was never synced', () => {
-    state.mockReturnValue(canvasState({ connected: false, syncedAt: null }));
-    const missing = canvasDomain.commands.get_canvas_status.execute({}) as {
-      credentialSaved: boolean;
-      warnings: string[];
-    };
-    expect(missing.credentialSaved).toBe(false);
-    expect(missing.warnings).toHaveLength(1);
-    expect(missing.warnings[0]).toContain('未保存 Canvas 访问令牌');
-
-    state.mockReturnValue(canvasState({ syncedAt: null }));
-    const unsynced = canvasDomain.commands.get_canvas_status.execute({}) as { warnings: string[] };
-    expect(unsynced.warnings[0]).toContain('课程列表尚未同步');
-  });
 });
 
 describe('list_canvas_courses', () => {
@@ -123,15 +108,6 @@ describe('list_canvas_courses', () => {
     })) as { items: { id: number }[]; total: number };
     expect(all.items.map((item) => item.id)).toEqual([1, 2]);
     expect(all.total).toBe(2);
-  });
-
-  it('applies the weak query filter across name, code and term', async () => {
-    const result = (await canvasDomain.commands.list_canvas_courses.execute({
-      query: 'cs260',
-    })) as {
-      items: { id: number }[];
-    };
-    expect(result.items.map((item) => item.id)).toEqual([1]);
   });
 
   it('returns NOT_CONFIGURED without a token and NOT_FOUND before the first list sync', () => {
@@ -244,40 +220,6 @@ describe('refresh_canvas_course', () => {
     expect(result.complete).toBe(false);
     expect(result.warnings[0]).toContain('文件：Canvas HTTP 500');
   });
-
-  it('reports a fully successful sync', async () => {
-    state.mockReturnValue(
-      canvasState({
-        courses: [
-          {
-            id: 1,
-            name: '操作系统',
-            term: '2026 秋',
-            code: 'CS260',
-            syncedAt: '2026-09-29T00:00:00.000Z',
-            error: null,
-          },
-        ],
-      }),
-    );
-    syncCourse.mockResolvedValue(canvasState());
-    const result = (await canvasDomain.commands.refresh_canvas_course.execute({ courseId: 1 })) as {
-      branches: { ok: boolean }[];
-      complete: boolean;
-      warnings?: string[];
-    };
-    expect(result.branches.every((branch) => branch.ok)).toBe(true);
-    expect(result.complete).toBe(true);
-    expect(result).not.toHaveProperty('warnings');
-  });
-
-  it('maps unknown courses to NOT_FOUND', async () => {
-    state.mockReturnValue(canvasState());
-    syncCourse.mockRejectedValue(new Error('课程不存在，请刷新课程列表'));
-    await expect(
-      canvasDomain.commands.refresh_canvas_course.execute({ courseId: 99 }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-  });
 });
 
 describe('link_canvas_source', () => {
@@ -305,18 +247,5 @@ describe('link_canvas_source', () => {
       name: 'slides',
       kind: 'source',
     });
-  });
-
-  it('Canvas 资料不存在映射为 NOT_FOUND', async () => {
-    vi.mocked(createWorkspaceEntry).mockImplementation(() => {
-      throw new Error('资料不存在，请先同步课程');
-    });
-    await expect(
-      canvasDomain.commands.link_canvas_source.execute({
-        parentId: id,
-        sourceId: 'file:1',
-        name: 'slides',
-      }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });

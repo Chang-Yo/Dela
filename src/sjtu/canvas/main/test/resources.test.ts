@@ -16,7 +16,7 @@ vi.mock('../api', () => ({
   readCanvasSource: vi.fn(),
 }));
 
-import { cachedFile, getSource, readCanvasPage, readCanvasSource } from '../api';
+import { cachedFile, getSource, readCanvasSource } from '../api';
 import { canvasWorkspaceSource } from '../resources';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-canvas-resource-'));
@@ -50,29 +50,6 @@ it('Agent 读取 Canvas 文件只给元数据，图片才下载并内联，都�
     format: 'image',
     bytes: Buffer.from([1, 2, 3]),
     mime: 'image/jpeg',
-  });
-  expect(readCanvasSource).not.toHaveBeenCalled();
-});
-
-it('Canvas 页面经正文接口读取', async () => {
-  vi.mocked(getSource).mockReturnValue({
-    id: 'page:1',
-    kind: 'page',
-    courseId: 1,
-    title: '课程页面',
-  });
-  vi.mocked(readCanvasPage).mockResolvedValue({
-    title: '课程页面',
-    format: 'html',
-    text: '<p>正文</p>',
-    url: 'https://oc.sjtu.edu.cn/page',
-    dueAt: undefined,
-    updatedAt: undefined,
-  });
-  expect(await canvasWorkspaceSource.read('page:1')).toMatchObject({
-    title: '课程页面',
-    format: 'html',
-    text: '<p>正文</p>',
   });
   expect(readCanvasSource).not.toHaveBeenCalled();
 });

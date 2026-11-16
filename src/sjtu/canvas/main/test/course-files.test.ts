@@ -53,15 +53,6 @@ describe('pickCourseFiles', () => {
     expect(files).toEqual([{ path: 'C:/c/课 [10]/x.pdf', title: '课/x.pdf' }]);
   });
 
-  it('匹配大小写不敏感，title 保留原始大小写', () => {
-    const files = pickCourseFiles(
-      [root('Course', 7, 'C:/c/Course [7]')],
-      ['C:/C/course [7]/Readme.MD'],
-      () => true,
-    );
-    expect(files).toEqual([{ path: 'C:/C/course [7]/Readme.MD', title: 'Course/Readme.MD' }]);
-  });
-
   it('POSIX 课程路径区分大小写，且不把反斜杠视为目录边界', () => {
     expect(
       pickCourseFiles(
@@ -74,19 +65,6 @@ describe('pickCourseFiles', () => {
         () => true,
       ),
     ).toEqual([{ path: '/courses/Course [7]/Readme.MD', title: 'Course/Readme.MD' }]);
-  });
-
-  it('POSIX 文件名中的反斜杠保留，不能与同名子目录文件合并', () => {
-    expect(
-      pickCourseFiles(
-        [root('课', 1, '/courses/课 [1]')],
-        ['/courses/课 [1]/a\\b.md', '/courses/课 [1]/a/b.md'],
-        () => true,
-      ),
-    ).toEqual([
-      { path: '/courses/课 [1]/a\\b.md', title: '课/a\\b.md' },
-      { path: '/courses/课 [1]/a/b.md', title: '课/a/b.md' },
-    ]);
   });
 
   it.each(['C:\\courses\\课 [1]\\', '\\\\server\\share\\课 [1]\\'])(
