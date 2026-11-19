@@ -35,5 +35,11 @@ function removeTree(path: string) {
 export function v9tov10(db: Database.Database, context: MigrationContext): void {
   const remove = db.prepare('DELETE FROM workspace_settings WHERE key = ?');
   for (const key of removedSettings) remove.run(key);
-  for (const path of removedPaths) removeTree(join(context.userData, ...path));
+  for (const path of removedPaths)
+    try {
+      removeTree(join(context.userData, ...path));
+    } catch (error) {
+      // 杀毒软件等占用文件时删不掉；残留只占空间，不能因此让整个升级失败、应用打不开
+      console.warn('清理 Pi packages 残留失败', error);
+    }
 }
