@@ -144,7 +144,7 @@ export function campusRequest(
     request.on('response', (response) => {
       const status = response.statusCode;
       if (!Number.isInteger(status) || status < 200 || status > 599) {
-        fail(new Error(`${options.service}返回了无效状态，请稍后重试或重新登录`));
+        fail(new Error(`${options.service}返回了非标准 HTTP 状态 ${status}，请稍后重试或重新登录`));
         return;
       }
       if (
@@ -195,6 +195,8 @@ export interface CampusLoginOptions {
    * 探测失败不关窗；页内导航及定时重探覆盖 SPA 与异步登录完成。
    */
   readonly retryProbe?: boolean;
+  /** 认证失败后可切换的回退入口；同源入口只重探，不重复导航。 */
+  readonly retryUrl?: () => string | undefined;
 }
 
 export function createCampusLoginWindow(sender: WebContents, title: string): BrowserWindow {
@@ -277,6 +279,16 @@ export async function openCampusLoginWindow(
         } catch (error) {
           if (options.retryProbe) {
             checking = false;
+            const retryUrl = error instanceof CampusAuthError ? options.retryUrl?.() : undefined;
+            if (retryUrl && new URL(retryUrl).origin !== new URL(currentUrl).origin) {
+              void loginWindow.loadURL(retryUrl).catch((retryError: unknown) => {
+                if (retryError instanceof Error && retryError.message.includes('(-3)')) return;
+                finish({
+                  ok: false,
+                  error: retryError instanceof Error ? retryError.message : String(retryError),
+                });
+              });
+            }
             return;
           }
           finish({ ok: false, error: error instanceof Error ? error.message : String(error) });
@@ -300,6 +312,7 @@ export async function openCampusLoginWindow(
       }
     });
     void loginWindow.loadURL(options.url).catch((error: unknown) => {
+      if (options.retryProbe && error instanceof Error && error.message.includes('(-3)')) return;
       finish({ ok: false, error: error instanceof Error ? error.message : String(error) });
     });
   });

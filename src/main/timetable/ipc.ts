@@ -18,7 +18,9 @@ export function registerTimetableIpc(): void {
   ipcMain.handle('timetable:get-state', async (_event, requested?: unknown) =>
     getTimetableState(requested),
   );
-  ipcMain.handle('timetable:connect', (event) => openLoginWindow(event.sender));
+  ipcMain.handle('timetable:connect', (event, source?: unknown) =>
+    openLoginWindow(event.sender, source),
+  );
   ipcMain.handle('timetable:disconnect', async (): Promise<TimetableResult> => {
     await clearCampusSession();
     return { ok: true };
@@ -38,7 +40,7 @@ export function registerTimetableIpc(): void {
   ipcMain.handle('timetable:set-semester-start', (_event, requested?: unknown, value?: unknown) =>
     setSemesterStart(requested, value),
   );
-  ipcMain.handle('timetable:sync', (_event, requested?: unknown) =>
-    syncTimetable(resolveSemester(requested)),
+  ipcMain.handle('timetable:sync', (_event, requested?: unknown, source?: unknown) =>
+    syncTimetable(resolveSemester(requested), source),
   );
 }

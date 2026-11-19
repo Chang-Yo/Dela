@@ -7,46 +7,56 @@ export const GRADUATE_LOGIN_URL = `${GRADUATE_CAMPUS_ORIGIN}/gsapp/sys/wdkbapp/*
 const SCHEDULE_URL = `${GRADUATE_CAMPUS_ORIGIN}/gsapp/sys/wdkbapp/modules/xskcb/xspkjgcx.do`;
 const COURSES_URL = `${GRADUATE_CAMPUS_ORIGIN}/gsapp/sys/wdkbapp/modules/xskcb/xsjxrwcx.do`;
 
+const requiredText = z.union([z.string(), z.number()]).transform(String);
+const optionalText = z.string().nullish();
+const positiveInteger = (maximum: number) => z.coerce.number().int().min(1).max(maximum);
+const responseCode = z.union([z.literal('0'), z.literal(0)]);
+
 const scheduleRowSchema = z
   .object({
-    BJDM: z.string(),
-    BJMC: z.string().nullable(),
-    JASMC: z.string().nullable(),
-    JSJCDM: z.number().int().min(1).max(20),
-    JSXM: z.string().nullable(),
-    KBBZ: z.string().nullable(),
-    KCDM: z.string(),
-    KCMC: z.string(),
-    KSJCDM: z.number().int().min(1).max(20),
-    WID: z.string(),
-    XQ: z.number().int().min(1).max(7),
+    BJDM: requiredText,
+    BJMC: optionalText,
+    JASMC: optionalText,
+    JSJCDM: positiveInteger(20),
+    JSXM: optionalText,
+    KBBZ: optionalText,
+    KCDM: requiredText,
+    KCMC: requiredText,
+    KSJCDM: positiveInteger(20),
+    WID: requiredText,
+    XQ: positiveInteger(7),
     ZCBH: z.string().regex(/^[01]+$/),
-    ZCMC: z.string(),
+    ZCMC: optionalText,
   })
   .passthrough();
 
 const courseRowSchema = z
   .object({
-    BJDM: z.string(),
-    BJMC: z.string().nullable(),
-    KCDM: z.string(),
-    KCMC: z.string(),
-    RKJS: z.string().nullable(),
-    SCSKRQ: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    XKBZ: z.string().nullable(),
-    XQDM_DISPLAY: z.string().nullable(),
+    BJDM: requiredText,
+    BJMC: optionalText,
+    KCDM: requiredText,
+    KCMC: requiredText,
+    RKJS: optionalText,
+    SCSKRQ: optionalText,
+    XKBZ: optionalText,
+    XQDM_DISPLAY: optionalText,
   })
   .passthrough();
 
 const scheduleResponseSchema = z.object({
-  code: z.literal('0'),
-  datas: z.object({ xspkjgcx: z.object({ rows: z.array(scheduleRowSchema) }) }),
+  code: responseCode,
+  datas: z.object({ xspkjgcx: z.object({ rows: z.array(z.unknown()) }) }),
 });
 
 const courseResponseSchema = z.object({
-  code: z.literal('0'),
-  datas: z.object({ xsjxrwcx: z.object({ rows: z.array(courseRowSchema) }) }),
+  code: responseCode,
+  datas: z.object({ xsjxrwcx: z.object({ rows: z.array(z.unknown()) }) }),
 });
+
+function responseError(path: string | undefined, message: string | undefined): Error {
+  const details = path ? `（${path}${message ? `：${message}` : ''}）` : '';
+  return new Error(`研究生课表返回了无法识别的数据${details}`);
+}
 
 export type GraduateScheduleRow = z.infer<typeof scheduleRowSchema>;
 export type GraduateCourseRow = z.infer<typeof courseRowSchema>;
@@ -141,7 +151,7 @@ export function mapGraduateTimetable(
         endPeriod: last.JSJCDM,
         periodsText:
           first.KSJCDM === last.JSJCDM ? `${first.KSJCDM}节` : `${first.KSJCDM}-${last.JSJCDM}节`,
-        weeksText: first.ZCMC.trim(),
+        weeksText: first.ZCMC?.trim() || '周次未提供',
         weekNumbers: JSON.stringify(weekNumbers(first.ZCBH)),
         credits: null,
         note: course?.XKBZ?.trim() || first.KBBZ?.trim() || null,
@@ -194,10 +204,27 @@ export async function fetchGraduateTimetable(semester: string) {
   }
   const schedule = scheduleResponseSchema.safeParse(schedulePayload);
   const course = courseResponseSchema.safeParse(coursePayload);
-  if (!schedule.success || !course.success) throw new Error('研究生课表返回了无法识别的数据');
-  return mapGraduateTimetable(
-    semester,
-    schedule.data.datas.xspkjgcx.rows,
-    course.data.datas.xsjxrwcx.rows,
+  if (!schedule.success || !course.success) {
+    const issues = [
+      ...(schedule.success ? [] : schedule.error.issues),
+      ...(course.success ? [] : course.error.issues),
+    ];
+    throw responseError(issues[0]?.path.join('.'), issues[0]?.message);
+  }
+  const rawScheduleRows = schedule.data.datas.xspkjgcx.rows;
+  const parsedScheduleRows = rawScheduleRows.map((row) => scheduleRowSchema.safeParse(row));
+  const scheduleRows = parsedScheduleRows.flatMap((result) =>
+    result.success ? [result.data] : [],
   );
+  if (rawScheduleRows.length > 0 && scheduleRows.length === 0) {
+    const result = parsedScheduleRows[0];
+    const path = result && !result.success ? result.error.issues[0]?.path.join('.') : undefined;
+    const message = result && !result.success ? result.error.issues[0]?.message : undefined;
+    throw responseError(path ? `datas.xspkjgcx.rows.0.${path}` : undefined, message);
+  }
+  const courseRows = course.data.datas.xsjxrwcx.rows.flatMap((row) => {
+    const result = courseRowSchema.safeParse(row);
+    return result.success ? [result.data] : [];
+  });
+  return mapGraduateTimetable(semester, scheduleRows, courseRows);
 }

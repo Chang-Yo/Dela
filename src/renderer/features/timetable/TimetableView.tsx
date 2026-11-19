@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react';
-import type { CalendarEvent, TimetableLesson, TimetableState, TodoItem } from '../../../shared/api';
+import type {
+  CalendarEvent,
+  TimetableLesson,
+  TimetableSource,
+  TimetableState,
+  TodoItem,
+} from '../../../shared/api';
 import { Button } from '../../components/ui/button';
 import { DesktopOnlyNotice } from '../../components/ui/desktop-only-notice';
 import {
@@ -59,6 +65,10 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [semester, setSemester] = useState<string | null>(null);
+  const [source, setSource] = useState<TimetableSource>(() => {
+    const saved = localStorage.getItem('dela.timetable.source');
+    return saved === 'graduate' ? 'graduate' : 'undergraduate';
+  });
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [month, setMonth] = useState(() => startOfDay(new Date()));
   const [mode, setMode] = useState<CalendarMode>('week');
@@ -67,6 +77,11 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
   const [eventDraft, setEventDraft] = useState<{ start: Date; end: Date } | null>(null);
   const [semesterDraft, setSemesterDraft] = useState(false);
   const [detail, setDetail] = useState<CalendarItemDetail | null>(null);
+  const changeSource = (next: TimetableSource) => {
+    setSource(next);
+    localStorage.setItem('dela.timetable.source', next);
+    setError(null);
+  };
   /** 上次已加载的学期：据此判断是否把选中周归位到本周。 */
   const loadedSemesterRef = useRef<string | null>(null);
 
@@ -190,9 +205,13 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
     setBusy(true);
     setError(null);
     try {
-      const failure = await connectAndSyncTimetable(semester ?? undefined);
+      const failure = await connectAndSyncTimetable(semester ?? undefined, source);
       if (failure) {
-        showToast({ variant: 'error', title: '登录同步失败', description: failure });
+        showToast({
+          variant: 'error',
+          title: '登录同步失败',
+          description: failure,
+        });
         return;
       }
       await loadSemester(semester ?? undefined);
@@ -205,7 +224,7 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
     setBusy(true);
     setError(null);
     try {
-      const result = await timetable.syncNow(semester ?? undefined);
+      const result = await timetable.syncNow(semester ?? undefined, source);
       if (!result.ok) {
         // 会话过期是唯一需要登录介入的同步失败：直接转入登录并同步流程。
         if (result.reason === 'auth') {
@@ -343,6 +362,15 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
               ))}
             </SelectContent>
           </Select>
+          <Select onValueChange={(value) => changeSource(value as TimetableSource)} value={source}>
+            <SelectTrigger aria-label="课表来源" className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="undergraduate">本科</SelectItem>
+              <SelectItem value="graduate">研究生</SelectItem>
+            </SelectContent>
+          </Select>
           {mode === 'week' ? (
             <Select
               onValueChange={(value) => setSelectedWeek(Number(value))}
@@ -384,7 +412,11 @@ function DesktopTimetableView({ onOpenTodo }: { onOpenTodo?: (todoId: string) =>
 
       {!state.lastSyncedAt ? (
         <div className="grid flex-1 place-items-center p-6">
-          <TimetableConnectCard semester={semester} onSuccess={() => void loadSemester(semester)} />
+          <TimetableConnectCard
+            semester={semester}
+            source={source}
+            onSuccess={() => void loadSemester(semester)}
+          />
         </div>
       ) : mode === 'week' ? (
         <WeekCalendar

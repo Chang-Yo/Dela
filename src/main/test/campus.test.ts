@@ -303,6 +303,35 @@ describe('openCampusLoginWindow', () => {
     expect(loginWindow.closeCalled).toBe(true);
   });
 
+  it('认证失败后切换回退入口并重探', async () => {
+    mock.load.mockRejectedValueOnce(new Error(" (-3) loading 'https://i.sjtu.edu.cn/'"));
+    const probe = vi
+      .fn()
+      .mockRejectedValueOnce(new CampusAuthError('登录失效'))
+      .mockResolvedValue(undefined);
+    const pending = openCampusLoginWindow({
+      sender,
+      title: '登录课表',
+      url: 'https://i.sjtu.edu.cn/',
+      reached: (url) =>
+        url.startsWith('https://i.sjtu.edu.cn/') || url.startsWith('https://yjs.sjtu.edu.cn/'),
+      retryProbe: true,
+      retryUrl: () => 'https://yjs.sjtu.edu.cn/',
+      probe,
+    });
+    await flush();
+    const loginWindow = asWindow();
+    loginWindow.webContents.emit('did-navigate', {}, 'https://i.sjtu.edu.cn/');
+    await flush();
+    expect(loginWindow.closeCalled).toBe(false);
+    expect(mock.load).toHaveBeenCalledTimes(2);
+
+    loginWindow.webContents.emit('did-navigate', {}, 'https://yjs.sjtu.edu.cn/');
+    await expect(pending).resolves.toEqual({ ok: true });
+    expect(probe).toHaveBeenCalledTimes(2);
+    expect(loginWindow.closeCalled).toBe(true);
+  });
+
   it('默认语义（课表）：到达目标域后探活失败即关窗返回错误', async () => {
     const probe = vi.fn().mockRejectedValue(new Error('课表接口失败'));
     const pending = openCampusLoginWindow({
@@ -397,6 +426,14 @@ describe('campusRequest', () => {
     });
     expect((caught as Error).message).toBe('无法连接课表，请检查网络');
     expect((caught as Error).cause).toBe('transient');
+    expect(request.abort).toHaveBeenCalledOnce();
+  });
+
+  it('非标准状态码包含实际值', async () => {
+    const request = mockRequest(901);
+    await expect(campusRequest({} as Session, url, options)).rejects.toThrow(
+      '课表返回了非标准 HTTP 状态 901',
+    );
     expect(request.abort).toHaveBeenCalledOnce();
   });
 

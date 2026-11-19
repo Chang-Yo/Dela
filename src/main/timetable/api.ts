@@ -5,6 +5,7 @@ import {
   type CalendarEvent,
   type TimetableLesson,
   type TimetableResult,
+  type TimetableSource,
   type TimetableState,
 } from '../../shared/api';
 import { getDatabase } from '../database';
@@ -49,6 +50,7 @@ const responseSchema = z
   })
   .passthrough();
 const semesterSchema = z.string().regex(/^\d{4}-\d{4}-[123]$/);
+const timetableSourceSchema = z.enum(['auto', 'undergraduate', 'graduate']);
 const dateTimeSchema = z.string().datetime();
 const calendarEventSchema = z
   .object({
@@ -215,7 +217,13 @@ function mapRow(row: LessonRow): TimetableLesson {
   };
 }
 
-export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
+export function openLoginWindow(
+  sender: WebContents,
+  requestedSource?: unknown,
+): Promise<TimetableResult> {
+  const source = timetableSourceSchema.optional().parse(requestedSource) ?? 'auto';
+  if (source === 'graduate') loginUrl = GRADUATE_LOGIN_URL;
+  else if (source === 'undergraduate') loginUrl = LOGIN_URL;
   const url = loginUrl;
   const graduate = url === GRADUATE_LOGIN_URL;
   return openCampusLoginWindow({
@@ -223,14 +231,14 @@ export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
     title: graduate ? '登录研究生教学信息平台' : '登录教学信息服务网',
     url,
     reached: (target) =>
-      graduate
-        ? target.startsWith(`${GRADUATE_CAMPUS_ORIGIN}/`)
-        : (target.startsWith('https://i.sjtu.edu.cn/') ||
-            target.startsWith('http://i.sjtu.edu.cn/')) &&
-          !target.includes('/jaccountlogin'),
-    retryProbe: graduate,
+      target.startsWith(`${GRADUATE_CAMPUS_ORIGIN}/`) ||
+      ((target.startsWith('https://i.sjtu.edu.cn/') ||
+        target.startsWith('http://i.sjtu.edu.cn/')) &&
+        !target.includes('/jaccountlogin')),
+    retryProbe: true,
+    retryUrl: () => loginUrl,
     probe: async () => {
-      await fetchTimetableData(currentSemester());
+      await fetchTimetableData(currentSemester(), source);
       await flushCampusSession();
     },
   });
@@ -261,9 +269,24 @@ async function fetchTimetable(semester: string) {
   return parsed.data;
 }
 
-async function fetchTimetableData(semester: string) {
-  const data = await fetchTimetable(semester);
+async function fetchTimetableData(semester: string, source: TimetableSource = 'auto') {
+  if (source === 'graduate') {
+    loginUrl = GRADUATE_LOGIN_URL;
+    const graduate = await fetchGraduateTimetable(semester);
+    if (graduate.lessons.length === 0)
+      throw new Error('研究生课表为空，请确认学期；原有课表不会被清除');
+    return graduate;
+  }
+
+  const data =
+    source === 'auto'
+      ? await fetchTimetable(semester).catch((error: unknown) => {
+          if (error instanceof CampusAuthError) throw error;
+          return { kbList: [], rqazcList: [] };
+        })
+      : await fetchTimetable(semester);
   if (data.kbList.length === 0) {
+    if (source === 'undergraduate') throw new Error('本科课表为空，请确认学期；原有课表不会被清除');
     loginUrl = GRADUATE_LOGIN_URL;
     const graduate = await fetchGraduateTimetable(semester);
     if (graduate.lessons.length === 0)
@@ -304,9 +327,13 @@ async function fetchTimetableData(semester: string) {
   return { lessons, semesterStart: parseSemesterStart(data.rqazcList) };
 }
 
-export async function syncTimetable(semester: string): Promise<TimetableResult> {
+export async function syncTimetable(
+  semester: string,
+  requestedSource?: unknown,
+): Promise<TimetableResult> {
   try {
-    const { lessons, semesterStart } = await fetchTimetableData(semester);
+    const source = timetableSourceSchema.optional().parse(requestedSource) ?? 'auto';
+    const { lessons, semesterStart } = await fetchTimetableData(semester, source);
     await flushCampusSession();
 
     const db = getDatabase();

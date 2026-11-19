@@ -57,6 +57,8 @@ export interface CalendarEventInput {
   readonly color?: CalendarEventColor;
 }
 
+export type TimetableSource = 'auto' | 'undergraduate' | 'graduate';
+
 export interface TimetableResult {
   readonly ok: boolean;
   readonly error?: string;
@@ -66,12 +68,12 @@ export interface TimetableResult {
 
 export interface TimetableApi {
   getState(semester?: string): Promise<TimetableState>;
-  connect(): Promise<TimetableResult>;
+  connect(source?: TimetableSource): Promise<TimetableResult>;
   disconnect(): Promise<TimetableResult>;
   listLessons(semester?: string): Promise<readonly TimetableLesson[]>;
   listEvents(startAt: string, endAt: string): Promise<readonly CalendarEvent[]>;
   createEvent(input: CalendarEventInput): Promise<CalendarEvent>;
   deleteEvent(id: number): Promise<void>;
   setSemesterStart(semester: string, value: string): Promise<void>;
-  syncNow(semester?: string): Promise<TimetableResult>;
+  syncNow(semester?: string, source?: TimetableSource): Promise<TimetableResult>;
 }

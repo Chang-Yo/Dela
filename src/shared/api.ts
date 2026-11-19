@@ -106,6 +106,7 @@ export type {
   CalendarEvent,
   CalendarEventInput,
   TimetableResult,
+  TimetableSource,
   TimetableApi,
 } from './timetable';
 export { calendarEventColors } from './timetable';
