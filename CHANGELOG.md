@@ -11,7 +11,7 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
 - 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
-## Unreleased
+## 3.0.0 - 2026-11-19
 
 - 移除 Pi Packages：不再支持安装 Pi 包，也不再加载项目中的 `.pi/extensions`、`.pi/prompts` 与主题，第三方能力统一经 Skills 与 MCP 接入；升级时清理 Dela 数据目录中的包与 Node 运行时，`~/.pi` 与项目内的 `.pi/` 不受影响。
 - 调整项目级 Skill 只从 `.agents/skills` 读取，不再读取 `.agent/skills`、`.pi/skills`，远程项目不再使用 `.dela/skills`；放在旧目录的 Skill 需手动移到 `.agents/skills`。
