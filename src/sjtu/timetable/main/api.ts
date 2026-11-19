@@ -11,6 +11,7 @@ import {
   type TimetableResult,
   type TimetableState,
 } from '../contract';
+import { fetchGraduateTimetable } from './graduate';
 import { lessonOccurrences } from './schedule';
 import {
   CampusAuthError,
@@ -239,40 +240,51 @@ async function fetchTimetable(semester: string) {
   return parsed.data;
 }
 
+// 研究生在教学信息服务网能登录但课表为空，此时改读研究生教学信息平台。
+async function fetchTimetableData(semester: string) {
+  const data = await fetchTimetable(semester);
+  if (data.kbList.length === 0) {
+    const graduate = await fetchGraduateTimetable(semester);
+    if (graduate.lessons.length === 0)
+      throw new Error('本科和研究生课表均为空，请确认学期；原有课表不会被清除');
+    return graduate;
+  }
+  const lessons = data.kbList.flatMap((raw, index) => {
+    const courseName = raw.kcmc?.trim();
+    const weekday = Number(raw.xqj);
+    if (!courseName || !Number.isInteger(weekday) || weekday < 1 || weekday > 7) return [];
+    const periods = parsePeriods(raw.jcs || raw.jc);
+    const weeksText = raw.zcd?.trim() || '周次未提供';
+    const credits = raw.xf ? Number(raw.xf) : null;
+    return [
+      {
+        semester,
+        sourceId: raw.jxb_id || raw.kch_id || `${raw.kch ?? courseName}-${index}`,
+        courseCode: raw.kch?.trim() || '',
+        courseName,
+        className: raw.jxbmc?.trim() || null,
+        teacher: raw.xm?.trim() || null,
+        campus: raw.xqmc?.trim() || null,
+        classroom: raw.cdmc?.trim() || null,
+        weekday,
+        startPeriod: periods.start,
+        endPeriod: periods.end,
+        periodsText: raw.jc?.trim() || periods.text,
+        weeksText,
+        weekNumbers: JSON.stringify(parseWeekNumbers(raw.zcd)),
+        credits: Number.isFinite(credits) ? credits : null,
+        note: raw.xkbz?.trim() || null,
+      },
+    ];
+  });
+  if (lessons.length === 0) throw new Error('课表没有有效课程，原有课表不会被清除');
+  return { lessons, semesterStart: parseSemesterStart(data.rqazcList) };
+}
+
 export async function syncTimetable(semester: string): Promise<TimetableResult> {
   try {
-    const data = await fetchTimetable(semester);
+    const { lessons, semesterStart } = await fetchTimetableData(semester);
     await flushCampusSession();
-
-    const semesterStart = parseSemesterStart(data.rqazcList);
-    const lessons = data.kbList.flatMap((raw, index) => {
-      const courseName = raw.kcmc?.trim();
-      const weekday = Number(raw.xqj);
-      if (!courseName || !Number.isInteger(weekday) || weekday < 1 || weekday > 7) return [];
-      const periods = parsePeriods(raw.jcs || raw.jc);
-      const weeksText = raw.zcd?.trim() || '周次未提供';
-      const credits = raw.xf ? Number(raw.xf) : null;
-      return [
-        {
-          semester,
-          sourceId: raw.jxb_id || raw.kch_id || `${raw.kch ?? courseName}-${index}`,
-          courseCode: raw.kch?.trim() || '',
-          courseName,
-          className: raw.jxbmc?.trim() || null,
-          teacher: raw.xm?.trim() || null,
-          campus: raw.xqmc?.trim() || null,
-          classroom: raw.cdmc?.trim() || null,
-          weekday,
-          startPeriod: periods.start,
-          endPeriod: periods.end,
-          periodsText: raw.jc?.trim() || periods.text,
-          weeksText,
-          weekNumbers: JSON.stringify(parseWeekNumbers(raw.zcd)),
-          credits: Number.isFinite(credits) ? credits : null,
-          note: raw.xkbz?.trim() || null,
-        },
-      ];
-    });
 
     const db = hostPorts().database();
     const insert = db.prepare(

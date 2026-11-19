@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseSemesterStart, parseWeekNumbers } from '../api';
+import { parseSemesterStart, parseWeekNumbers, syncTimetable } from '../api';
+import { fetchGraduateTimetable } from '../graduate';
+import { campusRequest } from '../../../campus';
 import { timetableModule } from '../..';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
@@ -9,6 +11,14 @@ vi.mock('electron', () => ({
   session: {},
   net: { request: vi.fn() },
 }));
+vi.mock('../../../campus', () => ({
+  CampusAuthError: class CampusAuthError extends Error {},
+  campusRequest: vi.fn(),
+  flushCampusSession: vi.fn(),
+  getCampusSession: vi.fn(),
+  openCampusLoginWindow: vi.fn(),
+}));
+vi.mock('../graduate', () => ({ fetchGraduateTimetable: vi.fn() }));
 
 describe('parseWeekNumbers', () => {
   it('expands ranges and comma-separated weeks', () => {
@@ -44,5 +54,20 @@ describe('deleteEvent', () => {
     expect(() => deleteEvent(2.5)).toThrow();
     expect(() => deleteEvent('3')).toThrow();
     expect(prepare).toHaveBeenCalledOnce();
+  });
+});
+
+describe('syncTimetable', () => {
+  it('keeps cached lessons when both undergraduate and graduate timetables are empty', async () => {
+    const database = vi.fn();
+    provideTestHostPorts({ database });
+    vi.mocked(campusRequest).mockResolvedValue(JSON.stringify({ kbList: [] }));
+    vi.mocked(fetchGraduateTimetable).mockResolvedValue({ lessons: [], semesterStart: null });
+
+    await expect(syncTimetable('2026-2027-1')).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringContaining('原有课表不会被清除'),
+    });
+    expect(database).not.toHaveBeenCalled();
   });
 });
