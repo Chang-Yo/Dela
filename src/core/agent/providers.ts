@@ -5,6 +5,7 @@ import {
   LLM_MODEL_LIMIT,
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
+  llmLimitError,
   llmModelSettings,
   reasoningEffortLevels,
 } from '../protocol/llm-models';
@@ -37,15 +38,6 @@ const modelSettingsSchema = z
     effortLevels: effortLevelsSchema,
     effort: z.enum(reasoningEffortLevels).optional(),
   })
-  .refine(
-    (value) =>
-      (value.contextWindow === undefined && value.maxOutputTokens === undefined) ||
-      (value.maxOutputTokens ?? LLM_DEFAULT_OUTPUT_TOKENS) <
-        (value.contextWindow ?? LLM_DEFAULT_CONTEXT_WINDOW),
-    {
-      message: '最大输出必须小于上下文窗口',
-    },
-  )
   .refine(
     (value) => !value.effort || !value.effortLevels || value.effortLevels.includes(value.effort),
     {
@@ -128,11 +120,19 @@ async function builtinProviderFields(
     baseUrl: vendor.baseUrl,
     modelConfigs: Object.fromEntries(
       models.map((id) => {
-        const effortLevels = vendor.models.find((model) => model.id === id)!.effortLevels;
-        const preferred = modelConfigs?.[id]?.effort;
+        const model = vendor.models.find((item) => item.id === id)!;
+        const { contextWindow, maxOutputTokens, effort: preferred } = modelConfigs?.[id] ?? {};
+        const limits = {
+          ...(contextWindow ? { contextWindow } : {}),
+          ...(maxOutputTokens ? { maxOutputTokens } : {}),
+        };
+        const error = llmLimitError(limits, model);
+        if (error) throw new Error(`${id}：${error}`);
         const effort =
-          preferred && effortLevels.includes(preferred) ? preferred : defaultEffort(effortLevels);
-        return [id, { effortLevels, ...(effort ? { effort } : {}) }];
+          preferred && model.effortLevels.includes(preferred)
+            ? preferred
+            : defaultEffort(model.effortLevels);
+        return [id, { ...limits, effortLevels: model.effortLevels, ...(effort ? { effort } : {}) }];
       }),
     ),
   };
@@ -145,6 +145,14 @@ export async function saveLlmProvider(input: unknown): Promise<LlmProviderView> 
     ? await builtinProviderFields(piProvider, parsed.models, parsed.modelConfigs)
     : undefined;
   if (!builtin && !parsed.baseUrl) throw new Error('请填写 API 地址');
+  if (!builtin)
+    for (const [id, settings] of Object.entries(parsed.modelConfigs ?? {})) {
+      const error = llmLimitError(settings, {
+        contextWindow: LLM_DEFAULT_CONTEXT_WINDOW,
+        maxOutputTokens: LLM_DEFAULT_OUTPUT_TOKENS,
+      });
+      if (error) throw new Error(`${id}：${error}`);
+    }
   const baseUrl = builtin?.baseUrl ?? parsed.baseUrl!.replace(/\/+$/, '');
   const modelConfigs = builtin?.modelConfigs ?? parsed.modelConfigs;
   let config: StoredLlmConfig;

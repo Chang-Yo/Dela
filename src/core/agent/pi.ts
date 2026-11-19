@@ -94,7 +94,18 @@ function builtinProviderConfig(runtime: Runtime, provider: StoredLlmProvider, pi
   return {
     name: provider.name,
     apiKey: provider.apiKey,
-    models: provider.models.flatMap((id) => runtime.getModel(piProvider, id) ?? []),
+    models: provider.models.flatMap((id) => {
+      const model = runtime.getModel(piProvider, id);
+      if (!model) return [];
+      const { contextWindow, maxOutputTokens } = llmModelSettings(provider, id);
+      return [
+        {
+          ...model,
+          contextWindow: contextWindow ?? model.contextWindow,
+          maxTokens: maxOutputTokens ?? model.maxTokens,
+        },
+      ];
+    }),
   };
 }
 

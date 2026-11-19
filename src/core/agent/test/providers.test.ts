@@ -123,6 +123,26 @@ describe('LLM provider config', () => {
     ).rejects.toThrow('deepseek-chat');
   });
 
+  it('lets a built-in vendor model override its limits, checked against the catalog values', async () => {
+    const builtin = {
+      name: 'DeepSeek',
+      apiKey: 'test-only',
+      models: ['deepseek-v4-pro'],
+      piProvider: 'deepseek',
+    };
+    const view = await saveLlmProvider({
+      ...builtin,
+      modelConfigs: { 'deepseek-v4-pro': { maxOutputTokens: 500000 } },
+    });
+    expect(view.modelConfigs?.['deepseek-v4-pro']).toMatchObject({ maxOutputTokens: 500000 });
+    await expect(
+      saveLlmProvider({
+        ...builtin,
+        modelConfigs: { 'deepseek-v4-pro': { contextWindow: 200000 } },
+      }),
+    ).rejects.toThrow('最大输出（384000）必须小于上下文窗口（200000）');
+  });
+
   it('rejects invalid model limits and settings for models outside the list', async () => {
     await expect(
       saveLlmProvider({

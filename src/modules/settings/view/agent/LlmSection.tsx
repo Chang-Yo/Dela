@@ -24,6 +24,7 @@ import type {
 } from '../../../../core/protocol/llm';
 import {
   reasoningEffortLevels,
+  llmLimitError,
   llmModelSettings,
   LLM_MODEL_LIMIT,
   LLM_DEFAULT_CONTEXT_WINDOW,
@@ -79,7 +80,7 @@ interface ModelDialogProps {
   onSave: (settings: LlmModelSettings) => void;
 }
 
-/** 内置厂商的模型参数随 Pi 目录，只能选默认思考强度；自定义服务的模型参数全部可编辑。 */
+/** 内置厂商的模型参数默认随 Pi 目录，可覆盖上下文与最大输出；自定义服务的模型参数全部可编辑。 */
 function ModelSettingsDialog({
   catalogModel,
   ...props
@@ -87,7 +88,7 @@ function ModelSettingsDialog({
   return catalogModel ? (
     <CatalogModelDialog
       model={catalogModel}
-      effort={props.settings.effort}
+      settings={props.settings}
       onClose={props.onClose}
       onSave={props.onSave}
     />
@@ -116,11 +117,12 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
       setError('Token 数必须是正整数');
       return;
     }
-    if (
-      (context !== undefined || output !== undefined) &&
-      (output ?? LLM_DEFAULT_OUTPUT_TOKENS) >= (context ?? LLM_DEFAULT_CONTEXT_WINDOW)
-    ) {
-      setError('最大输出必须小于上下文窗口');
+    const limitError = llmLimitError(
+      { contextWindow: context, maxOutputTokens: output },
+      { contextWindow: LLM_DEFAULT_CONTEXT_WINDOW, maxOutputTokens: LLM_DEFAULT_OUTPUT_TOKENS },
+    );
+    if (limitError) {
+      setError(limitError);
       return;
     }
     onSave({
@@ -268,19 +270,47 @@ function CustomModelDialog({ model, settings, onClose, onSave }: ModelDialogProp
 
 function CatalogModelDialog({
   model,
-  effort: initialEffort,
+  settings,
   onClose,
   onSave,
 }: {
   model: LlmCatalogModel;
-  effort: string | undefined;
+  settings: LlmModelSettings;
   onClose: () => void;
   onSave: (settings: LlmModelSettings) => void;
 }) {
   const levels = model.effortLevels;
   const [effort, setEffort] = useState(
-    initialEffort && levels.includes(initialEffort) ? initialEffort : (levels[0] ?? ''),
+    settings.effort && levels.includes(settings.effort) ? settings.effort : (levels[0] ?? ''),
   );
+  const [contextWindow, setContextWindow] = useState(settings.contextWindow?.toString() ?? '');
+  const [maxOutputTokens, setMaxOutputTokens] = useState(
+    settings.maxOutputTokens?.toString() ?? '',
+  );
+  const [error, setError] = useState<string | null>(null);
+  const context = contextWindow ? Number(contextWindow) : undefined;
+  const output = maxOutputTokens ? Number(maxOutputTokens) : undefined;
+  const overCatalog = (context ?? 0) > model.contextWindow || (output ?? 0) > model.maxOutputTokens;
+  const save = () => {
+    if (
+      (context !== undefined && (!Number.isSafeInteger(context) || context <= 0)) ||
+      (output !== undefined && (!Number.isSafeInteger(output) || output <= 0))
+    ) {
+      setError('Token 数必须是正整数');
+      return;
+    }
+    const limitError = llmLimitError({ contextWindow: context, maxOutputTokens: output }, model);
+    if (limitError) {
+      setError(limitError);
+      return;
+    }
+    onSave({
+      ...(context ? { contextWindow: context } : {}),
+      ...(output ? { maxOutputTokens: output } : {}),
+      effortLevels: levels,
+      ...(effort ? { effort } : {}),
+    });
+  };
   return (
     <Dialog
       open
@@ -296,15 +326,42 @@ function CatalogModelDialog({
         <DialogDescription>
           上下文 {compactTokens(model.contextWindow)} · 最大输出{' '}
           {compactTokens(model.maxOutputTokens)}
-          {model.vision ? ' · 支持图片' : ''}。参数来自 Pi 模型目录。
+          {model.vision ? ' · 支持图片' : ''}。参数来自 Pi 模型目录，留空时跟随目录。
         </DialogDescription>
         <form
           className="mt-4 grid gap-4"
           onSubmit={(event) => {
             event.preventDefault();
-            onSave({ effortLevels: levels, ...(effort ? { effort } : {}) });
+            save();
           }}
         >
+          <Field label="上下文窗口（tokens）">
+            <Input
+              aria-label="上下文窗口"
+              type="number"
+              min="1"
+              step="1"
+              placeholder={`目录 ${model.contextWindow}`}
+              value={contextWindow}
+              onChange={(event) => setContextWindow(event.target.value)}
+            />
+          </Field>
+          <Field label="最大输出（tokens）">
+            <Input
+              aria-label="最大输出"
+              type="number"
+              min="1"
+              step="1"
+              placeholder={`目录 ${model.maxOutputTokens}`}
+              value={maxOutputTokens}
+              onChange={(event) => setMaxOutputTokens(event.target.value)}
+            />
+          </Field>
+          {overCatalog && (
+            <p className="text-xs text-warning">
+              超过厂商标注值：模型实际不支持时，请求会被服务拒绝，而不是自动压缩上下文。
+            </p>
+          )}
           {levels.length > 0 ? (
             <Field label="默认思考强度">
               <Select value={effort} onValueChange={setEffort}>
@@ -323,13 +380,12 @@ function CatalogModelDialog({
           ) : (
             <p className="text-sm text-ink-3">这个模型不支持调节思考强度。</p>
           )}
+          {error && <ErrorText>{error}</ErrorText>}
           <div className="flex justify-end gap-2">
             <Button onClick={onClose} variant="ghost">
               取消
             </Button>
-            <Button disabled={levels.length === 0} type="submit">
-              应用
-            </Button>
+            <Button type="submit">应用</Button>
           </div>
         </form>
       </DialogContent>
@@ -895,7 +951,7 @@ function ProviderDetail({
                 ? {
                     ...modelConfigs[id],
                     vision: catalogModel.vision,
-                    contextWindow: catalogModel.contextWindow,
+                    contextWindow: modelConfigs[id]?.contextWindow ?? catalogModel.contextWindow,
                   }
                 : modelConfigs[id];
               const check = modelChecks[id];
