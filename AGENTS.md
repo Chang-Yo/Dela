@@ -98,7 +98,7 @@
 ## 7. 界面与 Design System
 
 - 界面优先使用 `ui` 中的组件和 design token，不写 arbitrary 值，不用 Tailwind 原生色板
-- token 的语义名称和层次在 P4 定稿（ADR）后冻结：此后只能新增，不能修改或删除；定稿前允许按 v3 计划合并与删除
+- token 的语义名称和层次已冻结（ADR 0018）：只能新增，不能修改或删除；值可以调整
 - 同样的界面结构出现两次以上，就提取为组件；先用基础组件组合，反复出现的复杂组合才提取为高级组件
 
 ## 8. 其他
@@ -146,48 +146,35 @@ src/
 
 # 文件目录
 
-下面是 Dela 项目当前（v2）的文件结构，v3 迁移完成后替换为上面的目标结构。在修改对应的代码前应该先定位代码对应的模块位置，并阅读足够的代码来获取到足够的上下文：
+下面是 Dela 项目当前的文件结构。在修改对应的代码前应该先定位代码对应的模块位置，并阅读足够的代码来获取到足够的上下文：
 
 ```
 Dela/
 ├─ src/
-│  ├─ core/                   v3：Agent 内核，只依赖 Pi 与 Node
+│  ├─ core/                   Agent 内核，只依赖 Pi 与 Node
 │  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
 │  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
 │  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
 │  │  ├─ remote/              远程执行后端与 helper 通道
 │  │  └─ ports.ts             宿主端口（HostPorts）
-│  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册、宿主端口实现
-│  ├─ modules/                v3：已迁移的通用模块（search）
-│  ├─ main/                   Electron 主进程
-│  │  ├─ agent/               dela 命令域与内置 Skills 的注册清单（P5 随各模块迁出）
-│  │  ├─ canvas/              Canvas 课程资料
-│  │  ├─ documents/           文档读取与 Skill 组件
-│  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
-│  │  ├─ migrations/          旧版用户的数据库迁移
-│  │  ├─ notifications/       通知轮询
-│  │  ├─ remotes/             SSH 连接管理、端口转发与文件传输
-│  │  ├─ settings/            设置与模型/网络配置
+│  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
+│  ├─ modules/                通用模块（chat、mail、note、notifications、onboarding、preview、
+│  │                          remotes、search、settings、terminal、todo、update、workspace）
+│  ├─ sjtu/                   交大模块，经 register() 向通用模块的注册口登记
+│  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
+│  │  ├─ canvas/              Canvas 课程资料、作业与公告
+│  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
+│  │  ├─ jwc/                 教务处通知
 │  │  ├─ shuiyuan/            水源社区
-│  │  ├─ terminal/            内置终端与 Bash 定位
-│  │  ├─ timetable/           课表
-│  │  ├─ todo/                TODO
-│  │  ├─ update/              应用内更新
-│  │  ├─ vsjtu/               致远一号
-│  │  └─ workspace/           工作区文件
-│  ├─ preload/                contextBridge 与按契约白名单放行的 bridge
-│  ├─ renderer/               React 界面
-│  │  ├─ app/                 应用外壳、主题与全局状态
-│  │  ├─ workbench/           标签工作台
-│  │  ├─ content/             聊天、笔记、预览、审阅、终端内容区
-│  │  ├─ navigation/          侧栏与导航
-│  │  ├─ sessions/            会话管理
-│  │  ├─ workspace/           工作区浏览
-│  │  ├─ features/            业务功能页（mail、settings、timetable…）
-│  │  ├─ components/          通用组件与 beautifului
-│  │  ├─ lib/                 渲染层工具
-│  │  └─ styles/              全局样式与设计 token
-│  └─ shared/                 进程间 IPC 契约与纯函数
+│  │  └─ timetable/           课表与日历事件
+│  └─ app/                    宿主与外壳
+│     ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
+│     ├─ modules.ts           主进程模块清单
+│     ├─ contracts.ts         IPC 契约清单
+│     ├─ views.ts             渲染端视图清单
+│     ├─ main/                Electron 入口、数据库与迁移、IPC 注册与宿主端口实现
+│     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
+│     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
 ├─ helper/                    Go 远端 helper
 ├─ scripts/                   开发、冒烟、打包与校验脚本
 ├─ docs/                      开发文档、条款与接口资料

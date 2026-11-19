@@ -40,7 +40,7 @@ export default defineConfig({
   build: {
     target: 'node24',
     outDir: 'out/main',
-    lib: { entry: 'src/main/index.ts', formats: ['cjs'], fileName: () => 'index.cjs' },
+    lib: { entry: 'src/app/main/index.ts', formats: ['cjs'], fileName: () => 'index.cjs' },
     rolldownOptions: {
       external: [
         'electron',

@@ -1,5 +1,4 @@
-// Skills：发现、加载与渐进注入由 Pi 完成（agentskills.io 规范）。这里只负责
-// 把 Dela 内置的领域 skill 写进 ~/.dela/skills、给设置页列出可见 skill、维护禁用名单。
+// Skills 的发现、加载与注入由 Pi 完成；这里负责写入 Dela 内置 skill、给设置页列出可见 skill、维护禁用名单。
 // 设置页按来处分组：内置、本机目录、每个本地项目；项目的按 SKILL.md 路径开关。
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -12,22 +11,16 @@ import { builtinSkills } from './commands';
 
 const SKILL_ENTRY_FILE = 'SKILL.md';
 
-/** 全局 Skill 根目录：~/.dela/skills（内置 Skill 随应用写入；用户自己的 Skill 也放这里）。 */
 export function builtinSkillsDirectory(): string {
   return join(hostPorts().paths.home(), '.dela', 'skills');
 }
 
-/** 本机全局 Skill 目录（与 Pi 的默认位置一致）；项目级的随会话 cwd 由 Pi 发现，见 discovery.ts。 */
 export function globalSkillDirectories(): string[] {
   return [builtinSkillsDirectory(), join(hostPorts().paths.home(), '.agents', 'skills')];
 }
 
 let builtinEnsured = false;
-/**
- * 进程内首次使用时把内置 Skill 覆写到 ~/.dela/skills：正文与 dela 命令面强绑定，
- * 始终以应用内版本为准，用户对内置 Skill 的编辑会被还原（自定义请另建名字不同的 Skill）。
- * 先比后写：无变化不写盘，也避开文件被短暂占用时启动失败。
- */
+/** 进程内首次使用时把内置 Skill 覆写到 ~/.dela/skills（与 dela 命令面强绑定，用户的编辑会被还原）；先比后写，避开文件被占用。 */
 export function ensureBuiltinSkills(): void {
   if (builtinEnsured) return;
   builtinEnsured = true;
@@ -63,7 +56,6 @@ export function effectiveDisabledSkills(): Set<string> {
 
 const DISABLED_PATHS_KEY = 'skills-disabled-paths';
 
-/** 按 SKILL.md 路径停用的项目 Skill。 */
 export function readDisabledSkillPaths(): Set<string> {
   try {
     const row = hostPorts()
@@ -133,7 +125,6 @@ export async function listSkills(): Promise<SkillView[]> {
   return [...globalSkills(), ...(await projectSkills(readDisabledSkillPaths()))];
 }
 
-/** 全局 Skill 按名称开关（内置的文档读取要先装好组件）。 */
 export async function setGlobalSkillEnabled(name: string, enabled: boolean): Promise<void> {
   if (name === documentReader()?.skill && enabled) await readyDocumentReader().verify();
   const disabled = readDisabledSkills();
@@ -174,7 +165,6 @@ export async function revealSkill(id: string): Promise<void> {
   hostPorts().desktop.reveal((await findSkill(id)).path);
 }
 
-/** 技能目录（SKILL.md 所在目录）：上传到远端时按目录整体带走。 */
 export function skillDirectory(skill: SkillView): string {
   return dirname(skill.path);
 }

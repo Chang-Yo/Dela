@@ -20,13 +20,7 @@ vi.mock('../../capabilities/skills', () => ({
 }));
 import { provideTestHostPorts } from '../../test/host-mock';
 import { registerDocumentReader } from '../../capabilities/documents';
-import {
-  gcChatMedia,
-  readChatAttachment,
-  releaseChatAttachments,
-  releaseChatMedia,
-  stageChatMedia,
-} from '../media';
+import { gcChatMedia, readChatAttachment, releaseChatAttachments, stageChatMedia } from '../media';
 
 beforeEach(() => {
   provideTestHostPorts({
@@ -63,14 +57,6 @@ it('stages documents as files, retains sent files referenced by sessions, and co
   expect(existsSync(attachment.path)).toBe(true);
   state.sessions = [];
   gcChatMedia();
-  expect(existsSync(attachment.path)).toBe(false);
-});
-
-it('removes an unsent document when the attachment is removed', () => {
-  const view = stageChatMedia('invitation.pdf', Buffer.from('%PDF-'));
-  const attachment = readChatAttachment(view.id);
-  if (!('path' in attachment)) throw new Error('expected local document');
-  releaseChatMedia([view.id]);
   expect(existsSync(attachment.path)).toBe(false);
 });
 

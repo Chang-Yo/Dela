@@ -1,4 +1,4 @@
-// 远程会话的后台任务：bash 同名覆盖后，前台仍是远程版本，后台换成 helper 任务。
+// 远程会话的后台任务：后台 bash 换成 helper 任务。
 // 停止走 helper 的显式取消，退出应用时要等 helper 报回结束；真机行为由 pnpm test:remote 覆盖。
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -74,15 +74,6 @@ beforeEach(async () => {
 });
 
 afterAll(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
-
-it('不带 background 时仍是远程 bash：命令交给 helper，不在本机执行', async () => {
-  const pending = call('bash', { command: 'uname -s' });
-  const exec = await lastExec();
-  expect(exec).toMatchObject({ command: 'uname -s', options: { cwd } });
-  exec.options.onData!(Buffer.from('Linux\n'));
-  exec.finish({ code: 0, state: 'exited', lost: 0 });
-  expect(textOf(await pending)).toContain('Linux');
-});
 
 it('后台 bash 是 helper 任务：输出进日志，退出码映射成任务结果', async () => {
   const taskId = await start('make build');

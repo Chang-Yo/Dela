@@ -1,9 +1,5 @@
-/**
- * 远端上下文镜像：远端 AGENTS.md 与三处 skills 落到本地，Pi 才读得到——Pi 的 skills 只认本地文件
- * （写进系统提示的是 `filePath`，`/skill:name` 展开是本地 `readFileSync`），镜像路径再由 `remotePath` 翻回远端。
- * AGENTS.md 不镜像，内容经 `agentsFilesOverride` 直接交给 Pi、`path` 写远端路径；同步只跑一次远端脚本，
- * 不做全量仓库镜像，也不监听远端变化。
- */
+/** 远端上下文镜像：Pi 的 skills 只认本地文件，故把远端 AGENTS.md 与 skills 落到本地，镜像路径由 remotePath 翻回远端。
+ * AGENTS.md 不镜像，内容经 agentsFilesOverride 交给 Pi；同步只跑一次远端脚本，不监听远端变化。 */
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { hostPorts } from '../ports';
@@ -20,13 +16,10 @@ const CONTEXT_FILE_NAMES = [
   'CLAUDE.MD',
 ];
 
-/** 仓库内的项目 skills 与服务器主目录下的一处。 */
 const REPO_SKILL_DIR = '.agents/skills';
 const HOME_SKILL_DIR = '.dela/skills';
 
-/** 单个镜像文件的上限：skill 不该带大文件，超限的直接跳过（find 里过滤，不占传输）。 */
 const MIRROR_FILE_LIMIT = '1048576c';
-/** 同步一次的总超时（秒）：取回的是纯文本，正常远小于它；卡住就走降级（没有远端 skills）。 */
 const SYNC_TIMEOUT_SECONDS = 30;
 
 const HOME_MARK = '@@HOME';
@@ -67,7 +60,6 @@ function mirrorScript(home: string, remoteDir: string, ancestors: string[]): str
   return sections.join('\n');
 }
 
-/** 远端 cwd 的祖先目录，从根往下（与 Pi 的注入顺序一致）。 */
 function ancestorsOf(remoteDir: string): string[] {
   const parts = remoteDir.split('/').filter(Boolean);
   const dirs = ['/'];
@@ -139,24 +131,17 @@ function writeMirror(dir: string, records: Record[]): string | null {
 }
 
 export interface RemoteContext {
-  /** 可交给 Pi 的 skill 目录（镜像里真实存在的那些）。 */
   skillPaths: string[];
-  /** 远端 AGENTS.md：内容给 Pi，path 写远端路径。 */
   agentsFiles: { path: string; content: string }[];
 }
 
-/**
- * 同步一个远端项目的上下文。失败不抛：没有远端 skills/AGENTS.md 只是少了上下文，
- * 不该让会话打不开——调用方拿到空结果即可。
- */
+/** 同步一个远端项目的上下文。失败不抛：缺少远端 skills/AGENTS.md 只是少了上下文，不该让会话打不开。 */
 export async function syncRemoteContext(input: {
   target: RemoteTarget;
-  /** 镜像路由 key，例如 `<remoteId>:<projectId>`。 */
   key: string;
   remoteId: string;
   projectId: string;
   remoteDir: string;
-  /** 已知的远端主目录；缺省时用远端 `$HOME`。 */
   home?: string | null;
 }): Promise<RemoteContext> {
   const mirrorRoot = contextMirrorRoot(input.remoteId, input.projectId);
@@ -212,11 +197,7 @@ function skillFiles(dir: string): string[] {
     .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
 }
 
-/**
- * 把本地技能目录上传到远端项目的 `.agents/skills/<名字>/`（含附属文件，随仓库进 git）。
- * 目标已存在且 overwrite=false 时抛「远端已存在：…」，由调用方先问用户；
- * 技能里的脚本在远端执行，用远端自己的 Node/Python。
- */
+/** 把本地技能目录上传到远端项目的 .agents/skills/<名字>/；目标已存在且 overwrite=false 时抛「远端已存在：…」，由调用方先问用户。 */
 export async function uploadSkillToRemote(input: {
   target: RemoteTarget;
   skillDir: string;

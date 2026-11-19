@@ -5,6 +5,7 @@ import {
   LLM_MODEL_LIMIT,
   LLM_DEFAULT_CONTEXT_WINDOW,
   LLM_DEFAULT_OUTPUT_TOKENS,
+  llmLimitError,
   llmModelSettings,
   reasoningEffortLevels,
 } from '../protocol/llm-models';
@@ -38,15 +39,6 @@ const modelSettingsSchema = z
     effort: z.enum(reasoningEffortLevels).optional(),
   })
   .refine(
-    (value) =>
-      (value.contextWindow === undefined && value.maxOutputTokens === undefined) ||
-      (value.maxOutputTokens ?? LLM_DEFAULT_OUTPUT_TOKENS) <
-        (value.contextWindow ?? LLM_DEFAULT_CONTEXT_WINDOW),
-    {
-      message: '最大输出必须小于上下文窗口',
-    },
-  )
-  .refine(
     (value) => !value.effort || !value.effortLevels || value.effortLevels.includes(value.effort),
     {
       message: '默认思考强度必须在模型档位中',
@@ -70,7 +62,6 @@ const saveInputSchema = z
     },
   );
 
-/** 去重并按固定强度顺序排列，避免多选顺序影响存储与展示。 */
 function normalizeEffortLevels(levels: string[] | undefined): string[] {
   if (!levels?.length) return [];
   return reasoningEffortLevels.filter((level) => levels.includes(level));
@@ -102,7 +93,6 @@ export function llmProviders(): StoredLlmProvider[] {
   return loadLlmConfig().providers;
 }
 
-/** 可供会话选用的提供商：启用且持有密钥。 */
 export function usableLlmProviders(providers = llmProviders()): StoredLlmProvider[] {
   return providers.filter(({ enabled, apiKey }) => enabled && apiKey);
 }
@@ -116,7 +106,6 @@ function defaultEffort(levels: string[]): string | undefined {
   );
 }
 
-/** 内置厂商：地址与思考档位取自 Pi 目录，用户只决定用哪些模型和默认档位。 */
 async function builtinProviderFields(
   piProvider: string,
   models: string[],
@@ -131,11 +120,19 @@ async function builtinProviderFields(
     baseUrl: vendor.baseUrl,
     modelConfigs: Object.fromEntries(
       models.map((id) => {
-        const effortLevels = vendor.models.find((model) => model.id === id)!.effortLevels;
-        const preferred = modelConfigs?.[id]?.effort;
+        const model = vendor.models.find((item) => item.id === id)!;
+        const { contextWindow, maxOutputTokens, effort: preferred } = modelConfigs?.[id] ?? {};
+        const limits = {
+          ...(contextWindow ? { contextWindow } : {}),
+          ...(maxOutputTokens ? { maxOutputTokens } : {}),
+        };
+        const error = llmLimitError(limits, model);
+        if (error) throw new Error(`${id}：${error}`);
         const effort =
-          preferred && effortLevels.includes(preferred) ? preferred : defaultEffort(effortLevels);
-        return [id, { effortLevels, ...(effort ? { effort } : {}) }];
+          preferred && model.effortLevels.includes(preferred)
+            ? preferred
+            : defaultEffort(model.effortLevels);
+        return [id, { ...limits, effortLevels: model.effortLevels, ...(effort ? { effort } : {}) }];
       }),
     ),
   };
@@ -148,6 +145,14 @@ export async function saveLlmProvider(input: unknown): Promise<LlmProviderView> 
     ? await builtinProviderFields(piProvider, parsed.models, parsed.modelConfigs)
     : undefined;
   if (!builtin && !parsed.baseUrl) throw new Error('请填写 API 地址');
+  if (!builtin)
+    for (const [id, settings] of Object.entries(parsed.modelConfigs ?? {})) {
+      const error = llmLimitError(settings, {
+        contextWindow: LLM_DEFAULT_CONTEXT_WINDOW,
+        maxOutputTokens: LLM_DEFAULT_OUTPUT_TOKENS,
+      });
+      if (error) throw new Error(`${id}：${error}`);
+    }
   const baseUrl = builtin?.baseUrl ?? parsed.baseUrl!.replace(/\/+$/, '');
   const modelConfigs = builtin?.modelConfigs ?? parsed.modelConfigs;
   let config: StoredLlmConfig;
@@ -222,7 +227,7 @@ export function setLlmProviderEnabled(id: string, enabled: boolean): void {
 
 /** 模型列表端点候选，并带上该候选对应的 OpenAI 兼容根地址：对话端点与模型列表同前缀，
  *  所以「哪个 /models 应答了」就决定了实际该用哪个根地址发对话请求。 */
-export function modelListEndpoints(baseUrl: string): { models: string; apiBase: string }[] {
+function modelListEndpoints(baseUrl: string): { models: string; apiBase: string }[] {
   const base = baseUrl.replace(/\/+$/, '');
   return /\/v\d+$/.test(base)
     ? [{ models: `${base}/models`, apiBase: base }]
@@ -235,7 +240,7 @@ export function modelListEndpoints(baseUrl: string): { models: string; apiBase: 
 /** 兼容 OpenAI {data:[{id}]}、智谱 {models:[{slug}]} 与裸数组三种模型列表形态。
  *  形态不符返回 null 而非空列表：网关常把控制台首页以 200 返回，那不是「没有模型」，
  *  而是「这个地址不是 API 根」，必须继续试下一个候选。 */
-export function parseModelList(payload: unknown): string[] | null {
+function parseModelList(payload: unknown): string[] | null {
   const source = Array.isArray(payload)
     ? payload
     : typeof payload === 'object' && payload !== null
@@ -258,14 +263,12 @@ export function parseModelList(payload: unknown): string[] | null {
 
 const VERIFY_TIMEOUT = 15000;
 
-/** 两种检测共用：留空沿用该提供商已存的密钥。 */
 function verificationKey(input: { id?: string; apiKey?: string }): string {
   const key = input.apiKey?.trim();
   if (key || !input.id) return key ?? '';
   return loadLlmConfig().providers.find(({ id }) => id === input.id)?.apiKey ?? '';
 }
 
-/** 只做一次 GET：401/403 视为密钥无效，成功时顺带取回模型列表。 */
 export async function verifyLlm(input: {
   id?: string;
   baseUrl: string;
@@ -296,7 +299,6 @@ export async function verifyLlm(input: {
             ok: true,
             message: models.length ? `连接成功，发现 ${models.length} 个模型` : '连接成功',
             models,
-            // 应答的那个端点前缀才是真实 API 根，回传给表单校正。
             ...(apiBase !== typed ? { baseUrl: apiBase } : {}),
           };
         }
@@ -313,7 +315,6 @@ export async function verifyLlm(input: {
   };
 }
 
-/** 使用同一 Pi 请求链发出无工具的短请求；不创建会话，不保存回复。 */
 export async function verifyLlmModel(input: unknown): Promise<LlmVerifyResult> {
   const parsed = z
     .object({

@@ -13,10 +13,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { provideHostPorts } from '../src/core/ports';
-import { electronPorts } from '../src/app/host-electron';
-import { closeDatabase, getDatabase } from '../src/main/database';
-import { prepareEmail } from '../src/main/mail/drafts';
-import { releaseComposeFiles } from '../src/main/mail/send';
+import { electronPorts } from '../src/app/main/host-electron';
+import { closeDatabase, getDatabase } from '../src/app/main/database';
+import { mailModule, prepareEmail } from '../src/modules/mail';
 import {
   canvasNextPage,
   cachedCourseFiles,
@@ -24,24 +23,26 @@ import {
   readCanvasSource,
   syncCanvasCourse,
   syncCanvasCourses,
-} from '../src/main/canvas/api';
-import { registerCanvasIpc } from '../src/main/canvas/ipc';
+} from '../src/sjtu/canvas/main/api';
 import {
   createWorkspaceEntry,
   getWorkspaceState,
   importWorkspaceFiles,
   readWorkspaceEntry,
+  registerPreviewProtocol,
+  registerPreviewScheme,
   saveWorkspaceNote,
   updateWorkspaceEntry,
-} from '../src/main/workspace/api';
-import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
-import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
-import { registerSettingsIpc } from '../src/main/settings/ipc';
-import { registerRemoteIpc } from '../src/main/remotes/ipc';
-import { registerNotificationsIpc } from '../src/main/notifications';
-import { registerUpdateIpc } from '../src/main/update';
-import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
-import { registerBuiltinCapabilities } from '../src/main/agent/domain';
+  workspaceModule,
+} from '../src/modules/workspace';
+import { registerModuleIpc } from '../src/app/main/ipc';
+import { notificationsModule } from '../src/modules/notifications';
+import { previewModule } from '../src/modules/preview';
+import { remotesModule } from '../src/modules/remotes';
+import { settingsModule } from '../src/modules/settings';
+import { updateModule } from '../src/modules/update';
+import { canvasModule } from '../src/sjtu/canvas';
+import { registerAgentIpc } from '../src/app/main/agent-ipc';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
 app.setPath('userData', profile);
@@ -216,6 +217,7 @@ app
     const largePdf = await readWorkspaceEntry(largePdfId);
     assert.equal(largePdf.format, 'pdf');
     assert.equal(largePdf.bytes, undefined);
+    canvasModule.register?.();
     registerPreviewProtocol();
     const preview = await net.fetch(second.previewUrl!);
     assert.equal(preview.status, 200);
@@ -303,7 +305,6 @@ app
     // 路径笔记不落 workspace_notes 行：文件路径即条目 id。
     let path = note.id;
     assert.equal(path, join(profile, 'notes', 'workspace', '主题资料', '参考', '笔记.md'));
-    // 新建重名直接报错，不自动改名。
     assert.throws(
       () => createWorkspaceEntry({ name: '笔记.md', kind: 'file', parentId: child.id }),
       /已存在/,
@@ -321,7 +322,6 @@ app
     assert.equal(readFileSync(path, 'utf8'), '# 外部编辑');
     const disk = await readWorkspaceEntry(note.id);
     saveWorkspaceNote(note.id, '# 恢复测试', disk.revision!);
-    // 路径笔记移动后 id 随新路径变化，之后一律用 moved.id。
     const moved = updateWorkspaceEntry(note.id, { parentId: folder.id, name: '记录.md' });
     assert(!existsSync(path));
     path = join(profile, 'notes', 'workspace', '主题资料', '记录.md');
@@ -376,15 +376,19 @@ app
       text: '不应发送的资料',
     });
 
-    registerCanvasIpc();
     registerAgentIpc();
-    registerWorkspaceIpc(invalidateSessions);
-    registerBuiltinCapabilities();
+    previewModule.register?.();
+    workspaceModule.register?.();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
-    registerSettingsIpc();
-    registerRemoteIpc();
-    registerNotificationsIpc();
-    registerUpdateIpc();
+    registerModuleIpc([
+      workspaceModule,
+      remotesModule,
+      notificationsModule,
+      mailModule,
+      settingsModule,
+      updateModule,
+      canvasModule,
+    ]);
     const win = new BrowserWindow({
       show: false,
       webPreferences: {
@@ -412,22 +416,27 @@ app
       maximized: null,
     };
     await invoke(
-      `await window.dela.layout.save(${JSON.stringify(promoted.id)}, ${JSON.stringify(layout)});`,
+      `await window.dela.bridge.invoke('workspace:saveLayout', { projectId: ${JSON.stringify(promoted.id)}, layout: ${JSON.stringify(layout)} });`,
     );
     const provider = await invoke(
-      `return await window.dela.llm.save({ name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'] });`,
+      `return await window.dela.bridge.invoke('llm:save', { name: '致远一号', baseUrl: 'https://models.sjtu.edu.cn/api/v1', apiKey: 'test-model-key', models: ['qwen', 'deepseek-chat', 'minimax'] });`,
     );
-    const providers = await invoke(`return await window.dela.llm.list();`);
+    const providers = await invoke(`return await window.dela.bridge.invoke('llm:list');`);
     assert.equal(providers.length, 1);
     assert.equal(providers[0].enabled, true);
     assert.equal('apiKey' in providers[0], false);
     const verified = await invoke(
-      `return await window.dela.llm.verify({ id: ${JSON.stringify(providers[0].id)}, baseUrl: ${JSON.stringify(providers[0].baseUrl)} });`,
+      `return await window.dela.bridge.invoke('llm:verify', { id: ${JSON.stringify(providers[0].id)}, baseUrl: ${JSON.stringify(providers[0].baseUrl)} });`,
     );
     assert.equal(verified.ok, true, verified.message);
     assert.deepEqual(verified.models, ['qwen', 'minimax']);
-    await invoke(`await window.dela.llm.setEnabled(${JSON.stringify(provider.id)}, false);`);
-    assert.equal((await invoke(`return await window.dela.llm.list();`))[0].enabled, false);
+    await invoke(
+      `await window.dela.bridge.invoke('llm:setEnabled', { id: ${JSON.stringify(provider.id)}, enabled: false });`,
+    );
+    assert.equal(
+      (await invoke(`return await window.dela.bridge.invoke('llm:list');`))[0].enabled,
+      false,
+    );
     const email = prepareEmail({
       to: ['recipient@example.com'],
       subject: '报告草稿',
@@ -436,14 +445,16 @@ app
     });
     assert.equal(email.sent, false);
     const prepared = await invoke(
-      `return await window.dela.mail.openDraft(${JSON.stringify(email.draftId)});`,
+      `return await window.dela.bridge.invoke('mail:openDraft', ${JSON.stringify(email.draftId)});`,
     );
     assert.equal(prepared.subject, '报告草稿');
     assert.equal(prepared.text, '请查看附件');
     assert.equal(prepared.files.length, 1);
     assert.equal(prepared.files[0].size, Buffer.byteLength('# 恢复测试'));
     assert.equal('path' in prepared.files[0], false);
-    releaseComposeFiles(prepared.files.map((file: { id: string }) => file.id));
+    await invoke(
+      `await window.dela.bridge.invoke('mail:releaseComposeFiles', ${JSON.stringify(prepared.files.map((file: { id: string }) => file.id))});`,
+    );
     await invoke(`await document.fonts.ready;`);
     assert.equal(
       await invoke(
@@ -456,12 +467,14 @@ app
       join(process.cwd(), '.tools', 'agent-home.png'),
       (await win.webContents.capturePage()).toPNG(),
     );
-    await invoke(`await window.dela.workspace.remove(${JSON.stringify(moveTo)});`);
+    await invoke(`await window.dela.bridge.invoke('workspace:remove', ${JSON.stringify(moveTo)});`);
     assert.equal((await readWorkspaceEntry(ref2.id)).format, 'html');
     assert(existsSync(path));
     closeDatabase();
     assert.deepEqual(
-      await invoke(`return await window.dela.layout.get(${JSON.stringify(promoted.id)});`),
+      await invoke(
+        `return await window.dela.bridge.invoke('workspace:layout', ${JSON.stringify(promoted.id)});`,
+      ),
       layout,
     );
     assert.equal((await readWorkspaceEntry(moved.id)).text, '# 恢复测试');

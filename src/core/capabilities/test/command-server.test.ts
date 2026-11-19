@@ -16,14 +16,14 @@ vi.mock('electron', () => ({
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 vi.mock('../skills', () => ({ effectiveDisabledSkills: () => new Set(['curriculum', 'canvas']) }));
 import { COMMAND_BRIDGE, startDomainBridge } from '../command-server';
-import { registerBuiltinCapabilities } from '../../../main/agent/domain';
-import { locateBash } from '../../../main/terminal/mingit';
+import { registerCommandDomain } from '../commands';
+import { todoDomain } from '../../../modules/todo/main/agent';
+import { resourceDomain } from '../../../modules/workspace/main/read-resource';
+import { locateBash } from '../../../modules/terminal';
 
-/** 把请求体写进文件而不真的发请求；只认桥当前使用的 --data-binary。 */
 const CURL_STUB =
   'curl() { while [ "$#" -gt 0 ]; do [ "$1" = "--data-binary" ] && cat > "$DELA_CAPTURE"; shift; done; }\n';
 
-/** 在临时目录写入脚本，环境和行由调用方拼好。 */
 function writeScript(prefix: string, env: string, line: string) {
   const directory = mkdtempSync(join(tmpdir(), `dela-bridge-${prefix}-`));
   const path = join(directory, 'run.sh');
@@ -31,7 +31,6 @@ function writeScript(prefix: string, env: string, line: string) {
   return { directory, path };
 }
 
-/** 执行 `dela <line>`，返回 curl 桩捕获到的请求体 JSON。 */
 function bridgeBody(line: string) {
   const capture = join(tmpdir(), `dela-bridge-capture-${process.pid}-${Date.now()}.json`);
   const { directory, path } = writeScript(
@@ -50,7 +49,6 @@ function bridgeBody(line: string) {
   }
 }
 
-/** 用真实 curl 把 `dela <line>` 发到本机端口，返回端口收到的请求体。 */
 async function postedBody(port: number, line: string) {
   const { directory, path } = writeScript(
     'curl',
@@ -105,7 +103,7 @@ describe('dela 命令桥', () => {
 });
 
 it('停用的 Skill 对应的命令不出现在 help 中，也不能执行', async () => {
-  registerBuiltinCapabilities();
+  for (const domain of [todoDomain, resourceDomain]) registerCommandDomain(domain);
   const bridge = await startDomainBridge();
   const call = async (command: string, input: unknown = {}) =>
     (await fetch(bridge.url, {
@@ -115,7 +113,7 @@ it('停用的 Skill 对应的命令不出现在 help 中，也不能执行', asy
     }).then((response) => response.json())) as { ok: boolean; result?: { name: string }[] };
   try {
     const names = (await call('help')).result!.map((command) => command.name);
-    expect(names).toEqual(expect.arrayContaining(['query_todos', 'list_workspace_entries']));
+    expect(names).toEqual(expect.arrayContaining(['query_todos', 'read_resource']));
     expect(names).not.toEqual(expect.arrayContaining(['query_schedule']));
     expect(names).not.toEqual(expect.arrayContaining(['link_canvas_source']));
     expect(await call('query_schedule')).toMatchObject({ ok: false });

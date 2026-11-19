@@ -98,18 +98,10 @@
                       "type": "null"
                     }
                   ]
-                },
-                "scope": {
-                  "type": "string",
-                  "enum": [
-                    "chat",
-                    "library"
-                  ]
                 }
               },
               "required": [
-                "projectId",
-                "scope"
+                "projectId"
               ]
             },
             "output": {

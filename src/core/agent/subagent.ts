@@ -11,7 +11,7 @@ import { insertSubagentSession, row } from './session/store';
 import { taskRunning, trackTask, type TaskParent } from './tasks';
 
 const LIMIT_KEY = 'subagent-limit';
-export const SUBAGENT_LIMIT = { min: 1, max: 16, default: 4 };
+const SUBAGENT_LIMIT = { min: 1, max: 16, default: 4 };
 const limitSchema = z.number().int().min(SUBAGENT_LIMIT.min).max(SUBAGENT_LIMIT.max);
 
 export function readSubagentLimit(): number {
@@ -38,7 +38,6 @@ export interface SubagentResult {
   error?: string;
 }
 
-/** 子 Agent 跑一轮：由会话运行层注入，signal 中止时连带停止。 */
 export type RunSubagent = (
   id: string,
   prompt: string,
@@ -48,7 +47,6 @@ export type RunSubagent = (
 
 let running = 0;
 
-/** 子 Agent 当前步骤的对象：命令首行、路径或搜索词。 */
 function targetOf(args: unknown): string {
   const input = (args ?? {}) as Record<string, unknown>;
   const value = ['command', 'path', 'pattern', 'query', 'url']

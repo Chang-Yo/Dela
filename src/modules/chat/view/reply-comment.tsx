@@ -1,0 +1,274 @@
+// 回复评论：在已完成回复的正文里选中文字 → 浮出「添加到对话」→ 原地变为评论输入框 → 确认后进入
+// composer 附件条上方的评论轨道，随草稿保存，发送时作为结构化评论交给主进程拼进提示词。
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { MessageCircleQuestion, MessageSquarePlus } from 'lucide-react';
+import type { ChatComment } from '../../../core/protocol/agent';
+import {
+  CommentChip,
+  CommentFloat,
+  CommentFloatAction,
+  CommentInput,
+  CommentRail,
+} from '../../../ui/agent/comment';
+import { useChatDrafts } from './drafts';
+
+const EDGE_REM = 0.5;
+// 样式见 globals.css 的 ::highlight。
+const HIGHLIGHT = 'dela-reply-comment';
+
+export interface FloatingAnchor {
+  top: number;
+  bottom: number;
+  topCenter: number;
+  bottomCenter: number;
+}
+
+export interface FloatingSpot {
+  top: number;
+  left: number;
+  side: 'top' | 'bottom';
+}
+
+// 浮层位置：优先选区上方，放不下翻到下方，始终夹在视口内；选区滚出视口时 pin=false 隐藏，
+// pin=true 贴最近边缘，正在写的评论不会随滚动消失。
+function placeFloating(
+  anchor: FloatingAnchor,
+  box: { width: number; height: number },
+  view: { width: number; height: number },
+  edge: number,
+  pin: boolean,
+): FloatingSpot | null {
+  if (!pin && (anchor.bottom <= 0 || anchor.top >= view.height)) return null;
+  const maxTop = Math.max(edge, view.height - edge - box.height);
+  const above = anchor.top - edge - box.height;
+  const below = anchor.bottom + edge;
+  const side = above >= edge || below > maxTop ? 'top' : 'bottom';
+  const top = Math.min(Math.max(side === 'top' ? above : below, edge), maxTop);
+  const center = side === 'top' ? anchor.topCenter : anchor.bottomCenter;
+  const left = Math.min(
+    Math.max(center - box.width / 2, edge),
+    Math.max(edge, view.width - edge - box.width),
+  );
+  return { top, left, side };
+}
+
+const elementOf = (node: Node) => (node instanceof Element ? node : node.parentElement);
+
+// 可评论的选区：落在 root 内同一段已完成回复的正文里。端点落在公式内部时扩到整个公式，
+// 引用才能取回完整 TeX。
+export function commentRange(selection: Selection | null, root: HTMLElement): Range | null {
+  if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return null;
+  const range = selection.getRangeAt(0).cloneRange();
+  const body = elementOf(range.startContainer)?.closest('[data-assistant-body]');
+  if (!body || !root.contains(body) || body.closest('[data-reply-live]')) return null;
+  if (!body.contains(range.endContainer)) {
+    // 三击选段时终点常落在下一个块的开头：正文之后没有选中文字就收回到正文末尾，否则是跨块选区。
+    const tail = document.createRange();
+    tail.setStart(body, body.childNodes.length);
+    tail.setEnd(range.endContainer, range.endOffset);
+    if (tail.toString().trim()) return null;
+    range.setEnd(body, body.childNodes.length);
+  }
+  const startMath = elementOf(range.startContainer)?.closest('.katex');
+  if (startMath) range.setStartBefore(startMath);
+  const endMath = elementOf(range.endContainer)?.closest('.katex');
+  if (endMath) range.setEndAfter(endMath);
+  return range;
+}
+
+/** 选区 → 引用文字：按渲染后的分行取（innerText），KaTeX 换回 TeX 源码，免得 MathML 与 HTML 两份文字叠在一起。 */
+function quoteText(range: Range): string {
+  const fragment = range.cloneContents();
+  for (const math of fragment.querySelectorAll('.katex')) {
+    const tex = math.querySelector('annotation[encoding="application/x-tex"]')?.textContent;
+    if (tex == null) continue;
+    const display = math.parentElement?.classList.contains('katex-display')
+      ? math.parentElement
+      : null;
+    if (display) {
+      const block = document.createElement('div');
+      block.textContent = `$$${tex}$$`;
+      display.replaceWith(block);
+    } else math.replaceWith(`$${tex}$`);
+  }
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;top:0;left:-200vw;width:40rem';
+  holder.append(fragment);
+  document.body.append(holder);
+  const text = holder.innerText;
+  holder.remove();
+  return text.trim();
+}
+
+interface Target {
+  range: Range;
+  quote: string;
+  editing: boolean;
+}
+
+// 选区评论浮层：按下指针即收起（拖选途中不留旧浮层，写到一半点别处即放弃），拖滚动条除外。
+export function ReplyCommentLayer({
+  draftKey,
+  scrollRef,
+  onSidechat,
+}: {
+  /** 评论落进哪份草稿：主会话的 sessionId，旁问里是旁问草稿的键。 */
+  draftKey: string;
+  scrollRef: RefObject<HTMLDivElement | null>;
+  onSidechat?: (quote: string) => void;
+}) {
+  const [target, setTarget] = useState<Target | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    let frame = 0;
+    const inBox = (event: Event) => boxRef.current?.contains(event.target as Node) ?? false;
+    const keepEditing = (current: Target | null) => (current?.editing ? current : null);
+    const down = (event: PointerEvent) => {
+      if (!inBox(event) && event.target !== scroller) setTarget(null);
+    };
+    const up = (event: PointerEvent) => {
+      if (inBox(event)) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const range = commentRange(window.getSelection(), scroller);
+        const quote = range && quoteText(range);
+        if (range && quote) setTarget({ range, quote, editing: false });
+      });
+    };
+    const collapse = () => {
+      if (window.getSelection()?.isCollapsed) setTarget(keepEditing);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTarget(keepEditing);
+    };
+    document.addEventListener('pointerdown', down);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('selectionchange', collapse);
+    document.addEventListener('keydown', escape);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('pointerdown', down);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('selectionchange', collapse);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [scrollRef]);
+
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current;
+    const box = boxRef.current;
+    if (!target || !scroller || !box) return;
+    const place = () => {
+      const rects = [...target.range.getClientRects()].filter((rect) => rect.width || rect.height);
+      if (!rects.length) {
+        setTarget(null);
+        return;
+      }
+      const view = scroller.getBoundingClientRect();
+      const first = rects[0]!;
+      const last = rects.at(-1)!;
+      const spot = placeFloating(
+        {
+          top: Math.min(...rects.map((rect) => rect.top)) - view.top,
+          bottom: Math.max(...rects.map((rect) => rect.bottom)) - view.top,
+          topCenter: (first.left + first.right) / 2 - view.left,
+          bottomCenter: (last.left + last.right) / 2 - view.left,
+        },
+        { width: box.offsetWidth, height: box.offsetHeight },
+        { width: scroller.clientWidth, height: scroller.clientHeight },
+        EDGE_REM * parseFloat(getComputedStyle(document.documentElement).fontSize),
+        target.editing,
+      );
+      box.style.visibility = spot ? '' : 'hidden';
+      if (!spot) return;
+      box.style.top = `${spot.top}px`;
+      box.style.left = `${spot.left}px`;
+      box.style.transformOrigin = spot.side === 'top' ? 'bottom center' : 'top center';
+    };
+    place();
+    let frame = 0;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(place);
+    };
+    scroller.addEventListener('scroll', schedule, { passive: true });
+    const observer = new ResizeObserver(schedule);
+    observer.observe(scroller);
+    observer.observe(box);
+    for (const child of scroller.children) observer.observe(child);
+    return () => {
+      cancelAnimationFrame(frame);
+      scroller.removeEventListener('scroll', schedule);
+      observer.disconnect();
+    };
+  }, [scrollRef, target]);
+
+  // 输入框拿走焦点后原生选区就没了，写评论期间用 CSS 高亮标出被评论的原文。
+  useEffect(() => {
+    if (!target?.editing) return;
+    CSS.highlights.set(HIGHLIGHT, new Highlight(target.range));
+    return () => {
+      CSS.highlights.delete(HIGHLIGHT);
+    };
+  }, [target]);
+
+  if (!target) return null;
+  const add = (comment: string) => {
+    const { drafts, update } = useChatDrafts.getState();
+    update(draftKey, {
+      comments: [...(drafts[draftKey]?.comments ?? []), { quote: target.quote, comment }],
+    });
+    setTarget(null);
+  };
+  return (
+    <CommentFloat editing={target.editing} key={target.editing ? 'input' : 'tip'} ref={boxRef}>
+      {target.editing ? (
+        <CommentInput onCancel={() => setTarget(null)} onSubmit={add} />
+      ) : (
+        <div className="flex">
+          <CommentFloatAction onClick={() => setTarget({ ...target, editing: true })}>
+            <MessageSquarePlus aria-hidden />
+            添加到对话
+          </CommentFloatAction>
+          {onSidechat && (
+            <CommentFloatAction
+              onClick={() => {
+                onSidechat(target.quote);
+                setTarget(null);
+              }}
+            >
+              <MessageCircleQuestion aria-hidden />
+              旁问
+            </CommentFloatAction>
+          )}
+        </div>
+      )}
+    </CommentFloat>
+  );
+}
+
+export function ReplyCommentRail({
+  comments,
+  onChange,
+}: {
+  comments: ChatComment[];
+  onChange: (comments: ChatComment[]) => void;
+}) {
+  return (
+    <CommentRail>
+      {comments.map((item, index) => (
+        <CommentChip
+          item={item}
+          key={`${index}:${item.quote}`}
+          onRemove={() => onChange(comments.filter((_, at) => at !== index))}
+          onSave={(comment) =>
+            onChange(comments.map((other, at) => (at === index ? { ...other, comment } : other)))
+          }
+        />
+      ))}
+    </CommentRail>
+  );
+}

@@ -33,7 +33,6 @@ async function executeDomainCommand(name: string, input: unknown) {
   return command.execute(input);
 }
 
-/** 本机命令桥（127.0.0.1 随机端口 + Bearer token）：token 只进入 Agent 的子进程环境，不含业务凭据。 */
 export async function startDomainBridge() {
   const token = randomBytes(32).toString('hex');
   const server = createServer(async (request, response) => {

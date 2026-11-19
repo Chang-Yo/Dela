@@ -1,12 +1,8 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-/**
- * 可编程的本地 OpenAI 兼容 SSE mock 服务（Pi Agent Core 桥接层测试用）：按序返回脚本化响应，
- * 记录请求的 URL、认证头与请求体；密钥固定为测试占位值，不涉及真实数据。
- */
+/** 可编程的本地 OpenAI 兼容 SSE mock 服务：按序返回脚本化响应并记录请求。 */
 
-/** delayMs 用于制造慢流，配合中断测试。 */
 export interface SseFrame {
   data: unknown;
   delayMs?: number;
@@ -30,7 +26,6 @@ const reasoningDelta = (text: string): SseFrame => ({
   data: { choices: [{ index: 0, delta: { reasoning_content: text } }] },
 });
 
-/** OpenAI 线格式：name/arguments 嵌在 function 下，分片增量按 index 聚合。 */
 const toolCallDelta = (part: {
   index: number;
   id?: string;
@@ -94,7 +89,6 @@ export class MockOpenAiServer {
     return instance;
   }
 
-  /** OpenAI 兼容 baseUrl：SDK 会在此基础上拼接 /chat/completions。 */
   get baseUrl(): string {
     const address = this.server.address() as AddressInfo;
     return `http://127.0.0.1:${address.port}/v1`;
@@ -169,7 +163,6 @@ export class MockOpenAiServer {
     });
     for (const frame of scripted.frames) {
       if (frame.delayMs) await this.delay(frame.delayMs);
-      // 客户端 abort 会销毁连接：跳过后续写入，避免向已销毁流写入
       if (this.closed || response.destroyed || response.writableEnded) return;
       response.write(
         `data: ${typeof frame.data === 'string' ? frame.data : JSON.stringify(frame.data)}\n\n`,

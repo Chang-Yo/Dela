@@ -120,7 +120,6 @@ export function chatMediaPath(id: string): string | undefined {
   return file && join(directory, file.name);
 }
 
-/** 图片与文档来自磁盘，文本附件来自内存。 */
 export function readChatMediaBytes(id: string): Buffer {
   if (!isUuid(id)) throw new Error('文件引用无效');
   const attachment = attachments.get(id);
@@ -137,7 +136,6 @@ export function readChatAttachment(id: string) {
   return attachment;
 }
 
-/** 还没释放的附件重新交回输入框（撤回插队消息）。 */
 export function chatAttachmentView(id: string): ChatMediaView {
   const attachment = readChatAttachment(id);
   const size = 'bytes' in attachment ? attachment.bytes.length : statSync(attachment.path).size;
@@ -163,12 +161,10 @@ export function releaseChatMedia(ids: readonly string[]): void {
   }
 }
 
-/** 释放附件的内存索引；图片与文档落盘文件由消息引用，交给 GC。 */
 export function releaseChatAttachments(ids: readonly string[]): void {
   for (const id of ids) attachments.delete(id);
 }
 
-/** 删除没有被任何会话引用的图片/文档文件；引用记在 Pi 会话用户消息元数据里。 */
 export function gcChatMedia(): void {
   const referenced = new Set<string>();
   const rows = hostPorts()
@@ -179,7 +175,6 @@ export function gcChatMedia(): void {
   }[];
   for (const { file } of rows) {
     if (!existsSync(file)) continue;
-    // 图片 id 只出现在该会话用户消息的元数据里：按 UUID 形状整文件匹配即可。
     for (const [id] of readFileSync(file, 'utf8').matchAll(
       /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
     ))

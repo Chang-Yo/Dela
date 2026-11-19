@@ -68,7 +68,7 @@
 
 ### 2.3 skills
 
-领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。七个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi。
+领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。七个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；校园相关的四个随 `src/sjtu` 下各自的模块注册，模块不登记时 skill 与命令一并缺席。
 
 设置 › Skills 按来源分三组：内置、本机、每个本地项目。**开关的粒度不一样**——全局 skill 按名称记禁用，项目里的按 `SKILL.md` 绝对路径记，因为同名的可以共存且互不牵连。
 
@@ -84,7 +84,7 @@
 
 ### 2.4 GUI
 
-标签工作台（聊天 / 笔记 / 预览 / 审阅 / 终端），经 IPC 消费同一套领域实现。UI 组件以 vendored beautiful-ui 为基座（见其 [README](../src/renderer/components/ui/beautifului/README.md)），被替代的自研 UI 必须清理。
+标签工作台（聊天 / 笔记 / 预览 / 审阅 / 终端），经 IPC 消费同一套领域实现。UI 组件集中在 `src/ui`（fork 自 beautiful-ui，不再跟随上游），被替代的自研 UI 必须清理。
 
 **标签规则**：所有「打开某样东西」的入口只决定打开什么、是否放到旁边；落在哪个组、是否预览只由 `workbench/open-target.ts` 决定，规则表写在该文件顶部并被测试逐条覆盖。要点：
 
@@ -104,7 +104,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 
 ### 2.5 设置页
 
-设置页只暴露具体、已实现的操作；renderer 不读取已存凭据或数据库。分区与分组的契约在 `shared/settings.ts`，通道由各域自己注册，偏好落在 SQLite `workspace_settings`。
+设置页只暴露具体、已实现的操作；renderer 不读取已存凭据或数据库。分区与分组的契约在 `modules/settings/contract.ts`，通道由各域自己注册，偏好落在 SQLite `workspace_settings`。
 
 几条跨分区的约定：
 
@@ -114,7 +114,9 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 - 这两份文档**同时是官网 `/privacy`、`/terms` 的正文来源**（`../Dela_Web` 手抄一份，两仓库互不 import）。改这里就要同步改那边，包括顶部的「最后更新」日期。
 - 搜索服务配置只保留脱敏条目给选择器与列表，完整密钥仅编辑弹窗可取；密钥是导入时的静态副本，供应商换 Key 不跟随。
 
-**尺寸一律由 rem 派生**（字号设置会整体缩放文字、间距、图标与圆角）：禁止写死像素字号与宽高，换算基准固定 16。字号用 token，圆角用 beautifului 的 `rounded-*`。保留 px 的只有三类——边框/描边/阴影、媒体与容器查询断点、第三方 dist 内改不到的固定值；拖拽调宽的容器尺寸也是 px，因为它是用户用鼠标量出的画布尺寸。沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层，由 `lib/root-font-size.ts` 把根字号注进内层。
+**尺寸一律由 rem 派生**（字号设置会整体缩放文字、间距、图标与圆角）：禁止写死像素字号与宽高，换算基准固定 16。字号用 token，圆角用 `src/ui` 的 `rounded-*`。保留 px 的只有三类——边框/描边/阴影、媒体与容器查询断点、第三方 dist 内改不到的固定值；拖拽调宽的容器尺寸也是 px，因为它是用户用鼠标量出的画布尺寸。沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层，由 `lib/root-font-size.ts` 把根字号注进内层。
+
+颜色、阴影、圆角、层级与时长只用 `src/ui/tokens.css` 的 token，名字已冻结（[ADR 0018](adr/0018-design-token-freeze.md)），缺少时新增而不是借用别的用途的 token。`pnpm lint` 会拦下 token 之外的写法和写了却不生成 CSS 的类名。
 
 ## 3. 会话与上下文
 
@@ -152,7 +154,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 ## 5. 课堂视频
 
 - 观看与下载都只受「导航入口」显示设置影响。
-- `main/vsjtu` 复用课表的加密校园会话，使用前探测身份。已连接 Canvas 时，登录失效由令牌经 `/login/session_token` 换取网页会话，在隐藏窗口启动「课堂视频」LTI 工具取得交大视频会话后重试一次；未连接或登录失败时由用户在官方窗口手动登录。在途请求合并，短暂网络失败与 408/5xx 延迟重试一次，格式错误不重试。Cookie 与媒体签名留在 main。
+- `sjtu/classroom` 复用课表的加密校园会话，使用前探测身份。已连接 Canvas 时，登录失效由令牌经 `/login/session_token` 换取网页会话，在隐藏窗口启动「课堂视频」LTI 工具取得交大视频会话后重试一次；未连接或登录失败时由用户在官方窗口手动登录。在途请求合并，短暂网络失败与 408/5xx 延迟重试一次，格式错误不重试。Cookie 与媒体签名留在 main。
 - **官方成功空分页可能返回 `records: null`**：只有第一页、外层 `ok`/`dataOk` 均为真、总数与页数均为数字 0 时才当空数组；其余情况继续报错。后续页不能用零总数清空已取结果。
 - 课程优先取本学期课表，**只有成功解析为空列表时**才补查官网「我的课程」的点播列表并按当前学期筛选。原课表非空不补查、不合并；失败就报错，不用备用来源掩盖。
 - 在线播放走主进程代理，本次运行随机密钥签发 HMAC token，Range/HEAD 语义透传，媒体请求不携带校园 Cookie、不跟随重定向。已开始传输的流中断后**不支持无缝续接**，交由页面重试。
@@ -169,7 +171,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 - **进度 100% 只表示传输完成**，仍要等校验与安装准备，界面此时应显示「正在校验并准备安装」。总大小未知显示「—」，百分比向下取整，避免未完成时提前显示 100%。
 - `autoDownload` 与 `autoInstallOnAppQuit` 都为 false：用户手动下载，下载完后自己选「退出并安装」或「下次启动时提醒」。推迟后手动安装要先清除推迟标记。安装前保存笔记、聊天草稿、邮件草稿与工作台布局；运行中的 Agent、未发送附件或保存失败都要阻止安装并保留确认入口。
 - 安装调用 `quitAndInstall`，终端任务会结束且**不能恢复**。
-- 更新后首次启动的「更新内容」弹窗（`renderer/features/release-notes/`）以 `?raw` 内联 `CHANGELOG.md`，取每个已发布版本的条目，跨版本升级合并显示区间内各版本。首次安装只记录不弹，冒烟模式不弹。**没有额外的小节或标记**——条目本身就是弹窗内容，这也是 CHANGELOG 要保持简短的原因。
+- 更新后首次启动的「更新内容」弹窗（`modules/update/view/`）以 `?raw` 内联 `CHANGELOG.md`，取每个已发布版本的条目，跨版本升级合并显示区间内各版本。首次安装只记录不弹，冒烟模式不弹。**没有额外的小节或标记**——条目本身就是弹窗内容，这也是 CHANGELOG 要保持简短的原因。
 - 尚未配置 Authenticode 签名。SHA-512 只验证文件与元数据一致，不能替代发布者签名。
 
 ## 7. 安全边界
@@ -186,7 +188,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 
 模型推理档位只按模型保存；搜索结果直接携带会话的 `projectId`，不再推导旧入口身份。
 
-schema v12。业务代码只认当前格式；旧数据在启动时由 `src/main/migrations/` 逐级升级（规则见该目录的 README），缺少对应迁移的旧版本与更新版本创建的数据拒绝打开。
+schema v12。业务代码只认当前格式；旧数据在启动时由 `src/app/main/migrations/` 逐级升级（规则见该目录的 README），缺少对应迁移的旧版本与更新版本创建的数据拒绝打开。
 
 模型选择属于会话：提供商只有启用/停用，没有全局「使用中」；新会话沿用最近发过消息的会话的模型，开始使用时写定。提供商分两类：内置厂商（`piProvider` 指向 Pi 目录中的厂商，模型只能从目录选）与自定义 OpenAI 兼容服务。
 
@@ -204,19 +206,19 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 
 ## 10. 仓库组织
 
-单仓库、单 `package.json`（`pnpm-workspace.yaml` 只放 pnpm 设置，**不是** monorepo），三个进程分别构建：`src/main/`、`src/preload/`、`src/renderer/`，共享契约在 `src/shared/`，远端 helper 是 `helper/` 的 Go 模块（只依赖标准库），预编译产物在 `vendor/`。
+单仓库、单 `package.json`（`pnpm-workspace.yaml` 只放 pnpm 设置，**不是** monorepo），三个进程的入口与外壳在 `src/app/{main,preload,renderer}/`，分别构建；Agent 内核在 `src/core`，界面组件在 `src/ui`，功能在 `src/modules` 与 `src/sjtu`。远端 helper 是 `helper/` 的 Go 模块（只依赖标准库），预编译产物在 `vendor/`。
 
 目录清单见 [AGENTS.md](../AGENTS.md) 的文件树，那一份是权威。
 
 按层约定：
 
-- `src/main/` 按业务域分目录，每域一个入口（大域名 `api.ts`，其余 `index.ts`），IPC 注册在入口或并列的 `ipc.ts`；已迁入 `src/modules` 的模块改用契约，由 `app/ipc.ts` 统一注册（见 §10.1）。大域可以在同目录拆模块，但**入口仍是对外唯一 import 点**。根级只放不属于任何业务域的模块。
-- 主进程不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。终端与交大模块尚未迁移，仍直接引用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
-- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本，`shared` 只做转出。
-- 测试与被测代码同层：main 与 core 用各目录的 `test/` 子目录，renderer 与 shared 与源码并排。core 的测试可以引用 main 的实现做集成夹具。
+- 模块的 IPC 由契约声明，`src/app/main/ipc.ts` 统一注册（见 §10.1）。模块的 Agent 命令域、文档读取器与资源解析器在各自的 `register()` 里登记。
+- core 不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/main/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。模块访问数据库、存储目录和主窗口同样经 `HostPorts`；模块的 `main/` 可以直接用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
+- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/main/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本。
+- 测试与被测代码同层，放在源码旁或同目录的 `test/` 子目录。core 的测试可以引用 main 的实现做集成夹具。
 - `scripts/` 全部为 TypeScript（Node 原生执行，仓库不再有 `.mjs`），纳入 `pnpm typecheck`。
 
-边界约定：renderer 不导入 main、不访问凭据和数据库；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取；打包白名单只含 `out/**/*`、`package.json` 与品牌图——文档、凭据与 `.tools/` 都不进安装包。
+边界约定：界面代码不导入主进程代码、不访问凭据和数据库；不引入 Manager/Service/Factory 等抽象层级，出现真实重复前不做提取；打包白名单只含 `out/**/*`、`package.json` 与品牌图——文档、凭据与 `.tools/` 都不进安装包。
 
 ### 10.1 v3 模块迁移范例
 
@@ -229,9 +231,13 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 5. **跳转**：页面参数通过 `NavTargets` 接口合并登记。
 6. **测试**：主进程查询对着 `database.ts` 建出的真实表跑，不写影子 schema；UI 不写快照和样式断言。
 
-Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导，`shared` 只做转出。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
+`ModuleDefinition` 除 `ipc` 外还有三个钩子：`register()` 在窗口创建前登记命令域、Skill 与各类注册口（冒烟测试同样调用）；`start()` 启动后台同步并返回停止函数；`openLink(url)` 让模块在应用内接管外部链接。
 
-依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。过渡期 `view/` 可以引用 `renderer/components/ui` 和 `renderer/lib/utils`，`src/ui` 建好后收紧。renderer 的 Vite root 是 `src/renderer`，`src/` 下新增界面目录时要在 `globals.css` 加 `@source`，否则只在那里出现的类名不会生成。
+交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts` 与 `app/contracts.ts` 例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。
+
+Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
+
+依赖边界由 oxlint 检查，报错信息里写明正确的引用方式。`view/` 只能引用 `core/protocol`、`app/module`、模块契约与 `src/ui`。renderer 的 Vite root 是 `src/app/renderer`，`src/` 下新增界面目录时要在 `globals.css` 加 `@source`，否则只在那里出现的类名不会生成。
 
 ## 11. 工具链与启动
 
@@ -268,25 +274,26 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 
 ## 12. 常用命令
 
-| 命令                                | 用途                                                          |
-| ----------------------------------- | ------------------------------------------------------------- |
-| `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                  |
-| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）   |
-| `pnpm build`                        | 类型检查 + 三个入口生产构建                                   |
-| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用            |
-| `pnpm check`                        | `format:check` + `lint` + `build` + `test`                    |
-| `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                           |
-| `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行        |
-| `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离 |
-| `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位   |
-| `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                     |
-| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）           |
-| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）    |
-| `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                  |
-| `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
-| `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                |
-| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）     |
-| `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                         |
+| 命令                                | 用途                                                           |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                   |
+| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）    |
+| `pnpm build`                        | 类型检查 + 三个入口生产构建                                    |
+| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用             |
+| `pnpm lint`                         | oxlint（含依赖边界）+ `scripts/lint-styles.ts` 样式 token 检查 |
+| `pnpm check`                        | `format:check` + `lint` + `build` + `test`                     |
+| `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                            |
+| `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行         |
+| `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离  |
+| `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位    |
+| `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                      |
+| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）            |
+| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）     |
+| `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                   |
+| `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`  |
+| `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                 |
+| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）      |
+| `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                          |
 
 `pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`smoke:documents`）外不发送真实请求。
 
@@ -299,7 +306,7 @@ pnpm build
 pnpm test
 ```
 
-- 改动远端（`src/core/remote/`、`src/main/remotes/`、`helper/`）时另用 `pnpm test:remote` 对真机跑一遍（先 `pnpm fetch:remote-rg`），那批用例默认套件与 CI 都会跳过。
+- 改动远端（`src/core/remote/`、`src/modules/remotes/`、`helper/`）时另用 `pnpm test:remote` 对真机跑一遍（先 `pnpm fetch:remote-rg`），那批用例默认套件与 CI 都会跳过。
 - 涉及构建、原生依赖或打包时另验证 `pnpm smoke` 与打包目录启动。
 - 用户能感知的变化写进 [CHANGELOG.md](../CHANGELOG.md)；面向使用者的功能概览更新 [README.md](../README.md)；架构、取舍与平台状态变化更新本文。
 - 单元测试只保留能挡住回归的用例：优先行为契约、边界与错误、安全、持久化/迁移、平台差异。不为字面默认值、setter/getter 往返、第三方库行为或纯 DOM 结构写用例；同一行为只留一处覆盖。

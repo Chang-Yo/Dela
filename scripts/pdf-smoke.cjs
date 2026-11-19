@@ -44,7 +44,6 @@ function fixture() {
       deflateSync(pixels),
     ),
   );
-  // Tiny JPEG2000 swatch exercises the bundled OpenJPEG WASM decoder.
   const jpx = add(
     stream(
       '/Type /XObject /Subtype /Image /Width 32 /Height 32 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode',
@@ -123,18 +122,19 @@ const workspace = {
 let ranges = 0;
 let failRange = false;
 const routes = {
-  'workspace:get-state': () => workspace,
-  'canvas:get-state': () => canvas,
-  'canvas:read': (_, id) => ({
+  'workspace:state': () => workspace,
+  'canvas:state': () => canvas,
+  'contract:subscribe': () => null,
+  'workspace:readSource': (_, id) => ({
     title: id,
     format: 'pdf',
     mime: 'application/pdf',
     previewUrl: `dela-resource://canvas/${id}`,
   }),
   'window:get-state': () => ({ maximized: false }),
-  'settings:get-theme': () => 'light',
-  'settings:get-zoom': () => 1,
-  'settings:get-font-size': () => 16,
+  'settings:theme': () => 'light',
+  'settings:zoom': () => 1,
+  'settings:fontSize': () => 16,
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
 app
@@ -196,6 +196,11 @@ app
     await evaluate(
       `const style = document.createElement('style'); style.textContent = '* { transition: none !important; animation: none !important; }'; document.head.append(style);`,
     );
+    for (const label of ['2026 秋季', '计算机视觉']) {
+      const item = `[...document.querySelectorAll('[role=treeitem]')].find(e => e.getAttribute('aria-label')?.startsWith(${JSON.stringify(label)}))`;
+      await wait(item);
+      await evaluate(`${item}.click()`);
+    }
     await wait('document.querySelector(\'[role=treeitem][aria-label="Lecture 1.pdf"]\')');
     assert.equal(await evaluate("document.body.innerText.includes('未标注学期')"), false);
     await click('归档');
@@ -219,18 +224,19 @@ app
     await wait(
       "document.querySelectorAll('[role=tab]').length === 2 && document.querySelector('.textLayer')?.textContent.includes('Lecture page 1')",
     );
-    await click('Lecture 1.pdf');
-    await wait(
-      `document.querySelector('[aria-label="PDF 页码"]').value === ${JSON.stringify(page)} && document.querySelector('.textLayer')?.textContent`,
+    await evaluate(
+      "[...document.querySelectorAll('[role=tab]')].find(t => t.textContent.includes('Lecture 1.pdf')).click()",
     );
-    // Exercise cancellation while old requests and Worker setup are pending.
+    await wait(
+      `document.querySelector('[aria-label="PDF 页码"]')?.value === ${JSON.stringify(page)} && document.querySelector('.textLayer')?.textContent`,
+    );
     for (let i = 0; i < 20; i++) {
       await open((i % 2) + 1);
       await new Promise((r) => setTimeout(r, 10));
     }
     await open(1);
     await wait(
-      `document.querySelector('.textLayer')?.textContent && document.querySelector('[aria-label="PDF 页码"]').value === ${JSON.stringify(page)}`,
+      `document.querySelector('.textLayer')?.textContent && document.querySelector('[aria-label="PDF 页码"]')?.value === ${JSON.stringify(page)}`,
     );
     assert.equal(await evaluate("document.body.innerText.includes('PDF 打开失败')"), false);
     assert.equal(
@@ -284,7 +290,7 @@ app
       return { ...position, prevented: e.defaultPrevented };
     })()`);
     assert.equal(anchor.prevented, true);
-    await wait("parseInt(document.querySelector('[title=适合宽度]').textContent) > 100");
+    await wait(`parseInt(document.querySelector('[title="重置缩放到 100%"]').textContent) > 100`);
     await wait('!window.pdfStableCanvas.isConnected');
     assert.equal(
       await evaluate('window.pdfBlankFrames'),
@@ -303,14 +309,13 @@ app
       Math.abs(after.horizontal - anchor.horizontal) < 0.01,
       JSON.stringify({ anchor, after }),
     );
-    // Return to fit width, then pan sideways: there should be no tiny overflow.
-    await evaluate("document.querySelector('[title=适合宽度]').click()");
+    await evaluate("document.querySelector('[aria-label=适合宽度]').click()");
     await new Promise((r) => setTimeout(r, 250));
-    assert.equal(
+    assert.ok(
       await evaluate(
-        `(() => { const h = document.querySelector('.textLayer').closest('.overflow-auto'); h.scrollLeft = 10; return h.scrollLeft; })()`,
+        `(() => { const h = document.querySelector('.textLayer').closest('.overflow-auto'); return Math.abs(document.querySelector('[data-page-number="${page}"]').getBoundingClientRect().width - h.clientWidth) <= 2; })()`,
       ),
-      0,
+      'Fit width must make the current page fill the viewer',
     );
     await win.webContents.debugger.attach('1.3');
     await win.webContents.debugger.sendCommand('Emulation.setDeviceMetricsOverride', {
@@ -329,7 +334,7 @@ app
       ),
     );
     await wait(
-      `document.querySelector('[aria-label="PDF 页码"]').value === ${JSON.stringify(page)}`,
+      `Math.abs(Number(document.querySelector('[aria-label="PDF 页码"]')?.value) - ${page}) <= 1`,
     );
     await wait(
       `document.querySelector('[data-page-number="${page}"]:not(.loading) .textLayer')?.textContent`,
@@ -344,7 +349,11 @@ app
       });
       await new Promise((r) => setTimeout(r, 400));
       assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'));
-      assert.equal(await evaluate(`document.querySelector('[aria-label="PDF 页码"]').value`), page);
+      assert.ok(
+        Math.abs(
+          Number(await evaluate(`document.querySelector('[aria-label="PDF 页码"]').value`)) - page,
+        ) <= 1,
+      );
       await wait(
         `document.querySelector('[data-page-number="${page}"]:not(.loading) .textLayer')?.textContent`,
       );

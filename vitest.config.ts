@@ -2,7 +2,7 @@ import { delimiter, resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  resolve: { alias: { '@': resolve('src/renderer') } },
+  resolve: { alias: { '@': resolve('src/app/renderer') } },
   define: {
     __FILE_ICONS_DIR__: JSON.stringify(
       resolve('node_modules/material-icon-theme/icons').replaceAll('\\', '/'),

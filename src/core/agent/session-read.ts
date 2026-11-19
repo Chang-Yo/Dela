@@ -26,14 +26,11 @@ export interface SessionTurn {
   truncated?: true;
 }
 
-/** 一次 session_read 返回的总字数上限；超出时截断，用 before 续读更早的轮次。 */
-export const READ_LIMIT = 20_000;
+const READ_LIMIT = 20_000;
 
-/** 当前分支按轮切分：插队消息与所在轮共用 turnId，并进同一轮；压缩点前后的原文都在。 */
 export function sessionTurns(branch: SessionEntry[], runningTurn?: string): SessionTurn[] {
   const turns: { turn: SessionTurn; last?: AssistantMessage }[] = [];
   for (const entry of branch) {
-    // 唤醒父会话的后台任务通知自成一轮，通知正文当作这一轮的输入。
     if (entry.type === 'custom_message' && entry.customType === TASK_NOTICE) {
       const { turnId } = entry.details as TaskNoticeDetails;
       if (turnId && turns.at(-1)?.turn.turnId !== turnId)
@@ -86,7 +83,6 @@ export function sessionTurns(branch: SessionEntry[], runningTurn?: string): Sess
     if (last?.stopReason === 'aborted') return { ...turn, status: 'stopped' };
     if (last?.stopReason === 'error')
       return { ...turn, status: 'interrupted', error: last.errorMessage ?? '未知错误' };
-    // 最后一条是工具调用（应用中途退出）或根本没有回复：如实记为中断。
     if (!last || last.stopReason === 'toolUse') return turn;
     const reply = last.content.flatMap((block) => (block.type === 'text' ? [block.text] : []));
     return { ...turn, status: 'completed', reply: reply.join('\n\n').trim() || null };
@@ -99,7 +95,6 @@ function cut(text: string, room: number) {
   return text.length <= room ? text : `${text.slice(0, room)}…（已截断，原文 ${text.length} 字）`;
 }
 
-/** 单轮超出上限：先保住用户消息的一部分，剩下的给回复。 */
 function clip(turn: SessionTurn, limit: number): SessionTurn {
   if (sizeOf(turn) <= limit) return turn;
   const user = cut(turn.user, Math.max(limit - (turn.reply?.length ?? 0), limit / 4));
@@ -109,7 +104,6 @@ function clip(turn: SessionTurn, limit: number): SessionTurn {
 
 export type ReadOptions = { turnId: string } | { turns?: number; before?: string };
 
-/** 取最近的若干轮（before 之前），按时间正序返回；字数超限时少取几轮，并给出续读用的 before。 */
 export function pageTurns(
   turns: SessionTurn[],
   options: ReadOptions,
@@ -138,7 +132,6 @@ export function pageTurns(
   return { turns: picked, ...(start > 0 ? { before: turns[start]!.turnId } : {}) };
 }
 
-/** 只能读当前项目内、未归档的会话。 */
 function readableSession(id: string, projectId: string | null) {
   const found = hostPorts()
     .database()

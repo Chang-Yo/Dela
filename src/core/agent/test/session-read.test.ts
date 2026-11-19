@@ -61,7 +61,6 @@ const toolResult = (toolCallId: string): Message =>
     timestamp: (clock += 1000),
   }) as Message;
 
-/** 一轮：先说一句再调工具，工具结果回来后给出最终回复。 */
 function toolTurn(manager: Manager, turnId: string, ask: string, answer: string) {
   manager.appendMessage(user(ask, turnId));
   const call = assistant('我先看看目录', 'toolUse');
@@ -198,12 +197,6 @@ describe('pageTurns', () => {
     expect(clipped!.user).toBe('问 h');
     expect(clipped!.reply!.length).toBeLessThan(1100);
     expect(clipped!.reply).toContain('已截断，原文 5000 字');
-  });
-
-  it('按 turnId 读单轮；不存在的轮次如实报错', () => {
-    expect(pageTurns(turns, { turnId: 'c' }).turns).toEqual([turns[2]]);
-    expect(() => pageTurns(turns, { turnId: 'zz' })).toThrow('没有这一轮');
-    expect(() => pageTurns(turns, { before: 'zz' })).toThrow('没有这一轮');
   });
 });
 

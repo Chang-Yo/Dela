@@ -14,9 +14,7 @@ export interface BuiltinSkill {
 
 export interface CommandDomain {
   name: string;
-  /** 一句话说明：进入系统提示，告诉 Agent 这一域能做什么。 */
   description: string;
-  /** 停用这个 Skill 时，本域命令从 dela help 与执行中一并消失。 */
   skill?: BuiltinSkill;
   commands: Record<string, Command>;
 }
@@ -27,12 +25,10 @@ export function registerCommandDomain(domain: CommandDomain): void {
   domains.push(domain);
 }
 
-/** 所属 Skill 未停用的命令域，按注册顺序。 */
 export function enabledCommandDomains(disabledSkills: ReadonlySet<string>): CommandDomain[] {
   return domains.filter((domain) => !domain.skill || !disabledSkills.has(domain.skill.name));
 }
 
-/** 系统提示中的命令域说明，与 dela help 一致；没有可用命令域时不提 dela。 */
 export function commandPrompt(disabledSkills: ReadonlySet<string>): string | null {
   const enabled = enabledCommandDomains(disabledSkills);
   if (enabled.length === 0) return null;

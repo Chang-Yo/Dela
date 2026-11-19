@@ -1,0 +1,540 @@
+// 工作台目录侧栏的装配层：项目文件树 + 同步来的资料 + 归档区；树的展开/筛选/选中态在 navigation/store。
+import { useEffect, useRef, useState } from 'react';
+import {
+  Archive,
+  ChevronsDownUp,
+  FilePlus2,
+  FileInput,
+  FolderPlus,
+  Globe,
+  PanelLeft,
+  Plus,
+  Upload,
+} from 'lucide-react';
+import { workspaceArchiveId, type WorkspaceEntry } from '../../../modules/workspace/contract';
+import { parseRemoteNodeId } from '../../../modules/remotes/contract';
+import { Button } from '../../../ui/button';
+import { CollapseChevron } from '../../../ui/collapse';
+import { PanelHeader } from '../../../ui/panel-header';
+import { SearchInput } from '../../../ui/search-input';
+import { Resizer } from '../../../ui/resizer';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  useAfterMenuClose,
+} from '../../../ui/dropdown-menu';
+import { ProjectFileTree, type EntryAction } from '../navigation/ProjectFileTree';
+import type { ExplorerPending } from '../../../modules/workspace/view';
+import { useRemoteActivity } from '../navigation/remote-activity';
+import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
+import { useRemoteConnections } from '../navigation/remote-connections';
+import { libraries } from '../../views';
+import { ancestorChainOf, useTreeState } from '../navigation/store';
+import { useNavigationStore as useAppNavigation } from '../navigation/view';
+import {
+  archiveEntry,
+  importDroppedFiles,
+  importFromDialog,
+  isDescendant,
+  moveEntry,
+  promoteEntry,
+  runEntryWork,
+} from '../workspace/entry-actions';
+import { usePreferenceWidth, usePreferences } from '../shell/preferences';
+import { useMobileDrawer } from '../shell/mobile-drawer';
+import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
+import { useExplorerState } from './explorer-state';
+import { useViewportWidth } from '../../../ui/use-viewport-width';
+import { cn } from '../../../ui/cn';
+import { overlayFade } from '../../../ui/motion';
+import { IconButton } from '../../../ui/icon-button';
+import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
+import { errorMessage } from '../../../core/protocol/contract';
+
+const SIDEBAR_MIN_WIDTH = 160;
+const SIDEBAR_MAX_WIDTH = 360;
+
+/** 切换项目后 selected 可能仍指向上一个项目的条目：不属于当前根的一律回落到根。 */
+export function currentContainerOf(activeKey: string | null, rootId: string | null): string | null {
+  const byId = new Map(
+    useWorkspaceStore.getState().workspace.entries.map((entry) => [entry.id, entry]),
+  );
+  const withinRoot = (id: string): boolean => {
+    if (!rootId) return true;
+    const seen = new Set<string>();
+    for (
+      let current = byId.get(id);
+      current && !seen.has(current.id);
+      current = current.parentId ? byId.get(current.parentId) : undefined
+    ) {
+      if (current.id === rootId) return true;
+      seen.add(current.id);
+    }
+    return false;
+  };
+  const entry = activeKey ? byId.get(activeKey) : undefined;
+  if (!entry) return rootId;
+  const folder = entry.kind === 'folder' || entry.kind === 'project' ? entry.id : entry.parentId;
+  return folder && withinRoot(folder) ? folder : rootId;
+}
+
+export function WorkbenchExplorer({
+  projectId,
+  activeDocKey,
+  onAction,
+  onOpenDocument,
+  onOpenToSide,
+  onCreated,
+}: {
+  projectId: string | null;
+  activeDocKey: string | null;
+  onAction: (action: EntryAction | 'link', id: string | null) => void;
+  onOpenDocument: (key: string) => void;
+  onOpenToSide: (key: string) => void;
+  onCreated: (entry: WorkspaceEntry) => void;
+}) {
+  const entries = useWorkspaceStore((s) => s.workspace.entries);
+  const libraryRoot = useWorkspaceStore((s) => `${s.workspace.directory}/workspace`);
+  const rootId = entries.some((entry) => entry.id === projectId) ? projectId : null;
+  const root = entries.find((e) => e.id === rootId);
+  // 打开的若是远程项目，这棵树本轮只读：拖入的落点是远端 POSIX 路径，
+  // 本地写入入口（importDroppedFiles / moveEntry）会把它当本地目录，必须关掉。
+  const remoteRoot = Boolean(root?.remoteId);
+  const connections = useRemoteConnections();
+  const activity = useRemoteActivity((s) => s.byProject);
+  const selected = useTreeState((s) => s.selected);
+  const expanded = useTreeState((s) => s.expanded);
+  const query = useTreeState((s) => s.query);
+  const pendingCreate = useTreeState((s) => s.pendingCreate);
+  const { width, resizing, onChange, onResizingChange } =
+    usePreferenceWidth('workspaceSidebarWidth');
+  const collapsed = usePreferences((s) => s.workspaceSidebarCollapsed);
+  const mobileOpen = useMobileDrawer((s) => s.drawer === 'explorer');
+  const narrow = useExplorerState((s) => s.narrow);
+  const viewportWidth = useViewportWidth();
+  const drawerRef = useRef<HTMLElement>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+
+  useEffect(() => {
+    if (!narrow || !mobileOpen) return;
+    drawerRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') useMobileDrawer.getState().setDrawer(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [narrow, mobileOpen]);
+
+  const expand = (id: string, open: boolean) => useTreeState.getState().expand(id, open);
+  const container = () => currentContainerOf(selected ?? activeDocKey, rootId);
+
+  const selectEntry = (id: string) => {
+    const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === id);
+    if (!item) {
+      if (parseRemoteNodeId(id)) onOpenDocument(id);
+      return;
+    }
+    if (item.kind === 'folder' || item.kind === 'project') {
+      useTreeState.getState().select(id);
+      expand(id, !expanded.includes(id));
+    } else onOpenDocument(id);
+  };
+
+  const openToSide = (key: string) => {
+    const item = useWorkspaceStore.getState().workspace.entries.find((entry) => entry.id === key);
+    if (item?.kind === 'folder' || item?.kind === 'project') selectEntry(key);
+    else onOpenToSide(key);
+  };
+
+  const keepDocument = (key: string) =>
+    void useAppNavigation.getState().openDocument(key, { keep: true });
+
+  const openProject = (id: string) => {
+    void useAppNavigation.getState().openProject(id);
+    useMobileDrawer.getState().setDrawer(null);
+  };
+
+  const move = (dragId: string, targetId: string | null) =>
+    moveEntry(dragId, targetId, rootId, (target) => {
+      if (target) expand(target, true);
+    });
+  const importDropped = (files: File[], targetId: string | null) =>
+    importDroppedFiles(files, targetId, rootId, (target) => {
+      if (target) expand(target, true);
+    });
+  const importDroppedAnywhere = (files: File[], targetId: string | null) => {
+    const remote = targetId ? parseRemoteNodeId(targetId) : null;
+    const projectId = remote?.projectId ?? (remoteRoot ? rootId : null);
+    const directory = remote?.path ?? (remoteRoot ? root?.path : null);
+    if (!projectId || !directory) return importDropped(files, targetId);
+    if (targetId) expand(targetId, true);
+    void runEntryWork(async () => {
+      await workspaceClient.uploadRemoteFiles({ projectId, directory, paths: localPathsOf(files) });
+    });
+  };
+  const [portsForProject, setPortsForProject] = useState<string | null>(null);
+  const remoteAction = (action: 'download' | 'open' | 'upload', id: string) => {
+    const remote = parseRemoteNodeId(id);
+    if (!remote) return;
+    void runEntryWork(async () => {
+      if (action === 'download') await workspaceClient.downloadRemoteFile(remote);
+      else if (action === 'open') await workspaceClient.openRemoteFile(remote);
+      else
+        await workspaceClient.uploadRemoteFiles({
+          projectId: remote.projectId,
+          directory: remote.path,
+          paths: null,
+        });
+    });
+  };
+  const startCreate = (kind: 'file' | 'folder', parentId: string | null) => {
+    const target = parentId ?? rootId;
+    const chain = target ? ancestorChainOf(entries, target) : [];
+    useTreeState.setState((s) => ({ expanded: [...new Set([...s.expanded, ...chain])] }));
+    useTreeState.getState().startCreate({ kind, parentId: target });
+  };
+  // 名称输入框空名失焦即取消，必须等菜单的焦点回收结束再建行。
+  const afterMenuClose = useAfterMenuClose();
+  const pending: ExplorerPending | null = pendingCreate && {
+    ...pendingCreate,
+    onCancel: () => useTreeState.getState().cancelCreate(),
+    onSubmit: async (name) => {
+      try {
+        const created = await workspaceClient.create({
+          name,
+          parentId: pendingCreate.parentId,
+          kind: pendingCreate.kind,
+        });
+        useTreeState.getState().cancelCreate();
+        await useWorkspaceStore.getState().refresh();
+        onCreated(created);
+        return null;
+      } catch (cause) {
+        return errorMessage(cause);
+      }
+    },
+  };
+
+  const treeAction = (action: EntryAction, id: string | null) => {
+    if (action === 'note') startCreate('file', id);
+    else if (action === 'folder') startCreate('folder', id);
+    else if (action === 'import') importFromDialog(id);
+    else if (action === 'archive' && id) archiveEntry(id, () => setArchiveOpen(true));
+    else if (action === 'promote' && id)
+      promoteEntry(id, (pid) => void useAppNavigation.getState().openProject(pid));
+    else onAction(action, id);
+  };
+
+  // 窄屏抽屉只看 mobileOpen：忽略宽屏折叠残留，否则折叠目录后缩窗会永远打不开目录。
+  const visible = narrow ? mobileOpen : !collapsed;
+  const effectiveWidth = Math.min(width, Math.max(200, Math.round(viewportWidth * 0.28)));
+  const sectionClass = 'flex h-8 items-center gap-1 px-3 text-xs font-medium text-ink-3';
+  const eyebrowClass = 'px-3 pt-3 pb-1 text-xs font-medium tracking-wider text-ink-3/70';
+  const libraryProps = {
+    query,
+    expanded,
+    onExpand: expand,
+    selected: activeDocKey,
+    onOpen: onOpenDocument,
+    onOpenToSide,
+    onLink: (key: string) => onAction('link', key),
+    onArchive: () => setArchiveOpen(true),
+  };
+
+  return (
+    <>
+      {narrow && mobileOpen && (
+        <div
+          aria-hidden="true"
+          className={cn(overlayFade, 'absolute inset-0 z-20 bg-scrim')}
+          onMouseDown={() => useMobileDrawer.getState().setDrawer(null)}
+        />
+      )}
+      <aside
+        ref={drawerRef}
+        aria-label="工作台目录"
+        inert={!visible}
+        tabIndex={-1}
+        className={cn(
+          // 三级背景层次（用户裁决，勿压平）：侧栏画布 --page → 目录树 --inset
+          // 略深一档 → 内容区白(1.0)；树与白底之间靠色差分隔，不画边框线。
+          'flex min-h-0 shrink-0 flex-col overflow-hidden bg-inset transition-[width] duration-base ease-out motion-reduce:transition-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-drawer max-md:!w-70 max-md:max-w-[85vw] max-md:bg-surface max-md:shadow-overlay max-md:animate-drawer-left',
+          resizing && 'transition-none',
+          !visible && 'w-0 max-md:hidden',
+        )}
+        style={narrow || collapsed ? undefined : { width: effectiveWidth }}
+      >
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 flex-col transition-opacity duration-base motion-reduce:transition-none max-md:!w-full',
+            collapsed && !narrow && 'pointer-events-none opacity-0',
+          )}
+          style={narrow ? undefined : { width: effectiveWidth }}
+        >
+          <PanelHeader variant="plain">
+            <IconButton
+              aria-controls="workspace-explorer"
+              aria-expanded={visible}
+              aria-label={visible ? '收起目录' : '展开目录'}
+
+              onClick={() => {
+                if (narrow) useMobileDrawer.getState().setDrawer(null);
+                else
+                  usePreferences.getState().setPreference('workspaceSidebarCollapsed', !collapsed);
+              }}
+              title={visible ? '收起目录' : '展开目录'}
+            >
+              <PanelLeft strokeWidth={1.8} />
+            </IconButton>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="min-w-0 flex-1 truncate text-left text-xs font-medium text-ink-2 transition-colors duration-base hover:text-ink"
+                  onClick={() => useTreeState.getState().select(rootId)}
+                  title={
+                    remoteRoot ? undefined : projectId ? (root?.name ?? '项目与文件夹') : '资料'
+                  }
+                  type="button"
+                >
+                  {projectId ? (root?.name ?? '项目与文件夹') : '资料'}
+                </button>
+              </TooltipTrigger>
+              {remoteRoot && root && (
+                <TooltipContent className="px-2.5 py-2" side="bottom">
+                  <RemoteConnectionTip
+                    activity={activity[root.id]}
+                    connection={connections[root.remoteId!]}
+                    project={root}
+                  />
+                </TooltipContent>
+              )}
+            </Tooltip>
+            <div className="flex shrink-0 items-center gap-0.5">
+              {remoteRoot && rootId && (
+                <>
+                  <Button
+                    aria-label="预览远端端口"
+                    className="hover:bg-hover-strong"
+                    onClick={() => setPortsForProject(rootId)}
+                    size="icon-xs"
+                    title="预览远端端口"
+                    variant="ghost"
+                  >
+                    <Globe />
+                  </Button>
+                  <Button
+                    aria-label="上传本地文件"
+                    className="hover:bg-hover-strong"
+                    onClick={() => {
+                      const directory = root?.path;
+                      if (!directory) return;
+                      void runEntryWork(async () => {
+                        await workspaceClient.uploadRemoteFiles({
+                          projectId: rootId,
+                          directory,
+                          paths: null,
+                        });
+                      });
+                    }}
+                    size="icon-xs"
+                    title="上传本地文件到项目根目录"
+                    variant="ghost"
+                  >
+                    <Upload />
+                  </Button>
+                </>
+              )}
+              {!remoteRoot && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      aria-label="新建"
+                      className="hover:bg-hover-strong"
+                      size="icon-xs"
+                      title="新建"
+                      variant="ghost"
+                    >
+                      <Plus />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    onCloseAutoFocus={afterMenuClose.onCloseAutoFocus}
+                  >
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        const parentId = container();
+                        afterMenuClose.defer(() => startCreate('file', parentId));
+                      }}
+                    >
+                      <FilePlus2 />
+                      新建文件
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        const parentId = container();
+                        afterMenuClose.defer(() => startCreate('folder', parentId));
+                      }}
+                    >
+                      <FolderPlus />
+                      新建文件夹
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => importFromDialog(container())}>
+                      <FileInput />
+                      导入本地文件
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <Button
+                aria-label="全部收起"
+                className="hover:bg-hover-strong"
+                onClick={() => useTreeState.getState().collapseAll()}
+                size="icon-xs"
+                title="全部收起"
+                variant="ghost"
+              >
+                <ChevronsDownUp />
+              </Button>
+            </div>
+          </PanelHeader>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col" id="workspace-explorer">
+            <SearchInput
+              aria-label="筛选已同步内容"
+              className="mx-2 mb-1"
+              onChange={(e) => useTreeState.getState().setQuery(e.target.value)}
+              placeholder="筛选已同步内容…"
+              value={query}
+            />
+            <div
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+              // 点空白处回到项目根：之后的新建落在二级，而不是沿用上次选中的子文件夹。
+              onClick={(event) => {
+                if (event.target === event.currentTarget) useTreeState.getState().select(rootId);
+              }}
+              onDoubleClick={(event) => {
+                if (remoteRoot) return;
+                if (event.target === event.currentTarget) startCreate('file', container());
+              }}
+              onDragOver={(event) => {
+                if (event.dataTransfer.types.includes('Files')) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'copy';
+                  return;
+                }
+                if (event.target !== event.currentTarget) return;
+                if (!event.dataTransfer.types.includes('application/x-dela-entry')) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(event) => {
+                if (event.dataTransfer.types.includes('Files')) {
+                  if (event.defaultPrevented) return;
+                  event.preventDefault();
+                  importDroppedAnywhere(Array.from(event.dataTransfer.files), null);
+                  return;
+                }
+                if (event.target !== event.currentTarget) return;
+                event.preventDefault();
+                const drag = event.dataTransfer.getData('application/x-dela-entry');
+                if (drag) move(drag, null);
+              }}
+            >
+              {projectId === null && libraries.length > 0 && (
+                <>
+                  <div className={eyebrowClass}>同步</div>
+                  {libraries.map((Library, index) => (
+                    <Library archived={false} key={index} {...libraryProps} />
+                  ))}
+                </>
+              )}
+              <div className={eyebrowClass}>文件</div>
+              {visible && (
+                <ProjectFileTree
+                  canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
+                  entries={entries}
+                  expanded={expanded}
+                  pending={pending}
+                  onAction={treeAction}
+                  onExpand={expand}
+                  onImportFiles={rootId ? importDroppedAnywhere : undefined}
+                  onMove={remoteRoot ? undefined : move}
+                  onOpenProject={openProject}
+                  onOpenToSide={openToSide}
+                  onActivate={keepDocument}
+                  libraryRoot={projectId === null ? libraryRoot : undefined}
+                  onRemoteAction={remoteAction}
+                  onSelect={selectEntry}
+                  query={query}
+                  rootId={rootId}
+                  selected={activeDocKey ?? selected}
+                />
+              )}
+            </div>
+            <div className="shrink-0 border-t border-line">
+              <button
+                aria-expanded={archiveOpen || Boolean(query.trim())}
+                className={cn(
+                  sectionClass,
+                  'w-full transition-colors duration-base hover:text-ink-2',
+                )}
+                onClick={() => setArchiveOpen((value) => !value)}
+                type="button"
+              >
+                <CollapseChevron open={archiveOpen || Boolean(query.trim())} />
+                <Archive className="size-4" />
+                归档
+              </button>
+              {(archiveOpen || query.trim()) && (
+                <div className="max-h-56 overflow-y-auto pb-1">
+                  {projectId === null &&
+                    libraries.map((Library, index) => (
+                      <Library archived key={index} {...libraryProps} />
+                    ))}
+                  {visible && (
+                    <ProjectFileTree
+                      archived
+                      canDrop={(dragId, targetId) => !isDescendant(entries, targetId, dragId)}
+                      entries={entries}
+                      expanded={expanded}
+                      onAction={treeAction}
+                      onExpand={expand}
+                      onMove={move}
+                      onOpenProject={openProject}
+                      onOpenToSide={openToSide}
+                      onSelect={selectEntry}
+                      query={query}
+                      rootId={workspaceArchiveId}
+                      selected={activeDocKey ?? selected}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </aside>
+      <Resizer
+        className={cn('bg-transparent', !visible && 'hidden')}
+        label="调整目录宽度"
+        // 拖拽绑定用户偏好值与原上限：渲染宽度另有视口钳制，若把钳制值当 max，
+        // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
+        max={SIDEBAR_MAX_WIDTH}
+        min={SIDEBAR_MIN_WIDTH}
+        onChange={onChange}
+        onResizingChange={onResizingChange}
+        value={width}
+      />
+      {portsForProject !== null && (
+        <RemotePortsDialog
+          onClose={() => setPortsForProject(null)}
+          open
+          projectId={portsForProject}
+        />
+      )}
+    </>
+  );
+}

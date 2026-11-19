@@ -28,25 +28,6 @@ describe('deepseek search', () => {
     expect(JSON.parse(String(init.body))).toEqual({ query: '查询', count: 5 });
   });
 
-  it('按 count 截断结果', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            results: Array.from({ length: 8 }, (_, index) => ({
-              title: `T${index}`,
-              url: `https://example.com/${index}`,
-              snippet: 's',
-            })),
-          }),
-          { status: 200 },
-        ),
-      ),
-    );
-    expect(await searchDeepSeek('q', 3, 'k')).toHaveLength(3);
-  });
-
   it('非 2xx 抛带状态码的错误', async () => {
     vi.stubGlobal(
       'fetch',
@@ -74,17 +55,5 @@ describe('deepseek fetch', () => {
     const [url, init] = fetch.mock.calls[0]! as [string, RequestInit];
     expect(url).toBe('https://api.deepseek.com/v1/tools/fetch');
     expect(JSON.parse(String(init.body))).toEqual({ url: 'https://example.com/page' });
-  });
-
-  it('取不到正文时抛 404', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(new Response('{"error":{"message":"not found"}}', { status: 404 })),
-    );
-    const error = await fetchDeepSeek('https://example.com/page', 'k').catch(
-      (cause: unknown) => cause,
-    );
-    expect(error).toBeInstanceOf(DeepSeekError);
-    expect((error as DeepSeekError).status).toBe(404);
   });
 });

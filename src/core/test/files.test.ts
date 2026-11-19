@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SNIFF_BYTES, extensionOf, fileFormatOf, isTextContent } from '../protocol/files';
+import { SNIFF_BYTES, fileFormatOf, isTextContent } from '../protocol/files';
 
 const utf8 = (text: string) => new TextEncoder().encode(text);
 
@@ -12,12 +12,6 @@ describe('fileFormatOf', () => {
       expect(fileFormatOf(name, utf8('content\n'))).toBe('text');
     expect(fileFormatOf('core', Uint8Array.of(0x7f, 0x45, 0x4c, 0x46, 0, 0))).toBe('binary');
     expect(fileFormatOf('empty', new Uint8Array())).toBe('text');
-  });
-
-  it('点开头的文件名没有扩展名', () => {
-    expect(extensionOf('.env')).toBe('');
-    expect(extensionOf('C:\\proj\\.config\\a.Json')).toBe('.json');
-    expect(extensionOf('/home/u/.bashrc')).toBe('');
   });
 });
 

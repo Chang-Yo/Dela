@@ -11,17 +11,14 @@ import type {
 } from '../protocol/capabilities';
 import { hostPorts } from '../ports';
 
-/** environment.ts 转成 Pi 自定义工具。 */
 interface DynamicToolDefinition {
   type: 'function';
   function: { name: string; description: string; parameters: unknown };
 }
 
-/** Pi 内置工具名：MCP 工具与之重名时跳过。 */
 const builtinToolNames = ['read', 'write', 'edit', 'bash', 'grep', 'find', 'ls'];
 
-/** pi-mcp 为纯 ESM 包（exports 无 require 条件），主进程产物是 CJS：只能经动态 import() 加载
- *  （rolldown 对 external 保留原生 import()），不能顶层静态 require；首次连接时加载并缓存。 */
+/** pi-mcp 是纯 ESM 包而主进程产物是 CJS：只能首次连接时经动态 import() 加载并缓存。 */
 type McpSdk = typeof import('@earendil-works/pi-mcp');
 let mcpSdk: McpSdk | null = null;
 async function loadMcpSdk(): Promise<McpSdk> {
@@ -29,11 +26,8 @@ async function loadMcpSdk(): Promise<McpSdk> {
   return mcpSdk;
 }
 
-/** 连接（进程启动 + initialize 握手 + 首次工具发现）的超时上限。 */
 const CONNECT_TIMEOUT_MS = 10_000;
-/** 连接失败消息中附带的服务器 stderr 尾部长度。 */
 const STDERR_TAIL_CHARS = 500;
-/** MCP 客户端在 initialize 握手中自报的身份。 */
 const CLIENT_INFO = { name: 'Dela', version: '0.0.0' };
 
 const nameField = z.string().trim().min(1).max(60);
@@ -92,24 +86,20 @@ export const mcpServerPatchSchema = z.object({
 
 interface ManagedServer {
   config: McpServerConfig;
-  /** 已建立连接时非空；断连/禁用即清空。 */
   client: InstanceType<McpSdk['McpClient']> | null;
   status: McpServerView['status'];
   toolCount: number | null;
   error: string | null;
   tools: { namespaced: string; tool: Tool }[];
-  /** 进行中的连接（互斥；避免惰性触发与显式刷新并发握手）。 */
   connecting: Promise<void> | null;
 }
 
 /** 内存态（id → 运行视图事实）；配置事实始终以 mcp-servers.bin 为准，读前先同步。 */
 const servers = new Map<string, ManagedServer>();
 
-/** 归一化工具名 → 服务器 id：adopt 时登记，断连清理时一并移除。执行路由按此精确归属，
- *  不猜命名空间前缀（服务器 a 的 b_x 与服务器 a-b 的 x 归一化同名时，最长前缀会误配）。 */
+/** 归一化工具名 → 服务器 id：执行路由按此精确归属，不猜命名空间前缀（a 的 b_x 与 a-b 的 x 同名时最长前缀会误配）。 */
 const toolOwner = new Map<string, string>();
 
-/** 整份配置加密保存：env、请求头与参数里都可能有密钥。 */
 function saveMcpServers(configs: unknown[]): void {
   hostPorts().secrets.write('mcp-servers', JSON.stringify(configs));
 }
@@ -137,7 +127,6 @@ function stderrTail(sdk: McpSdk, transport: McpTransport): string {
 function createTransport(sdk: McpSdk, config: McpServerConfig): McpTransport {
   if (config.transport === 'http')
     return new sdk.StreamableHttpTransport({ url: config.url, headers: { ...config.headers } });
-  // inheritEnv 默认 true：继承宿主环境再叠加服务器专属变量。
   return new sdk.StdioTransport({
     command: config.command,
     args: config.args,
@@ -179,7 +168,6 @@ function syncFromConfigs(): void {
   }
 }
 
-/** 撤销路由登记；主动断开与 onClose 断连共用。 */
 function dropAdoptedTools(entry: ManagedServer): void {
   for (const { namespaced } of entry.tools) toolOwner.delete(namespaced);
   entry.tools = [];
@@ -222,7 +210,6 @@ function adoptTools(entry: ManagedServer, tools: Tool[]): void {
   }
   entry.tools = adopted;
   entry.toolCount = tools.length;
-  // 冲突即跳过并在视图 error 注明（连接本身仍算成功）。
   entry.error = skipped.length
     ? `已跳过与内置或其他 MCP 工具重名的工具：${skipped.join('、')}`
     : null;
@@ -246,14 +233,12 @@ async function withTimeout<T>(
   }
 }
 
-/** 建连失败标 error 并保留明确原因（含服务器 stderr 尾部）。 */
 function connectServer(entry: ManagedServer): Promise<void> {
   if (entry.connecting) return entry.connecting;
   entry.connecting = (async () => {
     await closeConnection(entry);
     entry.status = 'connecting';
     const sdk = await loadMcpSdk();
-    // 惰性连接只发生在 disconnected（首次被询问）；error 态需显式 refresh/update 重连。
     const client = new sdk.McpClient(CLIENT_INFO);
     const transport = createTransport(sdk, entry.config);
     try {
@@ -262,7 +247,6 @@ function connectServer(entry: ManagedServer): Promise<void> {
         CONNECT_TIMEOUT_MS,
         () => new sdk.McpTimeoutError(CONNECT_TIMEOUT_MS),
       );
-      // 断连（进程退出/管道关闭）：标 error、工具清空；主动 close 已先摘引用，不会入此分支。
       client.onClose(() => {
         if (entry.client !== client) return;
         entry.client = null;
@@ -311,9 +295,6 @@ function findServer(id: string): ManagedServer {
   return entry;
 }
 
-// ===== CapabilityRuntime 面（manager 的 Skill 索引、registry 的 MCP 并集与路由消费） =====
-
-/** 当前已连接服务器的命名空间工具定义；顺带完成惰性连接的首次触发。 */
 export function mcpToolDefinitions(): DynamicToolDefinition[] {
   try {
     syncFromConfigs();
@@ -340,7 +321,6 @@ export function mcpToolDefinitions(): DynamicToolDefinition[] {
   return definitions;
 }
 
-/** callTool 结果 → 模型侧载荷：文本合并、图像沿用 images 约定（run 循环摘出附图）。 */
 function toolResultPayload(sdk: McpSdk, result: CallToolResult) {
   const blocks = sdk.toLlmContent(result);
   const text = blocks
@@ -368,13 +348,10 @@ export async function executeMcpTool(
   } catch (error) {
     return { ok: false, error: { code: 'NOT_CONFIGURED', message: errorMessage(error) } };
   }
-  // 执行路由按 adopt 时登记的归一化名 → 服务器映射，不猜前缀（见 toolOwner 注释）。
   const ownerId = toolOwner.get(name);
   let entry = ownerId ? servers.get(ownerId) : undefined;
   if (!entry) {
-    // 映射未命中（未配置过，或断连清理已撤销登记）时按前缀归属服务器，仅为把
-    // 「已停用/断连」边界点名到具体服务器（停用的服务器仍可路由，运行中禁用后
-    // 模型可能仍按旧定义调用）；不在此路径执行任何调用。
+    // 映射未命中时按前缀点名「已停用/断连」的服务器（运行中禁用后模型可能仍按旧定义调用）；不执行任何调用。
     for (const server of servers.values()) {
       if (!name.startsWith(`${namespaceOf(server.config.name)}_`)) continue;
       if (!entry || namespaceOf(server.config.name).length > namespaceOf(entry.config.name).length)
@@ -432,14 +409,11 @@ export async function executeMcpTool(
   }
 }
 
-// ===== IPC 面（capabilities:* 通道消费） =====
-
 export function listMcpServers(): McpServerView[] {
   syncFromConfigs();
   return [...servers.values()].map(serverView).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** 新增（默认启用）并立即连接验证：失败即以 error 视图呈现，不静默。 */
 export async function addMcpServer(input: McpServerInput): Promise<McpServerView[]> {
   const config = { id: randomUUID(), enabled: true, ...input };
   const configs = readMcpConfigs();
@@ -451,7 +425,6 @@ export async function addMcpServer(input: McpServerInput): Promise<McpServerView
   return listMcpServers();
 }
 
-/** 启停或改配置；改配置（或重新启用）会重连，禁用即断开并清空工具。 */
 export async function updateMcpServer(id: string, patch: McpServerPatch): Promise<McpServerView[]> {
   const configs = readMcpConfigs();
   const index = configs.findIndex((config) => config.id === id);
@@ -483,7 +456,6 @@ export async function removeMcpServer(id: string): Promise<McpServerView[]> {
   return listMcpServers();
 }
 
-/** 显式重连并刷新工具列表（连接失败时给模型明确的不可用边界）。 */
 export async function refreshMcpServer(id: string): Promise<McpServerView[]> {
   syncFromConfigs();
   const entry = findServer(id);

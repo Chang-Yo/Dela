@@ -1,0 +1,96 @@
+import { EventEmitter } from 'node:events';
+import { beforeEach, expect, it, vi } from 'vitest';
+const boundary = vi.hoisted(() => ({
+  choose: vi.fn(),
+  download: vi.fn(),
+  notify: vi.fn(),
+  reveal: vi.fn(),
+  directory: '',
+  write: vi.fn(),
+}));
+vi.mock('node:fs/promises', () => ({ writeFile: boundary.write }));
+let campus: EventEmitter;
+vi.mock('electron', () => ({
+  app: { getPath: () => 'C:/Videos' },
+  dialog: { showSaveDialog: boundary.choose, showOpenDialog: boundary.choose },
+  shell: { showItemInFolder: boundary.reveal },
+}));
+vi.mock('../../../../core/ports', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../core/ports')>()),
+  emit: boundary.notify,
+}));
+vi.mock('../../../../modules/settings', () => ({
+  savedVideoDownloadDirectory: () => boundary.directory,
+  setVideoDownloadDirectory: (value: string) => (boundary.directory = value),
+}));
+vi.mock('../../../campus', () => ({
+  getCampusSession: async () => Object.assign(campus, { downloadURL: boundary.download }),
+}));
+vi.mock('../api', () => ({
+  getTranscript: async (videoId: number) => ({
+    videoId,
+    segments: [{ startMs: 0, endMs: 1000, text: '完整文稿' }],
+  }),
+  formatTranscript: () => '完整文稿\n',
+  getStreams: async () => [
+    { view: 5, duration: 3283, url: 'https://live.sjtu.edu.cn/test.mp4?key=private' },
+  ],
+}));
+import { downloadVideo, exportTranscript, listDownloads, revealDownload } from '../downloads';
+import { issuePlayback } from '../playback';
+beforeEach(() => {
+  campus = new EventEmitter();
+  vi.clearAllMocks();
+  boundary.directory = '';
+});
+
+it('exports the complete transcript only to a user-chosen path', async () => {
+  boundary.choose.mockResolvedValueOnce({ canceled: true });
+  expect(await exportTranscript(60, '课程/节次')).toEqual({ saved: false });
+  expect(boundary.write).not.toHaveBeenCalled();
+  boundary.choose.mockResolvedValueOnce({ canceled: false, filePath: '/chosen/transcript.txt' });
+  expect(await exportTranscript(60, '课程/节次')).toEqual({ saved: true });
+  expect(boundary.write).toHaveBeenCalledWith('/chosen/transcript.txt', '完整文稿\n', 'utf8');
+  expect(boundary.choose).toHaveBeenLastCalledWith(
+    expect.objectContaining({ defaultPath: '课程_节次-60.txt' }),
+  );
+  expect(boundary.download).not.toHaveBeenCalled();
+});
+
+it('returns available views and duration with an opaque playback route, never the signed media address', async () => {
+  const streams = await issuePlayback(60);
+  expect(streams).toHaveLength(1);
+  const [stream] = streams;
+  expect(stream?.view).toBe(5);
+  expect(stream?.duration).toBe(3283);
+  expect(stream?.playbackUrl).toMatch(/^dela-resource:\/\/vsjtu\/video\/60\/5\?t=[0-9a-f]{32}$/);
+});
+
+it('reports network interruption distinctly from a user cancellation and never reveals an incomplete file', async () => {
+  boundary.choose.mockResolvedValue({ canceled: false, filePath: 'C:/Downloads/video.mp4' });
+  const item = Object.assign(new EventEmitter(), {
+    getURL: () => 'https://live.sjtu.edu.cn/test.mp4?key=private',
+    getTotalBytes: () => 100,
+    getReceivedBytes: () => 40,
+    setSavePath: vi.fn(),
+    cancel: () => item.emit('done', {}, 'cancelled'),
+  });
+  boundary.download.mockImplementation(() =>
+    queueMicrotask(() => campus.emit('will-download', {}, item)),
+  );
+  await downloadVideo(61, 5, '录像');
+  await expect(downloadVideo(61, 5, '录像')).rejects.toThrow('正在下载');
+  item.emit('updated', {}, 'interrupted');
+  expect(listDownloads().find((entry) => entry.id === '61/5')).toMatchObject({
+    state: 'interrupted',
+    received: 40,
+  });
+  expect(boundary.notify).toHaveBeenCalledWith(
+    expect.anything(),
+    'downloadEnded',
+    expect.objectContaining({ state: 'interrupted' }),
+  );
+  expect(boundary.notify.mock.calls.filter(([, name]) => name === 'downloadEnded')).toHaveLength(1);
+  revealDownload('61/5');
+  expect(boundary.reveal).not.toHaveBeenCalled();
+});

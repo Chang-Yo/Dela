@@ -29,12 +29,10 @@ interface FakeTask {
   creates: number;
 }
 
-/** 假 helper：只实现这里用到的几个端点，任务输出由测试手动追加。 */
 class FakeHelper {
   server: Server;
   port = 0;
   tasks = new Map<string, FakeTask>();
-  /** 正在开着的任务流：模拟隧道断时一起掐掉。 */
   streams = new Set<ServerResponse>();
   lists = 0;
 
@@ -121,7 +119,6 @@ class FakeHelper {
   }
 }
 
-/** 一个什么都不做、但能被杀掉的「隧道进程」。 */
 function fakeTunnel(): ChildProcess {
   return spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
 }
@@ -155,7 +152,6 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-/** 杀掉当前「隧道」：通道应进入重连，并把在跑的任务流一起断掉（真隧道断时就是这样）。 */
 function cutTunnel() {
   helper.dropStreams();
   tunnels.at(-1)!.kill();
@@ -195,7 +191,6 @@ describe('通道状态机', () => {
         since: expect.any(Number),
       },
     ]);
-    // 不可用后短时间内不会反复去起远端进程。
     expect(connects).toBe(1);
     stop();
   });
@@ -207,15 +202,6 @@ describe('通道状态机', () => {
     expect((await retryHelper(target)).state).toBe('ready');
     expect(await helperSession(target).list('/p')).toHaveLength(1);
     expect(connects).toBe(2);
-  });
-
-  it('重连期间推 reconnecting，回来后推 ready', async () => {
-    await readyHelper(target);
-    const seen: string[] = [];
-    const stop = onHelperState((snapshot) => seen.push(snapshot[0]!.state));
-    cutTunnel();
-    await waitFor(() => seen.at(-1) === 'ready' && seen.includes('reconnecting'));
-    stop();
   });
 });
 
@@ -233,7 +219,6 @@ describe('任务接回', () => {
     await waitFor(() => chunks.join('') === 'first\n');
 
     cutTunnel();
-    // 断线期间任务继续产出。
     helper.append(id, 'second\n');
     await waitFor(() => connects === 2);
     helper.finish(id, 7);

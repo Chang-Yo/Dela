@@ -23,7 +23,6 @@ const headersSchema = z
   .record(headerKeySchema, z.string().min(1).max(2048))
   .refine((headers) => Object.keys(headers).length <= 32, '自定义请求头最多 32 条');
 
-// 自定义端点的请求体模板：填 {query}、{count} 占位后须是合法 JSON。
 const bodySchema = z
   .string()
   .trim()
@@ -41,7 +40,7 @@ const bodySchema = z
 const nameSchema = z.string().trim().min(1).max(64);
 const uuid = z.string().uuid();
 
-export const webSearchEntrySchema = z.discriminatedUnion('provider', [
+const webSearchEntrySchema = z.discriminatedUnion('provider', [
   z
     .object({
       id: uuid,
@@ -80,7 +79,6 @@ export const webSearchEntrySchema = z.discriminatedUnion('provider', [
     .strict(),
 ]);
 
-/** 保存入参：id 省略表示新建。 */
 export const webSearchEntryInputSchema = z.discriminatedUnion('provider', [
   z
     .object({
@@ -159,13 +157,12 @@ export function listWebSearchEntries(): WebSearchEntry[] {
   return readRegistry().providers;
 }
 
-/** 当前选用的条目（聊天侧选择器的记录）；null = 未选或无配置。 */
 export function readWebSearchConfig(): WebSearchEntry | null {
   const { providers, selectedId } = readRegistry();
   return providers.find(({ id }) => id === selectedId) ?? null;
 }
 
-/** 新建或更新一条配置；新建即选中并启用 web_search（填完就是要用），更新不改选中。返回最新列表。 */
+/** 新建或更新一条配置；新建即选中并启用 web_search，更新不改选中。返回最新列表。 */
 export function saveWebSearchEntry(
   input: z.infer<typeof webSearchEntryInputSchema>,
 ): WebSearchEntry[] {
@@ -184,7 +181,6 @@ export function saveWebSearchEntry(
   return providers;
 }
 
-/** 删除一条配置；删的是选中项时回落到剩余第一条；删空即关闭搜索，停用 web_search。 */
 export function removeWebSearchEntry(id: string): WebSearchEntry[] {
   const registry = readRegistry();
   const providers = registry.providers.filter((item) => item.id !== id);
@@ -194,7 +190,6 @@ export function removeWebSearchEntry(id: string): WebSearchEntry[] {
   return providers;
 }
 
-/** 聊天侧选择器的数据：脱敏条目（不含密钥与自定义请求头）与当前选中。 */
 export function listWebSearchOptions(): {
   entries: WebSearchEntrySummary[];
   selectedId: string | null;
@@ -209,8 +204,7 @@ export function listWebSearchOptions(): {
   };
 }
 
-/** 聊天侧选择当前使用哪条配置；选择即视为要用搜索，顺带确保 web_search 工具开启；
- *  null = 关闭联网搜索，清空选中并关掉 web_search（web_fetch 仍走本地抓取）。 */
+/** 选择当前使用哪条配置并确保 web_search 开启；null 关闭联网搜索（web_fetch 仍走本地抓取）。 */
 export function selectWebSearchEntry(id: string | null): void {
   if (id === null) {
     writeRegistry({ ...readRegistry(), selectedId: null });
@@ -233,7 +227,6 @@ function isDeepSeekEndpoint(baseUrl: string): boolean {
   }
 }
 
-/** 可导入密钥的 DeepSeek 模型供应商（不含密钥）：启用的排最前。 */
 export function listWebSearchKeySources(): WebSearchKeySource[] {
   return loadLlmConfig()
     .providers.filter((provider) => provider.apiKey && isDeepSeekEndpoint(provider.baseUrl))
@@ -241,9 +234,7 @@ export function listWebSearchKeySources(): WebSearchKeySource[] {
     .map(({ id, name }) => ({ id, name }));
 }
 
-/** 把指定 DeepSeek 模型供应商的密钥读给搜索表单预填（不落库，保存由表单决定）；
- *  导入的是静态副本，供应商此后换 Key 不会跟随，需重新导入。
- *  供应商不存在、未配置密钥或不是官方端点时返回 null。 */
+/** 读出指定 DeepSeek 模型供应商的密钥给表单预填（静态副本，不落库、不随供应商换 Key 更新）；不可用时返回 null。 */
 export function readWebSearchKey(providerId: string): string | null {
   const provider = loadLlmConfig().providers.find(({ id }) => id === providerId);
   return provider?.apiKey && isDeepSeekEndpoint(provider.baseUrl) ? provider.apiKey : null;
@@ -263,9 +254,7 @@ function searchError(status: number): Error {
 
 const compact = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim();
 
-// Brave 固定走为大模型设计的 LLM Context 端点：grounding.generic（普通网页）
-// 与 map/poi（本地召回）同构，均为 { url, title, snippets[] }，snippets 是
-// 从页面抽取的内容片段而非搜索摘要。
+// Brave 固定走 LLM Context 端点：grounding.generic 与 map/poi 同构，snippets 是页面抽取的片段而非搜索摘要。
 async function searchBrave(
   query: string,
   count: number,
@@ -338,7 +327,6 @@ function fillBody(body: string, query: string, count: number): string {
     .replaceAll('{count}', String(count));
 }
 
-// 各家搜索 API 的结果数组位置与字段名不同，按常见写法依次尝试。
 const RESULT_PATHS = [
   'results',
   'organic_results',
@@ -433,7 +421,6 @@ async function searchCustomEndpoint(
   return results;
 }
 
-/** 联网搜索工具：用聊天侧当前选中的配置执行；未选中或无配置时报错引导。 */
 export async function webSearch(query: string, count = 5, freshness?: string) {
   const config = readWebSearchConfig();
   if (!config)

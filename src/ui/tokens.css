@@ -1,0 +1,436 @@
+/* 整个 app 唯一的样式来源：浅色写在 :root 与 .bui-light（固定浅色作用域），深色写在 .dark。
+   基于 beautiful-ui（MIT，见 LICENSES/beautiful-ui.txt）。 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root,
+.bui-light {
+  /* surfaces — cool, blue-tinted neutrals */
+  --page: oklch(0.985 0.001 286.376);
+  --surface: oklch(1 0 0);
+  --inset: oklch(0.979 0.002 247.839);
+  --hover: oklch(0.97 0.002 247.839);
+  --hover-strong: oklch(0.933 0.003 247.86);
+
+  /* ink ramp */
+  --ink: oklch(0.247 0.006 258.361);
+  --ink-2: oklch(0.506 0.01 264.477);
+  --ink-3: oklch(0.695 0.009 264.505);
+
+  /* borders — solid and crisp, not alpha */
+  --line: oklch(0.946 0.003 264.542);
+  --line-strong: oklch(0.912 0.005 258.326);
+  --field: oklch(0.961 0.001 286.375);
+
+  /* accent */
+  --accent: oklch(0.626 0.205 254.947);
+  --accent-ink: oklch(0.556 0.187 255.617);
+  --accent-tint: oklch(0.96 0.019 252.878);
+
+  /* semantic */
+  --success: oklch(0.603 0.155 150.883);
+  --success-tint: oklch(0.958 0.017 159.118);
+  --warning: oklch(0.689 0.179 49.902);
+  --warning-tint: oklch(0.964 0.021 67.581);
+  --danger: oklch(0.621 0.192 23.042);
+  --danger-tint: oklch(0.956 0.017 17.462);
+
+  --tooltip-bg: oklch(0.272 0.008 264.435);
+  --tooltip-fg: oklch(0.976 0.002 247.839);
+  --tooltip-border: oklch(0.356 0.007 264.474);
+
+  --shadow-btn: 0 0 0 1px var(--line-strong), 0 0 4px 0 rgba(0, 0, 0, 0.04);
+  --shadow-card:
+    0 0 0 1px var(--line), 0 18px 47px 0 rgba(0, 0, 0, 0.03), 0 7.5px 19px 0 rgba(0, 0, 0, 0.02),
+    0 4px 10.5px 0 rgba(0, 0, 0, 0.02), 0 2.3px 5.8px 0 rgba(0, 0, 0, 0.01),
+    0 1.2px 3.1px 0 rgba(0, 0, 0, 0.01), 0 0.5px 1.3px 0 rgba(0, 0, 0, 0.01);
+  --shadow-raised:
+    0 0 0 1px var(--line), 0 17.54px 23.39px 0 rgba(0, 0, 0, 0.04),
+    0 9.4px 12.5px 0 rgba(0, 0, 0, 0.03), 0 5.25px 7px 0 rgba(0, 0, 0, 0.02),
+    0 2.79px 3.72px -2px rgba(0, 0, 0, 0.01), 0 1.16px 1.5px 0 rgba(0, 0, 0, 0.01);
+  --shadow-overlay:
+    0 0 0 1px var(--line), 0 25px 50px 0 rgba(0, 0, 0, 0.05), 0 12px 24px 0 rgba(0, 0, 0, 0.04),
+    0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02),
+    0 1.5px 3px 0 rgba(0, 0, 0, 0.02);
+
+  /* 日历候选色：低饱和灰调，浅底深字，供课程哈希分配与事件手动选择。
+     名字与数据库里的事件颜色 key 一一对应，只经 var() 取用，不生成工具类。 */
+  --cal-rose-bg: oklch(0.941 0.024 18);
+  --cal-rose-text: oklch(0.42 0.083 18);
+  --cal-peach-bg: oklch(0.949 0.024 55);
+  --cal-peach-text: oklch(0.43 0.086 55);
+  --cal-sand-bg: oklch(0.953 0.03 92);
+  --cal-sand-text: oklch(0.42 0.075 85);
+  --cal-sage-bg: oklch(0.937 0.024 150);
+  --cal-sage-text: oklch(0.41 0.062 150);
+  --cal-teal-bg: oklch(0.937 0.022 200);
+  --cal-teal-text: oklch(0.41 0.062 205);
+  --cal-blue-bg: oklch(0.935 0.022 250);
+  --cal-blue-text: oklch(0.43 0.083 255);
+  --cal-lilac-bg: oklch(0.937 0.024 300);
+  --cal-lilac-text: oklch(0.45 0.08 300);
+  --cal-slate-bg: oklch(0.93 0.004 255);
+  --cal-slate-text: oklch(0.37 0.014 255);
+
+  /* 代码高亮全局唯一一套配色（CodeMirror、shiki 共用）：GitHub Light / Dark（Primer 经典版）。 */
+  --syntax-bg: #f6f8fa;
+  --syntax-fg: #24292e;
+  --syntax-keyword: #d73a49;
+  --syntax-string: #032f62;
+  --syntax-regexp: #032f62;
+  --syntax-constant: #005cc5;
+  --syntax-function: #6f42c1;
+  --syntax-entity: #6f42c1;
+  --syntax-tag: #22863a;
+  --syntax-markup: #005cc5;
+  --syntax-operator: #d73a49;
+  --syntax-special: #e36209;
+  --syntax-comment: #6a737d;
+  --syntax-added: #22863a;
+  --syntax-modified: #e36209;
+  --syntax-removed: #b31d28;
+  --syntax-error: #b31d28;
+  --syntax-caret: #044289;
+}
+
+:root {
+  color-scheme: light;
+}
+
+.bui-light {
+  color-scheme: light;
+  color: var(--ink);
+}
+
+/* theme.ts 把手动选择与跟随系统统一解析成根元素的 .dark；外观设置的预览卡片也用它。 */
+.dark {
+  color-scheme: dark;
+  --page: oklch(0.209 0.004 264.477);
+  --surface: oklch(0.26 0.006 271.191);
+  --inset: oklch(0.243 0.004 264.492);
+  --hover: oklch(0.289 0.006 271.22);
+  --hover-strong: oklch(0.318 0.007 274.747);
+
+  --ink: oklch(0.964 0.002 247.839);
+  --ink-2: oklch(0.731 0.008 260.731);
+  --ink-3: oklch(0.541 0.01 264.484);
+
+  --line: oklch(0.308 0.006 258.354);
+  --line-strong: oklch(0.356 0.007 264.474);
+  --field: oklch(0.293 0.006 271.223);
+
+  --accent: oklch(0.68 0.173 253.301);
+  --accent-ink: oklch(0.788 0.113 248.33);
+  --accent-tint: oklch(0.68 0.173 253.301 / 0.16);
+
+  --success: oklch(0.705 0.154 153.814);
+  --success-tint: oklch(0.705 0.154 153.814 / 0.14);
+  --warning: oklch(0.746 0.156 55.642);
+  --warning-tint: oklch(0.746 0.156 55.642 / 0.14);
+  --danger: oklch(0.666 0.18 21.433);
+  --danger-tint: oklch(0.666 0.18 21.433 / 0.14);
+
+  --tooltip-bg: oklch(0.182 0.004 264.459);
+  --tooltip-fg: oklch(0.964 0.002 247.839);
+  --tooltip-border: oklch(0.308 0.006 258.354);
+
+  /* 深色下浮起层级的描边改为低透明度的白线，与阴影连成一体，浮得越高越亮。 */
+  --shadow-btn: 0 0 0 1px oklch(1 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-card:
+    0 0 0 1px oklch(1 0 0 / 0.11), 0 1px 2px oklch(0 0 0 / 0.2), 0 2px 6px oklch(0 0 0 / 0.2);
+  --shadow-raised: 0 0 0 1px oklch(1 0 0 / 0.13), 0 2px 10px oklch(0 0 0 / 0.22);
+  --shadow-overlay: 0 0 0 1px oklch(1 0 0 / 0.15), 0 8px 28px oklch(0 0 0 / 0.34);
+
+  --cal-rose-bg: oklch(0.304 0.032 18);
+  --cal-rose-text: oklch(0.871 0.048 18);
+  --cal-peach-bg: oklch(0.304 0.032 55);
+  --cal-peach-text: oklch(0.878 0.058 60);
+  --cal-sand-bg: oklch(0.31 0.038 92);
+  --cal-sand-text: oklch(0.871 0.052 90);
+  --cal-sage-bg: oklch(0.297 0.03 150);
+  --cal-sage-text: oklch(0.858 0.05 150);
+  --cal-teal-bg: oklch(0.297 0.028 200);
+  --cal-teal-text: oklch(0.858 0.05 205);
+  --cal-blue-bg: oklch(0.297 0.036 255);
+  --cal-blue-text: oklch(0.858 0.052 255);
+  --cal-lilac-bg: oklch(0.304 0.036 300);
+  --cal-lilac-text: oklch(0.864 0.055 300);
+  --cal-slate-bg: oklch(0.29 0.008 255);
+  --cal-slate-text: oklch(0.85 0.008 255);
+
+  --syntax-bg: #24292e;
+  --syntax-fg: #e1e4e8;
+  --syntax-keyword: #f97583;
+  --syntax-string: #9ecbff;
+  --syntax-regexp: #9ecbff;
+  --syntax-constant: #79b8ff;
+  --syntax-function: #b392f0;
+  --syntax-entity: #b392f0;
+  --syntax-tag: #85e89d;
+  --syntax-markup: #79b8ff;
+  --syntax-operator: #f97583;
+  --syntax-special: #ffab70;
+  --syntax-comment: #6a737d;
+  --syntax-added: #85e89d;
+  --syntax-modified: #ffab70;
+  --syntax-removed: #fdaeb7;
+  --syntax-error: #fdaeb7;
+  --syntax-caret: #c8e1ff;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-hover: var(--hover);
+  /* 同一档灰按用途分三个名字，可以各自调值：加深的悬停、选中与按下、中性填充。 */
+  --color-hover-strong: var(--hover-strong);
+  --color-selected: var(--hover-strong);
+  --color-fill: var(--hover-strong);
+  --color-field: var(--field);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-tint: var(--accent-tint);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-code: var(--syntax-bg);
+
+  /* 不随主题变化：遮罩、视频与外部文档（邮件正文、网页预览）的底色，以及压在它们上面的前景。 */
+  --color-scrim: oklch(0 0 0 / 0.3);
+  --color-media: oklch(0 0 0);
+  --color-on-media: oklch(1 0 0);
+  --color-on-accent: oklch(1 0 0);
+  --color-paper: oklch(1 0 0);
+  --color-window-close: #e81123;
+  --color-alipay: #1677ff;
+  --color-wechat: #07c160;
+
+  --shadow-hairline: 0 0 0 1px var(--line);
+  --shadow-hairline-strong: 0 0 0 1px var(--line-strong);
+  --shadow-focus: 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-tint);
+  --shadow-invalid: 0 0 0 1px var(--danger);
+  --shadow-tooltip: 0 0 0 1px var(--tooltip-border);
+  --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --shadow-btn: var(--shadow-btn);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+
+  /* 圆角用 rem，随设置 › 外观 › 字号的根字号一起缩放。 */
+  --radius-chip: 0.375rem;
+  --radius-control: 0.5rem;
+  --radius-card: 0.625rem;
+  --radius-window: 0.875rem;
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  --font-script: Italianno, cursive;
+
+  /* 字号只用 Tailwind 内置档位，随根字号（设置 › 外观 › 字号）缩放。
+     xs、sm 的行高继承父级：密集界面由容器决定行距，base 以上沿用 Tailwind 行高比。 */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: inherit;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: inherit;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+}
+
+@theme {
+  /* 全局层级：非模态侧栏用 drawer；模态的遮罩用 scrim、内容用 overlay。
+     组件内部的局部叠放用 z-10/z-20，并在父元素加 isolate。 */
+  --z-index-drawer: 30;
+  --z-index-scrim: 40;
+  --z-index-overlay: 50;
+  --z-index-takeover: 60;
+  --z-index-toast: 70;
+
+  --transition-duration-fast: 100ms;
+  --transition-duration-base: 150ms;
+  --transition-duration-slow: 200ms;
+  --transition-duration-slower: 300ms;
+
+  --animate-fade-in: fade-in 150ms ease-out both;
+  --animate-overlay-in: fade-in 150ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-pop-in: pop-in 150ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-dialog-in: dialog-in 150ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-drawer-left: drawer-left 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-drawer-right: drawer-right 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-sheet-up: sheet-up 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-pill-in: pill-in 200ms cubic-bezier(0.23, 1, 0.32, 1) 40ms both;
+  --animate-pill-out: pill-out 120ms ease-in both;
+  --animate-toast-in: toast-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-toast-out: toast-out 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-fade-out: fade-out 150ms ease-out both;
+  --animate-rise-in: rise-in 600ms ease-out backwards;
+  --animate-view-in: view-in 160ms ease-out backwards;
+  --animate-step-in-next: step-in-next 220ms ease-out backwards;
+  --animate-step-in-prev: step-in-prev 220ms ease-out backwards;
+  --animate-stroke-draw: stroke-draw 500ms ease-out backwards;
+  --animate-blur-deepen: blur-deepen 1400ms ease-in-out 3200ms backwards;
+}
+
+@keyframes shimmer-text {
+  from {
+    background-position: 150% center;
+  }
+  to {
+    background-position: -50% center;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes drawer-left {
+  from {
+    opacity: 0;
+    translate: -1.5rem 0;
+  }
+}
+
+@keyframes drawer-right {
+  from {
+    opacity: 0;
+    translate: 1.5rem 0;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    translate: 0 1.5rem;
+  }
+}
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+@keyframes pill-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    translate: 0 -0.75rem;
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    translate: 0 -0.5rem;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* 位移取 --rise-distance（默认 10px）；时长与延迟由调用方用 animation-duration/delay 覆盖。 */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 var(--rise-distance, 10px);
+  }
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+@keyframes step-in-next {
+  from {
+    opacity: 0;
+    translate: 24px 0;
+  }
+}
+
+@keyframes step-in-prev {
+  from {
+    opacity: 0;
+    translate: -24px 0;
+  }
+}
+
+/* 描线长度取 --dash（用户单位）：描边按书写进度显现，随后填充淡入。 */
+@keyframes stroke-draw {
+  from {
+    fill-opacity: 0;
+    stroke-dashoffset: var(--dash);
+  }
+  to {
+    fill-opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes blur-deepen {
+  from {
+    backdrop-filter: blur(6px);
+  }
+  to {
+    backdrop-filter: blur(12px);
+  }
+}

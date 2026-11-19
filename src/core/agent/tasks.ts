@@ -1,8 +1,5 @@
-/**
- * 后台任务：后台 bash 与后台子 Agent。任务结束时向父会话投递一条通知（只投一次）；
- * 归档、删除父会话与退出应用时全部结束，不投递，重启后不恢复。
- * bash 的完整输出写进日志文件，内存只留尾部；进程树由 Dela 自己结束。
- */
+/** 后台任务（后台 bash 与子 Agent）：结束时向父会话投递一条通知（只投一次）；
+ * 归档、删除父会话与退出应用时全部结束，不投递，重启不恢复。 */
 import { spawn } from 'node:child_process';
 import {
   createWriteStream,
@@ -21,7 +18,6 @@ import type { RemoteBackend } from '../remote/operations';
 import { loadPi } from './pi';
 import { hostPorts } from '../ports';
 
-/** 后台任务结束的通知，作为 Pi 自定义消息（customType dela-task）进入父会话。 */
 export interface TaskNotice {
   text: string;
   details: TaskNoticeDetails;
@@ -52,7 +48,6 @@ interface BackgroundTask {
   outcome?: TaskOutcome;
   stoppedBy?: 'user' | 'model' | 'session';
   stop: () => void;
-  /** done 落定、结果记下之后完成。 */
   settled: Promise<void>;
   log?: string;
   tail: string;
@@ -65,7 +60,6 @@ const OUTPUT_LIMIT = 50 * 1024;
 const EXIT_GRACE_MS = 100;
 
 let logDirectory: string | undefined;
-/** 上次运行留下的日志没有对应的任务，第一次用到时清掉。 */
 function logDir() {
   if (!logDirectory) {
     logDirectory = join(hostPorts().paths.userData(), 'background-tasks');
@@ -75,7 +69,6 @@ function logDir() {
   return logDirectory;
 }
 
-/** 登记一个后台任务；done 落定后记下结果并投递通知。 */
 export function trackTask(
   task: Omit<BackgroundTask, 'startedAt' | 'status' | 'tail' | 'settled'> & { tail?: string },
   done: Promise<TaskOutcome>,
@@ -181,7 +174,6 @@ function notice(task: BackgroundTask): TaskNotice {
   };
 }
 
-/** 结束进程树：Windows 用 taskkill /T，其余平台进程组（spawn 时 detached）。 */
 function killTree(pid: number) {
   if (process.platform === 'win32') {
     const killer = spawn(
@@ -199,7 +191,6 @@ function killTree(pid: number) {
   }
 }
 
-/** 后台 bash 的执行端：signal 中止时连同它启动的子进程一起结束。 */
 export type BashRunner = (
   command: string,
   options: { signal: AbortSignal; timeout?: number; onData: (chunk: Buffer) => void },
@@ -290,7 +281,6 @@ function startBash(
   return id;
 }
 
-/** 日志从 offset 起读至多 OUTPUT_LIMIT 字节；没给 offset 且日志太长时只读末尾。 */
 function readLog(log: string, offset: number | undefined) {
   const size = statSync(log).size;
   const start = Math.min(offset ?? Math.max(0, size - OUTPUT_LIMIT), size);
@@ -316,7 +306,6 @@ const text = (value: string) => ({
   details: undefined,
 });
 
-/** 同名覆盖 bash，加一个 background 参数；不带它时就是原来的 bash，远程会话里是远程版本。 */
 export async function backgroundTools(
   parent: TaskParent,
   cwd: string,
@@ -351,7 +340,6 @@ export async function backgroundTools(
         ctx,
       ) {
         if (!params.background) return bash.execute(toolCallId, params, signal, onUpdate, ctx);
-        // 启动时才解析 shell，创建会话不依赖本机 bash。
         const run: BashRunner = remote
           ? (command, options) => remote.runInBackground(command, cwd, options)
           : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);

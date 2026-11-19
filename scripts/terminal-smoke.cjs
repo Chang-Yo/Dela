@@ -49,7 +49,7 @@ const lines = (buffer) =>
 async function run(window) {
   const js = (source) => window.webContents.executeJavaScript(source);
   let projectId;
-  const sessions = () => js(`window.dela.terminal.list('${projectId}')`);
+  const sessions = () => js(`window.dela.bridge.invoke('terminal:list', '${projectId}')`);
   const wait = async (check, label) => {
     const until = Date.now() + 15000;
     while (Date.now() < until) {
@@ -65,7 +65,6 @@ async function run(window) {
       async () => lines((await sessions()).find((item) => item.id === id).buffer).includes(marker),
       `output ${marker}`,
     );
-  // 标记之后重新出现提示符：shell 已回到可输入状态。
   const promptAfter = (id, marker) =>
     wait(async () => {
       const output = lines((await sessions()).find((item) => item.id === id).buffer);
@@ -85,7 +84,7 @@ async function run(window) {
 
   projectId = (
     await js(
-      `window.dela.workspace.create({ parentId: null, name: '${PROJECT}', kind: 'project' })`,
+      `window.dela.bridge.invoke('workspace:create', { parentId: null, name: '${PROJECT}', kind: 'project' })`,
     )
   ).id;
   await new Promise((resolve) => {
@@ -117,18 +116,21 @@ async function run(window) {
   // 回归：pwsh 7 的模块路径漏给 5.1 时，PSReadLine 加载失败。
   assert.doesNotMatch(first.buffer, /Cannot load PSReadline/i);
 
-  // 真实键盘输入 + 行编辑：方向键与删除键要按终端序列送到 shell。
   await type('echo DELA_EDITX');
   for (const keyCode of ['Left', 'Delete', 'Enter']) await press(keyCode);
   await printed(first.id, 'DELA_EDIT');
 
   // Control+C 不能被剪贴板快捷键吞掉。Windows 控制台中断时清空输入缓冲，
   // 必须等提示符回来再写下一条命令。
-  await js(`window.dela.terminal.write('${first.id}', 'echo INTERRUPT_READY; sleep 30\\r')`);
+  await js(
+    `window.dela.bridge.invoke('terminal:write', { id: '${first.id}', data: 'echo INTERRUPT_READY; sleep 30\\r' })`,
+  );
   await printed(first.id, 'INTERRUPT_READY');
   await press('c', ['control']);
   await promptAfter(first.id, 'INTERRUPT_READY');
-  await js(`window.dela.terminal.write('${first.id}', 'echo INTERRUPT_OK\\r')`);
+  await js(
+    `window.dela.bridge.invoke('terminal:write', { id: '${first.id}', data: 'echo INTERRUPT_OK\\r' })`,
+  );
   await printed(first.id, 'INTERRUPT_OK');
 
   // 隔离剪贴板夹具，不改写真实系统剪贴板。
@@ -140,7 +142,6 @@ async function run(window) {
   await press('Enter');
   await printed(first.id, 'DELA_PASTE');
 
-  // 拖选最后一个非空白 span，再分别用快捷键与右键复制。
   const box = await js(`(() => {
     const span = [...document.querySelectorAll('.xterm-rows span')]
       .filter(span => span.textContent.trim().length > 0)
@@ -177,14 +178,15 @@ async function run(window) {
   await js(`document.querySelector('button[aria-label="新建终端"]').click()`);
   await wait(async () => (await sessions()).length === 2, 'second session');
   const second = (await sessions()).find((item) => item.id !== first.id);
-  await js(`window.dela.terminal.write('${second.id}', 'echo DELA_SECOND; pwd\\r')`);
+  await js(
+    `window.dela.bridge.invoke('terminal:write', { id: '${second.id}', data: 'echo DELA_SECOND; pwd\\r' })`,
+  );
   await printed(second.id, 'DELA_SECOND');
   await wait(
     async () => (await sessions()).find((item) => item.id === second.id).buffer.includes(PROJECT),
     'project cwd',
   );
 
-  // 切到另一个工作台标签再回来，进程与输出都保留。
   await js(`document.querySelector('button[aria-label="在 ${PROJECT} 中新建对话"]').click()`);
   await waitDom(`!!document.querySelector('[role="tab"][data-tab^="chat:"]')`, 'chat tab');
   await js(`document.querySelector('[role="tab"][data-tab^="chat:"]').click()`);

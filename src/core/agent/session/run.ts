@@ -1,16 +1,16 @@
-// 会话运行：打开 Pi 实例、跑一轮、插队与后台任务通知、把 Pi 事件推给界面。
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type {
-  AgentToolResult,
-  ChatAskInput,
-  ChatQueuedDraft,
-  RunStatus,
-  TaskNoticeDetails,
-  WorkspaceChat,
+import {
+  agentContract,
+  type AgentToolResult,
+  type ChatAskInput,
+  type ChatQueuedDraft,
+  type RunStatus,
+  type TaskNoticeDetails,
+  type WorkspaceChat,
 } from '../../protocol/agent';
-import { hostPorts } from '../../ports';
+import { emit, hostPorts } from '../../ports';
 import { remoteBackend } from '../../remote/operations';
 import * as changes from '../changes';
 import { agentEnvironment } from '../environment';
@@ -52,7 +52,6 @@ export async function ensureLive(id: string): Promise<Live> {
   if (!choice.stored) storeModel(id, selection.provider.id, selection.model, selection.effort);
   const cwd = sessionCwd(meta.project_id, meta.cwd);
   const options = await agentEnvironment().sessionOptions(meta.project_id, cwd);
-  // 子 Agent 不再派子 Agent，也不开后台任务。
   const delegates = !meta.parent_id;
   const remote = meta.project_id ? hostPorts().projects.remoteOf(meta.project_id) : null;
   const parent: TaskParent = {
@@ -81,6 +80,7 @@ export async function ensureLive(id: string): Promise<Live> {
         }
       : {}),
     ...(meta.parent_id ? { parentSession: row(meta.parent_id).file } : {}),
+    beforeTool: () => live.get(id)?.run?.captured,
   });
   if (session.sessionFile && session.sessionFile !== meta.file)
     storeSessionFile(id, session.sessionFile);
@@ -96,7 +96,6 @@ export function disposeLive(id: string, entry: Live): void {
   entry.session.dispose();
 }
 
-/** 应用退出前停掉后台任务并结束全部会话；最多等 timeoutMs。 */
 export async function shutdownSessions(timeoutMs: number): Promise<void> {
   const tasks = stopAllTasks();
   for (const [id, entry] of [...live]) {
@@ -175,7 +174,7 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
       publish(id);
       break;
     case 'queue_update':
-      hostPorts().broadcaster.send('session:on-queue', {
+      emit(agentContract, 'queue', {
         sessionId: id,
         queued: queuedTexts(event.steering),
       });
@@ -183,9 +182,6 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
   }
 }
 
-/** 流式增量不带工具图片：图片已随工具结束的全量快照到过渲染端，
-
-/** 流式期 ~100ms 节流推送末条 assistant 消息（含未完成的流式消息）。 */
 function stream(id: string, entry: Live) {
   const now = Date.now();
   if (now - (streamTimers.get(id) ?? 0) < 100) return;
@@ -198,7 +194,7 @@ function stream(id: string, entry: Live) {
   );
   const last = messages.at(-1);
   if (last?.role === 'assistant')
-    hostPorts().broadcaster.send('session:on-stream', {
+    emit(agentContract, 'session-stream', {
       sessionId: id,
       message: withoutToolImages(last),
       activeTool: entry.run?.tool,
@@ -218,7 +214,7 @@ function runEvent(
   changesError?: string,
 ) {
   const entry = live.get(sessionId);
-  hostPorts().broadcaster.send('session:on-run-event', {
+  emit(agentContract, 'run-event', {
     sessionId,
     runId: finishedRunId ?? entry?.run?.id ?? '',
     status,
@@ -227,7 +223,6 @@ function runEvent(
   });
 }
 
-/** 子 Agent 跑一轮：signal 中止时连带停止；只交回本轮的最终回复。 */
 export async function runSubagent(
   id: string,
   prompt: string,
@@ -277,7 +272,6 @@ export function withdrawQueued(id: string): ChatQueuedDraft | null {
   const entry = live.get(id);
   if (!entry?.run) return null;
   const draft = queuedDraft(takeSteers(entry, entry.run));
-  // 清空队列时一并丢掉的任务通知重新插进本轮。
   for (const notice of undeliveredNotices(entry, entry.run))
     void entry.session.sendCustomMessage(noticeMessage(notice));
   return draft;
@@ -301,15 +295,8 @@ function undeliveredNotices(entry: Live, run: Run): TaskNotice[] {
   return run.notices.filter((notice) => !delivered.has(notice.details.noticeId));
 }
 
-/**
- * 后台任务结束的通知：父会话运行中插进本轮，收尾中等它结束，空闲时开一轮（界面显示运行中）。
- * wake=false 时（用户在面板上手动停止）只追加进记录，不开新的一轮。
- */
-export async function deliverTaskNotice(
-  id: string,
-  notice: TaskNotice,
-  wake: boolean,
-): Promise<void> {
+/** 后台任务结束的通知：运行中插进本轮，收尾中等它结束，空闲时开新一轮；wake=false（用户手动停止）只追加记录。 */
+async function deliverTaskNotice(id: string, notice: TaskNotice, wake: boolean): Promise<void> {
   const entry = await ensureLive(id);
   if (!wake) {
     // 运行中 Pi 把它留到本轮结束再追加，不插进工具调用与结果之间。
@@ -333,7 +320,6 @@ export async function deliverTaskNotice(
   );
 }
 
-/** 清空 Pi 的插队队列，取回这些消息的原始输入；已送达的留在 run 里等轮末释放附件。 */
 function takeSteers(entry: Live, run: Run) {
   return entry.session.clearQueue().steering.flatMap((prompt) => {
     const index = run.steers.findIndex((steer) => steer.prompt === prompt);
@@ -353,7 +339,6 @@ function queuedDraft(inputs: ChatAskInput[]): ChatQueuedDraft | null {
   };
 }
 
-/** 一轮对话：文本直接入上下文，文档附件仅传本地引用，由 skill 按需解析。运行中发来的消息插进本轮。 */
 export async function askSession(id: string, input: ChatAskInput): Promise<WorkspaceChat> {
   if (row(id).parent_id) throw new Error('子 Agent 的会话只读');
   const entry = await ensureLive(id);
@@ -371,7 +356,6 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     row(id).project_id,
   );
   if (input.replaceLastUser) {
-    // 编辑重发：从最后一条用户消息之前分支（Pi 会话树保留旧分支）。
     const branch = entry.session.sessionManager.getBranch();
     const lastUser = [...branch]
       .reverse()
@@ -395,11 +379,8 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
 
 type TurnStatus = 'completed' | 'failed' | 'stopped';
 
-/**
- * 一轮执行的记账：登记 run、拍目录快照、冻结本轮改动、推送状态与提醒、轮末释放附件并丢弃过期实例。
- * start 只负责把这一轮交给 Pi；不经这里开的一轮界面不显示运行中，改动也不进审阅。
- * 子 Agent 的改动落在父会话这一轮的快照里，自己不拍快照、不记改动，也不弹完成提醒。
- */
+/** 一轮执行的记账（登记 run、快照、冻结改动、推送状态、轮末释放附件）；不经这里开的一轮界面不显示运行中。
+ * 子 Agent 的改动落在父会话这一轮的快照里，自己不拍快照、不弹提醒。 */
 async function runTurn(
   id: string,
   entry: Live,
@@ -428,13 +409,16 @@ async function runTurn(
   let captureError: string | undefined;
   try {
     if (isRemoteSession(meta)) captureError = '远程会话暂不记录目录快照';
-    else if (!child) {
-      try {
-        before = await changes.captureDirectory(entry.cwd);
-      } catch (error) {
-        captureError = error instanceof Error ? error.message : String(error);
-      }
-    }
+    // 模型思考期间不会动文件：快照与请求并行，用户消息不必等它，工具执行前才等（见 beforeTool）。
+    else if (!child)
+      run.captured = changes.captureDirectory(entry.cwd).then(
+        (snapshot) => {
+          before = snapshot;
+        },
+        (error: unknown) => {
+          captureError = error instanceof Error ? error.message : String(error);
+        },
+      );
     // 只看本轮新产生的回复：扩展命令可能一条消息都不发，不能拿上一轮的结果来判本轮成败。
     const priorCount = entry.session.messages.length;
     if (run.cancelled) status = 'stopped';
@@ -450,6 +434,7 @@ async function runTurn(
     run.finishing = true;
     let changesError: string | undefined;
     try {
+      await run.captured;
       if (!child)
         await changes.freezeTurnChanges(
           id,

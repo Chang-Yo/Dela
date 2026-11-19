@@ -98,7 +98,7 @@ pnpm test
 | 远程项目窗口冒烟            | `pnpm smoke:remote`，同样需要 `DELA_REMOTE_HOST`                                           |
 | 打包目录启动                | `pnpm package:dir` 后运行 `dist/win-unpacked/Dela.exe --smoke-test`                        |
 
-- 修改 `src/core/remote/`、`src/main/remotes/`、`helper/` 或远端路径与上下文镜像时，必须通过 `pnpm test:remote` 在真机上执行回归；该套件在默认测试与 CI 中均会跳过。
+- 修改 `src/core/remote/`、`src/modules/remotes/`、`helper/` 或远端路径与上下文镜像时，必须通过 `pnpm test:remote` 在真机上执行回归；该套件在默认测试与 CI 中均会跳过。
 - 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke` 与 `smoke:documents` 外，不应向真实服务发送请求。
 - CI 入口为 `.github/workflows/ci.yml`，在 PR 变更及推送到 `dev`、`main` 时运行，按变更范围调用 quality、test、helper、desktop-windows 和 desktop-macos workflow，并由 `CI required` 汇总结果。普通文档只检查格式；workflow 改动额外检查 GitHub Actions 配置。CI 分步执行命令，并检查冻结锁文件安装、打包布局与打包后启动；本地 `pnpm check` 通过不代表 CI 一定通过。
 - 修改 `helper/` 后应执行 `pnpm build:helper --all`，重建 amd64 与 arm64 产物并一并提交；仅重建 amd64 会导致入库的 arm64 产物停留在旧版本。
@@ -144,37 +144,30 @@ pnpm test
 ```text
 Dela/
 ├─ src/
-│  ├─ core/protocol/          v3：模块契约工具（defineContract、implement、createClient）
-│  ├─ app/                    v3：模块定义、模块与契约清单、IPC 注册
-│  ├─ modules/                v3：已迁移的通用模块（search）
-│  ├─ main/                   Electron 主进程，按业务域分目录
-│  │  ├─ agent/               Pi 会话、工具、MCP、Skills 与模型接入
-│  │  ├─ canvas/              Canvas 课程与资料
-│  │  ├─ documents/           文档解析、导出与读取组件
-│  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
-│  │  ├─ notifications/       系统通知
-│  │  ├─ remotes/             远程项目、SSH 传输与 helper 隧道
-│  │  ├─ settings/            设置、偏好与任务通知
+│  ├─ core/                   Agent 内核，只依赖 Pi 与 Node
+│  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
+│  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
+│  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
+│  │  ├─ remote/              远程执行后端与 helper 通道
+│  │  └─ ports.ts             宿主端口（HostPorts）
+│  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
+│  ├─ modules/                通用模块（chat、mail、note、notifications、onboarding、preview、
+│  │                          remotes、search、settings、terminal、todo、update、workspace）
+│  ├─ sjtu/                   交大模块，经 register() 向通用模块的注册口登记
+│  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
+│  │  ├─ canvas/              Canvas 课程资料、作业与公告
+│  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
+│  │  ├─ jwc/                 教务处通知
 │  │  ├─ shuiyuan/            水源社区
-│  │  ├─ terminal/            内置终端、Bash 与 MinGit
-│  │  ├─ timetable/           课表
-│  │  ├─ todo/                TODO
-│  │  ├─ update/              应用内更新
-│  │  ├─ vsjtu/               致远一号
-│  │  └─ workspace/           工作区、项目目录与预览
-│  ├─ preload/                contextBridge 与按契约白名单放行的 bridge
-│  ├─ renderer/               React 界面
-│  │  ├─ app/                 应用外壳、主题与全局状态
-│  │  ├─ workbench/           标签工作台
-│  │  ├─ content/             聊天、笔记、预览、审阅与终端
-│  │  ├─ navigation/          侧栏与导航
-│  │  ├─ sessions/            会话
-│  │  ├─ workspace/           工作区浏览
-│  │  ├─ features/            业务功能页（邮箱、设置、课表、水源等）
-│  │  ├─ components/          通用组件与 beautifului
-│  │  ├─ lib/                 渲染层工具
-│  │  └─ styles/              全局样式与设计 token
-│  └─ shared/                 进程间 IPC 契约与纯函数
+│  │  └─ timetable/           课表与日历事件
+│  └─ app/                    宿主与外壳
+│     ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
+│     ├─ modules.ts           主进程模块清单
+│     ├─ contracts.ts         IPC 契约清单
+│     ├─ views.ts             渲染端视图清单
+│     ├─ main/                Electron 入口、数据库与迁移、IPC 注册与宿主端口实现
+│     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
+│     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
 ├─ helper/                    远端项目 helper（Go，仅标准库）
 ├─ scripts/                   开发、冒烟、打包与校验脚本
 ├─ docs/                      开发文档、条款与接口资料
@@ -184,17 +177,17 @@ Dela/
    └─ openssh/                Windows 兜底 OpenSSH
 ```
 
-`src/main/` 根级只保留数据库、凭据、存储、IPC 注册等跨业务模块；各模块的 `test/` 存放对应单元测试。
+每个模块由 `index.ts`（模块定义与唯一出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/` 组成，依赖规则见 [AGENTS.md](AGENTS.md)，由 oxlint 检查。测试放在源码旁或同目录的 `test/` 下。
 
 硬性约束：
 
 - 保持单应用、单 `package.json`。`pnpm-workspace.yaml` 只放 pnpm 12 设置，不引入子包或 monorepo。
-- renderer 不导入 main，不访问凭据和数据库，所有通信均经有限的 preload API。
+- 界面代码不导入主进程代码，不访问凭据和数据库，所有通信均经按契约白名单放行的 preload bridge。
 - 请勿提交 `.env`、个人数据、日志与本地工具；打包只包含明确产物。
 - 保持精确依赖与锁文件（`saveExact` 与 `engineStrict` 已开启），不要在 `package.json` 中写入范围版本。新增依赖应连同锁文件一起提交，并说明必要性。
 - 优先复用现有函数或文件；仅在出现真实重复与多个调用方后提取抽象。
 - 不为一次性代码做抽象，不保留死代码。改动导致某段自研 UI 或样式不再使用时，应一并清理。
-- 前端 UI 优先复用 `src/renderer/components/ui/beautifului/`。如现有组件不满足需求，应在该库内微调或增补，以 `Dela 适配` 注释标注并记录到该库 README，不应另写自研样式。
+- 前端 UI 优先复用 `src/ui`。如现有组件不满足需求，应在该目录内微调或增补，不应另写自研样式。
 - 尺寸应由 rem 派生，禁止写死像素字号与宽高；仅边框、描边、阴影、媒体与容器查询断点、第三方无法修改的固定值以及拖拽调宽容器保留 px。换算基准与字号 token 见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) §2.5。
 
 ## 代码规范

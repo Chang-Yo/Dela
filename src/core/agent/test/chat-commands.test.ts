@@ -5,7 +5,7 @@ import { provideTestHostPorts } from '../../test/host-mock';
 import { listChatCommands, saveChatCommand } from '../chat-commands';
 
 let database: DatabaseSync;
-provideTestHostPorts({ database: () => database });
+provideTestHostPorts({ database: () => database as never });
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');

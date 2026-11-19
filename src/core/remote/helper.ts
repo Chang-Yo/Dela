@@ -1,10 +1,5 @@
-/**
- * 远端 runtime（dela-helper）通道：远程项目的全部工具调用都经这里，没有一次性 ssh 的退路。
- *
- * helper 在远端常驻（最后一个客户端断开后再活 1 小时），生命周期不随隧道：网络抖动只让本地进入
- * reconnecting，请求排队等通道回来，远端在跑的任务不受影响，重连后按偏移接回输出。
- * ssh 只承担引导（探测、上传、启动、诊断）、重连（读 run.json）与隧道本身。
- */
+/** 远端 runtime（dela-helper）通道：远程项目的工具调用全经这里，没有一次性 ssh 的退路。
+ * helper 在远端常驻、生命周期不随隧道：断线只让本地进入 reconnecting，远端任务不受影响。 */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -51,7 +46,6 @@ const STREAM_IDLE_MS = 90_000;
 export type WatchEvent =
   { type: 'change'; id: string; paths: string[] } | { type: 'reset'; id: string; reason: string };
 
-/** 远端架构 → 产物名里的 GOARCH。 */
 function helperArch(machine: string): 'amd64' | 'arm64' | null {
   if (machine === 'x86_64' || machine === 'amd64') return 'amd64';
   if (machine === 'aarch64' || machine === 'arm64') return 'arm64';
@@ -69,12 +63,11 @@ function rgArtifact(arch: string): string | null {
   return existsSync(path) ? path : null;
 }
 
-/** 远端目录按「版本-sha8」分家：换版本换目录，旧目录留着（每版一个，便于回退，不自动清理）。 */
+/** 远端目录按「版本-sha8」分家：旧版本目录留着便于回退，不自动清理。 */
 function helperRemoteDir(digest: string): string {
   return `$HOME/.dela/helper/${HELPER_VERSION}-${digest.slice(0, 8)}`;
 }
 
-/** 一份要在远端就位的产物：远端目录与文件名、本地来源、sha256。 */
 interface Artifact {
   label: string;
   dir: string;
@@ -83,11 +76,8 @@ interface Artifact {
   digest: string;
 }
 
-/**
- * 分类受限环境的诊断输出（一行 key=value，竖线分隔）。
- * noexec／只读挂载／SELinux 的表象都一样——helper 起不来，原因必须单独问一次才说得清。
- * 这些环境不在支持范围内，分类只为让用户知道为什么用不了。
- */
+/** 分类受限环境（noexec、只读挂载、SELinux）的诊断输出：表象都是 helper 起不来。
+ * 这些环境不在支持范围内，分类只为告诉用户为什么用不了。 */
 export function classifyEnvironment(output: string): string | null {
   const values = new Map<string, string>();
   for (const pair of output.split('|')) {
@@ -106,7 +96,6 @@ export function classifyEnvironment(output: string): string | null {
   return null;
 }
 
-/** 启动失败后的诊断：只读探查，不改动远端任何东西；诊断本身失败不影响原有错误信息。 */
 async function diagnoseEnvironment(target: RemoteTarget, dir: string): Promise<string | null> {
   try {
     const script = [
@@ -124,7 +113,6 @@ async function diagnoseEnvironment(target: RemoteTarget, dir: string): Promise<s
   }
 }
 
-/** 隧道参数：与一次性调用的连接参数同源，只多一个 -L 与 -N。 */
 function tunnelArguments(target: RemoteTarget, localPort: number, remotePort: number): string[] {
   return [
     ...sshBaseArguments(target),
@@ -142,7 +130,6 @@ interface Tunnel {
   process: ChildProcess;
 }
 
-/** 起一条 `ssh -L` 并等本地端口可连；失败时把 ssh 的 stderr 一并带上。 */
 async function openTunnel(target: RemoteTarget, remotePort: number): Promise<Tunnel> {
   const localPort = await freePort();
   const tunnel = spawn(locateSsh(), tunnelArguments(target, localPort, remotePort), {
@@ -163,10 +150,7 @@ async function openTunnel(target: RemoteTarget, remotePort: number): Promise<Tun
   }
 }
 
-/**
- * 端口预览用的独立隧道：与 helper 通道无关——通道重连、不可用都不影响它，生命周期归调用方。
- * 远端服务死了隧道还在：浏览器报连接拒绝就是准确的反馈。
- */
+/** 端口预览用的独立隧道：与 helper 通道无关，通道重连或不可用都不影响它，生命周期归调用方。 */
 export async function openPortTunnel(
   target: RemoteTarget,
   remotePort: number,
@@ -188,7 +172,6 @@ export interface HelperExecOptions {
   id?: string;
   cwd: string;
   signal?: AbortSignal;
-  /** 毫秒；由调用方换算。 */
   timeoutMs?: number;
   env?: Record<string, string>;
   onData?: (chunk: Buffer) => void;
@@ -197,11 +180,9 @@ export interface HelperExecOptions {
 export interface HelperExecResult {
   code: number;
   state: 'exited' | 'cancelled' | 'timeout';
-  /** 断线期间被缓冲挤掉、没能接回的字节数。 */
   lost: number;
 }
 
-/** helper 的 stat 结果；路径不存在时 exists 为 false，其余字段为零值。 */
 export interface HelperStat {
   path: string;
   exists: boolean;
@@ -211,7 +192,6 @@ export interface HelperStat {
   modifiedAt: number;
 }
 
-/** list 带 locate 时的回答：路径不是目录也不报错。 */
 export interface HelperLocation {
   path: string;
   kind: 'directory' | 'file' | 'missing';
@@ -245,7 +225,6 @@ export interface HelperSearchResult {
   truncated: boolean;
 }
 
-/** 远端监听端口（/v1/ports）：pid 与进程名拿不到（别的用户）时缺省。 */
 export interface HelperPort {
   port: number;
   pid?: number;
@@ -260,17 +239,14 @@ export interface PortTunnel {
 export interface HelperSession {
   target: RemoteTarget;
   readFile(path: string, signal?: AbortSignal): Promise<Buffer>;
-  /** 片段读取（预览大文件用）：只把请求的那一段拉回本地，不整篇进内存。 */
   readFileRange(
     path: string,
     offset: number,
     length: number,
     signal?: AbortSignal,
   ): Promise<Buffer>;
-  /** 原子写；缺失的父目录由 helper 建好。 */
   writeFile(path: string, content: Buffer | string): Promise<void>;
   list(path: string, signal?: AbortSignal): Promise<RemoteDirEntry[]>;
-  /** 一次请求回答「存在吗、是目录吗、里面有什么」：目录选择器用。 */
   locate(path: string, signal?: AbortSignal): Promise<HelperLocation>;
   stat(paths: string[], signal?: AbortSignal): Promise<HelperStat[]>;
   glob(
@@ -280,7 +256,6 @@ export interface HelperSession {
     signal?: AbortSignal,
   ): Promise<HelperGlobResult>;
   search(request: HelperSearchRequest, signal?: AbortSignal): Promise<HelperSearchResult>;
-  /** 替换某个 id 的目录监视集合（只监视这些目录本身，不递归）。 */
   setWatch(id: string, paths: string[]): Promise<{ watching: number; skipped: string[] }>;
   clearWatch(id: string): Promise<void>;
   listPorts(): Promise<HelperPort[]>;
@@ -308,8 +283,8 @@ function freePort(): Promise<number> {
   });
 }
 
-/** 隧道端口由 ssh 绑定，连得上不代表远端已在听；真正的就绪判断是随后的握手。
- *  ssh 提前退出（认证失败、远端端口不通）时立刻失败，不等满超时。 */
+/** 隧道端口由 ssh 绑定，连得上不代表远端已在听，真正的就绪判断是随后的握手。
+ * ssh 提前退出（认证失败等）时立刻失败，不等满超时。 */
 function waitForPort(port: number, timeoutMs: number, owner?: ChildProcess): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve, reject) => {
@@ -339,7 +314,7 @@ interface HttpResponse {
 }
 
 /** 隧道层面的失败（连不上、断在半路、超时）：重连能救。HTTP 非 2xx 不是这一类。 */
-export class HelperTransportError extends Error {
+class HelperTransportError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'HelperTransportError';
@@ -347,7 +322,7 @@ export class HelperTransportError extends Error {
 }
 
 /** helper 用非 2xx 回答了一个业务问题（路径不存在、参数越界）：这是结果，不是通道故障。 */
-export class HelperHttpError extends Error {
+class HelperHttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -357,7 +332,6 @@ export class HelperHttpError extends Error {
   }
 }
 
-/** 远端当前不可用（引导失败、重连超时）：带着分类过的原因，不再重试。 */
 export class HelperUnavailableError extends Error {
   constructor(
     readonly destination: string,
@@ -442,7 +416,6 @@ function sendRequest(
   });
 }
 
-/** 非 2xx 一律带上远端给的原因：它的错误文案比 HTTP 状态码有用。 */
 function assertOk(response: HttpResponse, what: string): void {
   if (response.status >= 200 && response.status < 300) return;
   let detail = response.body.toString().trim();
@@ -455,8 +428,7 @@ function assertOk(response: HttpResponse, what: string): void {
   throw new HelperHttpError(`${what}失败：${detail.slice(0, 300)}`, response.status);
 }
 
-/** 打开一条 SSE 流；非 200 读完正文按业务错误抛，200 交给 onFrame 逐帧处理直到流结束。
- *  安静超过 idleMs（helper 会定期发保活注释）就判为隧道半死。 */
+/** 打开一条 SSE 流：非 200 按业务错误抛；安静超过 idleMs（helper 会发保活注释）判为隧道半死。 */
 function openSse(
   endpoint: Endpoint,
   path: string,
@@ -542,7 +514,6 @@ function openSse(
   });
 }
 
-/** 远端有没有这一版产物：一次 ssh 比对全部 sha256，一致的跳过，其余整份重传并复核。 */
 async function ensureArtifacts(
   target: RemoteTarget,
   artifacts: Artifact[],
@@ -581,7 +552,6 @@ async function uploadArtifact(
   onProgress?: (progress: RemoteSetupProgress) => void,
 ): Promise<void> {
   // base64 走 ssh 的 stdin：二进制内容不经过 shell 解析，落盘后再核一次 sha256。
-  // 进度按 base64 字节折回原始字节报：界面显示的是产物大小，不是编码后的大小。
   const body = readFileSync(local);
   onProgress?.({
     step: 'upload',
@@ -605,7 +575,6 @@ async function uploadArtifact(
       timeoutMs: UPLOAD_TIMEOUT_MS,
       onStdinProgress: (sent, total) => {
         const bytes = Math.round((sent / total) * body.length);
-        // 至少隔 2% 报一次：64 KB 一块会有上百次回调，界面不需要那么密。
         if (bytes - reported < body.length / 50 && sent < total) return;
         reported = bytes;
         onProgress?.({ step: 'upload', bytes: { sent: bytes, total: body.length } });
@@ -627,11 +596,8 @@ async function uploadArtifact(
   });
 }
 
-/**
- * 找到或起一个 helper，返回它的端口与 token。一次 ssh 完成：
- * run.json 在、pid 活着、版本对得上就复用（token 留在 0600 文件里）；否则写新 token 起新实例。
- * 两个 Dela 同时起时 helper 自己用 flock 只放一个进来，抢输的那个退出码 3，脚本改为等对方的 run.json。
- */
+/** 找到或起一个 helper，返回端口与 token：run.json 在、pid 活着、版本对得上就复用，否则起新实例。
+ * 两个 Dela 同时起时 helper 用 flock 只放一个进来，输的那个退出码 3，脚本改为等对方的 run.json。 */
 async function findOrStart(
   target: RemoteTarget,
   dir: string,
@@ -642,7 +608,6 @@ async function findOrStart(
     'set -e',
     `dir=${dir}`,
     'umask 077',
-    // 复用判定：pid 活着且 /proc 里的可执行文件就是这个目录下的那份。
     'alive() { [ -s "$dir/run.json" ] && pid=$(sed -n \'s/.*"pid":\\([0-9]*\\).*/\\1/p\' "$dir/run.json") && [ -n "$pid" ] && [ "$(readlink "/proc/$pid/exe" 2>/dev/null)" = "$dir/dela-helper" ]; }',
     'if alive; then printf REUSE; cat "$dir/run.json"; printf "\\n"; cat "$dir/token"; exit 0; fi',
     `printf '%s' ${shellQuote(token)} > "$dir/token.new"`,
@@ -654,7 +619,6 @@ async function findOrStart(
   ].join('\n');
   const result = await exec(target, script, { timeoutMs: STARTUP_WAIT_MS });
   const text = result.stdout.toString();
-  // REUSE 与 START 等长：去掉标记后是「run.json 一行 + token 一行」。
   const reused = text.startsWith('REUSE');
   if (result.code !== 0 || !(reused || text.startsWith('START{')))
     throw new Error(`helper 启动失败：${text.trim() || sshErrorMessage(result)}`);
@@ -664,7 +628,6 @@ async function findOrStart(
   return { port, token: remoteToken.trim(), reused };
 }
 
-/** 引导：探测系统 → 确保产物 → 找到或起实例。只用 ssh；重连也走这里（产物在时只多一次 sha 比对）。 */
 async function bootstrap(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
@@ -710,7 +673,6 @@ async function bootstrap(
     try {
       return await findOrStart(target, dir, remoteRg);
     } catch (error) {
-      // 起不来的最常见原因是受限环境：先问一次远端把原因分类出来。
       const message = error instanceof Error ? error.message : String(error);
       const diagnosis = await diagnoseEnvironment(target, dir);
       throw new Error(diagnosis ? `${message}（诊断：${diagnosis}）` : message);
@@ -723,15 +685,12 @@ async function bootstrap(
   });
   return { remote, dir };
 }
-/** 一条可用的连接：隧道进程退出即视为断开。 */
 interface Link {
   endpoint: Endpoint;
   process: ChildProcess;
-  /** 远端主目录（hello 里带回来）。 */
   home: string;
 }
 
-/** 建立连接的一整步（引导 + 隧道 + 握手）：通道的状态机只依赖它，测试可以换成本地假实现。 */
 export type Connector = (
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
@@ -777,23 +736,17 @@ const connectRemote: Connector = async (target, onProgress) => {
   return { endpoint, process: tunnel.process, home };
 };
 
-/** 通道状态：每台服务器一条通道，状态整份快照推给渲染端。 */
 export type ChannelState = 'connecting' | 'ready' | 'reconnecting' | 'unavailable';
 
-/**
- * 一台服务器一条通道。会话对象在通道一生中不变：重连只换隧道与本地端口，调用方拿着的 session
- * 继续可用，请求在 reconnecting 期间排队，回来后照常发出。
- */
+/** 一台服务器一条通道。会话对象在通道一生中不变：重连只换隧道与端口，排队的请求回来后照常发出。 */
 class Channel {
   state: ChannelState = 'connecting';
   reason = '';
   since = Date.now();
-  /** 远端主目录：每次连上时由 hello 带回。 */
   home = '';
   private endpoint: Endpoint | null = null;
   private tunnel: ChildProcess | null = null;
   private heartbeat: NodeJS.Timeout | undefined;
-  /** 等通道可用的请求：ready 时 resolve，unavailable 时 reject。 */
   private waiters: { resolve: (endpoint: Endpoint) => void; reject: (error: Error) => void }[] = [];
   private connecting: Promise<void> | null = null;
   private lastAttempt = 0;
@@ -808,7 +761,6 @@ class Channel {
     this.session = createSession(this);
   }
 
-  /** 拿一个可用端点：ready 立刻给；连接中排队；不可用时距上次尝试够久就再试一次，否则直接报错。 */
   endpointFor(signal?: AbortSignal): Promise<Endpoint> {
     if (this.closed)
       return Promise.reject(new HelperUnavailableError(this.target.host, '通道已关闭'));
@@ -838,7 +790,6 @@ class Channel {
     });
   }
 
-  /** 手动重试：不可用时立刻重新引导，不等自动重试的间隔；其余状态什么都不做。 */
   async retry(): Promise<void> {
     if (this.state === 'unavailable') await this.connect('connecting');
   }
@@ -856,7 +807,7 @@ class Channel {
     };
   }
 
-  /** 引导或重连：同一时刻只跑一轮。progress 只在首次引导时有人听（向导的日志区）。 */
+  /** 引导或重连：同一时刻只跑一轮。 */
   connect(state: 'connecting' | 'reconnecting', onProgress?: (p: RemoteSetupProgress) => void) {
     if (this.connecting) return this.connecting;
     this.setState(state);
@@ -924,7 +875,6 @@ class Channel {
     }, HEARTBEAT_MS);
   }
 
-  /** 隧道断了（或半死）：拆掉本地这一侧，进 reconnecting。远端实例与任务不受影响。 */
   lost(why: string) {
     if (this.closed || this.state !== 'ready') return;
     console.warn(`[remotes] ${this.target.host} 通道中断（${why}），开始重连`);
@@ -940,9 +890,7 @@ class Channel {
         timeoutMs: PROBE_TIMEOUT_MS,
       });
       if (response.status >= 200 && response.status < 300) return;
-    } catch {
-      // 落到下面
-    }
+    } catch {}
     if (this.endpoint === endpoint) this.lost('探活失败');
   }
 
@@ -981,10 +929,8 @@ class Channel {
   }
 }
 
-/**
- * 发一个可以安全重发的请求：隧道错误时等通道回来再发一次。只读请求、整文件写入（内容相同，
- * 重发结果一样）、监视集合替换都属于这一类；任务创建靠 id 去重，也可以。
- */
+/** 发一个可安全重发的请求：隧道错误时等通道回来再发一次。只读请求、整文件写入、
+ * 监视集合替换与靠 id 去重的任务创建都属于这一类。 */
 async function retrying<T>(
   channel: Channel,
   signal: AbortSignal | undefined,
@@ -1125,12 +1071,8 @@ interface TaskFrame {
   code?: number;
 }
 
-/**
- * 跑一条命令并把输出接回来。
- *
- * 任务 id 在本地生成：创建请求可能已经落地、响应却丢在半路，重连后用同一个 id 再提交，
- * helper 只返回已有任务，不会再执行一遍。输出按绝对偏移续读，断线期间被缓冲挤掉的部分记进 lost。
- */
+/** 跑一条命令并把输出接回来。任务 id 在本地生成：创建请求可能已落地而响应丢了，
+ * 重连后同 id 再提交只会返回已有任务；输出按绝对偏移续读，被缓冲挤掉的部分记进 lost。 */
 async function runTask(
   channel: Channel,
   command: string,
@@ -1195,10 +1137,7 @@ async function runTask(
   }
 }
 
-/**
- * 一个连接一条通道，可同时存在多条：一台服务器重连、不可用都不影响另一台。
- * 通道在本进程内常驻（直到应用退出或显式 closeHelper），上界是用到过的连接数。
- */
+/** 一个连接一条通道，一台服务器重连或不可用不影响另一台；通道在本进程内常驻。 */
 const channels = new Map<string, Channel>();
 
 let connector: Connector = connectRemote;
@@ -1210,12 +1149,10 @@ export function setConnectorForTesting(next: Connector | null): void {
 
 const stateListeners = new Set<(states: RemoteChannelState[]) => void>();
 
-/** 全部通道的状态快照。 */
 export function helperStates(): RemoteChannelState[] {
   return [...channels.values()].map((channel) => channel.snapshot());
 }
 
-/** 订阅通道状态：每次任何一条通道变化都推整份快照。 */
 export function onHelperState(listener: (states: RemoteChannelState[]) => void): () => void {
   stateListeners.add(listener);
   return () => stateListeners.delete(listener);
@@ -1237,30 +1174,25 @@ function channelFor(target: RemoteTarget): Channel {
   return channel;
 }
 
-/** 拿到某个连接的会话。会话对象在通道一生中不变；通道不可用时它的每个调用都会以
- *  HelperUnavailableError 失败（带分类过的原因），没有别的退路。 */
+/** 拿到某个连接的会话；通道不可用时它的每个调用都以 HelperUnavailableError 失败。 */
 export function helperSession(target: RemoteTarget): HelperSession {
   return channelFor(target).session;
 }
 
-/** 手动重试一条通道，返回重试之后的状态。 */
 export async function retryHelper(target: RemoteTarget): Promise<RemoteChannelState> {
   const channel = channelFor(target);
   await channel.retry();
   return channel.snapshot();
 }
 
-/** 等这条通道第一次就绪或判为不可用：向导与需要「先连上再说」的入口用。 */
 export async function readyHelper(target: RemoteTarget): Promise<HelperSession> {
   const channel = channelFor(target);
   await channel.endpointFor();
   return channel.session;
 }
 
-/**
- * 向导「连接」用：已经连上就直接返回；否则完整走一遍引导，把每一步报出去。
- * 不可用的通道丢掉重来，这样「重试」总能看到一份完整的日志。
- */
+/** 向导「连接」用：已连上直接返回；否则完整走一遍引导并逐步报出。
+ * 不可用的通道丢掉重来，这样「重试」总能看到完整日志。 */
 export async function prepareHelper(
   target: RemoteTarget,
   onProgress?: (progress: RemoteSetupProgress) => void,
@@ -1274,7 +1206,6 @@ export async function prepareHelper(
   };
   const existing = channels.get(key);
   if (existing?.state === 'ready') return result(existing);
-  // 在连或在重连：等它自己的那一轮跑完，不另起一条。
   if (existing && existing.state !== 'unavailable') {
     await existing.endpointFor().catch(() => {});
     return result(existing);
@@ -1286,8 +1217,7 @@ export async function prepareHelper(
   return result(channel);
 }
 
-/** 放掉通道：只做本地收尾（停心跳、关隧道），远端实例靠空闲超时退出，任务照跑到那时。
- *  不带 target 是应用退出：所有连接都关。 */
+/** 放掉通道：只做本地收尾，远端实例靠空闲超时退出，任务照跑到那时；不带 target 则全部关闭。 */
 export function closeHelper(target?: RemoteTarget): void {
   const keys = target ? [targetKey(target)] : [...channels.keys()];
   for (const key of keys) {

@@ -5,15 +5,17 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { locateBash, prependRuntimePath } from '../src/main/terminal/mingit';
+import { locateBash, prependRuntimePath } from '../src/modules/terminal';
 import { locateSsh } from '../src/core/remote/transport';
 import { loadPi } from '../src/core/agent/pi';
 import { closeDomainBridge, domainBridge } from '../src/core/agent/environment';
 import { COMMAND_BRIDGE } from '../src/core/capabilities/command-server';
-import { closeDatabase } from '../src/main/database';
+import { closeDatabase } from '../src/app/main/database';
 import { provideHostPorts } from '../src/core/ports';
-import { electronPorts } from '../src/app/host-electron';
-import { registerBuiltinCapabilities } from '../src/main/agent/domain';
+import { electronPorts } from '../src/app/main/host-electron';
+import { previewModule } from '../src/modules/preview';
+import { todoModule } from '../src/modules/todo';
+import { workspaceModule } from '../src/modules/workspace';
 
 const root = resolve('.');
 const profile = mkdtempSync(join(tmpdir(), 'dela-runtime-中文-'));
@@ -37,7 +39,9 @@ app.whenReady().then(async () => {
   let exitCode = 1;
   try {
     provideHostPorts(electronPorts);
-    registerBuiltinCapabilities();
+    todoModule.register?.();
+    workspaceModule.register?.();
+    previewModule.register?.();
     prependRuntimePath();
     const tools = join(
       root,

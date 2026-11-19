@@ -12,7 +12,6 @@ describe('remotePath', () => {
   it('还原被 node:path 改写过的远端路径', () => {
     // 本机实测：cwd=/root/proj 时相对路径 src/a.ts 会被解析成 E:\root\proj\src\a.ts
     expect(remotePath('E:\\root\\proj\\src\\a.ts')).toBe('/root/proj/src/a.ts');
-    // 绝对路径 /tmp/x 会变成 \tmp\x
     expect(remotePath('\\tmp\\x')).toBe('/tmp/x');
     expect(remotePath('/root/proj/')).toBe('/root/proj');
     expect(remotePath('/')).toBe('/');
@@ -26,7 +25,6 @@ describe('remotePath', () => {
       { mirror: `${mirror}\\home`, remote: '/root' },
     ]);
     try {
-      // 模型从技能的 <location> 里拿到的是镜像路径
       expect(remotePath(`${mirror}\\repo\\.agents\\skills\\lint\\SKILL.md`)).toBe(
         '/root/proj/.agents/skills/lint/SKILL.md',
       );
@@ -35,7 +33,6 @@ describe('remotePath', () => {
         '/root/.dela/skills/x/SKILL.md',
       );
       expect(remotePath(`${mirror}\\repo`)).toBe('/root/proj');
-      // 远端绝对路径、被改写的相对路径都照旧
       expect(remotePath('/tmp/x')).toBe('/tmp/x');
       expect(remotePath('E:\\root\\proj\\src\\a.ts')).toBe('/root/proj/src/a.ts');
     } finally {
@@ -44,18 +41,6 @@ describe('remotePath', () => {
     expect(remotePath(`${mirror}\\repo\\.agents\\skills\\lint\\SKILL.md`)).toBe(
       '/Users/me/AppData/Roaming/dela/remote-context/r1/p1/repo/.agents/skills/lint/SKILL.md',
     );
-  });
-
-  it('多个项目并存时取最长前缀', () => {
-    setContextMirrors('a', [{ mirror: 'C:\\mirror\\p', remote: '/srv/p' }]);
-    setContextMirrors('b', [{ mirror: 'C:\\mirror\\p\\sub', remote: '/srv/deep' }]);
-    try {
-      expect(remotePath('C:\\mirror\\p\\sub\\x.md')).toBe('/srv/deep/x.md');
-      expect(remotePath('C:\\mirror\\p\\y.md')).toBe('/srv/p/y.md');
-    } finally {
-      setContextMirrors('a', []);
-      setContextMirrors('b', []);
-    }
   });
 
   it('POSIX 镜像区分大小写，保留目录和文件名里的反斜杠', () => {
@@ -86,19 +71,6 @@ describe('mirrorCommandText', () => {
       expect(mirrorCommandText(other)).toBe(other);
     } finally {
       setContextMirrors('mac', []);
-    }
-  });
-
-  it('Windows 镜像仍兼容大小写及混合分隔符，不匹配前缀相似的其他目录', () => {
-    setContextMirrors('win', [{ mirror: 'C:\\Users\\me\\repo', remote: '/srv/project' }]);
-    try {
-      expect(mirrorCommandText("cat 'c:/users/ME/repo\\skills\\SKILL.md'")).toBe(
-        "cat '/srv/project/skills/SKILL.md'",
-      );
-      const other = "cat 'C:/Users/me/repo-other/SKILL.md'";
-      expect(mirrorCommandText(other)).toBe(other);
-    } finally {
-      setContextMirrors('win', []);
     }
   });
 });

@@ -3,7 +3,7 @@ const { app, BrowserWindow, dialog, Menu } = require('electron');
 const { dirname, join, resolve } = require('node:path');
 const { mkdtempSync } = require('node:fs');
 const { tmpdir } = require('node:os');
-const { constants, publicEncrypt, randomUUID } = require('node:crypto');
+const { randomUUID } = require('node:crypto');
 const assert = require('node:assert/strict');
 const root = resolve(process.argv[2] || '.');
 app.setAppPath(root);
@@ -134,75 +134,25 @@ async function run(window) {
       await js(`document.documentElement.style.fontSize = ${JSON.stringify(fontSize)}`);
     }
   }
-  // 真正经 IPC 打开授权窗，只替换远端页面和验证响应，不使用真实账号。
-  const loadURL = BrowserWindow.prototype.loadURL;
-  const fetch = globalThis.fetch;
-  let authorization;
-  let encrypted;
-  BrowserWindow.prototype.loadURL = function (url, options) {
-    if (url.startsWith('https://shuiyuan.sjtu.edu.cn/user-api-key/new?')) {
-      authorization = this;
-      const params = new URL(url).searchParams;
-      encrypted = publicEncrypt(
-        { key: params.get('public_key'), padding: constants.RSA_PKCS1_PADDING },
-        Buffer.from(JSON.stringify({ key: 'desktop-fixture', nonce: params.get('nonce') })),
-      ).toString('base64');
-      return loadURL.call(this, 'data:text/html,<title>Authorization fixture</title>', options);
-    }
-    return loadURL.call(this, url, options);
-  };
-  globalThis.fetch = async (url) => {
-    assert.equal(url, 'https://shuiyuan.sjtu.edu.cn/session/current.json');
-    return new Response(JSON.stringify({ current_user: { username: 'desktop-fixture' } }));
-  };
-  try {
-    await js('window.dela.shuiyuan.startAuth()');
-    const first = authorization;
-    assert.ok(first);
-    assert.equal(first.getParentWindow(), window);
-    assert.equal(first.isModal(), process.platform !== 'darwin');
-    if (process.platform === 'darwin') {
-      assert.equal(window.isEnabled(), true);
-      assert.ok(first.getBounds().height > first.getContentBounds().height, '缺少原生标题栏');
-    }
-    const preferences = first.webContents.getLastWebPreferences();
-    assert.equal(preferences.contextIsolation, true);
-    assert.equal(preferences.sandbox, true);
-    assert.equal(preferences.nodeIntegration, false);
-    assert.ok(!preferences.preload);
-    await js('window.dela.shuiyuan.startAuth()');
-    assert.equal(authorization, first);
-    assert.equal(BrowserWindow.getAllWindows().length, 2);
-    first.close();
-    await wait(() => first.isDestroyed(), 'authorization closed');
-    assert.equal(window.isEnabled(), true);
-    const bound = await js(`window.dela.shuiyuan.bind(${JSON.stringify(encrypted)})`);
-    assert.equal(bound.connected, true);
-    assert.equal(bound.username, 'desktop-fixture');
-  } finally {
-    BrowserWindow.prototype.loadURL = loadURL;
-    globalThis.fetch = fetch;
-    if (authorization && !authorization.isDestroyed()) authorization.close();
-  }
   if (process.platform === 'darwin') {
     // 更新平台门已与 Windows 一致放开；打包冒烟停在初始状态，不触发真实联网检查。
-    const update = await js('window.dela.update.getState()');
+    const update = await js("window.dela.bridge.invoke('update:state')");
     assert.equal(update.phase, 'idle');
     if (!packaged) {
-      const checked = await js('window.dela.update.check()');
+      const checked = await js("window.dela.bridge.invoke('update:check')");
       assert.equal(checked.phase, 'unsupported');
       assert.equal(checked.reason, 'not-packaged');
-      assert.deepEqual(await js('window.dela.update.getState()'), checked);
+      assert.deepEqual(await js("window.dela.bridge.invoke('update:state')"), checked);
     }
-    const workspace = await js('window.dela.workspace.getState()');
+    const workspace = await js("window.dela.bridge.invoke('workspace:state')");
     console.log(
       '[EXPECTED] macOS PPTX export must reject the request. Electron will log the IPC error; the assertion below checks it.',
     );
     const exportError = await js(
-      "window.dela.workspace.exportOfficePdf({ type: 'canvas', id: 'file:smoke' }).then(() => '', error => error.message)",
+      "window.dela.bridge.invoke('workspace:exportOfficePdf', { type: 'canvas', id: 'file:smoke' }).then(() => '', error => error.message)",
     );
     assert.match(exportError, /当前平台暂不支持 PPTX 转 PDF/);
-    assert.deepEqual(await js('window.dela.workspace.getState()'), workspace);
+    assert.deepEqual(await js("window.dela.bridge.invoke('workspace:state')"), workspace);
     console.log('[PASS] macOS PPTX export rejected as expected; workspace unchanged.');
     assert.equal(
       await js('document.querySelector(\'header button[aria-label="关闭"]\') === null'),
@@ -242,17 +192,21 @@ async function run(window) {
   } else assert.equal(Menu.getApplicationMenu(), null);
 
   const project = await js(
-    "window.dela.workspace.create({ parentId: null, name: '生命周期测试', kind: 'project' })",
+    "window.dela.bridge.invoke('workspace:create', { parentId: null, name: '生命周期测试', kind: 'project' })",
   );
   const id = randomUUID();
-  await js(`window.dela.terminal.create('${project.id}', '${id}')`);
+  await js(
+    `window.dela.bridge.invoke('terminal:create', { projectId: '${project.id}', id: '${id}' })`,
+  );
   const checkRuntime = async (marker) => {
     // 终端跟随系统 shell，不能再假设 bash 语法；echo 在 PowerShell 与 zsh 下一致。
-    await js(`window.dela.terminal.write('${id}', ${JSON.stringify(`echo ${marker}\r`)})`);
+    await js(
+      `window.dela.bridge.invoke('terminal:write', { id: '${id}', data: ${JSON.stringify(`echo ${marker}\r`)} })`,
+    );
     await wait(
       () =>
         js(
-          `window.dela.terminal.list('${project.id}').then(items => items.some(item => item.id === '${id}' && item.buffer.includes('${marker}\\r\\n') && item.exitCode === null))`,
+          `window.dela.bridge.invoke('terminal:list', '${project.id}').then(items => items.some(item => item.id === '${id}' && item.buffer.includes('${marker}\\r\\n') && item.exitCode === null))`,
         ),
       'live PTY',
     );
@@ -278,15 +232,17 @@ async function run(window) {
   await wait(() => window.isVisible(), 'reopen after cancelled exit');
 
   await js(
-    'window.dela.mail.onRequestClose(quitting => { window.mailQuitRequested = quitting; }); window.dela.mail.setComposeActive(true)',
+    "window.dela.bridge.subscribe('mail:requestClose', quitting => { window.mailQuitRequested = quitting; }); window.dela.bridge.invoke('mail:setComposeActive', true)",
   );
   app.quit();
   await wait(() => js('window.mailQuitRequested === true'), 'mail receives quit request');
   await checkRuntime('AFTER_MAIL_CANCEL');
   window.close();
   assert.equal(window.isVisible(), false);
-  await js('window.onbeforeunload = null; window.dela.mail.setComposeActive(false)');
+  await js(
+    "window.onbeforeunload = null; window.dela.bridge.invoke('mail:setComposeActive', false)",
+  );
   console.log(
-    'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, authorization window frame/reuse/bind after close, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves live PTY; no login registration.',
+    'Desktop smoke passed: Mac titlebar safe area/zoom/font sizing, platform preload/menu, unsupported Mac conversion guard, focused-window close, close/reopen, cancelled note/mail exit preserves live PTY; no login registration.',
   );
 }

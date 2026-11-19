@@ -1,10 +1,8 @@
 // 桌面私有的能力视图（Skills、MCP、联网搜索）：不进入 Agent 协议的 JSON Schema，也不带版本。
+import { z } from 'zod';
+import { defineContract } from './contract';
 
-/**
- * Skill 的来处：builtin 是 Dela 写进 ~/.dela/skills 的内置技能；user 是本机目录里用户自己放的
- * （~/.dela/skills 其余条目与 ~/.agents/skills）；project 来自某个本地项目
- * （Pi 认的 .agents/skills、.pi/skills，加上 Dela 认的 .agent/skills）。
- */
+/** Skill 来处：builtin 为 Dela 写入 ~/.dela/skills 的内置技能，user 为本机用户目录，project 为本地项目目录。 */
 export type SkillOrigin = 'builtin' | 'user' | 'project';
 
 export interface SkillDependency {
@@ -15,18 +13,15 @@ export interface SkillDependency {
   error?: string;
 }
 
-/** 已发现的 Skill（agentskills.io 规范的 SKILL.md 目录；同名时项目覆盖全局）。 */
+/** 已发现的 Skill（同名时项目覆盖全局）。 */
 export interface SkillView {
   /** 唯一标识，即 SKILL.md 的绝对路径：启停、查看与上传都用它（主进程只认清单里有的）。 */
   id: string;
   name: string;
-  /** frontmatter 的 description，进入模型侧索引。 */
   description: string;
   enabled: boolean;
-  /** SKILL.md 的绝对路径（供 UI 展示来源）。 */
   path: string;
   origin: SkillOrigin;
-  /** origin 为 project 时所属的项目；同组的 Skill 在设置页归在一起。 */
   group?: { id: string; label: string };
   dependency?: SkillDependency;
 }
@@ -60,35 +55,22 @@ export interface McpServerView {
   transport: McpTransportConfig['transport'];
   enabled: boolean;
   status: McpConnectionStatus;
-  /** 已连接时可发现的工具数；未知为 null。 */
   toolCount: number | null;
   error: string | null;
 }
 
-/** Agent 内置能力的运行视图（工具表 + 启用态，设置 › 内置能力）。 */
 export interface AgentCapabilityView {
-  /** 工具名，模型侧唯一标识。 */
   name: string;
-  /** 面向人的显示名（设置页标题；工具名降级为次要标识）。 */
   label: string;
-  /** 所属领域 id（canvas / mail / …），设置页按域分组与批量开关。 */
   domain: string;
   domainLabel: string;
-  /** 提供给模型的工具描述（UI 摘要）。 */
   description: string;
   enabled: boolean;
   /** 常驻能力：被其他工具依赖，不可关闭（UI 只读展示 + 原因）。 */
   lockedReason?: string;
 }
 
-/**
- * WebSearch 的搜索服务配置条目（设置 › 内置能力 › 「网络」分组，同类型可存多条）：
- * brave 固定走 Brave 为大模型设计的 LLM Context 端点（res/v1/llm/context）；
- * google 用平台凭据；custom 为任意 JSON 搜索端点，可配 GET/POST 模板与请求头，
- * 结果按常见结构识别；
- * deepseek 用官方自研搜索引擎，useForFetch 决定 web_fetch 是否也走其 Fetch 接口。
- * 当前使用哪一条由聊天输入框左下角的选择记录，设置页只做增删改。
- */
+/** WebSearch 搜索服务配置条目（同类型可存多条）；当前使用哪条由聊天输入框的选择记录，设置页只做增删改。 */
 export type WebSearchEntry =
   | { id: string; name: string; provider: 'brave'; apiKey: string }
   | { id: string; name: string; provider: 'google'; apiKey: string; cx: string }
@@ -97,7 +79,6 @@ export type WebSearchEntry =
       name: string;
       provider: 'custom';
       url: string;
-      /** JSON 请求体模板；填写即用 POST。 */
       body?: string;
       headers?: Record<string, string>;
     }
@@ -107,15 +88,79 @@ export type WebSearchEntry =
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 export type WebSearchEntryInput = DistributiveOmit<WebSearchEntry, 'id'> & { id?: string };
 
-/** 聊天侧选择器用的脱敏条目：只有标识与类型，不含密钥与自定义请求头。 */
 export interface WebSearchEntrySummary {
   id: string;
   name: string;
   provider: WebSearchEntry['provider'];
 }
 
-/** 可导入搜索密钥的 DeepSeek 模型供应商（只含标识，不含密钥）。 */
 export interface WebSearchKeySource {
   id: string;
   name: string;
 }
+
+export interface RemoteSkillUpload {
+  path: string;
+  files: number;
+}
+
+const id = z.uuid();
+const name = z.string().trim().min(1).max(100);
+/** Skill 的 id 是清单里的 SKILL.md 路径；主进程按清单解析，不接受清单外的路径。 */
+const skillId = z.string().min(1).max(32_767);
+const skills = z.custom<SkillView[]>();
+const mcpServers = z.custom<McpServerView[]>();
+const builtins = z.custom<AgentCapabilityView[]>();
+const webSearchEntries = z.custom<WebSearchEntry[]>();
+
+/** MCP 与联网搜索的配置由主进程按各自 schema 校验；改动后空闲会话按新配置重建。 */
+export const capabilitiesContract = defineContract(
+  'capabilities',
+  {
+    listSkills: { input: z.undefined(), output: skills },
+    setSkillEnabled: { input: z.object({ id: skillId, enabled: z.boolean() }), output: skills },
+    installSkillDependencies: { input: z.string(), output: skills },
+    cancelSkillInstallation: { input: z.string(), output: z.void() },
+    readSkill: { input: skillId, output: z.string() },
+    revealSkill: { input: skillId, output: z.void() },
+    /** 目标已存在且 overwrite 为 false 时抛「远端已存在：…」，供界面二次确认。 */
+    uploadSkillToRemote: {
+      input: z.object({
+        id: skillId,
+        remotePath: z.string().trim().min(1).max(4096),
+        overwrite: z.boolean(),
+      }),
+      output: z.custom<RemoteSkillUpload>(),
+    },
+    listMcpServers: { input: z.undefined(), output: mcpServers },
+    addMcpServer: { input: z.custom<McpServerInput>(), output: mcpServers },
+    updateMcpServer: {
+      input: z.object({ id, patch: z.custom<McpServerPatch>() }),
+      output: mcpServers,
+    },
+    removeMcpServer: { input: id, output: mcpServers },
+    refreshMcpServer: { input: id, output: mcpServers },
+    listBuiltinCapabilities: { input: z.undefined(), output: builtins },
+    setBuiltinCapability: { input: z.object({ name, enabled: z.boolean() }), output: builtins },
+    setBuiltinDomain: { input: z.object({ domain: name, enabled: z.boolean() }), output: builtins },
+    /** 全应用同时运行的子 Agent 上限（同步与后台合计）。 */
+    subagentLimit: { input: z.undefined(), output: z.number() },
+    setSubagentLimit: { input: z.number(), output: z.number() },
+    listWebSearchEntries: { input: z.undefined(), output: webSearchEntries },
+    listWebSearchOptions: {
+      input: z.undefined(),
+      output: z.custom<{ entries: WebSearchEntrySummary[]; selectedId: string | null }>(),
+    },
+    saveWebSearchEntry: { input: z.custom<WebSearchEntryInput>(), output: webSearchEntries },
+    /** 删的是选中项时回落到剩余第一条。 */
+    removeWebSearchEntry: { input: id, output: webSearchEntries },
+    /** 选择即启用 web_search 工具；null 表示关闭联网搜索。 */
+    selectWebSearchEntry: { input: id.nullable(), output: z.void() },
+    listWebSearchKeySources: { input: z.undefined(), output: z.custom<WebSearchKeySource[]>() },
+    /** 表单预填用的静态副本，不随供应商换 Key 更新；供应商不可用时为 null。 */
+    readWebSearchKey: { input: id, output: z.custom<string | null>() },
+  },
+  {
+    webSearchChanged: z.undefined(),
+  },
+);

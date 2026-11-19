@@ -6,6 +6,7 @@ import { remoteBackend } from '../remote/operations';
 import { syncRemoteContext } from '../remote/context';
 import { COMMAND_BRIDGE, startDomainBridge } from '../capabilities/command-server';
 import { commandPrompt } from '../capabilities/commands';
+import { contextDirectories } from './context-directories';
 import { getAgentInstruction } from './instruction';
 import {
   builtinSkillsDirectory,
@@ -22,7 +23,6 @@ import { fetchWebPage } from '../capabilities/web-fetch';
 import { remoteTools } from './remote-tools';
 import { sessionTools } from './session-read';
 
-/** 应用生命周期内一个命令桥：token 只进入 Agent 的子进程环境，不含业务凭据。 */
 let bridge: ReturnType<typeof startDomainBridge> | undefined;
 export function domainBridge() {
   bridge ??= startDomainBridge();
@@ -49,7 +49,6 @@ const delaPrompt = () =>
     .filter(Boolean)
     .join('\n');
 
-/** 远程会话：没有 dela 命令，也没有本地工作区资料，路径一律是远端 Linux 绝对路径。 */
 const DELA_REMOTE_PROMPT = `你运行在 Dela 里，当前会话连接的是远端 Linux 主机。
 read/write/edit/bash/grep/find/ls 都在远端执行，参数用远端绝对路径（例如 /root/proj/src/main.ts），不要用 Windows 路径。
 远端没有 dela 命令，也没有本地工作区的资料与笔记；需要时用远端命令自己查（uname、git status、ls 等）。
@@ -68,14 +67,12 @@ export function agentEnvironment() {
       const project = projectContext(projectId, cwd);
       ensureBuiltinSkills();
       const remote = projectId ? hostPorts().projects.remoteOf(projectId) : null;
-      // 两个分支共用项目上下文与附加指令：远端多一条连接信息、换掉提示词，其余一样。
       const shared = [project, instruction && `用户附加指令：\n${instruction}`].filter(
         (part): part is string => Boolean(part),
       );
       const disabledSkillPaths = readDisabledSkillPaths();
       if (remote && projectId) {
         const { target } = remote;
-        // 远端 skills 与 AGENTS.md 在本机不存在：镜像一份给 Pi 读，路径再由 remotePath 翻回远端。
         const context = await syncRemoteContext({
           target,
           key: `${remote.remoteId}:${projectId}`,
@@ -92,7 +89,6 @@ export function agentEnvironment() {
           shellPath: hostPorts().paths.bash(),
           // 远端会话不挂内置 skills（正文教 dela 命令，远端没有），只加载镜像里的远端技能。
           skillPaths: context.skillPaths,
-          // 远端镜像里的 Skill 与本机全局 Skill 一样按名称开关。
           globalSkillDirs: [
             ...context.skillPaths,
             ...globalSkillDirectories(),
@@ -105,7 +101,6 @@ export function agentEnvironment() {
           disabledTools: [...readDisabledTools()].filter(
             (name) => !BUILTIN_TOOL_NAMES.includes(name),
           ),
-          // 联网搜索、MCP 与会话读取都在本机跑，与项目在不在远端无关，照旧给上。
           customTools: [
             ...webTools,
             ...mcpTools(),
@@ -116,8 +111,17 @@ export function agentEnvironment() {
         };
       }
       const handle = await domainBridge();
+      const directories = projectId === null ? contextDirectories() : [];
+      const directoryPrompt = directories.length
+        ? [
+            '辅助目录（可以直接读写，用绝对路径访问）：',
+            ...directories.map((item) => `- ${item.label}：${item.directory()}`),
+          ].join('\n')
+        : null;
       return {
-        appendSystemPrompt: [delaPrompt(), ...shared],
+        appendSystemPrompt: [delaPrompt(), directoryPrompt, ...shared].filter(
+          (part): part is string => Boolean(part),
+        ),
         shellPath: hostPorts().paths.bash(),
         commandPrefix: `export DELA_COMMAND_URL='${handle.url}' DELA_COMMAND_TOKEN='${handle.token}'\n${COMMAND_BRIDGE}`,
         skillPaths: [builtinSkillsDirectory()],
@@ -136,7 +140,6 @@ const text = (value: unknown) => ({
   details: undefined,
 });
 
-/** 联网工具（默认关闭，设置 › 内置能力「网络」开启）。参数是纯 JSON Schema，Pi 走 JSON Schema 校验。 */
 const webTools: ToolDefinition[] = [
   {
     name: 'web_search',
@@ -176,7 +179,6 @@ const webTools: ToolDefinition[] = [
   },
 ];
 
-/** 已连接 MCP 服务器的工具：以 Pi 自定义工具注入，执行路由回 mcp.ts 的连接。 */
 function mcpTools(): ToolDefinition[] {
   return mcpToolDefinitions().map(({ function: definition }) => ({
     name: definition.name,

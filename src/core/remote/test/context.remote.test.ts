@@ -32,7 +32,6 @@ describe('远端上下文镜像（真机）', () => {
   const root = `/tmp/dela-context-${Date.now()}`;
   const remoteDir = `${root}/nested/proj`;
   const home = `${root}/home`;
-  // 仓库内的项目技能 + 服务器主目录一处技能，加上祖先目录的上下文文件。
   // .dela/skills 不再是项目技能目录，放一个用来确认它不被镜像。
   const repoSkillFiles: [string, string][] = [
     ['.agents/skills/alpha/SKILL.md', skill('alpha', '仓库原生技能', 'ALPHA 正文')],
@@ -80,7 +79,6 @@ describe('远端上下文镜像（真机）', () => {
     ]);
     expect(existsSync(join(mirror, 'repo', ignoredRepoSkill[0]))).toBe(false);
 
-    // 逐字节一致：/skill 展开读的就是这几个镜像文件。
     for (const [path, content] of repoSkillFiles) {
       const mirrored = join(mirror, 'repo', path);
       expect(existsSync(mirrored), mirrored).toBe(true);
@@ -89,7 +87,6 @@ describe('远端上下文镜像（真机）', () => {
     const serverMirrored = join(mirror, 'home', serverSkillFile[0]);
     expect(readFileSync(serverMirrored, 'utf-8')).toBe(serverSkillFile[1]);
 
-    // AGENTS.md 记的是远端路径；祖先目录的 CLAUDE.md 排在 cwd 之前（Pi 的注入顺序）。
     expect(context.agentsFiles.at(-1)).toEqual({
       path: `${remoteDir}/AGENTS.md`,
       content: '暗号：菠萝\n',
@@ -99,17 +96,14 @@ describe('远端上下文镜像（真机）', () => {
       `${remoteDir}/AGENTS.md`,
     ]);
 
-    // 镜像路径 → 远端真身（read/write/edit 与 ls/find/grep 都走同一个收口）。
     expect(remotePath(join(mirror, 'repo', '.agents', 'skills', 'alpha', 'SKILL.md'))).toBe(
       `${remoteDir}/.agents/skills/alpha/SKILL.md`,
     );
     expect(remotePath(join(mirror, 'home', serverSkillFile[0]))).toBe(
       `${home}/${serverSkillFile[0]}`,
     );
-    // 远端绝对路径不受映射影响。
     expect(remotePath('/etc/hosts')).toBe('/etc/hosts');
 
-    // bash 命令正文里的镜像路径同样翻译（模型可能直接 cat 技能的 location）。
     const mirrorFile = join(mirror, 'repo', '.agents', 'skills', 'alpha', 'ref', 'note.txt');
     expect(mirrorCommandText(`cat ${mirrorFile}`)).toBe(
       `cat ${remoteDir}/.agents/skills/alpha/ref/note.txt`,
@@ -177,7 +171,6 @@ describe('远端上下文镜像（真机）', () => {
     });
     expect(Buffer.concat(status).toString('utf8')).toContain('.agents/skills/lint/SKILL.md');
 
-    // 同名先拦下来（渲染端据此弹二次确认），覆盖后再传就换掉正文。
     await expect(
       uploadSkillToRemote({ target, skillDir: local, name: 'lint', remoteDir, overwrite: false }),
     ).rejects.toThrow(/^远端已存在：/);

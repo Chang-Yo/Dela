@@ -1,6 +1,5 @@
-// 会话命令：新建、分支、归档、删除、换模型与 /compact、/reload、/name。
 import { existsSync } from 'node:fs';
-import type { ChatScope, WorkspaceChat, MainSessionCommand } from '../../protocol/agent';
+import type { WorkspaceChat, MainSessionCommand } from '../../protocol/agent';
 import { hostPorts } from '../../ports';
 import * as changes from '../changes';
 import { forkSessionFile, loadPi, resolveModel } from '../pi';
@@ -25,18 +24,14 @@ import {
   storeVisibility,
 } from './store';
 
-/** 每个项目只保留一个空会话入口；正在运行的空会话不复用。 */
-export function newSession(projectId: string | null, scope: ChatScope): WorkspaceChat {
+export function newSession(projectId: string | null): WorkspaceChat {
   if (projectId !== null) sessionCwd(projectId, null);
-  const empty = emptySessionId(projectId, scope);
+  const empty = emptySessionId(projectId);
   if (empty && !live.get(empty)?.run) return snapshot(empty);
-  return snapshot(insertSession(projectId, scope));
+  return snapshot(insertSession(projectId));
 }
 
-/**
- * 从一条已完成回复分出新会话：同项目、同模型、同工作目录（历史里引用的文件都在那里），标题加「分支：」。
- * 分支前的每轮改动记录按会话 id 保存，不随分支复制。
- */
+/** 从已完成回复分出新会话：同项目、模型与工作目录；分支前的每轮改动记录按会话 id 保存，不随分支复制。 */
 export async function forkSession(id: string, entryId: string): Promise<WorkspaceChat> {
   const meta = row(id);
   if (!meta.file || !existsSync(meta.file)) throw new Error('会话还没有可分支的记录');
@@ -97,7 +92,6 @@ export async function deleteSession(id: string) {
   if (file && existsSync(file)) await hostPorts().desktop.trash(file);
 }
 
-/** Pi 压缩失败时抛英文原文：常见的两种换成能看懂的说明，其余带上原文。 */
 function compactionError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/Nothing to compact/i.test(message)) return '对话还太短，没有可压缩的内容';
@@ -105,10 +99,7 @@ function compactionError(error: unknown): string {
   return `压缩失败：${message}`;
 }
 
-/**
- * 会话命令（/compact、/reload、/name），对应 Pi 终端界面里的同名命令。它们不是一轮对话：不写用户消息、
- * 不改自动标题、不记本轮文件变化，所以不走 askSession。执行完推一次快照，界面按快照更新。
- */
+/** 会话命令（/compact、/reload、/name）不是一轮对话：不写用户消息、不改标题、不记文件变化，所以不走 askSession。 */
 export async function runSessionCommand(
   id: string,
   name: MainSessionCommand,
@@ -127,7 +118,6 @@ export async function runSessionCommand(
     const entry = live.get(id);
     busy(entry);
     if (entry) disposeLive(id, entry);
-    // 立刻重建：Skill、MCP 或远端连接的错误现在就报出来，不等下一次发送。
     if (modelChoice(row(id)).kind === 'ready') await ensureLive(id);
   } else {
     const entry = await ensureLive(id);
@@ -148,10 +138,7 @@ export async function runSessionCommand(
   return snapshot(id);
 }
 
-/**
- * 只改这个会话的模型。空闲的实例就地切换（Pi 的 setModel 只改本会话并写进会话文件）；
- * 运行或压缩中的实例标 stale，本轮照旧用原模型，结束后按新选择重建。
- */
+/** 只改这个会话的模型：空闲实例就地切换；运行或压缩中的实例标 stale，本轮用原模型，结束后重建。 */
 export async function setSessionModel(
   id: string,
   providerId: string,

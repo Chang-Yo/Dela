@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
 }));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 
-import { locateBash } from '../../../main/terminal/mingit';
+import { locateBash } from '../../../modules/terminal';
 import {
   backgroundTools,
   stopSessionTasks,

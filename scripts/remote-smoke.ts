@@ -6,24 +6,14 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { provideHostPorts } from '../src/core/ports';
-import { electronPorts } from '../src/app/host-electron';
-import { closeDatabase, getDatabase } from '../src/main/database';
-import { registerModuleIpc } from '../src/app/ipc';
+import { electronPorts } from '../src/app/main/host-electron';
+import { closeDatabase, getDatabase } from '../src/app/main/database';
+import { registerModuleIpc } from '../src/app/main/ipc';
 import { modules } from '../src/app/modules';
-import { invalidateSessions, registerAgentIpc } from '../src/app/agent-ipc';
-import { registerCanvasIpc } from '../src/main/canvas/ipc';
-import { registerMailIpc } from '../src/main/mail/ipc';
-import { registerNotificationsIpc } from '../src/main/notifications';
-import { registerRemoteIpc } from '../src/main/remotes/ipc';
+import { registerAgentIpc } from '../src/app/main/agent-ipc';
 import { remoteBackend } from '../src/core/remote/operations';
 import { exec, probeRemote } from '../src/core/remote/transport';
-import { registerSettingsIpc } from '../src/main/settings/ipc';
-import { registerShuiyuanIpc } from '../src/main/shuiyuan/ipc';
-import { registerTerminalIpc } from '../src/main/terminal';
-import { registerTimetableIpc } from '../src/main/timetable/ipc';
-import { registerTodoIpc } from '../src/main/todo';
-import { registerWorkspaceIpc } from '../src/main/workspace/ipc';
-import { registerPreviewProtocol, registerPreviewScheme } from '../src/main/workspace/preview';
+import { registerPreviewProtocol, registerPreviewScheme } from '../src/modules/workspace';
 
 const host = process.env.DELA_REMOTE_HOST;
 if (!host) {
@@ -35,9 +25,8 @@ const profile = mkdtempSync(join(tmpdir(), 'dela-remote-gui-'));
 app.setPath('userData', profile);
 app.setPath('documents', profile);
 app.setPath('home', profile);
-// 真实启动是 `electron .`，getAppPath() 就是仓库根；这里入口是 .tools/remote-smoke.cjs，
-// getAppPath() 会变成 .tools，于是 vendor/ 下的 helper 与随包 ssh 都找不到、静默降级成 ssh。
-// 对齐成仓库根，让冒烟真的走到 helper 通道。
+// 入口在 .tools/ 时 getAppPath() 不是仓库根，找不到 vendor/ 下的 helper 而静默降级成 ssh；
+// 对齐成仓库根，让冒烟真的走 helper 通道。
 app.getAppPath = () => process.cwd();
 registerPreviewScheme();
 
@@ -61,19 +50,9 @@ app
     );
     await exec(target, `printf 'nested\\n' > ${root}/sub/nested.md`);
 
-    registerRemoteIpc();
-    // 与生产一致：会话订阅与失效钩子由装配层注入。
-    registerWorkspaceIpc(invalidateSessions);
-    registerSettingsIpc();
-    registerCanvasIpc();
     registerAgentIpc();
-    registerTerminalIpc();
     registerModuleIpc(modules);
-    registerNotificationsIpc();
-    registerTodoIpc();
-    registerMailIpc();
-    registerTimetableIpc();
-    registerShuiyuanIpc();
+    for (const module of modules) module.register?.();
     registerPreviewProtocol();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
     const win = new BrowserWindow({
@@ -92,8 +71,7 @@ app
     });
     const evaluate = (code: string) => win.webContents.executeJavaScript(code, true);
     const wait = async (code: string, label = code) => {
-      // 30 秒：向导的「连接」现在会真的上传并启动 helper（第一次要传几 MB），
-      // 15 秒在慢链路上不够；条件一旦成立立刻返回，放宽只是让失败晚一点报出来。
+      // 向导「连接」要上传并启动 helper，慢链路上 15 秒不够。
       for (let i = 0; i < 300; i++) {
         if (await evaluate(code)) return;
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -145,8 +123,6 @@ app
     await clickLabel('新建项目');
     await wait(`document.body.innerText.includes('新建远程项目')`, '新建项目弹窗');
     await click('新建远程项目');
-    // 空档案里没有已保存的连接（本机 ~/.ssh/config 里的主机会作为候选出现在下拉框里）。
-    // 冒烟走「新建连接」那条路：从下拉框里选最后一项，填完「保存并连接」。
     await wait(`document.querySelector('[aria-label="服务器"]') !== null`, '新建远程项目面板');
     await shoot('panel-initial');
     await evaluate(
@@ -166,7 +142,6 @@ app
         (await exec(target, 'pgrep -f "[d]ela-helper --port" | wc -l')).stdout.toString().trim(),
       );
     await click('保存并连接');
-    // 连上之后面板直接显示主目录的子目录（主目录由 helper 带回，不再单独跑 ssh）。
     await wait(
       `[...document.querySelectorAll('[role="option"] button')].some(b => b.textContent.trim() === 'dela-gui-smoke')`,
       '面板里的远端目录清单',
@@ -175,7 +150,6 @@ app
     const helpersAfterConnect = await helperCount();
     await shoot('directory-home');
 
-    // 单击选中：项目名称跟着变，底部写明将添加哪个目录。
     await evaluate(
       `[...document.querySelectorAll('[role="option"] button')].find(b => b.textContent.trim() === 'dela-gui-smoke').click()`,
     );
@@ -191,7 +165,7 @@ app
       '远端目录树里的文件行',
     );
     const entry = await evaluate(`(async () => {
-      const state = await window.dela.workspace.getState();
+      const state = await window.dela.bridge.invoke('workspace:state');
       const item = state.entries.find(e => e.name === 'dela-gui-smoke');
       return item ? { id: item.id, remoteId: item.remoteId ?? null, path: item.path ?? null } : null;
     })()`);
@@ -252,7 +226,7 @@ app
     await evaluate(closeMenu);
 
     const references = await evaluate(
-      `(async () => (await window.dela.workspace.remoteReferences(${JSON.stringify(entry.id)})).map(r => r.title ?? r.key))()`,
+      `(async () => (await window.dela.bridge.invoke('workspace:remoteReferences', ${JSON.stringify(entry.id)})).map(r => r.title ?? r.key))()`,
     );
     assert.ok(references.includes('a b.txt'), `@ 候选缺少远端文件：${JSON.stringify(references)}`);
     assert.ok(
@@ -279,13 +253,15 @@ app
     }
     assert.ok(watched, 'Dela 之外建的文件没有出现在目录树里（watch 没生效）');
 
-    // 远程终端：本地 node-pty 起 ssh -tt，远端给交互登录 shell，cwd 应是项目目录。
     await evaluate(`(async () => {
       window.__term = { id: crypto.randomUUID(), data: '' };
-      window.dela.terminal.onEvent((event) => {
+      window.dela.bridge.subscribe('terminal:event', (event) => {
         if (event.type === 'data') window.__term.data += event.data;
       });
-      await window.dela.terminal.create(${JSON.stringify(entry.id)}, window.__term.id);
+      await window.dela.bridge.invoke('terminal:create', {
+        projectId: ${JSON.stringify(entry.id)},
+        id: window.__term.id,
+      });
     })()`);
     let termData = '';
     try {
@@ -297,21 +273,25 @@ app
       }
       if (!termData.includes(prompt)) {
         const snapshots = await evaluate(
-          `(async () => (await window.dela.terminal.list(${JSON.stringify(entry.id)})).map(s => ({ exitCode: s.exitCode, tail: s.buffer.slice(-400) })))()`,
+          `(async () => (await window.dela.bridge.invoke('terminal:list', ${JSON.stringify(entry.id)})).map(s => ({ exitCode: s.exitCode, tail: s.buffer.slice(-400) })))()`,
         );
         throw new Error(
           `远端终端里没等到项目目录。\n事件数据：${JSON.stringify(termData.slice(-400))}\n快照：${JSON.stringify(snapshots)}`,
         );
       }
-      await evaluate(`window.dela.terminal.write(window.__term.id, 'echo MARK-$(pwd)\\r')`);
+      await evaluate(
+        `window.dela.bridge.invoke('terminal:write', { id: window.__term.id, data: 'echo MARK-$(pwd)\\r' })`,
+      );
       // 只认命令输出：输入回显里是 MARK-$(pwd)，展开成绝对路径的结果不会出现在回显里。
       await wait(`window.__term.data.includes('MARK-${root}')`, '远端终端执行命令的输出');
       const buffer = await evaluate(
-        `(async () => (await window.dela.terminal.list(${JSON.stringify(entry.id)})).map(s => s.buffer).join(''))()`,
+        `(async () => (await window.dela.bridge.invoke('terminal:list', ${JSON.stringify(entry.id)})).map(s => s.buffer).join(''))()`,
       );
       assert.ok(buffer.includes(`MARK-${root}`), '终端快照里没有命令输出');
     } finally {
-      await evaluate(`window.dela.terminal.close(window.__term.id)`).catch(() => {});
+      await evaluate(`window.dela.bridge.invoke('terminal:close', window.__term.id)`).catch(
+        () => {},
+      );
     }
 
     assert.deepEqual(errors, []);

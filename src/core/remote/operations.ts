@@ -1,9 +1,5 @@
-/**
- * 远程执行后端：文件读写、命令、搜索与后台命令都走远端 helper。本模块不认识 Pi 与 Agent，
- * 工具适配在 agent/remote-tools。helper 不可用时直接报错（带原因），不退回一次性 ssh。
- * 关键约束：参数已被宿主 node:path 解析成 Windows 形态（`src/a.ts` → `E:\root\proj\src\a.ts`），
- * 每个路径都必须先过 remotePath 还原。
- */
+/** 远程执行后端：文件、命令、搜索与后台命令都走远端 helper，不可用时报错而不退回一次性 ssh。
+ * 参数已被宿主 node:path 解析成 Windows 形态，每个路径都必须先过 remotePath 还原。 */
 import { randomBytes } from 'node:crypto';
 import {
   helperSession,
@@ -15,18 +11,15 @@ import { notifyRemoteChange } from './events';
 import { syncRemoteWatch } from './watch';
 import { shellQuote, type RemoteDirEntry, type RemoteTarget } from './transport';
 
-/** 会话入口：顺带让这个目标的 watch 流起来（每个连接各一条，互不影响）。 */
 function session(target: RemoteTarget): HelperSession {
   syncRemoteWatch(target);
   return helperSession(target);
 }
 
-/** 目录清单：远端目录树每展开一层都走这里（一次 HTTP，约 30ms）。 */
 export function listRemoteDirectory(target: RemoteTarget, path: string): Promise<RemoteDirEntry[]> {
   return session(target).list(path);
 }
 
-/** 远端文件的一条 stat：预览每取一块都要问一次 size/mtime。 */
 export async function statRemoteFile(target: RemoteTarget, path: string): Promise<RemoteDirEntry> {
   const [stat] = await session(target).stat([path]);
   if (!stat?.exists) throw new Error(`远端文件不存在：${path}`);
@@ -35,7 +28,6 @@ export async function statRemoteFile(target: RemoteTarget, path: string): Promis
   return { name, directory: false, size: stat.size, modifiedAt: stat.modifiedAt };
 }
 
-/** 片段读取：预览与分块下载用，只把请求的那一段拉回本地。 */
 export function readRemoteRange(
   target: RemoteTarget,
   path: string,
@@ -45,7 +37,6 @@ export function readRemoteRange(
   return session(target).readFileRange(path, offset, length);
 }
 
-/** 整文件写入：helper 侧同目录临时文件 + rename，缺失的父目录一并建好。 */
 export function writeRemoteFile(
   target: RemoteTarget,
   path: string,
@@ -54,7 +45,7 @@ export function writeRemoteFile(
   return session(target).writeFile(path, content);
 }
 
-/** 建一层目录：helper 没有单独的 mkdir 接口，走 exec；不加 -p，同名已存在时直接报错。 */
+/** helper 没有 mkdir 接口走 exec；不加 -p，同名已存在时直接报错。 */
 export async function makeRemoteDirectory(target: RemoteTarget, path: string): Promise<void> {
   const chunks: Buffer[] = [];
   const result = await session(target).exec(`mkdir -- ${shellQuote(path)}`, {
@@ -67,12 +58,10 @@ export async function makeRemoteDirectory(target: RemoteTarget, path: string): P
   notifyRemoteChange(parentOf(path));
 }
 
-/** 一次请求回答「存在吗、是目录吗、里面有什么」：向导的目录选择器与导入项目用。 */
 export function locateRemote(target: RemoteTarget, path: string): Promise<HelperLocation> {
   return session(target).locate(path);
 }
 
-/** 远端仓库文件清单（@ 候选）：等价于 `rg --files`，limit 下推到 helper。 */
 export async function remoteFileIndex(
   target: RemoteTarget,
   path: string,
@@ -81,16 +70,10 @@ export async function remoteFileIndex(
   return (await session(target).glob(path, '**', limit)).files;
 }
 
-/**
- * 上下文镜像路由：镜像里的路径要先翻译回远端路径，再做常规归一化。
- *
- * 远端 skills 与 AGENTS.md 必须落到本地文件，Pi 自己才读得到（`/skill:name` 展开是本地
- * `readFileSync(skill.filePath)`）。于是远端内容镜像到本地，模型拿着镜像路径去 read/bash，
- * 这里把它翻回远端真身。按项目 key 记路由：不同项目的镜像可以并存，最长前缀优先。
- */
+/** 上下文镜像路由：远端 skills 与 AGENTS.md 必须落到本地文件 Pi 才读得到，
+ * 模型拿镜像路径操作时在此翻回远端真身（按项目 key 记路由，最长前缀优先）。 */
 const mirrorRoutes = new Map<string, { mirror: string; remote: string }[]>();
 
-/** 记下一个项目的镜像路由（同 key 覆盖，空数组即撤销）。mirror/remote 都是目录前缀。 */
 export function setContextMirrors(key: string, routes: { mirror: string; remote: string }[]): void {
   if (routes.length === 0) mirrorRoutes.delete(key);
   else mirrorRoutes.set(key, routes);
@@ -118,8 +101,7 @@ function throughMirror(value: string): string | null {
     : null;
 }
 
-/** 命令正文里的镜像路径也要翻回远端：模型可能直接 `cat <镜像路径>`。
- *  Windows 镜像兼容两种分隔符及大小写；POSIX 镜像保留大小写和文件名里的反斜杠。 */
+/** 命令正文里的镜像路径也要翻回远端（模型可能直接 cat 镜像路径）；Windows 镜像兼容两种分隔符与大小写。 */
 export function mirrorCommandText(command: string): string {
   const routes = [...mirrorRoutes.values()]
     .flat()
@@ -132,7 +114,6 @@ export function mirrorCommandText(command: string): string {
       .split('/')
       .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
       .join(separator);
-    // 尾巴吃到引号或 shell 元字符为止，路径里的空格要一起带上（模型多半会加引号）。
     result = result.replace(
       new RegExp(
         `${prefix}(?=${separator}|[\\s"'|&;()<>]|$)([^"'|&;()<>\\n]*)`,
@@ -145,7 +126,6 @@ export function mirrorCommandText(command: string): string {
   return result;
 }
 
-/** 还原远端 POSIX 路径：翻镜像，撤销 Windows 宿主的盘符/分隔符改写，合并重复斜杠。 */
 export function remotePath(value: string): string {
   const mapped = throughMirror(value);
   let path =
@@ -235,22 +215,16 @@ export function remoteBackend(target: RemoteTarget) {
           .map(([key, value]) => [key, String(value)]),
       );
       const remoteCwd = remotePath(cwd);
-      const result = await remote().exec(
-        // 命令正文里可能直接写着镜像路径（模型从技能的 <location> 抄来的），一并翻回远端。
-        mirrorCommandText(command),
-        {
-          cwd: remoteCwd,
-          signal: options.signal,
-          // Pi 传进来的是秒，helper 收毫秒。
-          timeoutMs: options.timeout ? options.timeout * 1000 : undefined,
-          env: forwarded,
-          onData: options.onData,
-        },
-      );
+      const result = await remote().exec(mirrorCommandText(command), {
+        cwd: remoteCwd,
+        signal: options.signal,
+        timeoutMs: options.timeout ? options.timeout * 1000 : undefined,
+        env: forwarded,
+        onData: options.onData,
+      });
       if (result.lost > 0)
         options.onData(Buffer.from(`\n[连接中断期间有 ${result.lost} 字节输出未能接回]\n`, 'utf8'));
-      // 命令可能建了目录或改了文件（mkdir / git clone / npm install 都走 bash）：
-      // 以 cwd 为界让目录树重读，命令是只读的也只是多一次很便宜的清单请求。
+      // 命令可能建目录或改文件（mkdir、git clone 都走 bash）：以 cwd 为界让目录树重读。
       notifyRemoteChange(remoteCwd);
       if (options.signal?.aborted) throw new Error('aborted');
       if (result.state === 'timeout') throw new Error(`timeout:${options.timeout ?? 120}`);
@@ -292,14 +266,10 @@ export function remoteBackend(target: RemoteTarget) {
     ) => (await remote().glob(remotePath(searchPath), pattern, options.limit)).files,
   };
 
-  /** 结构化搜索：有 rg 用 rg，没有用 Go 遍历。 */
   const search = (request: HelperSearchRequest, signal?: AbortSignal) =>
     remote().search({ ...request, path: remotePath(request.path) }, signal);
 
-  /**
-   * 后台命令。signal 不交给 exec：停止时显式取消，等 helper 报回结束才返回，
-   * 退出应用时据此等到取消送达再关隧道，远端不会留下没人管的进程。
-   */
+  /** 后台命令：signal 不交给 exec，停止时显式取消并等 helper 报回结束，退出应用时远端不留野进程。 */
   const runInBackground = async (
     command: string,
     cwd: string,

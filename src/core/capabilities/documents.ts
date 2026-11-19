@@ -9,12 +9,9 @@ export interface PreparedDocument {
 }
 
 export interface DocumentReader {
-  /** 教 Agent 读文档的内置 Skill；组件就绪前保持停用。 */
   skill: string;
   dependency(): SkillDependency;
-  /** 启用 Skill 前确认组件能运行。 */
   verify(): Promise<void>;
-  /** 建临时任务目录，原文件由 writeInput 写入。 */
   prepare(writeInput: (path: string) => Promise<void>): Promise<PreparedDocument>;
 }
 

@@ -1,0 +1,115 @@
+import { z } from 'zod';
+import { defineContract } from '../../core/protocol/contract';
+
+export interface CanvasCourse {
+  id: number;
+  name: string;
+  term: string;
+  code: string;
+  syncedAt: string | null;
+  error: string | null;
+  /** 已归档课程不再自动同步、不再提示同步错误，仅保留本地数据。 */
+  archived?: boolean;
+}
+
+export interface SourceItem {
+  id: string;
+  parentId: string | null;
+  courseId: number;
+  name: string;
+  kind: 'folder' | 'module' | 'file' | 'assignment' | 'page' | 'discussion' | 'link';
+  sourceId: string | null;
+  dueAt?: string | null;
+}
+
+export interface CanvasState {
+  connected: boolean;
+  syncedAt: string | null;
+  courses: CanvasCourse[];
+  items: SourceItem[];
+}
+
+/** 可识别学期按年份、季节降序并排在前面；同一时期或均无法识别时沿用名称降序。 */
+export function compareCanvasTerms(a: string, b: string): number {
+  const order = (term: string) => {
+    const match = term.match(
+      /(?:^|\D)(\d{4})(?:\s*-\s*(\d{4}))?\s*(?:学年|年)?[\s_]*(Fall|Spring|Summer|秋季?|春季?|夏季?)(?:学期)?\s*$/i,
+    );
+    if (!match) return 0;
+    const start = Number(match[1]);
+    const end = match[2] ? Number(match[2]) : start;
+    if (match[2] && end !== start + 1) return 0;
+    const season = /^(Fall|秋)/i.test(match[3]!) ? 2 : /^(Summer|夏)/i.test(match[3]!) ? 1 : 0;
+    // 跨年学年的春夏属于后一年；单年份名称直接使用该年。
+    return (season === 2 ? start : end) * 3 + season;
+  };
+  return order(b) - order(a) || b.localeCompare(a);
+}
+
+/** 取排序后的首个非「未标注学期」，供默认展开、刷新和 @ 候选共用。 */
+export function latestTermOf(courses: { term: string }[]): string | undefined {
+  return [...new Set(courses.map((c) => c.term))]
+    .sort(compareCanvasTerms)
+    .find((term) => term !== '未标注学期');
+}
+
+/** 课程按学期分组：学期按 compareCanvasTerms 降序，组内按课程名排序；供批量导出弹窗等展示用。 */
+export function groupCanvasCoursesByTerm(
+  courses: CanvasCourse[],
+): { term: string; courses: CanvasCourse[] }[] {
+  const groups = new Map<string, CanvasCourse[]>();
+  for (const course of courses) {
+    const list = groups.get(course.term);
+    if (list) list.push(course);
+    else groups.set(course.term, [course]);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => compareCanvasTerms(a, b))
+    .map(([term, list]) => ({
+      term,
+      courses: list.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id),
+    }));
+}
+
+/** 已下载到本地 courses 目录的课件文件（@ 引用候选）：
+ *  path 为本地绝对路径（模型用 read 读取），title 为「课程名/相对课程目录的路径」。 */
+export interface CachedCourseFile {
+  path: string;
+  title: string;
+}
+
+/** 批量导出的结果：exported 为成功写入目标目录的文件数，failed 为「课程/文件：原因」列表。 */
+export interface CanvasExportResult {
+  dir: string;
+  exported: number;
+  failed: string[];
+}
+
+const state = z.custom<CanvasState>();
+const courseId = z.number().int().positive();
+const sourceId = z.string().max(512);
+
+export const canvasContract = defineContract(
+  'canvas',
+  {
+    state: { input: z.undefined(), output: state },
+    connect: { input: z.string().trim().min(1), output: state },
+    disconnect: { input: z.undefined(), output: state },
+    syncCourses: { input: z.undefined(), output: state },
+    syncCourse: { input: courseId, output: state },
+    archiveCourse: { input: z.object({ id: courseId, archived: z.boolean() }), output: state },
+    download: { input: sourceId, output: z.void() },
+    reveal: { input: sourceId, output: z.void() },
+    /** 已下载到本地、属于最新学期（未归档）的课件。 */
+    cachedFiles: { input: z.undefined(), output: z.custom<CachedCourseFile[]>() },
+    /** 导出所选课程「文件」目录下的全部课件；取消选择目标文件夹时返回 null。 */
+    exportCourseFiles: {
+      input: z.array(courseId).min(1),
+      output: z.custom<CanvasExportResult | null>(),
+    },
+  },
+  {
+    /** 后台目录同步与 Agent 刷新课程后推送。 */
+    state,
+  },
+);

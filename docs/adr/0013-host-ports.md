@@ -9,7 +9,7 @@ v2 的主进程模块直接 import Electron：路径取自 `app.getPath`，凭�
 
 ## 决定
 
-`src/core/ports.ts`（原 `src/main/host.ts`）定义 `HostPorts` 接口，按能力分组：`Paths`、`SecretStore`、`Notifier`、`ClientBroadcaster`、`ImageCodec`、`Desktop`、`Network`。Electron 实现在 `src/app/host-electron.ts`，启动时由 `provideHostPorts` 注入；测试由 vitest setupFile 提供默认端口，用例用 `provideTestHostPorts` 覆盖。
+`src/core/ports.ts`（原 `src/main/host.ts`）定义 `HostPorts` 接口，按能力分组：`Paths`、`SecretStore`、`Notifier`、`ClientBroadcaster`、`ImageCodec`、`Desktop`、`Network`。Electron 实现在 `src/app/main/host-electron.ts`，启动时由 `provideHostPorts` 注入；测试由 vitest setupFile 提供默认端口，用例用 `provideTestHostPorts` 覆盖。
 
 - 凭据按命名空间读写；加密、原子替换与解密失败备份都留在 Electron 实现里，`CredentialDecryptionError` 归入端口契约。
 - 业务模块只在边界处取一次端口，向内传已类型化的值，不重复检查。

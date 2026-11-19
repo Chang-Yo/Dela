@@ -5,11 +5,9 @@ import { isPiProjectSkill, loadPi, piAgentDir } from '../agent/pi';
 export interface DiscoveredSkill {
   name: string;
   description: string;
-  /** SKILL.md 的绝对路径。 */
   path: string;
 }
 
-/** 本地项目里 Pi 会加载的项目级 skills：与会话同一个 cwd、同样信任项目。 */
 export async function discoverProjectSkills(cwd: string): Promise<DiscoveredSkill[]> {
   const pi = await loadPi();
   const loader = new pi.DefaultResourceLoader({
