@@ -24,6 +24,8 @@ export interface Run {
   steers: { prompt: string; input: ChatAskInput }[];
   /** 插进本轮的后台任务通知：Pi 清空插队队列时会一并丢掉，轮末或撤回后补投没送达的。 */
   notices: TaskNotice[];
+  /** 本轮的轮前目录快照，与模型请求并行拍摄；工具执行前等它完成，失败也会完成。 */
+  captured?: Promise<void>;
   done: Promise<void>;
 }
 

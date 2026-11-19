@@ -80,6 +80,7 @@ export async function ensureLive(id: string): Promise<Live> {
         }
       : {}),
     ...(meta.parent_id ? { parentSession: row(meta.parent_id).file } : {}),
+    beforeTool: () => live.get(id)?.run?.captured,
   });
   if (session.sessionFile && session.sessionFile !== meta.file)
     storeSessionFile(id, session.sessionFile);
@@ -408,13 +409,16 @@ async function runTurn(
   let captureError: string | undefined;
   try {
     if (isRemoteSession(meta)) captureError = '远程会话暂不记录目录快照';
-    else if (!child) {
-      try {
-        before = await changes.captureDirectory(entry.cwd);
-      } catch (error) {
-        captureError = error instanceof Error ? error.message : String(error);
-      }
-    }
+    // 模型思考期间不会动文件：快照与请求并行，用户消息不必等它，工具执行前才等（见 beforeTool）。
+    else if (!child)
+      run.captured = changes.captureDirectory(entry.cwd).then(
+        (snapshot) => {
+          before = snapshot;
+        },
+        (error: unknown) => {
+          captureError = error instanceof Error ? error.message : String(error);
+        },
+      );
     // 只看本轮新产生的回复：扩展命令可能一条消息都不发，不能拿上一轮的结果来判本轮成败。
     const priorCount = entry.session.messages.length;
     if (run.cancelled) status = 'stopped';
@@ -430,6 +434,7 @@ async function runTurn(
     run.finishing = true;
     let changesError: string | undefined;
     try {
+      await run.captured;
       if (!child)
         await changes.freezeTurnChanges(
           id,

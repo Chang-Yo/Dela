@@ -195,6 +195,8 @@ export interface OpenSessionInput {
   /** 这些目录里的 Skill 按名称开关，其余按路径；Pi 此时还没贴来源标签。 */
   globalSkillDirs: string[];
   disabledTools: string[];
+  /** 每个工具执行前等待它完成，用于先拍完本轮的目录快照再动文件。 */
+  beforeTool?: () => Promise<void> | undefined;
 }
 
 export async function openPiSession(input: OpenSessionInput): Promise<AgentSession> {
@@ -215,6 +217,10 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     noExtensions: true,
     noPromptTemplates: true,
     noThemes: true,
+    // 内联扩展不受 noExtensions 限制，由 Dela 自己提供。
+    extensionFactories: input.beforeTool
+      ? [(api) => void api.on('tool_call', async () => void (await input.beforeTool!()))]
+      : [],
     additionalSkillPaths: input.skillPaths,
     appendSystemPrompt: input.appendSystemPrompt,
     ...(input.agentsFilesOverride ? { agentsFilesOverride: input.agentsFilesOverride } : {}),

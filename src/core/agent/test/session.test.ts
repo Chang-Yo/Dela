@@ -37,6 +37,7 @@ const state = vi.hoisted(() => ({
     enabled: boolean;
   }[],
   modelSwitches: [] as string[],
+  beforeTool: undefined as (() => Promise<void> | undefined) | undefined,
 }));
 vi.mock('electron', () => ({ app: { getPath: () => state.root }, shell: {} }));
 vi.mock('../providers', () => ({
@@ -46,44 +47,47 @@ vi.mock('../providers', () => ({
 }));
 vi.mock('../pi', () => ({
   resolveModel: async ({ model }: { model: string }) => ({ model, thinking: 'off' }),
-  openPiSession: async () => ({
-    setModel: async (model: string) => {
-      state.modelSwitches.push(model);
-    },
-    setThinkingLevel: () => {},
-    opened: ++state.opened,
-    subscribe: () => () => {},
-    get messages() {
-      return state.messages;
-    },
-    sessionManager: {
-      buildSessionProjection: () => ({
-        entries: state.messages.map((message, index) => ({
-          sourceEntry: { type: 'message', id: `e${index}` },
-          messages: [message],
-        })),
-      }),
-    },
-    get isCompacting() {
-      return state.compacting;
-    },
-    getSessionStats: () => ({ contextUsage: null }),
-    dispose: () => {
-      state.disposed++;
-    },
-    compact: async (instructions?: string) => {
-      state.compactCalls.push(instructions);
-      return state.compact?.(instructions);
-    },
-    abort: async () => {},
-    clearQueue: () => ({ steering: [], followUp: [] }),
-    getSteeringMessages: () => [],
-    prompt: async (text: string) => {
-      state.prompts.push(text);
-      state.messages.push({ role: 'user', content: text, timestamp: Date.now() });
-      await state.onPrompt?.();
-    },
-  }),
+  openPiSession: async (input: { beforeTool?: () => Promise<void> | undefined }) => {
+    state.beforeTool = input.beforeTool;
+    return {
+      setModel: async (model: string) => {
+        state.modelSwitches.push(model);
+      },
+      setThinkingLevel: () => {},
+      opened: ++state.opened,
+      subscribe: () => () => {},
+      get messages() {
+        return state.messages;
+      },
+      sessionManager: {
+        buildSessionProjection: () => ({
+          entries: state.messages.map((message, index) => ({
+            sourceEntry: { type: 'message', id: `e${index}` },
+            messages: [message],
+          })),
+        }),
+      },
+      get isCompacting() {
+        return state.compacting;
+      },
+      getSessionStats: () => ({ contextUsage: null }),
+      dispose: () => {
+        state.disposed++;
+      },
+      compact: async (instructions?: string) => {
+        state.compactCalls.push(instructions);
+        return state.compact?.(instructions);
+      },
+      abort: async () => {},
+      clearQueue: () => ({ steering: [], followUp: [] }),
+      getSteeringMessages: () => [],
+      prompt: async (text: string) => {
+        state.prompts.push(text);
+        state.messages.push({ role: 'user', content: text, timestamp: Date.now() });
+        await state.onPrompt?.();
+      },
+    };
+  },
 }));
 vi.mock('../environment', () => ({
   agentEnvironment: () => ({
@@ -216,7 +220,8 @@ it('真实 ask 生命周期冻结文件变化并将 turnId 持久化到消息元
   const chat = newSession(null);
   const path = join(chat.cwd!, 'output.txt');
   writeFileSync(path, 'before');
-  state.onPrompt = () => {
+  state.onPrompt = async () => {
+    await state.beforeTool?.();
     writeFileSync(path, 'after');
   };
   const response = await askSession(chat.sessionId!, {
@@ -245,7 +250,8 @@ it('真实 ask 生命周期冻结文件变化并将 turnId 持久化到消息元
 it('prompt 失败仍冻结此前的文件修改，不吞掉原始错误', async () => {
   state.configured = true;
   const chat = newSession(null);
-  state.onPrompt = () => {
+  state.onPrompt = async () => {
+    await state.beforeTool?.();
     writeFileSync(join(chat.cwd!, 'partial.txt'), 'partial');
     throw new Error('model failed');
   };
@@ -260,7 +266,8 @@ it('prompt 失败仍冻结此前的文件修改，不吞掉原始错误', async 
 it('用户停止仍冻结已产生的文件，并在删除会话时清理快照', async () => {
   state.configured = true;
   const chat = newSession(null);
-  state.onPrompt = () => {
+  state.onPrompt = async () => {
+    await state.beforeTool?.();
     writeFileSync(join(chat.cwd!, 'stopped.txt'), 'partial');
     cancelRun(chat.sessionId!);
   };
@@ -316,6 +323,30 @@ it('快照失败不阻止模型运行，结果明确标记 unavailable', async (
   expect(await listSessionTurnChanges(chat.sessionId!)).toMatchObject([
     { state: 'unavailable', warnings: ['scan failed'] },
   ]);
+});
+
+it('模型请求不等目录快照，工具执行前才等它拍完', async () => {
+  state.configured = true;
+  const chat = newSession(null);
+  let finishCapture!: () => void;
+  vi.spyOn(changes, 'captureDirectory').mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishCapture = () => resolve({ files: {}, unreadable: [], warnings: [] });
+    }),
+  );
+  let toolReleased = false;
+  state.onPrompt = async () => {
+    const tool = state.beforeTool?.()?.then(() => {
+      toolReleased = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(toolReleased).toBe(false);
+    finishCapture();
+    await tool;
+  };
+  await askSession(chat.sessionId!, { text: '改文件', attachments: [], context: [], comments: [] });
+  expect(toolReleased).toBe(true);
+  expect(await listSessionTurnChanges(chat.sessionId!)).toMatchObject([{ state: 'complete' }]);
 });
 
 it('sends document-only messages as file references instead of decoding binary bytes into the prompt', async () => {
