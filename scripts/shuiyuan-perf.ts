@@ -10,16 +10,16 @@ import {
   readShuiyuanSource,
   readShuiyuanSourcePreview,
   readShuiyuanSourcePage,
-} from '../src/main/shuiyuan/sources';
+} from '../src/sjtu/shuiyuan/main/sources';
 import {
   encryptSnapshotBytes,
   writeSnapshotBytes,
   findShuiyuanSnapshot,
   handleShuiyuanSnapshotRequest,
-} from '../src/main/shuiyuan/snapshot-files';
-import { queueShuiyuanSnapshot } from '../src/main/shuiyuan/snapshot';
-import { getDatabase } from '../src/main/database';
-import { saveShuiyuanCredential } from '../src/main/credentials';
+} from '../src/sjtu/shuiyuan/main/snapshot-files';
+import { queueShuiyuanSnapshot } from '../src/sjtu/shuiyuan/main/snapshot';
+import { getDatabase } from '../src/app/main/database';
+import { saveShuiyuanCredential } from '../src/sjtu/shuiyuan/main/credentials';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-shuiyuan-perf-'));
 app.setPath('userData', profile);
@@ -162,7 +162,7 @@ app
     const preload = join(profile, 'preload.cjs');
     await writeFile(
       preload,
-      `const {contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('benchmark',{read:()=>ipcRenderer.invoke('bench:read'),report:v=>ipcRenderer.send('bench:report',v)});contextBridge.exposeInMainWorld('dela',{workspace:{onOfficeExportProgress:()=>()=>{}},shuiyuan:{getSourceRef:async()=>({title:'性能基准',author:'benchmark',postsCount:${floors},snapshot:null}),readSnapshotPage:(...a)=>ipcRenderer.invoke('bench:page',...a),onSnapshot:()=>()=>{},openInBrowser:async()=>{} }});`,
+      `const {contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('benchmark',{read:()=>ipcRenderer.invoke('bench:read'),report:v=>ipcRenderer.send('bench:report',v)});contextBridge.exposeInMainWorld('dela',{workspace:{onOfficeExportProgress:()=>()=>{}},bridge:{invoke:async(c,i)=>c==='shuiyuan:sourceRef'?{title:'性能基准',author:'benchmark',postsCount:${floors},snapshot:null}:c==='shuiyuan:snapshotPage'?ipcRenderer.invoke('bench:page',i):undefined,subscribe:()=>()=>{}}});`,
     );
     ipcMain.handle('bench:read', async () => {
       const start = performance.now();
@@ -173,7 +173,7 @@ app
       ipcBytes += Buffer.byteLength(JSON.stringify(content));
       return content;
     });
-    ipcMain.handle('bench:page', async (_event, topicId, page) => {
+    ipcMain.handle('bench:page', async (_event, { topicId, page }) => {
       const start = performance.now();
       const html = await readShuiyuanSourcePage(topicId, page);
       readMs += performance.now() - start;

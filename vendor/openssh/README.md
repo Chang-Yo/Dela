@@ -2,7 +2,7 @@
 
 Dela 的远程项目优先使用系统 OpenSSH（`%WINDIR%\System32\OpenSSH\ssh.exe`，其次
 `%ProgramFiles%\OpenSSH\ssh.exe`）。系统里没有时，回退到这个目录里的客户端。
-探测顺序见 `src/main/remotes/transport.ts` 的 `binaryCandidates`。
+探测顺序见 `src/core/remote/transport.ts` 的 `binaryCandidates`。
 
 | 项目 | 值                                                                                               |
 | ---- | ------------------------------------------------------------------------------------------------ |

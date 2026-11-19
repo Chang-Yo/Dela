@@ -33,7 +33,7 @@ pnpm build:helper --all    # 同时出 linux/arm64
 ```
 
 产物是静态二进制（`CGO_ENABLED=0`），glibc 与 musl 都能跑；升级 helper 时同时改 `helper/main.go`
-的 `helperVersion` 与 `src/main/remotes/helper.ts` 的 `HELPER_VERSION` 并重新构建——两者不一致会在
+的 `helperVersion` 与 `src/core/remote/helper.ts` 的 `HELPER_VERSION` 并重新构建——两者不一致会在
 握手时判为版本不匹配，这台服务器的远程项目不可用。远端按「版本-sha8」分目录放，
 **旧版本目录不自动清理**（每版一个，便于回退）；旧版本的实例空闲 1 小时后自己退出，
 跑在它上面的任务新版看不到。
@@ -72,7 +72,7 @@ nvm、conda），stdout 与 stderr 进同一根管道，交织顺序与终端里
   `gap{offset, bytes}`（这段已被覆盖，接不回来）、`exit{state, code, signal, durationMs, output}`。
   客户端记下 `offset + len(data)`，断线重连后从这里续读。
 - **缓冲**：每个任务 8 MB。有流在读时它只是背压窗口：生产者不超过最慢的读者一个缓冲，连着的时候
-  一个字节都不丢。断线期间没人读，写满后覆盖最旧的部分，续读时先收到一条 `gap`。
+  一个字节都不丢。创建后到第一条流接上之前（最多 30 秒）也按有人在读处理。断线期间没人读，写满后覆盖最旧的部分，续读时先收到一条 `gap`。
 - **结束**：显式取消、任务自己的 `timeoutMs`、helper 退出时终止整个进程组（先 SIGTERM，5 秒后
   SIGKILL）。state 分别是 `cancelled`、`timeout`、`cancelled`；正常退出是 `exited`。
 - **保留**：在跑的任务一直留着；已结束的最多留 100 条或 1 小时，先到先清。
@@ -80,6 +80,8 @@ nvm、conda），stdout 与 stderr 进同一根管道，交织顺序与终端里
 ## glob 与 search
 
 有 ripgrep 就交给它（`rg --files`、`rg --json`），没有就在 Go 里遍历，两条路返回同一种结构。
+Dela 把随包的 rg（Linux musl 静态版）上传到 `~/.dela/rg/<sha8>/rg`，以 `--rg` 传给 helper 优先使用；
+它不可用时退回远端 PATH 里的 rg。rg 与 helper 分目录放，helper 升版不必重传 rg。
 差异：rg 额外遵守 `.gitignore`；Go 遍历只跳过 `.git` 与 `node_modules`，正则按 RE2 解析，
 不支持反向引用与环视，写了会报错，不会静默返回空结果。单行文本截到 500 字节。
 

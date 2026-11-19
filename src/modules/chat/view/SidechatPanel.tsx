@@ -1,0 +1,283 @@
+// 旁问面板：浮在会话视图右上角的临时对话，虚线边框与标题提示「关闭后不保留」，和主会话的标签、
+// 列表都区分开。草稿以 `sidechat:<主会话 id>` 为键（与会话草稿共用存储），附件在面板里各自暂存。
+import { useEffect, useEffectEvent, useState } from 'react';
+import {
+  ChevronDown,
+  ChevronUp,
+  MessageCircleDashed,
+  MessageCircleQuestion,
+  SquareArrowOutUpRight,
+  X,
+} from 'lucide-react';
+import type { ChatMediaView, WorkspaceChat } from '../../../core/protocol/agent';
+import {
+  CHAT_ATTACHMENT_MAX,
+  CHAT_DOCUMENT_MAX_BYTES,
+  CHAT_TEXT_ATTACHMENT_MAX_BYTES,
+  chatFileKindOfFile,
+} from '../../../core/protocol/chat-input';
+import { agentClient } from './client';
+import { EmptyState } from '../../../ui/empty-state';
+import { IconButton } from '../../../ui/icon-button';
+import { showToast } from '../../../ui/toast';
+import { cn } from '../../../ui/cn';
+import { useChatTabSource } from './chat-source';
+import { useSessions } from './sessions';
+import { ChatComposer } from './ChatComposer';
+import { ChatThread } from './ChatThread';
+import type { ReferenceEntry, ReferenceSource } from './chat-source';
+import { emptyDraft, useChatDrafts } from './drafts';
+import { referenceContext } from './reference-tokens';
+import { releaseChatMedia } from './media';
+import { sidechatDraftKey, useSidechats } from './sidechat-store';
+import { canSendInput } from './use-chat';
+import { errorMessage } from '../../../core/protocol/contract';
+
+type Motion = 'enter' | 'expand' | 'collapse' | 'close' | null;
+
+export function SidechatPanel({
+  parentId,
+  files,
+  flushReference,
+  onOpenSource,
+}: {
+  parentId: string;
+  files: ReferenceEntry[];
+  flushReference?: ReferenceSource['flushReference'];
+  onOpenSource?: (key: string) => void;
+}) {
+  const { navigate } = useChatTabSource();
+  const view = useSidechats((state) => state.views[parentId]);
+  const collapsed = useSidechats((state) => state.collapsed[parentId] ?? false);
+  const parent = useSessions((state) => state.chats[parentId] ?? null);
+  const key = sidechatDraftKey(parentId);
+  const draft = useChatDrafts((state) => state.drafts[key] ?? emptyDraft);
+  const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const entered = useSidechats((state) => state.entered[parentId] ?? false);
+  const [motion, setMotion] = useState<Motion>(() => (entered ? null : 'enter'));
+  const referenceOptions = parent ? files : [];
+
+  const releaseAttachments = useEffectEvent(() =>
+    releaseChatMedia(attachments.map((item) => item.id)),
+  );
+  useEffect(() => () => releaseAttachments(), []);
+
+  // ChatThread 只认会话快照：借主会话的项目与 cwd，sessionId 留空（旁问没有改动记录与分支）。
+  const thread: WorkspaceChat | null =
+    view && parent
+      ? {
+          ...parent,
+          sessionId: null,
+          messages: view.messages,
+          running: view.running,
+          activeTool: view.activeTool,
+          compacting: false,
+        }
+      : null;
+  if (!view || !parent || !thread) return null;
+  const busy = pending || view.running;
+
+  const send = async () => {
+    const { prompt, comments = [] } = useChatDrafts.getState().drafts[key] ?? emptyDraft;
+    if (!window.dela || busy || !canSendInput(prompt, false, attachments.length, comments.length))
+      return;
+    const references = referenceContext(prompt, referenceOptions);
+    const flushDrafts = async () => {
+      for (const ref of references)
+        if (!ref.key.startsWith('source:')) await flushReference?.(ref.key);
+    };
+    try {
+      await flushDrafts();
+    } catch (e) {
+      setError(errorMessage(e));
+      return;
+    }
+    const sent = attachments;
+    setPending(true);
+    setError(null);
+    useChatDrafts.getState().clear(key);
+    setAttachments([]);
+    try {
+      useSidechats.getState().put(
+        await agentClient['ask-sidechat']({
+          parentId,
+          text: prompt,
+          attachments: sent.map((item) => item.id),
+          context: references.map((ref) => ref.key),
+          comments,
+        }),
+      );
+    } catch (e) {
+      setError(errorMessage(e));
+      // 旁问还没上屏就失败（附件读取、模型不可用）：恢复输入，免得重打。
+      if (
+        !useSidechats
+          .getState()
+          .views[parentId]?.messages.some((m) => m.role === 'user' && m.content === prompt)
+      ) {
+        useChatDrafts.getState().update(key, { prompt, comments });
+        setAttachments(sent);
+      }
+    }
+    setPending(false);
+  };
+
+  const close = () => {
+    useChatDrafts.getState().clear(key);
+    void agentClient['close-sidechat']({ parentId }).catch(() => {});
+    useSidechats.getState().forget(parentId);
+  };
+
+  const keep = () => {
+    void agentClient['keep-sidechat']({ parentId })
+      .then((chat) => {
+        useChatDrafts.getState().clear(key);
+        useSidechats.getState().forget(parentId);
+        useSessions.getState().putChat(chat.sessionId!, chat);
+        navigate({ page: 'chat', projectId: chat.projectId, sessionId: chat.sessionId! });
+      })
+      .catch((e) =>
+        showToast({ variant: 'error', title: '保留旁问失败', description: errorMessage(e) }),
+      );
+  };
+
+  const addAttachmentFile = async (file: File) => {
+    if (!window.dela) throw new Error('附件仅在桌面端可用');
+    if (attachments.length >= CHAT_ATTACHMENT_MAX)
+      throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
+    const limit =
+      (await chatFileKindOfFile(file)) === 'text'
+        ? CHAT_TEXT_ATTACHMENT_MAX_BYTES
+        : CHAT_DOCUMENT_MAX_BYTES;
+    if (file.size > limit) throw new Error(`附件超过 ${limit / 1024 / 1024} MB 上限`);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const staged = await agentClient['stage-media']({ name: file.name, bytes });
+    setAttachments((current) => [...current, staged]);
+  };
+
+  const title = (
+    <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-ink-2">
+      <MessageCircleQuestion className="size-3.5 shrink-0" />
+      <span className="truncate">旁问 · 关闭后不保留</span>
+      {view.running && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-success" />}
+    </span>
+  );
+
+  const pill = (
+    <button
+      aria-hidden={!collapsed || undefined}
+      aria-label="展开旁问"
+      className={cn(
+        'absolute right-3 top-12 z-drawer flex h-8 origin-top-right items-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface px-3 shadow-raised transition-colors hover:bg-hover',
+        motion === 'collapse' && 'animate-pill-in',
+        motion === 'expand' && 'pointer-events-none animate-pill-out',
+      )}
+      onClick={() => {
+        setMotion('expand');
+        useSidechats.getState().setCollapsed(parentId, false);
+      }}
+      tabIndex={collapsed ? undefined : -1}
+      type="button"
+    >
+      {title}
+      <ChevronDown className="size-3.5 text-ink-3" />
+    </button>
+  );
+
+  if (collapsed && motion !== 'collapse') return pill;
+
+  const animation = {
+    enter: 'slide-in-right 260ms var(--ease-out-strong) both',
+    expand: 'panel-grow 220ms var(--ease-out-strong) both',
+    collapse: 'panel-shrink 180ms var(--ease-out-strong) both',
+    close: 'slide-out-right 180ms cubic-bezier(0.55, 0, 1, 0.45) both',
+  };
+
+  return (
+    <>
+      {(motion === 'collapse' || motion === 'expand') && pill}
+      <section
+        aria-label="旁问"
+        // 固定高度：消息区是 flex-1 的滚动容器，只有 max-h 时它撑开而不滚动，长回复被裁掉。
+        className={cn(
+          'absolute right-3 top-12 z-drawer flex h-[min(36rem,calc(100%-4rem))] w-[min(26rem,calc(100%-1.5rem))] origin-top-right flex-col rounded-window border border-dashed border-line-strong bg-surface shadow-raised',
+          motion === 'collapse' && 'pointer-events-none',
+        )}
+        onAnimationEnd={(event) => {
+          if (event.target !== event.currentTarget) return;
+          useSidechats.getState().markEntered(parentId);
+          if (motion === 'collapse') useSidechats.getState().setCollapsed(parentId, true);
+          if (motion === 'close') close();
+          setMotion(null);
+        }}
+        style={motion ? { animation: animation[motion] } : undefined}
+      >
+        <header className="flex h-9 shrink-0 items-center gap-1 pl-3 pr-1.5">
+          {title}
+          <IconButton
+            aria-label="保留为新会话"
+            disabled={busy || view.messages.length === 0}
+            onClick={keep}
+            title="保留为新会话"
+          >
+            <SquareArrowOutUpRight />
+          </IconButton>
+          <div className="flex-1" />
+          <IconButton aria-label="收起旁问" onClick={() => setMotion('collapse')} title="收起">
+            <ChevronUp />
+          </IconButton>
+          <IconButton
+            aria-label="关闭旁问"
+            onClick={() => setMotion('close')}
+            title="关闭（内容不保留）"
+          >
+            <X />
+          </IconButton>
+        </header>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {view.messages.length > 0 ? (
+            <ChatThread chat={thread} draftKey={key} onOpenSource={onOpenSource} />
+          ) : (
+            <EmptyState className="flex-1" icon={MessageCircleDashed} title="随口一问，不扰主线" />
+          )}
+        </div>
+        <div className="shrink-0 p-2">
+          <ChatComposer
+            attachments={attachments}
+            busy={busy}
+            comments={draft.comments ?? []}
+            configured={parent.configured}
+            effort={parent.effort}
+            effortLevels={parent.effortLevels}
+            model={parent.model}
+            modelUnavailable={parent.modelUnavailable}
+            notice={error}
+            onAddAttachmentFile={addAttachmentFile}
+            onAddAttachmentView={(staged) =>
+              setAttachments((current) =>
+                current.some((item) => item.id === staged.id) ? current : [...current, staged],
+              )
+            }
+            onChange={(prompt) => useChatDrafts.getState().update(key, { prompt })}
+            onCommentsChange={(comments) => useChatDrafts.getState().update(key, { comments })}
+            onDismissNotice={() => setError(null)}
+            onEffortSelect={() => {}}
+            onModelSelect={() => {}}
+            onRemoveAttachment={(id) => {
+              setAttachments((current) => current.filter((item) => item.id !== id));
+              releaseChatMedia([id]);
+            }}
+            onSend={() => void send()}
+            onStop={() => void agentClient['cancel-sidechat']({ parentId }).catch(() => {})}
+            providerId={parent.providerId}
+            referenceOptions={referenceOptions}
+            sidechat
+            value={draft.prompt}
+          />
+        </div>
+      </section>
+    </>
+  );
+}

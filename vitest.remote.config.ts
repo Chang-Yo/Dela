@@ -5,10 +5,11 @@ import { defineConfig } from 'vitest/config';
 // 默认的 vitest.config.ts 把它们排除在外——CI 没有可连的主机，跳过等于没覆盖，
 // 但白导入 Pi、白建临时目录的代价照付。
 export default defineConfig({
-  resolve: { alias: { '@': resolve('src/renderer') } },
+  resolve: { alias: { '@': resolve('src/app/renderer') } },
   test: {
     include: ['src/**/*.remote.test.ts'],
-    globalSetup: ['src/main/remotes/test/remote-host.setup.ts'],
+    globalSetup: ['src/modules/remotes/main/test/remote-host.setup.ts'],
+    setupFiles: ['src/core/test/host-mock.ts'],
     // 逐个文件串行：几套用例共用同一台主机上的 helper 通道与临时目录，
     // 并行跑会互相 closeHelper、抢 /tmp 下的固定路径。
     fileParallelism: false,

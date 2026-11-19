@@ -1,0 +1,37 @@
+import type { ReactNode } from 'react';
+import { Minus, X } from 'lucide-react';
+
+/** 引导期间的窗口栏：隐藏标题栏时提供拖拽区与最小化/关闭，避免用户被全屏引导页困住。 */
+export function OnboardingWindowBar({ children }: { children?: ReactNode }) {
+  return (
+    <div className="relative z-10 flex h-12 shrink-0 items-center justify-end [-webkit-app-region:drag]">
+      {children && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          {children}
+        </div>
+      )}
+      <div className="flex h-full [-webkit-app-region:no-drag]">
+        {window.dela && window.dela.platform !== 'darwin' && (
+          <>
+            <button
+              aria-label="最小化"
+              className="grid h-full w-12 place-items-center text-ink-3 transition-colors hover:bg-hover-strong hover:text-ink"
+              onClick={() => window.dela?.window.minimize()}
+              type="button"
+            >
+              <Minus className="size-4" strokeWidth={1.8} />
+            </button>
+            <button
+              aria-label="关闭"
+              className="grid h-full w-12 place-items-center text-ink-3 transition-colors hover:bg-window-close hover:text-on-accent"
+              onClick={() => window.dela?.window.close()}
+              type="button"
+            >
+              <X className="size-4" strokeWidth={1.8} />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

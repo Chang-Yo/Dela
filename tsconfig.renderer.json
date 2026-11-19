@@ -4,8 +4,19 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
     "jsx": "react-jsx",
-    "paths": { "@/*": ["./src/renderer/*"] },
+    "paths": { "@/*": ["./src/app/renderer/*"] },
     "resolveJsonModule": true
   },
-  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/shared/**/*.ts"]
+  "include": [
+    "src/app/renderer/**/*.ts",
+    "src/app/renderer/**/*.tsx",
+    "src/ui/**/*.ts",
+    "src/ui/**/*.tsx",
+    "src/core/protocol/**/*.ts",
+    "src/app/contracts.ts",
+    "src/app/views.ts",
+    "src/modules/*/contract.ts",
+    "src/modules/*/view/**/*.ts",
+    "src/modules/*/view/**/*.tsx"
+  ]
 }

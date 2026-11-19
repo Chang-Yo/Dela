@@ -56,6 +56,8 @@ jobs:
         run: pnpm check
       - name: Smoke test Electron
         run: pnpm smoke
+      - name: Fetch remote rg
+        run: pnpm fetch:remote-rg
       - name: Sign and notarize
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
@@ -221,7 +223,9 @@ jobs:
       - name: Smoke test Electron
         run: pnpm smoke
       - name: Prepare bundled runtime
-        run: node scripts/prepare-runtime.ts
+        run: |
+          node scripts/prepare-runtime.ts
+          node scripts/fetch-remote-rg.ts
       - name: Build installer
         run: pnpm exec electron-builder --win --x64 --publish never
       - name: Verify update artifacts
@@ -236,6 +240,8 @@ jobs:
         run: |
           cmp vendor/dela-helper/dela-helper-linux-amd64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-amd64
           cmp vendor/dela-helper/dela-helper-linux-arm64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-arm64
+          cmp .build/remote-rg/rg-linux-amd64 dist/win-unpacked/resources/remote-rg/rg-linux-amd64
+          cmp .build/remote-rg/rg-linux-arm64 dist/win-unpacked/resources/remote-rg/rg-linux-arm64
       - name: Smoke test packaged app
         env:
           PACKAGED_EXECUTABLE: dist/win-unpacked/Dela.exe

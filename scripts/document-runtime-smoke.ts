@@ -7,15 +7,17 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { closeDatabase } from '../src/main/database';
-import { listSkills, setSkillEnabled } from '../src/main/agent/skills';
+import { provideHostPorts } from '../src/core/ports';
+import { electronPorts } from '../src/app/main/host-electron';
+import { closeDatabase } from '../src/app/main/database';
+import { listSkills, setSkillEnabled } from '../src/core/capabilities/skills';
 import {
   documentDependency,
   documentPython,
   documentRuntimeDirectory,
   installDocumentDependency,
-} from '../src/main/documents/runtime';
-import { prepareDocumentFile, releaseDocumentResource } from '../src/main/resources';
+} from '../src/modules/preview';
+import { prepareDocumentFile, releaseDocumentResource } from '../src/modules/workspace';
 
 const exec = promisify(execFile);
 const profile = mkdtempSync(join(tmpdir(), 'dela-document-中文 '));
@@ -25,6 +27,7 @@ const timeout = setTimeout(() => app.exit(1), 540000);
 app.whenReady().then(async () => {
   let exitCode = 1;
   try {
+    provideHostPorts(electronPorts);
     assert.equal(process.platform, 'darwin');
     assert.equal(process.arch, 'arm64');
     assert.equal(documentDependency().status, 'missing');

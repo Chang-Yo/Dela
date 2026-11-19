@@ -1,0 +1,181 @@
+import { useState } from 'react';
+import { Button } from '../../../../ui/button';
+import { Input } from '../../../../ui/input';
+import { Textarea } from '../../../../ui/textarea';
+import { SegmentedControl } from '../../../../ui/segmented-control';
+import type { McpServerView, McpTransportConfig } from '../../../../core/protocol/capabilities';
+import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
+import { ErrorText } from '../../../../ui/alert';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
+import { Field } from '../../../../ui/field';
+import { capabilitiesClient } from '../../../chat/view';
+import { errorMessage } from '../../../../core/protocol/contract';
+
+export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServerView } | null;
+
+const codeAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
+const transports = ['stdio', 'http'] as const;
+const transportLabels = { stdio: '本地命令', http: '远程地址' };
+const secretHint = '值经系统钥匙串加密保存在本机，不会再显示在界面上。';
+
+export function McpFormDialog({
+  editing,
+  onClose,
+  onSaved,
+}: {
+  editing: Exclude<McpEditState, null>;
+  onClose: () => void;
+  onSaved: (views: McpServerView[]) => void;
+}) {
+  const isEdit = editing.mode === 'edit';
+  const [transport, setTransport] = useState<McpTransportConfig['transport']>(
+    isEdit ? editing.server.transport : 'stdio',
+  );
+  const [name, setName] = useState(isEdit ? editing.server.name : '');
+  const [command, setCommand] = useState('');
+  const [argsText, setArgsText] = useState('');
+  const [envText, setEnvText] = useState('');
+  const [url, setUrl] = useState('');
+  const [headersText, setHeadersText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!window.dela || busy) return;
+    const parsed = parseMcpForm(
+      { transport, name, command, argsText, envText, url, headersText },
+      { isEdit },
+    );
+    if (!parsed.ok) {
+      setError(parsed.error);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const saveServer = async () => {
+      const views = isEdit
+        ? await capabilitiesClient.updateMcpServer({
+            id: editing.server.id,
+            patch: mcpUpdatePatch(parsed.value),
+          })
+        : await capabilitiesClient.addMcpServer(parsed.value);
+      onSaved(views);
+      onClose();
+    };
+    try {
+      await saveServer();
+    } catch (cause) {
+      setError(errorMessage(cause));
+    }
+    setBusy(false);
+  };
+
+  return (
+    <Dialog onOpenChange={(open) => !open && !busy && onClose()} open>
+      <DialogContent scroll>
+        <DialogTitle>{isEdit ? `编辑 ${editing.server.name}` : '添加 MCP 服务器'}</DialogTitle>
+        <DialogDescription>
+          {isEdit
+            ? '修改名称或连接配置；留空的连接字段保持原值不变（保存后会重连）。'
+            : transport === 'stdio'
+              ? '以 stdio 方式启动本地命令进程，为 Agent 提供外部工具；保存后自动连接。'
+              : '通过 Streamable HTTP 连接远程服务器；暂不支持 OAuth 登录与旧版 SSE。'}
+        </DialogDescription>
+        <form
+          className="mt-4 grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          {!isEdit && (
+            <SegmentedControl
+              labels={transportLabels}
+              onChange={setTransport}
+              options={transports}
+              value={transport}
+            />
+          )}
+          <Field label="名称">
+            <Input
+              autoComplete="off"
+              onChange={(event) => setName(event.target.value)}
+              placeholder="weather"
+              required
+              value={name}
+            />
+          </Field>
+          {transport === 'stdio' ? (
+            <>
+              <Field label="command">
+                <Input
+                  autoComplete="off"
+                  onChange={(event) => setCommand(event.target.value)}
+                  placeholder={isEdit ? '留空保持不变' : 'npx'}
+                  required={!isEdit}
+                  spellCheck={false}
+                  value={command}
+                />
+              </Field>
+              <Field label="参数（每行一个）">
+                <Textarea
+                  className={codeAreaClass}
+                  onChange={(event) => setArgsText(event.target.value)}
+                  placeholder={'-y\n@modelcontextprotocol/server-weather'}
+                  rows={3}
+                  spellCheck={false}
+                  value={argsText}
+                />
+              </Field>
+              <Field
+                label="环境变量（每行 KEY=VALUE）"
+                hint={<>子进程默认继承 Dela 进程的环境变量；{secretHint}</>}
+              >
+                <Textarea
+                  className={codeAreaClass}
+                  onChange={(event) => setEnvText(event.target.value)}
+                  placeholder={'WEATHER_API_KEY=…'}
+                  rows={3}
+                  spellCheck={false}
+                  value={envText}
+                />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="地址">
+                <Input
+                  autoComplete="off"
+                  onChange={(event) => setUrl(event.target.value)}
+                  placeholder={isEdit ? '留空保持不变' : 'https://example.com/mcp'}
+                  required={!isEdit}
+                  spellCheck={false}
+                  value={url}
+                />
+              </Field>
+              <Field label="请求头（每行 Name: value）" hint={secretHint}>
+                <Textarea
+                  className={codeAreaClass}
+                  onChange={(event) => setHeadersText(event.target.value)}
+                  placeholder={'Authorization: Bearer …'}
+                  rows={3}
+                  spellCheck={false}
+                  value={headersText}
+                />
+              </Field>
+            </>
+          )}
+          {error && <ErrorText>{error}</ErrorText>}
+          <div className="flex items-center justify-end gap-2">
+            <Button disabled={busy} onClick={onClose} variant="ghost">
+              取消
+            </Button>
+            <Button disabled={busy} type="submit">
+              {busy ? '处理中…' : '保存'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

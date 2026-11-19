@@ -26,7 +26,9 @@ const (
 	taskRetentionAge = time.Hour
 	taskMaxIDLength  = 128
 	killGracePeriod  = 5 * time.Second
-	pumpBufferSize   = 32 * 1024
+	// 创建后替还没接上的第一条流占住偏移 0，Dela 迟迟不来才退回断线时的覆盖语义。
+	taskAttachGrace = 30 * time.Second
+	pumpBufferSize  = 32 * 1024
 	// 流上安静时的保活：Dela 侧以「多久没有字节」判断隧道半死。
 	taskKeepAlive = 30 * time.Second
 )
@@ -111,6 +113,8 @@ type task struct {
 	// readers 是正在读的流各自已发出的偏移。有人在读时生产者不超过最慢的读者一个缓冲：
 	// 连着的时候一个字节都不丢，只有断线（没人读）期间才覆盖最旧的输出。
 	readers map[*int64]struct{}
+	// awaiting 是创建时替第一条流占的读者位，第一条流登记或宽限期到了就撤掉。
+	awaiting *int64
 	// drained 在读者推进或离开时被关闭并换新：被背压挡住的 pump 在它上面等。
 	drained chan struct{}
 }
@@ -183,6 +187,15 @@ func (t *task) behindLocked(incoming int64) bool {
 	return false
 }
 
+func (t *task) releaseAwaitingLocked() {
+	if t.awaiting == nil {
+		return
+	}
+	delete(t.readers, t.awaiting)
+	t.awaiting = nil
+	t.drainedLocked()
+}
+
 func (t *task) drainedLocked() {
 	close(t.drained)
 	t.drained = make(chan struct{})
@@ -216,6 +229,7 @@ func (t *task) cancel(state taskState) {
 		return
 	}
 	t.state = state
+	t.releaseAwaitingLocked()
 	t.mu.Unlock()
 	killGroup(t.pid, syscall.SIGTERM)
 	go func() {
@@ -276,18 +290,20 @@ func (s *server) startTask(req taskRequest) (*task, bool, error) {
 	}
 	writer.Close()
 
+	awaiting := int64(0)
 	t := &task{
-		id:      req.ID,
-		command: req.Command,
-		cwd:     req.Cwd,
-		pid:     cmd.Process.Pid,
-		started: time.Now(),
-		state:   stateRunning,
-		output:  newOutputRing(taskBufferBytes),
-		changed: make(chan struct{}),
-		done:    make(chan struct{}),
-		readers: map[*int64]struct{}{},
-		drained: make(chan struct{}),
+		id:       req.ID,
+		command:  req.Command,
+		cwd:      req.Cwd,
+		pid:      cmd.Process.Pid,
+		started:  time.Now(),
+		state:    stateRunning,
+		output:   newOutputRing(taskBufferBytes),
+		changed:  make(chan struct{}),
+		done:     make(chan struct{}),
+		readers:  map[*int64]struct{}{&awaiting: {}},
+		awaiting: &awaiting,
+		drained:  make(chan struct{}),
 	}
 	s.tasks[t.id] = t
 	s.order = append(s.order, t.id)
@@ -299,6 +315,11 @@ func (s *server) startTask(req taskRequest) (*task, bool, error) {
 		code, signal := exitStatus(cmd.Wait())
 		t.finish(code, signal)
 	}()
+	time.AfterFunc(taskAttachGrace, func() {
+		t.mu.Lock()
+		t.releaseAwaitingLocked()
+		t.mu.Unlock()
+	})
 	if req.TimeoutMs > 0 {
 		timeout := time.Duration(req.TimeoutMs) * time.Millisecond
 		go func() {
@@ -487,6 +508,7 @@ func (t *task) stream(w http.ResponseWriter, r *http.Request, offset int64) {
 	sent := offset
 	t.mu.Lock()
 	t.readers[&sent] = struct{}{}
+	t.releaseAwaitingLocked()
 	t.mu.Unlock()
 	defer func() {
 		t.mu.Lock()

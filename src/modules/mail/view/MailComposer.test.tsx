@@ -1,0 +1,134 @@
+// @vitest-environment jsdom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import type { PreparedEmail } from '../contract';
+
+// 契约客户端在模块加载时取 bridge，须先于导入组件装好。
+const api = vi.hoisted(() => {
+  const handlers: Record<string, (input: unknown) => Promise<unknown>> = {};
+  window.dela = {
+    bridge: {
+      invoke: (channel: string, input: unknown) => handlers[channel.slice('mail:'.length)]!(input),
+      subscribe: () => () => {},
+    },
+  } as unknown as NonNullable<typeof window.dela>;
+  return handlers;
+});
+vi.mock('../../../ui/toast', () => ({ showToast: vi.fn() }));
+import { MailComposer } from './MailComposer';
+
+let container: HTMLDivElement;
+let root: Root;
+let saveDraft: ReturnType<typeof vi.fn>;
+let send: ReturnType<typeof vi.fn>;
+let commandState: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+  saveDraft = vi.fn(async (_input: unknown) => ({ id: 'saved' }));
+  send = vi.fn(async (_input: unknown) => ({ ok: true }));
+  commandState = vi.fn(() => false);
+  Object.defineProperty(document, 'queryCommandState', { configurable: true, value: commandState });
+  Object.assign(api, {
+    saveDraft,
+    send,
+    deleteDraft: async () => {},
+    setComposeActive: async () => {},
+    releaseComposeFiles: async () => {},
+  });
+});
+
+afterEach(async () => {
+  await act(async () => root.unmount());
+  container.remove();
+  delete (document as Partial<Document>).queryCommandState;
+  vi.unstubAllGlobals();
+});
+
+async function mount(html?: string, text = '正文', files: PreparedEmail['files'] = []) {
+  const draft: PreparedEmail = {
+    id: 'draft',
+    to: ['recipient@example.invalid'],
+    subject: '格式检查',
+    html,
+    text,
+    files,
+  };
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MailComposer
+          accountAddress="sender@example.invalid"
+          draft={draft}
+          onClose={() => {}}
+          onSent={() => {}}
+        />
+      </QueryClientProvider>,
+    ),
+  );
+  return container.querySelector<HTMLDivElement>('[contenteditable]')!;
+}
+
+async function save() {
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>('[aria-label="保存草稿"]')!.click(),
+  );
+  return saveDraft.mock.calls.at(-1)![0] as {
+    html: string;
+    text: string;
+    inlineImageIds: string[];
+  };
+}
+
+it('加粗、斜体与链接经过草稿恢复、保存、发送后保持一致', async () => {
+  const editor = await mount(
+    '<p><b>加粗 <i>斜体</i></b></p><p><a href="https://example.invalid/path">链接</a></p>',
+  );
+  expect(editor.querySelector('b i')?.textContent).toBe('斜体');
+  const saved = await save();
+  expect(saved.html).toContain('<b>加粗 <i>斜体</i></b>');
+  expect(saved.text).toBe('加粗 斜体\n\n链接 [https://example.invalid/path]');
+  await act(async () =>
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  );
+  expect(send.mock.calls[0]![0]).toMatchObject({ html: saved.html, text: saved.text });
+  expect(saved.html).not.toContain('font-synthesis');
+});
+
+it.each([
+  ['first<div>second<br>third</div>', 'first\nsecond\nthird'],
+  ['first<div><br></div><div>third</div>', 'first\n\nthird'],
+  ['<p>first</p><p>second</p>', 'first\n\nsecond'],
+])('保存正文保留块元素和换行：%s', async (html, expected) => {
+  await mount(html);
+  expect((await save()).text).toBe(expected);
+});
+
+it('内联图片恢复为预览，发送数据仍用 CID 并保留周围格式', async () => {
+  const editor = await mount(
+    '<i>图片前</i><img src="cid:image@dela" alt="说明"><b>图片后</b>',
+    '正文',
+    [
+      {
+        id: 'image',
+        name: 'test.gif',
+        size: 1,
+        kind: 'inline',
+        previewUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
+      },
+    ],
+  );
+  expect(editor.querySelector('img')?.getAttribute('src')).toMatch(/^data:/);
+  const saved = await save();
+  expect(saved.html).toContain('src="cid:image@dela"');
+  expect(saved.html).toContain('<i>图片前</i>');
+  expect(saved.html).toContain('<b>图片后</b>');
+  expect(saved.inlineImageIds).toEqual(['image']);
+});

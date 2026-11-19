@@ -95,27 +95,26 @@ let notifications = [
 const listCalls = [];
 
 const routes = {
-  'workspace:get-state': () => ({ entries: [], directory: '' }),
-  'canvas:get-state': () => ({ connected: false, courses: [], items: [] }),
+  'workspace:state': () => ({ entries: [], directory: '' }),
+  'canvas:state': () => ({ connected: false, courses: [], items: [] }),
   'window:get-state': () => ({ maximized: false }),
-  'settings:get-theme': () => 'light',
-  'settings:get-zoom': () => 1,
-  'settings:get-font-size': () => 16,
+  'settings:theme': () => 'light',
+  'settings:zoom': () => 1,
+  'settings:fontSize': () => 16,
   // 应用壳启动时读取的跨域通道：给出未配置 / 默认值，让界面安静装载。
-  'settings:get-experiments': () => ({ master: true, shuiyuan: true, videoDownload: true }),
-  'settings:get-keybindings': () => ({}),
-  'layout:get': () => null,
-  'layout:save': () => null,
-  'session:list': () => [],
+  'settings:keybindings': () => ({}),
+  'workspace:layout': () => null,
+  'workspace:saveLayout': () => null,
+  'agent:list-sessions': () => [],
   'remotes:list': () => [],
-  'notifications:get-state': () => ({
+  'notifications:state': () => ({
     items: [],
     totalCount: 0,
     unreadCount: 0,
     snoozedUntil: null,
-    refresh: { mail: null, shuiyuan: null, todo: null },
+    refresh: {},
   }),
-  'update:get-state': () => ({
+  'update:state': () => ({
     phase: 'idle',
     currentVersion: '0.0.0',
     version: null,
@@ -126,8 +125,9 @@ const routes = {
     detail: null,
     failedAt: null,
   }),
-  'shuiyuan:get-state': () => ({ connected: true, username: 'tester', boundAt: iso(1000) }),
-  'shuiyuan:site-structure': () => ({
+  'contract:subscribe': () => null,
+  'shuiyuan:state': () => ({ connected: true, username: 'tester', boundAt: iso(1000) }),
+  'shuiyuan:siteStructure': () => ({
     categories: [
       {
         id: 1,
@@ -144,18 +144,18 @@ const routes = {
       { name: '转载', topicCount: 3 },
     ],
   }),
-  'shuiyuan:get-counts': () => ({
+  'shuiyuan:counts': () => ({
     notifications: notifications.filter((n) => !n.read).length,
     messages: 1,
   }),
-  'shuiyuan:list-topics': (_event, feed, moreUrl) => {
+  'shuiyuan:topics': (_event, { feed, moreUrl }) => {
     listCalls.push(JSON.stringify({ feed, moreUrl: moreUrl ?? null }));
     if (feed?.kind === 'search') return searchPage;
     return moreUrl ? pageTwo : pageOne;
   },
-  'shuiyuan:get-topic': (_event, id) => (id === 101 ? detail : { ...detail, id }),
-  'shuiyuan:list-notifications': () => notifications,
-  'shuiyuan:mark-notifications-read': () => {
+  'shuiyuan:topic': (_event, { id }) => (id === 101 ? detail : { ...detail, id }),
+  'shuiyuan:notifications': () => notifications,
+  'shuiyuan:markNotificationsRead': () => {
     notifications = notifications.map((item) => ({ ...item, read: true }));
     return null;
   },
