@@ -19,6 +19,7 @@ const FILE_LIMIT = 10_000;
 const HASH_BYTE_LIMIT = 16 * 1024 * 1024;
 const TEXT_BYTE_LIMIT = 1024 * 1024;
 const TEXT_BUDGET = 16 * 1024 * 1024;
+const READ_BATCH = 32;
 const excluded = new Set([
   '.git',
   'node_modules',
@@ -157,11 +158,11 @@ function stateOf(bytes: Buffer, budget: { remaining: number }): FileState {
   return state;
 }
 
-async function diskState(
+// 超过 1 MiB 的文件本就不给文本 diff，不读内容，按大小与修改时间判断变化，免得哈希大文件拖住发送。
+async function readDisk(
   cwd: string,
   path: string,
-  budget: { remaining: number },
-): Promise<FileState | null> {
+): Promise<FileState | { content: Buffer; mode: number } | null> {
   const target = resolve(cwd, path);
   if (!inside(cwd, target)) throw new Error('路径超出工作目录');
   try {
@@ -169,21 +170,37 @@ async function diskState(
     if (info.isSymbolicLink() || !inside(cwd, await realpath(target)))
       throw new Error('非普通文件或符号链接，不记录内容');
     if (!info.isFile()) return null;
-    if (info.size > HASH_BYTE_LIMIT)
+    if (info.size > TEXT_BYTE_LIMIT)
       return {
         bytes: info.size,
         mode: info.mode & 0o777,
         fingerprint: `metadata:${info.size}:${info.mtimeMs}`,
         text: null,
-        note: '文件超过 16 MiB，仅按大小与修改时间判断变化',
+        note: '文件超过 1 MiB，仅按大小与修改时间判断变化',
       };
-    const state = stateOf(await readFile(target), budget);
-    state.mode = info.mode & 0o777;
-    return state;
+    return { content: await readFile(target), mode: info.mode & 0o777 };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
   }
+}
+
+function settle(
+  read: Awaited<ReturnType<typeof readDisk>>,
+  budget: { remaining: number },
+): FileState | null {
+  if (!read || !('content' in read)) return read;
+  const state = stateOf(read.content, budget);
+  state.mode = read.mode;
+  return state;
+}
+
+async function diskState(
+  cwd: string,
+  path: string,
+  budget: { remaining: number },
+): Promise<FileState | null> {
+  return settle(await readDisk(cwd, path), budget);
 }
 
 export async function captureDirectory(
@@ -205,19 +222,27 @@ export async function captureDirectory(
     .filter(included)
     .sort();
   if (paths.length > FILE_LIMIT) warnings.add('工作目录超过 10,000 个文件，本轮记录不完整');
-  for (const path of paths.slice(0, FILE_LIMIT)) {
-    // 快照本身不应进入被跟踪目录，即使用户将 cwd 指向了应用数据目录。
-    if (inside(changesRoot(), resolve(cwd, path))) continue;
-    try {
-      const state = await diskState(cwd, path, budget);
+  // 快照本身不应进入被跟踪目录，即使用户将 cwd 指向了应用数据目录。
+  const tracked = paths
+    .slice(0, FILE_LIMIT)
+    .filter((path) => !inside(changesRoot(), resolve(cwd, path)));
+  // 分批并发读取，再按路径顺序分配文本预算，结果与读取完成的先后无关。
+  for (let start = 0; start < tracked.length; start += READ_BATCH) {
+    const batch = tracked.slice(start, start + READ_BATCH);
+    const reads = await Promise.allSettled(batch.map((path) => readDisk(cwd, path)));
+    batch.forEach((path, index) => {
+      const read = reads[index]!;
+      if (read.status === 'rejected') {
+        unreadable.push(path);
+        warnings.add(`${path}: ${errorText(read.reason)}`);
+        return;
+      }
+      const state = settle(read.value, budget);
       if (state) {
         files[path] = state;
         if (state.note) warnings.add(state.note);
       }
-    } catch (error) {
-      unreadable.push(path);
-      warnings.add(`${path}: ${errorText(error)}`);
-    }
+    });
   }
   unreadable.push(...paths.slice(FILE_LIMIT));
   return { files, unreadable, warnings: [...warnings] };
