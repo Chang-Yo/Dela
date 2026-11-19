@@ -11,6 +11,10 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
 - 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
+## Unreleased
+
+- 修复远程项目在多节点共享 HOME 时的 helper 运行状态冲突，同版本节点共用可执行文件。
+
 ## 3.0.0 - 2026-11-19
 
 - 移除 Pi Packages：不再支持安装 Pi 包，也不再加载项目中的 `.pi/extensions`、`.pi/prompts` 与主题，第三方能力统一经 Skills 与 MCP 接入；升级时清理 Dela 数据目录中的包与 Node 运行时，`~/.pi` 与项目内的 `.pi/` 不受影响。

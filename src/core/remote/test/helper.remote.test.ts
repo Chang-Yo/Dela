@@ -27,11 +27,12 @@ const digest = createHash('sha256')
   .update(readFileSync(helperArtifact('amd64')!))
   .digest('hex');
 const remoteDir = `$HOME/.dela/helper/${HELPER_VERSION}-${digest.slice(0, 8)}`;
+const runtimeDir = `"${remoteDir}/runtime/$(hostname)"`;
 
 async function helperPid(): Promise<string> {
   const result = await exec(
     target,
-    `sed -n 's/.*"pid":\\([0-9]*\\).*/\\1/p' ${remoteDir}/run.json 2>/dev/null`,
+    `sed -n 's/.*"pid":\\([0-9]*\\).*/\\1/p' ${runtimeDir}/run.json 2>/dev/null`,
   );
   return result.stdout.toString().trim();
 }
@@ -51,6 +52,17 @@ describe('helper 通道（真机）', () => {
     const check = await exec(target, `sha256sum ${remoteDir}/dela-helper | cut -d' ' -f1`);
     expect(check.stdout.toString().trim()).toBe(digest);
   }, 180_000);
+
+  it('节点的运行文件位于独立目录，进程使用版本目录里的共享产物', async () => {
+    await readyHelper(target);
+    const pid = await helperPid();
+    expect(pid).toMatch(/^\d+$/);
+    const check = await exec(
+      target,
+      `set -e; runtime=${runtimeDir}; test -s "$runtime/token"; test -f "$runtime/lock"; test -f "$runtime/helper.log"; test "$(readlink /proc/${pid}/exe)" = "${remoteDir}/dela-helper"`,
+    );
+    expect(check.code).toBe(0);
+  }, 60_000);
 
   it('二进制读写往返一致，写入时自动建父目录', async () => {
     const session = helperSession(target);

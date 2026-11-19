@@ -5,6 +5,8 @@ Dela 在远端 Linux 主机上运行的常驻 runtime：远程项目的全部工
 再经 `ssh -L` 隧道访问；它在 Dela 整体架构里的位置与重连规则见
 [`docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md) §4，协议表在本文下方。
 
+共享 HOME 的节点可复用同一份可执行文件。每个节点将 `run.json`、`token`、`lock` 和 `helper.log` 放在版本目录下的 `runtime/<主机名>/`。
+
 - **不做沙箱**：权限就是启动它的 SSH 用户的权限，和 `ssh <host> <命令>` 一样。
 - **只绑回环**：`127.0.0.1`，不对外监听；每个请求都要带 `Authorization: Bearer <token>`。
 - **只用标准库**：不拉任何 Go 依赖。
@@ -13,8 +15,8 @@ Dela 在远端 Linux 主机上运行的常驻 runtime：远程项目的全部工
 
 - **不随隧道**：隧道断开只结束那一条 HTTP 连接，任务照跑。Dela 重连后用同一个 token 回到同一个实例，
   按偏移接回任务输出。
-- **复用实例**：启动脚本先看 `run.json`（端口、pid、版本）。pid 活着且 `/proc/<pid>/exe` 就是这个
-  目录下的 `dela-helper`，就直接复用，token 从同目录的 `token`（0600）读回；否则写新 token 起新实例。
+- **复用实例**：启动脚本读取本节点的 `run.json`（端口、pid、版本）。pid 活着且 `/proc/<pid>/exe`
+  指向共享的 `dela-helper`，就读回本节点的 `token`（0600）并复用实例，否则启动新实例。
 - **只起一个**：`--lock-file` 用 `flock` 独占加锁。两个 Dela 同时起时抢输的那个退出码 3，
   启动脚本转而等对方的 `run.json`。
 - **空闲 1 小时退出**：连续 `--idle-timeout`（默认 1h）收不到**任何请求**就退出，并终止在跑的任务。
