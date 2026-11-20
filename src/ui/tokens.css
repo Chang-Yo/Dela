@@ -52,6 +52,8 @@
     0 6px 12px 0 rgba(0, 0, 0, 0.03), 0 3px 6px 0 rgba(0, 0, 0, 0.02),
     0 1.5px 3px 0 rgba(0, 0, 0, 0.02);
 
+  /* ── 应用调色板：只为某个功能存在，ui 组件不使用 ── */
+
   /* 日历候选色：低饱和灰调，浅底深字，供课程哈希分配与事件手动选择。
      名字与数据库里的事件颜色 key 一一对应，只经 var() 取用，不生成工具类。 */
   --cal-rose-bg: oklch(0.941 0.024 18);
@@ -140,6 +142,8 @@
   --shadow-raised: 0 0 0 1px oklch(1 0 0 / 0.13), 0 2px 10px oklch(0 0 0 / 0.22);
   --shadow-overlay: 0 0 0 1px oklch(1 0 0 / 0.15), 0 8px 28px oklch(0 0 0 / 0.34);
 
+  /* ── 应用调色板：只为某个功能存在，ui 组件不使用 ── */
+
   --cal-rose-bg: oklch(0.304 0.032 18);
   --cal-rose-text: oklch(0.871 0.048 18);
   --cal-peach-bg: oklch(0.304 0.032 55);
@@ -203,15 +207,11 @@
   --color-danger-tint: var(--danger-tint);
   --color-code: var(--syntax-bg);
 
-  /* 不随主题变化：遮罩、视频与外部文档（邮件正文、网页预览）的底色，以及压在它们上面的前景。 */
+  /* 不随主题变化：遮罩与视频的底色，以及压在它们上面的前景。 */
   --color-scrim: oklch(0 0 0 / 0.3);
   --color-media: oklch(0 0 0);
   --color-on-media: oklch(1 0 0);
   --color-on-accent: oklch(1 0 0);
-  --color-paper: oklch(1 0 0);
-  --color-window-close: #e81123;
-  --color-alipay: #1677ff;
-  --color-wechat: #07c160;
 
   --shadow-hairline: 0 0 0 1px var(--line);
   --shadow-hairline-strong: 0 0 0 1px var(--line-strong);
@@ -240,7 +240,6 @@
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
-  --font-script: Italianno, cursive;
 
   /* 字号只用 Tailwind 内置档位，随根字号（设置 › 外观 › 字号）缩放。
      xs、sm 的行高继承父级：密集界面由容器决定行距，base 以上沿用 Tailwind 行高比。 */
@@ -253,6 +252,15 @@
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
   --text-3xl: 1.875rem;
+
+  /* ── 应用调色板：只为某个功能存在，ui 组件不使用 ── */
+
+  /* 不随主题变化：外部文档（邮件正文、网页预览）的白底。 */
+  --color-paper: oklch(1 0 0);
+  --color-window-close: #e81123;
+  --color-alipay: #1677ff;
+  --color-wechat: #07c160;
+  --font-script: Italianno, cursive;
 }
 
 @theme {
@@ -276,17 +284,21 @@
   --animate-drawer-left: drawer-left 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
   --animate-drawer-right: drawer-right 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
   --animate-sheet-up: sheet-up 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
-  --animate-pill-in: pill-in 200ms cubic-bezier(0.23, 1, 0.32, 1) 40ms both;
-  --animate-pill-out: pill-out 120ms ease-in both;
   --animate-toast-in: toast-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
   --animate-toast-out: toast-out 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+
+  /* 只有引导页用 */
   --animate-fade-out: fade-out 150ms ease-out both;
   --animate-rise-in: rise-in 600ms ease-out backwards;
-  --animate-view-in: view-in 160ms ease-out backwards;
   --animate-step-in-next: step-in-next 220ms ease-out backwards;
   --animate-step-in-prev: step-in-prev 220ms ease-out backwards;
   --animate-stroke-draw: stroke-draw 500ms ease-out backwards;
   --animate-blur-deepen: blur-deepen 1400ms ease-in-out 3200ms backwards;
+
+  /* 各只有一处用：pill-* 是旁问面板，view-in 是主视图切换 */
+  --animate-pill-in: pill-in 200ms cubic-bezier(0.23, 1, 0.32, 1) 40ms both;
+  --animate-pill-out: pill-out 120ms ease-in both;
+  --animate-view-in: view-in 160ms ease-out backwards;
 }
 
 @keyframes shimmer-text {
@@ -355,17 +367,6 @@
     translate: 0 1.5rem;
   }
 }
-@keyframes pill-in {
-  from {
-    opacity: 0;
-    scale: 0.85;
-  }
-}
-@keyframes pill-out {
-  to {
-    opacity: 0;
-  }
-}
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -379,6 +380,8 @@
   }
 }
 
+/* 只有引导页用 */
+
 @keyframes fade-out {
   to {
     opacity: 0;
@@ -390,13 +393,6 @@
   from {
     opacity: 0;
     translate: 0 var(--rise-distance, 10px);
-  }
-}
-
-@keyframes view-in {
-  from {
-    opacity: 0;
-    translate: 0 4px;
   }
 }
 
@@ -432,5 +428,27 @@
   }
   to {
     backdrop-filter: blur(12px);
+  }
+}
+
+/* 各只有一处用：pill-* 是旁问面板，view-in 是主视图切换 */
+
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+
+@keyframes pill-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
   }
 }
