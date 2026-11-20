@@ -1,7 +1,6 @@
 - **ATTENTION: This file can ONLY be modified and mantained by HUMAN.**
 - **To Agents: You can NEVER edit this file without permission. You can NEVER edit this file directly.**
   - If the user ask you to edit it, you should remind him/her to edit by own hand.
-- 对于和`refactor/v3`相关的分支，可以忽略下面的1&2&3规则，允许直接大幅改动代码
 
 # Working core rules
 
@@ -106,27 +105,27 @@
 - 禁止写 .mjs 文件，全部一律换为 .ts 格式
 - 优先复用社区成熟的依赖，不重复造轮子；引入新依赖前核对维护状态、许可证和体积
 
-# v3 目标架构（迁移中）
+# 架构
 
-`refactor/v3` 正在把代码迁入下面的结构。**新代码按目标结构写**，旧目录逐步清空。设计理由见 `v3-refator-plan/Plan-v2.md` 和 `docs/adr/`。
+代码按下面的结构组织。设计理由见 `docs/adr/`，各子系统的约定见 `docs/DEVELOPMENT.md`。
 
 ```
 src/
-├─ core/       Agent 内核与 Agent 协议（core/protocol），只依赖 Node 和 Pi
+├─ core/       Agent 内核与 Agent 协议（core/protocol），不依赖 Electron、React 与业务
 ├─ ui/         Design System，零业务依赖
 ├─ modules/    通用功能：没有交大也成立
 ├─ sjtu/       交大功能：离开交大就没有意义
-└─ app/        Electron 入口、宿主端口实现、工作台外壳、模块清单（app/modules.ts）
+└─ app/        Electron 入口、宿主端口实现、工作台外壳、模块清单（modules、views、contracts）
 ```
 
-每个模块的结构统一为 `index.ts`（模块定义与唯一出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/`、`data/`。
+每个模块按需包含 `index.ts`（模块定义，主进程侧出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/`（`view/index.ts` 是界面侧出口）、`data/`；Agent 的命令域与 Skill 放在 `main/agent/`。
 
-依赖规则（由 CI 检查）：
+依赖规则（由 CI 的 lint 检查）：
 
-1. `core` 只依赖 Pi 和 Node；`core/protocol` 只依赖 zod
-2. `ui` 只依赖 react、radix、cva、lucide
-3. 模块之间只通过对方的 `index.ts` 引用；`view/` 只能引用 `core/protocol`，不能引用 core 的其他部分，也不能引用 `main/`
-4. `core`、`modules`、`app` 都不能引用 `sjtu`，例外是 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 三份清单。通用模块需要交大数据时，在通用模块的 `index.ts` 里开注册口，由交大模块注册进来
+1. `core` 不依赖 Electron、React，也不引用 `app`、`modules`、`sjtu`、`ui`，宿主能力经 `core/ports.ts` 注入；`core/protocol` 只依赖 zod
+2. `ui` 只依赖 react、radix、cva、lucide 与样式工具；`ui/agent` 建在基础组件之上，基础组件不能反过来引用它
+3. 模块之间只通过对方的 `index.ts`、`contract.ts` 或 `view/index.ts` 引用；`view/` 只能引用 `core/protocol`、`app/module.ts`、其他模块的 `contract.ts` 与 `ui`，不能引用本模块的 `main/`；主进程侧不能引用 `view/`
+4. `core`、`modules`、`app` 都不能引用 `sjtu`，例外是 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 三份清单。通用模块需要交大数据时，在通用模块的 `index.ts` 里开注册口，由交大模块注册进来。CI 还会去掉全部交大模块后再做类型检查、构建与冒烟
 5. 模块只能引用 `app/module.ts`，不能引用 app 的其他部分
 
 拿到需求后，先判断改动落在哪里：
@@ -135,8 +134,8 @@ src/
 | ---------------------------------- | ---------------------------------------------------------- |
 | 只改某个功能的界面                 | `modules/x/view` 或 `sjtu/x/view`                          |
 | 交大接口改版，或需要从学校取新数据 | `sjtu/x/main`                                              |
-| 新增一个交大功能                   | 新建 `sjtu/x/`，并在 `app/modules.ts` 中加一行             |
-| 让 Agent 获得某个领域的新能力      | 对应模块的命令与 Skill                                     |
+| 新增一个交大功能                   | 新建 `sjtu/x/`，并在 app 的三份清单里按需各加一行          |
+| 让 Agent 获得某个领域的新能力      | 对应模块 `main/agent/` 里的命令域与 Skill                  |
 | 一个模块需要另一个模块的数据       | 调用对方的 `index.ts`；通用模块需要交大数据时开注册口      |
 | 让 Agent 获得通用的新工具          | `core/capabilities`                                        |
 | 移动端也需要的新能力               | `core/protocol`，**需要先和用户确认版本策略**              |
@@ -151,13 +150,15 @@ src/
 ```
 Dela/
 ├─ src/
-│  ├─ core/                   Agent 内核，只依赖 Pi 与 Node
+│  ├─ core/                   Agent 内核，不依赖 Electron、React 与业务
 │  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
 │  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
 │  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
 │  │  ├─ remote/              远程执行后端与 helper 通道
+│  │  ├─ config-files.ts      ~/.dela 下的 JSON 配置（模型服务、联网搜索、MCP）
 │  │  └─ ports.ts             宿主端口（HostPorts）
 │  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
+│  │  └─ agent/               Agent 对话外观组件（消息、工具卡片、输入框）
 │  ├─ modules/                通用模块（chat、mail、note、notifications、onboarding、preview、
 │  │                          remotes、search、settings、terminal、todo、update、workspace）
 │  ├─ sjtu/                   交大模块，经 register() 向通用模块的注册口登记
@@ -177,8 +178,10 @@ Dela/
 │     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
 ├─ helper/                    Go 远端 helper
 ├─ scripts/                   开发、冒烟、打包与校验脚本
-├─ docs/                      开发文档、条款与接口资料
-├─ vendor/                    入库的 helper、搜索工具与 OpenSSH
+├─ docs/                      开发文档、架构决策（adr/）、条款与接口资料
+├─ experiments/               一次性技术实验的报告
+├─ vendor/                    入库的 helper、搜索工具、OpenSSH 与 xlsx
+├─ LICENSES/                  随源码分发的第三方许可证
 ├─ assets/                    图标与品牌素材
 └─ build/                     打包用图标等构建资源
 ```
