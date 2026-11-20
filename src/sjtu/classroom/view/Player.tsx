@@ -421,7 +421,13 @@ function VolumeControl({ value, onChange }: { value: number; onChange: (v: numbe
           <span>音量</span>
           <span className="tabular-nums">{Math.round(value * 100)}%</span>
         </div>
-        <Slider ariaLabel="音量" max={1} onValueChange={onChange} step={0.05} value={value} />
+        <Slider
+          aria-label="音量"
+          max={1}
+          onValueChange={([next = 0]) => onChange(next)}
+          step={0.05}
+          value={[value]}
+        />
       </PopoverContent>
     </Popover>
   );
