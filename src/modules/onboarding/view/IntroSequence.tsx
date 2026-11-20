@@ -41,7 +41,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-rows-[auto_1fr] bui-light bg-surface text-ink',
+        'relative grid h-dvh grid-rows-[auto_1fr] theme-light bg-surface text-ink',
         leaving && 'animate-fade-out',
       )}
       data-onboarding-intro=""

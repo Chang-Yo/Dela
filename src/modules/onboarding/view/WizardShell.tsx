@@ -29,7 +29,7 @@ export function WizardShell({
   const { direction } = motionStep;
 
   return (
-    <div className="grid h-dvh grid-rows-[auto_1fr_auto] bui-light bg-surface text-ink">
+    <div className="grid h-dvh grid-rows-[auto_1fr_auto] theme-light bg-surface text-ink">
       <OnboardingWindowBar>
         {stepCount > 0 && (
           <div

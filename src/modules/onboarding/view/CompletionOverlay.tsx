@@ -22,7 +22,7 @@ export function CompletionOverlay({ onFinished }: { onFinished: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-takeover grid animate-fade-out place-items-center bui-light bg-surface text-ink motion-reduce:animate-none"
+      className="fixed inset-0 z-takeover grid animate-fade-out place-items-center theme-light bg-surface text-ink motion-reduce:animate-none"
       data-onboarding-completion=""
       style={{
         animationDelay: `${fadeAtSeconds}s`,
