@@ -16,7 +16,7 @@ const buttonVariants = cva(
         link: 'text-accent-ink underline-offset-4 hover:underline active:scale-100',
       },
       size: {
-        default: 'h-8 px-3 has-[>svg]:px-2.5',
+        md: 'h-8 px-3 has-[>svg]:px-2.5',
         sm: 'h-7 px-2.5 text-xs has-[>svg]:px-2',
         lg: 'h-10 rounded-card px-4 text-sm has-[>svg]:px-3',
         icon: 'size-8',
@@ -26,7 +26,7 @@ const buttonVariants = cva(
     },
     defaultVariants: {
       variant: 'default',
-      size: 'default',
+      size: 'md',
     },
   },
 );

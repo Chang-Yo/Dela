@@ -1,11 +1,11 @@
 export function ProgressRing({
   progress,
-  tone = 'orange',
+  tone = 'warning',
   children,
   size = 28,
 }: {
   progress: number; // 0..1
-  tone?: 'orange' | 'green' | 'red' | 'accent' | 'ink';
+  tone?: 'warning' | 'success' | 'danger' | 'accent' | 'neutral';
   children?: React.ReactNode;
   size?: number;
 }) {
@@ -13,11 +13,11 @@ export function ProgressRing({
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const tones = {
-    orange: 'var(--warning)',
-    green: 'var(--success)',
-    red: 'var(--danger)',
+    warning: 'var(--warning)',
+    success: 'var(--success)',
+    danger: 'var(--danger)',
     accent: 'var(--accent)',
-    ink: 'var(--ink-2)',
+    neutral: 'var(--ink-2)',
   };
   return (
     <span

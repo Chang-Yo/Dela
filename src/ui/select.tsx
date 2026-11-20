@@ -13,14 +13,14 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
 }
 
 const triggerSizes = {
-  default: '',
+  md: '',
   lg: 'h-10 rounded-card px-3',
 } as const;
 
 function SelectTrigger({
   className,
   children,
-  size = 'default',
+  size = 'md',
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & { size?: keyof typeof triggerSizes }) {
   return (
