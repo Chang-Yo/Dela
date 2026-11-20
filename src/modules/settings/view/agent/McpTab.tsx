@@ -21,7 +21,7 @@ export function McpTab() {
   // 未读到列表（data 为 undefined）时不渲染空态，避免闪烁；connecting 是中间态，
   // 期间每 500ms 重读，让“添加/重连 → 连接中 → 已连接/失败”落定，其余时候不轮询。
   const list = useQuery({
-    queryKey: ['capabilities', 'mcpServers'],
+    queryKey: ['capabilities', 'listMcpServers'],
     queryFn: () => capabilitiesClient.listMcpServers(),
     enabled: Boolean(window.dela),
     refetchInterval: (query) =>
@@ -29,7 +29,7 @@ export function McpTab() {
   });
   const servers = list.data;
   const setServers = (views: McpServerView[] | undefined) =>
-    queryClient.setQueryData(['capabilities', 'mcpServers'], views);
+    queryClient.setQueryData(['capabilities', 'listMcpServers'], views);
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<McpEditState>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);

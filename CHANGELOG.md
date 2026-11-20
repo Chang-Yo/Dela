@@ -13,6 +13,9 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 
 ## Unreleased
 
+- 调整模型服务、联网搜索与 MCP 配置改存 `~/.dela/config.json` 与 `~/.dela/mcp.json`（明文 JSON，API Key 不再加密），可直接编辑或交给 [magpie](https://github.com/yetone/magpie) 等工具管理，外部修改即时生效；条目 id 改为厂商名等短名字，升级时自动迁移，备份一并包含这两个文件。
+- 新增 magpie 插件 [`magpie-agent-dela`](https://www.npmjs.com/package/magpie-agent-dela)：在 magpie 中连接 Dela 后，magpie 网关的模型、MCP 服务器与 Skills 可直接在 Dela 中使用。
+- 新增 MCP 配置支持 `${NAME}` 与 `${NAME:-默认值}` 环境变量引用，连接时展开。
 - 修复远程项目在多节点共享 HOME 时的 helper 运行状态冲突，同版本节点共用可执行文件。
 
 ## 3.0.0 - 2026-11-19

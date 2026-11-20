@@ -189,7 +189,7 @@ export function ChatComposer({
   // 两列模型面板：打开时重读设置配置保证新鲜；focusedId 是左列手动查看的提供商，空则跟随当前使用项。
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const providerQuery = useQuery({
-    queryKey: ['llm', 'providers'],
+    queryKey: ['llm', 'list'],
     queryFn: () => llmClient.list(),
     enabled: Boolean(window.dela) && modelPickerOpen,
   });

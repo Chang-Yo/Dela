@@ -1,18 +1,25 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type {
   WebSearchEntry,
   WebSearchEntrySummary,
   WebSearchKeySource,
 } from '../protocol/capabilities';
-import { hostPorts } from '../ports';
+import { providerIdSchema } from '../protocol/agent';
+import {
+  isJsonObject,
+  readConfigFile,
+  sectionOf,
+  uniqueKey,
+  updateConfigFile,
+  type JsonObject,
+} from '../config-files';
 import { loadLlmConfig } from '../agent/llm-config';
 import { readDisabledTools, setBuiltinCapabilities } from './tools';
 import { searchDeepSeek } from './deepseek';
 
-// 搜索服务配置（设置 › 内置能力 › 网络）：可存多条（同类型可重复，供多账号复用额度），
-// 聊天输入框左下角选择当前使用哪一条；应用不内置搜索服务。
-const CONFIG_KEY = 'web-search-api';
+// 搜索服务配置（设置 › 内置能力 › 网络）存在 ~/.dela/config.json 的 webSearch 里：可存多条
+// （同类型可重复，供多账号复用额度），聊天输入框左下角选择当前使用哪一条；应用不内置搜索服务。
+const SECTION_KEY = 'webSearch';
 const REQUEST_TIMEOUT_MS = 15000;
 // 4 类服务各留多账号余量且列表一屏可浏览；再大主要防配置堆积。
 const ENTRY_LIMIT = 16;
@@ -38,51 +45,43 @@ const bodySchema = z
   }, '请求体需为 JSON，可用 {query}、{count} 占位');
 
 const nameSchema = z.string().trim().min(1).max(64);
-const uuid = z.string().uuid();
+const entryId = providerIdSchema;
 
 const webSearchEntrySchema = z.discriminatedUnion('provider', [
-  z
-    .object({
-      id: uuid,
-      name: nameSchema,
-      provider: z.literal('brave'),
-      apiKey: z.string().trim().min(1).max(256),
-    })
-    .strict(),
-  z
-    .object({
-      id: uuid,
-      name: nameSchema,
-      provider: z.literal('google'),
-      apiKey: z.string().trim().min(1).max(256),
-      cx: z.string().trim().min(1).max(128),
-    })
-    .strict(),
-  z
-    .object({
-      id: uuid,
-      name: nameSchema,
-      provider: z.literal('custom'),
-      url: z.string().url().max(2048),
-      body: bodySchema.optional(),
-      headers: headersSchema.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      id: uuid,
-      name: nameSchema,
-      provider: z.literal('deepseek'),
-      apiKey: z.string().trim().min(1).max(256),
-      useForFetch: z.boolean(),
-    })
-    .strict(),
+  z.object({
+    id: entryId,
+    name: nameSchema,
+    provider: z.literal('brave'),
+    apiKey: z.string().trim().min(1).max(256),
+  }),
+  z.object({
+    id: entryId,
+    name: nameSchema,
+    provider: z.literal('google'),
+    apiKey: z.string().trim().min(1).max(256),
+    cx: z.string().trim().min(1).max(128),
+  }),
+  z.object({
+    id: entryId,
+    name: nameSchema,
+    provider: z.literal('custom'),
+    url: z.string().url().max(2048),
+    body: bodySchema.optional(),
+    headers: headersSchema.optional(),
+  }),
+  z.object({
+    id: entryId,
+    name: nameSchema,
+    provider: z.literal('deepseek'),
+    apiKey: z.string().trim().min(1).max(256),
+    useForFetch: z.boolean(),
+  }),
 ]);
 
 export const webSearchEntryInputSchema = z.discriminatedUnion('provider', [
   z
     .object({
-      id: uuid.optional(),
+      id: entryId.optional(),
       name: nameSchema,
       provider: z.literal('brave'),
       apiKey: z.string().trim().min(1).max(256),
@@ -90,7 +89,7 @@ export const webSearchEntryInputSchema = z.discriminatedUnion('provider', [
     .strict(),
   z
     .object({
-      id: uuid.optional(),
+      id: entryId.optional(),
       name: nameSchema,
       provider: z.literal('google'),
       apiKey: z.string().trim().min(1).max(256),
@@ -99,7 +98,7 @@ export const webSearchEntryInputSchema = z.discriminatedUnion('provider', [
     .strict(),
   z
     .object({
-      id: uuid.optional(),
+      id: entryId.optional(),
       name: nameSchema,
       provider: z.literal('custom'),
       url: z.string().url().max(2048),
@@ -109,7 +108,7 @@ export const webSearchEntryInputSchema = z.discriminatedUnion('provider', [
     .strict(),
   z
     .object({
-      id: uuid.optional(),
+      id: entryId.optional(),
       name: nameSchema,
       provider: z.literal('deepseek'),
       apiKey: z.string().trim().min(1).max(256),
@@ -117,40 +116,30 @@ export const webSearchEntryInputSchema = z.discriminatedUnion('provider', [
     })
     .strict(),
 ]);
-
-const registrySchema = z
-  .object({
-    providers: z.array(webSearchEntrySchema).max(ENTRY_LIMIT),
-    selectedId: uuid.nullable(),
-  })
-  .strict();
 
 interface Registry {
   providers: WebSearchEntry[];
   selectedId: string | null;
 }
 
+/** 文件里 services 的键是条目 id；写错的单项跳过，改哪项只写哪项。 */
 function readRegistry(): Registry {
-  const row = hostPorts()
-    .database()
-    .prepare('SELECT value FROM workspace_settings WHERE key=?')
-    .get(CONFIG_KEY) as { value: string } | undefined;
-  if (!row) return { providers: [], selectedId: null };
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(row.value);
-  } catch {
-    return { providers: [], selectedId: null };
-  }
-  const current = registrySchema.safeParse(parsed);
-  return current.success ? current.data : { providers: [], selectedId: null };
+  const section = readConfigFile('config.json')[SECTION_KEY];
+  if (!isJsonObject(section)) return { providers: [], selectedId: null };
+  const services = isJsonObject(section.services) ? section.services : {};
+  const providers = Object.entries(services).flatMap(([id, value]) => {
+    const entry = webSearchEntrySchema.safeParse(isJsonObject(value) ? { ...value, id } : null);
+    return entry.success ? [entry.data] : [];
+  });
+  const selected = providers.find(({ id }) => id === section.selected);
+  return { providers, selectedId: selected?.id ?? null };
 }
 
-function writeRegistry(registry: Registry): void {
-  hostPorts()
-    .database()
-    .prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)')
-    .run(CONFIG_KEY, JSON.stringify(registrySchema.parse(registry)));
+function updateWebSearch(update: (section: JsonObject, services: JsonObject) => void): void {
+  updateConfigFile('config.json', (config) => {
+    const section = sectionOf(config, SECTION_KEY);
+    update(section, sectionOf(section, 'services'));
+  });
 }
 
 export function listWebSearchEntries(): WebSearchEntry[] {
@@ -162,7 +151,7 @@ export function readWebSearchConfig(): WebSearchEntry | null {
   return providers.find(({ id }) => id === selectedId) ?? null;
 }
 
-/** 新建或更新一条配置；新建即选中并启用 web_search，更新不改选中。返回最新列表。 */
+/** 新建或更新一条配置；新建的 id 是服务类型（brave、deepseek…），新建即选中并启用 web_search，更新不改选中。返回最新列表。 */
 export function saveWebSearchEntry(
   input: z.infer<typeof webSearchEntryInputSchema>,
 ): WebSearchEntry[] {
@@ -172,20 +161,27 @@ export function saveWebSearchEntry(
   if (input.id != null && !exists) throw new Error('搜索服务配置不存在，可能已被删除');
   if (!exists && registry.providers.length >= ENTRY_LIMIT)
     throw new Error(`搜索服务配置最多 ${ENTRY_LIMIT} 条，请先删除部分配置`);
-  const saved = { ...input, id: input.id ?? randomUUID() } as WebSearchEntry;
-  const providers = exists
-    ? registry.providers.map((item) => (item.id === saved.id ? saved : item))
-    : [...registry.providers, saved];
-  writeRegistry({ providers, selectedId: exists ? registry.selectedId : saved.id });
+  const { id, ...entry } = input;
+  updateWebSearch((section, services) => {
+    if (id) services[id] = entry;
+    else {
+      const created = uniqueKey(services, entry.provider);
+      services[created] = entry;
+      section.selected = created;
+    }
+  });
   if (!exists) setBuiltinCapabilities(['web_search'], true);
-  return providers;
+  return readRegistry().providers;
 }
 
 export function removeWebSearchEntry(id: string): WebSearchEntry[] {
   const registry = readRegistry();
   const providers = registry.providers.filter((item) => item.id !== id);
   const selectedId = registry.selectedId === id ? (providers[0]?.id ?? null) : registry.selectedId;
-  writeRegistry({ providers, selectedId });
+  updateWebSearch((section, services) => {
+    delete services[id];
+    section.selected = selectedId;
+  });
   if (selectedId === null) setBuiltinCapabilities(['web_search'], false);
   return providers;
 }
@@ -206,16 +202,12 @@ export function listWebSearchOptions(): {
 
 /** 选择当前使用哪条配置并确保 web_search 开启；null 关闭联网搜索（web_fetch 仍走本地抓取）。 */
 export function selectWebSearchEntry(id: string | null): void {
-  if (id === null) {
-    writeRegistry({ ...readRegistry(), selectedId: null });
-    setBuiltinCapabilities(['web_search'], false);
-    return;
-  }
-  const registry = readRegistry();
-  if (!registry.providers.some((item) => item.id === id))
+  if (id !== null && !readRegistry().providers.some((item) => item.id === id))
     throw new Error('搜索服务配置不存在，可能已被删除');
-  writeRegistry({ ...registry, selectedId: id });
-  setBuiltinCapabilities(['web_search'], true);
+  updateWebSearch((section) => {
+    section.selected = id;
+  });
+  setBuiltinCapabilities(['web_search'], id !== null);
 }
 
 /** DeepSeek 官方端点判定：只认 api.deepseek.com，中转或自建网关一律不算。 */

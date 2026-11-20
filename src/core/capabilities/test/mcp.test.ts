@@ -1,9 +1,9 @@
-// 用本地 echo 服务器（stdio JSON-RPC）与环回 HTTP 服务器走真实的加密配置文件
-// （safeStorage 换成明文），覆盖 MCP 连接、工具发现、断连与配置持久化。
+// 用本地 echo 服务器（stdio JSON-RPC）与环回 HTTP 服务器走真实的 ~/.dela/mcp.json，
+// 覆盖 MCP 连接、工具发现、断连与配置持久化。
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,7 @@ import {
   removeMcpServer,
   updateMcpServer,
 } from '../mcp';
-import { hostPorts } from '../../ports';
+import { configFilePath } from '../../config-files';
 import { provideTestHostPorts } from '../../test/host-mock';
 
 const echoServer = fileURLToPath(new URL('./echo-server.ts', import.meta.url));
@@ -31,7 +31,10 @@ const echoConfig = {
   env: {},
 };
 const storedConfigs = () =>
-  JSON.parse(hostPorts().secrets.read('mcp-servers')!) as Record<string, unknown>[];
+  JSON.parse(readFileSync(configFilePath('mcp.json'), 'utf8')).mcpServers as Record<
+    string,
+    Record<string, unknown>
+  >;
 
 async function until(assertion: () => void, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
@@ -48,7 +51,7 @@ async function until(assertion: () => void, timeoutMs = 5000) {
 
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-mcp-'));
-  provideTestHostPorts({ paths: { userData: () => state.root } });
+  provideTestHostPorts({ paths: { userData: () => state.root, home: () => state.root } });
 });
 
 afterAll(() => {
@@ -129,17 +132,20 @@ describe('MCP 连接与工具发现', () => {
 });
 
 describe('MCP 配置管理与持久化', () => {
-  it('update 禁用即断开、重新启用重连；配置持久化于加密文件', async () => {
+  it('update 禁用即断开、重新启用重连；配置持久化于 mcp.json', async () => {
     const [created] = await addMcpServer(echoConfig);
-    const stored = storedConfigs();
-    expect(stored).toHaveLength(1);
-    expect(stored[0]).toMatchObject({ id: created!.id, name: 'echo-srv', enabled: true });
+    expect(Object.keys(storedConfigs())).toEqual(['echo-srv']);
+    expect(storedConfigs()['echo-srv']).not.toHaveProperty('disabled');
     const disabled = await updateMcpServer(
       created!.id,
       mcpServerPatchSchema.parse({ enabled: false }),
     );
     expect(disabled[0]).toMatchObject({ enabled: false, status: 'disconnected', toolCount: null });
-    expect(storedConfigs()[0]).toMatchObject({ args: [echoServer], env: {} });
+    expect(storedConfigs()['echo-srv']).toMatchObject({
+      args: [echoServer],
+      env: {},
+      disabled: true,
+    });
     expect(mcpToolDefinitions()).toHaveLength(0);
     await expect(executeMcpTool('mcp_echo_srv_echo', { message: 'x' })).resolves.toMatchObject({
       ok: false,
@@ -147,6 +153,28 @@ describe('MCP 配置管理与持久化', () => {
     });
     const enabled = await updateMcpServer(created!.id, { enabled: true });
     expect(enabled[0]).toMatchObject({ status: 'connected', toolCount: 3 });
+  }, 30000);
+
+  it('读入手写的服务器；改名时保留 Dela 不认识的字段', async () => {
+    writeFileSync(
+      configFilePath('mcp.json'),
+      JSON.stringify({
+        mcpServers: {
+          hand: { command: echoConfig.command, args: echoConfig.args, owner: 'magpie' },
+        },
+      }),
+    );
+    expect(listMcpServers()).toMatchObject([{ id: 'hand', name: 'hand', transport: 'stdio' }]);
+    await updateMcpServer('hand', mcpServerPatchSchema.parse({ name: 'renamed', enabled: false }));
+    expect(storedConfigs()).toEqual({
+      renamed: {
+        owner: 'magpie',
+        command: echoConfig.command,
+        args: echoConfig.args,
+        env: {},
+        disabled: true,
+      },
+    });
   }, 30000);
 });
 
@@ -202,7 +230,7 @@ describe('Streamable HTTP', () => {
     server.close();
   });
 
-  it('带请求头连接、发现并调用工具；请求头只存在加密文件里', async () => {
+  it('带请求头连接、发现并调用工具；请求头不进视图', async () => {
     const [view] = await addMcpServer({
       name: 'remote',
       transport: 'http',
@@ -215,6 +243,30 @@ describe('Streamable HTTP', () => {
       ok: true,
       result: { text: 'http:hi' },
     });
-    expect(storedConfigs()[0]).toMatchObject({ headers: { Authorization: 'Bearer t' } });
+    expect(storedConfigs().remote).toMatchObject({
+      type: 'http',
+      headers: { Authorization: 'Bearer t' },
+    });
+  }, 20000);
+
+  it('连接时展开环境变量，文件里保留原样；变量未设置时报错', async () => {
+    vi.stubEnv('DELA_MCP_TOKEN', 't');
+    const [view] = await addMcpServer({
+      name: 'env-remote',
+      transport: 'http',
+      url,
+      headers: { Authorization: 'Bearer ${DELA_MCP_TOKEN}' },
+    });
+    expect(view).toMatchObject({ status: 'connected' });
+    expect(storedConfigs()['env-remote']?.headers).toEqual({
+      Authorization: 'Bearer ${DELA_MCP_TOKEN}',
+    });
+
+    vi.unstubAllEnvs();
+    const views = await refreshMcpServer('env-remote');
+    expect(views.find(({ id }) => id === 'env-remote')).toMatchObject({
+      status: 'error',
+      error: '环境变量 DELA_MCP_TOKEN 未设置',
+    });
   }, 20000);
 });

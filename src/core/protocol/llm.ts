@@ -1,5 +1,6 @@
 // 桌面私有的模型提供商视图：不进入 Agent 协议的 JSON Schema，也不带版本。
 import { z } from 'zod';
+import { providerIdSchema } from './agent';
 import { defineContract } from './contract';
 
 export interface LlmModelSettings {
@@ -64,33 +65,40 @@ export interface LlmCatalogProvider {
   models: LlmCatalogModel[];
 }
 
-const providerId = z.uuid();
+const providerId = providerIdSchema;
 
 /** 输入由主进程按提供商 schema 校验；写入后用到该提供商的会话按新配置重建。 */
-export const llmContract = defineContract('llm', {
-  catalog: { input: z.undefined(), output: z.custom<LlmCatalogProvider[]>() },
-  list: { input: z.undefined(), output: z.custom<LlmProviderView[]>() },
-  save: { input: z.custom<LlmSaveInput>(), output: z.custom<LlmProviderView>() },
-  remove: { input: providerId, output: z.void() },
-  setEnabled: { input: z.object({ id: providerId, enabled: z.boolean() }), output: z.void() },
-  verify: {
-    input: z.object({
-      id: providerId.optional(),
-      baseUrl: z.string(),
-      apiKey: z.string().optional(),
-    }),
-    output: z.custom<LlmVerifyResult>(),
+export const llmContract = defineContract(
+  'llm',
+  {
+    catalog: { input: z.undefined(), output: z.custom<LlmCatalogProvider[]>() },
+    list: { input: z.undefined(), output: z.custom<LlmProviderView[]>() },
+    save: { input: z.custom<LlmSaveInput>(), output: z.custom<LlmProviderView>() },
+    remove: { input: providerId, output: z.void() },
+    setEnabled: { input: z.object({ id: providerId, enabled: z.boolean() }), output: z.void() },
+    verify: {
+      input: z.object({
+        id: providerId.optional(),
+        baseUrl: z.string(),
+        apiKey: z.string().optional(),
+      }),
+      output: z.custom<LlmVerifyResult>(),
+    },
+    /** 自定义服务按 baseUrl 检测；内置厂商按 piProvider 取目录里的模型。 */
+    verifyModel: {
+      input: z.custom<{
+        id?: string;
+        piProvider?: string | null;
+        baseUrl?: string;
+        apiKey?: string;
+        model: string;
+        settings?: LlmModelSettings;
+      }>(),
+      output: z.custom<LlmVerifyResult>(),
+    },
   },
-  /** 自定义服务按 baseUrl 检测；内置厂商按 piProvider 取目录里的模型。 */
-  verifyModel: {
-    input: z.custom<{
-      id?: string;
-      piProvider?: string | null;
-      baseUrl?: string;
-      apiKey?: string;
-      model: string;
-      settings?: LlmModelSettings;
-    }>(),
-    output: z.custom<LlmVerifyResult>(),
+  {
+    /** ~/.dela/config.json 被 Dela 以外的工具改动后推送最新列表。 */
+    list: z.custom<LlmProviderView[]>(),
   },
-});
+);

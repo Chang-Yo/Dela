@@ -112,10 +112,7 @@ export class CredentialDecryptionError extends Error {
   }
 }
 
-const secretLabels = new Map<SecretNamespace, string>([
-  ['llm-providers', '模型服务配置'],
-  ['mcp-servers', 'MCP 服务器配置'],
-]);
+const secretLabels = new Map<SecretNamespace, string>();
 
 export function registerSecretLabel(namespace: SecretNamespace, label: string): void {
   secretLabels.set(namespace, label);

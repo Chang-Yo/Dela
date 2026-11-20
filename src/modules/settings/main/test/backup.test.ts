@@ -102,6 +102,7 @@ beforeEach(() => {
   });
   mkdirSync(join(state.home, '.dela', 'skills', 'mine'), { recursive: true });
   writeFileSync(join(state.home, '.dela', 'skills', 'mine', 'SKILL.md'), 'keep');
+  writeFileSync(join(state.home, '.dela', 'config.json'), '{}');
 });
 
 afterEach(() => {
@@ -133,6 +134,7 @@ it('跳过可再生缓存、保留用户数据，并给数据库取一致快照'
   expect(existsSync(join(data, 'pi', 'sessions', 'a.jsonl'))).toBe(true);
   expect(existsSync(join(result.path, '工作目录', 'note.txt'))).toBe(true);
   expect(existsSync(join(result.path, '技能', 'mine', 'SKILL.md'))).toBe(true);
+  expect(existsSync(join(result.path, '配置', 'config.json'))).toBe(true);
 
   expect(existsSync(join(data, 'dela.db-wal'))).toBe(false);
   expect(existsSync(join(data, 'dela.db-shm'))).toBe(false);

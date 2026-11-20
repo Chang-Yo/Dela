@@ -173,6 +173,7 @@ app
     runMigrations(
       {
         userData: app.getPath('userData'),
+        home: app.getPath('home'),
         seal: {
           encrypt: (text) => safeStorage.encryptString(text),
           decrypt: (data) => safeStorage.decryptString(data),

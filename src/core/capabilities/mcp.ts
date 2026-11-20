@@ -1,6 +1,5 @@
-// MCP 客户端接入：配置加密保存在 mcp-servers.bin，惰性连接 + 显式 refresh 重连；
+// MCP 客户端接入：配置在 ~/.dela/mcp.json（Claude Code 的格式，magpie 可以直接管理），惰性连接 + 显式 refresh 重连；
 // 工具按 mcp_<server>_<tool> 命名空间化，断连标 error 并清空工具，返回内容只是资料而非指令。
-import { randomUUID } from 'node:crypto';
 import type { CallToolResult, McpTransport, Tool } from '@earendil-works/pi-mcp';
 import { z } from 'zod';
 import type {
@@ -9,7 +8,7 @@ import type {
   McpServerPatch,
   McpServerView,
 } from '../protocol/capabilities';
-import { hostPorts } from '../ports';
+import { isJsonObject, readConfigFile, sectionOf, updateConfigFile } from '../config-files';
 
 interface DynamicToolDefinition {
   type: 'function';
@@ -36,25 +35,20 @@ const argsField = z.array(z.string().max(2000)).max(100);
 const variablesField = z.record(z.string().max(200), z.string().max(4000));
 const urlField = z.url({ protocol: /^https?$/ }).max(2000);
 
-const mcpConfigSchema = z.discriminatedUnion('transport', [
-  z.object({
-    id: z.uuid(),
-    name: nameField,
-    enabled: z.boolean(),
-    transport: z.literal('stdio'),
-    command: commandField,
-    args: argsField,
-    env: variablesField,
-  }),
-  z.object({
-    id: z.uuid(),
-    name: nameField,
-    enabled: z.boolean(),
-    transport: z.literal('http'),
-    url: urlField,
-    headers: variablesField,
-  }),
-]);
+// 文件里一项的形状：有 command 是 stdio，有 url 是 Streamable HTTP；SSE 等 Dela 不支持的传输方式跳过。
+const stdioEntrySchema = z.object({
+  type: z.literal('stdio').optional(),
+  command: commandField,
+  args: argsField.default([]),
+  env: variablesField.default({}),
+});
+const httpEntrySchema = z.object({
+  type: z.enum(['http', 'streamable-http']).optional(),
+  url: urlField,
+  headers: variablesField.default({}),
+});
+/** 一项里由 Dela 决定的字段；其余字段（magpie 或用户加的）保存时原样保留。 */
+const ownedEntryKeys = ['type', 'command', 'args', 'env', 'url', 'headers', 'disabled'];
 
 export const mcpServerInputSchema = z.discriminatedUnion('transport', [
   z.object({
@@ -94,21 +88,54 @@ interface ManagedServer {
   connecting: Promise<void> | null;
 }
 
-/** 内存态（id → 运行视图事实）；配置事实始终以 mcp-servers.bin 为准，读前先同步。 */
+/** 内存态（id → 运行视图事实）；配置事实始终以 mcp.json 为准，读前先同步。 */
 const servers = new Map<string, ManagedServer>();
 
 /** 归一化工具名 → 服务器 id：执行路由按此精确归属，不猜命名空间前缀（a 的 b_x 与 a-b 的 x 同名时最长前缀会误配）。 */
 const toolOwner = new Map<string, string>();
 
-function saveMcpServers(configs: unknown[]): void {
-  hostPorts().secrets.write('mcp-servers', JSON.stringify(configs));
+const SERVERS_KEY = 'mcpServers';
+
+function configOf(name: string, value: unknown): McpServerConfig | null {
+  if (!isJsonObject(value) || nameField.safeParse(name).data !== name) return null;
+  const base = { id: name, name, enabled: value.disabled !== true };
+  const stdio = stdioEntrySchema.safeParse(value);
+  if (stdio.success) {
+    const { command, args, env } = stdio.data;
+    return { ...base, transport: 'stdio', command, args, env };
+  }
+  const http = httpEntrySchema.safeParse(value);
+  if (http.success)
+    return { ...base, transport: 'http', url: http.data.url, headers: http.data.headers };
+  return null;
 }
 
-/** 解不开时抛错，让设置页说明原因；工具表组装一侧自行降级为无服务器。 */
+/** 文件写坏时抛错，让设置页说明原因；工具表组装一侧自行降级为无服务器。写错的单项跳过。 */
 function readMcpConfigs(): McpServerConfig[] {
-  const payload = hostPorts().secrets.read('mcp-servers');
-  const parsed = z.array(mcpConfigSchema).safeParse(payload === null ? [] : JSON.parse(payload));
-  return parsed.success ? parsed.data : [];
+  const section = readConfigFile('mcp.json')[SERVERS_KEY];
+  if (!isJsonObject(section)) return [];
+  return Object.entries(section).flatMap(([name, value]) => configOf(name, value) ?? []);
+}
+
+/** 改名时 previousName 是原来的键；这一项里 Dela 不认识的字段原样保留。 */
+function writeMcpServer(config: McpServerConfig, previousName = config.name): void {
+  updateConfigFile('mcp.json', (file) => {
+    const section = sectionOf(file, SERVERS_KEY);
+    const previous = section[previousName];
+    const kept = isJsonObject(previous)
+      ? Object.fromEntries(
+          Object.entries(previous).filter(([key]) => !ownedEntryKeys.includes(key)),
+        )
+      : {};
+    delete section[previousName];
+    section[config.name] = {
+      ...kept,
+      ...(config.transport === 'stdio'
+        ? { command: config.command, args: config.args, env: config.env }
+        : { type: 'http', url: config.url, headers: config.headers }),
+      ...(config.enabled ? {} : { disabled: true }),
+    };
+  });
 }
 
 function namespaceOf(name: string): string {
@@ -124,13 +151,29 @@ function stderrTail(sdk: McpSdk, transport: McpTransport): string {
   return tail ? `（服务器输出：${tail.slice(-STDERR_TAIL_CHARS)}）` : '';
 }
 
+/** 与 Claude Code 相同，连接时展开 ${NAME} 与 ${NAME:-默认值}；展开结果不写回文件。 */
+function expandEnv(text: string): string {
+  return text.replace(/\$\{(\w+)(?::-([^}]*))?\}/g, (_, name: string, fallback?: string) => {
+    const value = process.env[name];
+    if (fallback !== undefined) return value || fallback;
+    if (value === undefined) throw new Error(`环境变量 ${name} 未设置`);
+    return value;
+  });
+}
+
+const expandValues = (record: Record<string, string>) =>
+  Object.fromEntries(Object.entries(record).map(([key, value]) => [key, expandEnv(value)]));
+
 function createTransport(sdk: McpSdk, config: McpServerConfig): McpTransport {
   if (config.transport === 'http')
-    return new sdk.StreamableHttpTransport({ url: config.url, headers: { ...config.headers } });
+    return new sdk.StreamableHttpTransport({
+      url: expandEnv(config.url),
+      headers: expandValues(config.headers),
+    });
   return new sdk.StdioTransport({
-    command: config.command,
-    args: config.args,
-    env: { ...config.env },
+    command: expandEnv(config.command),
+    args: config.args.map(expandEnv),
+    env: expandValues(config.env),
   });
 }
 
@@ -240,8 +283,9 @@ function connectServer(entry: ManagedServer): Promise<void> {
     entry.status = 'connecting';
     const sdk = await loadMcpSdk();
     const client = new sdk.McpClient(CLIENT_INFO);
-    const transport = createTransport(sdk, entry.config);
+    let transport: McpTransport | null = null;
     try {
+      transport = createTransport(sdk, entry.config);
       await withTimeout(
         client.connect(transport),
         CONNECT_TIMEOUT_MS,
@@ -269,7 +313,7 @@ function connectServer(entry: ManagedServer): Promise<void> {
       dropAdoptedTools(entry);
       entry.toolCount = null;
       entry.status = 'error';
-      entry.error = `${connectError(sdk, error)}${stderrTail(sdk, transport)}`;
+      entry.error = `${connectError(sdk, error)}${transport ? stderrTail(sdk, transport) : ''}`;
     } finally {
       entry.connecting = null;
     }
@@ -415,31 +459,49 @@ export function listMcpServers(): McpServerView[] {
 }
 
 export async function addMcpServer(input: McpServerInput): Promise<McpServerView[]> {
-  const config = { id: randomUUID(), enabled: true, ...input };
-  const configs = readMcpConfigs();
-  if (configs.some((existing) => existing.name === config.name))
+  const config: McpServerConfig = { id: input.name, enabled: true, ...input };
+  if (readMcpConfigs().some((existing) => existing.name === config.name))
     throw new Error(`已有同名服务器：${config.name}`);
-  saveMcpServers([...configs, mcpConfigSchema.parse(config)]);
+  writeMcpServer(config);
   syncFromConfigs();
   await connectServer(findServer(config.id));
   return listMcpServers();
 }
 
+/** 名字就是 id：改名后用新名字找服务器。 */
 export async function updateMcpServer(id: string, patch: McpServerPatch): Promise<McpServerView[]> {
   const configs = readMcpConfigs();
-  const index = configs.findIndex((config) => config.id === id);
-  if (index < 0) throw new Error('MCP 服务器不存在');
-  if (patch.name && configs.some((config, i) => i !== index && config.name === patch.name))
-    throw new Error(`已有同名服务器：${patch.name}`);
-  const previous = configs[index]!;
-  // 另一种传输方式的字段由 schema 丢弃，传输方式本身不可改
-  const next = mcpConfigSchema.parse({ ...previous, ...patch, transport: previous.transport });
+  const previous = configs.find((config) => config.id === id);
+  if (!previous) throw new Error('MCP 服务器不存在');
+  const name = patch.name ?? previous.name;
+  if (name !== previous.name && configs.some((config) => config.name === name))
+    throw new Error(`已有同名服务器：${name}`);
+  const enabled = patch.enabled ?? previous.enabled;
+  // 只取同一传输方式的字段，传输方式本身不可改
+  const next: McpServerConfig =
+    previous.transport === 'stdio'
+      ? {
+          ...previous,
+          id: name,
+          name,
+          enabled,
+          command: patch.command ?? previous.command,
+          args: patch.args ?? previous.args,
+          env: patch.env ?? previous.env,
+        }
+      : {
+          ...previous,
+          id: name,
+          name,
+          enabled,
+          url: patch.url ?? previous.url,
+          headers: patch.headers ?? previous.headers,
+        };
   const configChanged =
     JSON.stringify({ ...next, enabled: previous.enabled }) !== JSON.stringify(previous);
-  configs[index] = next;
-  saveMcpServers(configs);
+  writeMcpServer(next, previous.name);
   syncFromConfigs();
-  const entry = findServer(id);
+  const entry = findServer(next.id);
   if (!entry.config.enabled) {
     await closeConnection(entry);
   } else if (configChanged || patch.enabled === true) {
@@ -449,9 +511,10 @@ export async function updateMcpServer(id: string, patch: McpServerPatch): Promis
 }
 
 export async function removeMcpServer(id: string): Promise<McpServerView[]> {
-  const configs = readMcpConfigs();
-  if (!configs.some((config) => config.id === id)) throw new Error('MCP 服务器不存在');
-  saveMcpServers(configs.filter((config) => config.id !== id));
+  if (!readMcpConfigs().some((config) => config.id === id)) throw new Error('MCP 服务器不存在');
+  updateConfigFile('mcp.json', (file) => {
+    delete sectionOf(file, SERVERS_KEY)[id];
+  });
   syncFromConfigs();
   return listMcpServers();
 }

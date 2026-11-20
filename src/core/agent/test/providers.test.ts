@@ -1,9 +1,9 @@
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CredentialDecryptionError } from '../../ports';
-import { loadLlmConfig, saveLlmConfig, type StoredLlmConfig } from '../llm-config';
+import { configFilePath } from '../../config-files';
+import { deleteLlmProvider, loadLlmConfig } from '../llm-config';
 import {
   listLlmProviders,
-  removeLlmProvider,
   saveLlmProvider,
   setLlmProviderEnabled,
   usableLlmProviders,
@@ -33,23 +33,10 @@ vi.mock('../pi', async (importOriginal) => ({
   ]),
 }));
 
-vi.mock('../llm-config', () => ({
-  loadLlmConfig: vi.fn(),
-  saveLlmConfig: vi.fn(),
-}));
+const configPath = configFilePath('config.json');
+const stored = () => loadLlmConfig().providers;
 
-const loadMock = vi.mocked(loadLlmConfig);
-const saveMock = vi.mocked(saveLlmConfig);
-
-let config: StoredLlmConfig;
-
-beforeEach(() => {
-  config = { providers: [] };
-  loadMock.mockImplementation(() => config);
-  saveMock.mockImplementation((next) => {
-    config = next;
-  });
-});
+beforeEach(() => rmSync(configPath, { force: true }));
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -166,30 +153,33 @@ describe('LLM provider config', () => {
       saveLlmProvider({ ...input, modelConfigs: { unknown: { contextWindow: 1000000 } } }),
     ).rejects.toThrow('模型配置必须属于模型列表');
   });
-  it('can add a provider after the old encrypted config becomes unreadable', async () => {
-    loadMock.mockImplementation(() => {
-      throw new CredentialDecryptionError('llm-providers', undefined);
-    });
-    expect((await saveLlmProvider(input)).name).toBe(input.name);
-    expect(config.providers).toHaveLength(1);
-    expect(config.providers[0]!.apiKey).toBe(input.apiKey);
+
+  it('keeps entries and fields written by other tools when saving its own provider', async () => {
+    const magpie = { name: 'Magpie', baseUrl: 'http://127.0.0.1:3425/v1', apiKey: 'm', models: {} };
+    writeFileSync(configPath, JSON.stringify({ providers: { magpie }, theme: 'x' }));
+    const created = await saveLlmProvider(input);
+    const file = JSON.parse(readFileSync(configPath, 'utf8'));
+    file.providers[created.id].note = 'mine';
+    writeFileSync(configPath, JSON.stringify(file));
+    setLlmProviderEnabled(created.id, false);
+    const saved = JSON.parse(readFileSync(configPath, 'utf8'));
+    expect(saved.theme).toBe('x');
+    expect(saved.providers.magpie).toEqual(magpie);
+    expect(saved.providers[created.id]).toMatchObject({ note: 'mine', enabled: false });
+    expect(listLlmProviders().map(({ id }) => id)).toEqual(['magpie', created.id]);
   });
 
-  it('does not replace an unreadable config when editing an existing provider', async () => {
-    loadMock.mockImplementation(() => {
-      throw new CredentialDecryptionError('llm-providers', undefined);
-    });
-    const writes = saveMock.mock.calls.length;
-    await expect(
-      saveLlmProvider({ ...input, id: '00000000-0000-4000-8000-000000000001' }),
-    ).rejects.toThrow(CredentialDecryptionError);
-    expect(saveMock.mock.calls).toHaveLength(writes);
+  it('refuses to overwrite a config file the user broke', async () => {
+    writeFileSync(configPath, '{ broken');
+    await expect(saveLlmProvider(input)).rejects.toThrow('不是有效的 JSON');
+    expect(readFileSync(configPath, 'utf8')).toBe('{ broken');
   });
 
-  it('saves a new provider with a generated id and returns the masked view', async () => {
+  it('names a new provider after its domain, numbering duplicates, and returns the masked view', async () => {
     const view = await saveLlmProvider(input);
+    expect((await saveLlmProvider(input)).id).toBe('deepseek-2');
     expect(view).toEqual({
-      id: view.id,
+      id: 'deepseek',
       name: input.name,
       baseUrl: input.baseUrl,
       models: input.models,
@@ -197,14 +187,14 @@ describe('LLM provider config', () => {
       enabled: true,
     });
     expect('apiKey' in view).toBe(false);
-    expect(config.providers[0]!.apiKey).toBe('test-only');
+    expect(stored()[0]!.apiKey).toBe('test-only');
   });
 
   it('keeps the stored key when editing with an empty apiKey', async () => {
     const created = await saveLlmProvider(input);
     await saveLlmProvider({ ...input, id: created.id, apiKey: '', name: 'DeepSeek 备用' });
-    expect(config.providers[0]!.apiKey).toBe('test-only');
-    expect(config.providers[0]!.name).toBe('DeepSeek 备用');
+    expect(stored()[0]!.apiKey).toBe('test-only');
+    expect(stored()[0]!.name).toBe('DeepSeek 备用');
   });
 
   it('offers only enabled providers with a key to sessions, keeping disabled ones configured', async () => {
@@ -215,8 +205,8 @@ describe('LLM provider config', () => {
     setLlmProviderEnabled(created.id, true);
     expect(usableLlmProviders().map(({ id }) => id)).toEqual([created.id]);
     expect(() => setLlmProviderEnabled('00000000-0000-4000-8000-000000000000', true)).toThrow();
-    removeLlmProvider(created.id);
-    expect(config.providers).toHaveLength(0);
+    deleteLlmProvider(created.id);
+    expect(stored()).toHaveLength(0);
   });
 });
 
