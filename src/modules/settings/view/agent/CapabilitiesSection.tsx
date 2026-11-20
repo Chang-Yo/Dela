@@ -155,8 +155,8 @@ export function CapabilitiesSection() {
                             checked={allEnabled}
                             disabled={busy}
                             indeterminate={!allEnabled && enabledCount > 0}
-                            label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
-                            onChange={(next) =>
+                            aria-label={`${group.label}：${allEnabled ? '全部关闭' : '全部开启'}`}
+                            onCheckedChange={(next) =>
                               void run(() =>
                                 capabilitiesClient.setBuiltinDomain({
                                   domain: group.id,
@@ -206,8 +206,8 @@ export function CapabilitiesSection() {
                           <Switch
                             checked={capability.enabled}
                             disabled={busy}
-                            label={capability.label}
-                            onChange={(next) =>
+                            aria-label={capability.label}
+                            onCheckedChange={(next) =>
                               void run(() =>
                                 capabilitiesClient.setBuiltinCapability({
                                   name: capability.name,

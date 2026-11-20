@@ -143,8 +143,8 @@ export function McpTab() {
                     <Switch
                       checked={server.enabled}
                       disabled={busy}
-                      label={`启用 ${server.name}`}
-                      onChange={(next) => void toggle(server, next)}
+                      aria-label={`启用 ${server.name}`}
+                      onCheckedChange={(next) => void toggle(server, next)}
                     />
                     <Button
                       aria-label={`重连 ${server.name}`}

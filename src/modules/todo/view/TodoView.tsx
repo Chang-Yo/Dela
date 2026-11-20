@@ -100,7 +100,7 @@ function CalendarOptionRows({
         <span className="w-8 shrink-0 text-xs text-ink-3">日历</span>
         <div className="flex flex-1 items-center justify-between gap-2">
           <span className="text-sm">写入日历</span>
-          <Switch checked={calendar} label="写入日历" onChange={onCalendarChange} />
+          <Switch checked={calendar} aria-label="写入日历" onCheckedChange={onCalendarChange} />
         </div>
       </div>
     </>
@@ -377,8 +377,8 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
           <label className="flex items-center gap-2 text-xs text-ink-3">
             <Switch
               checked={showCompleted}
-              label="显示已完成"
-              onChange={(showCompleted) => useTodoPreferences.setState({ showCompleted })}
+              aria-label="显示已完成"
+              onCheckedChange={(showCompleted) => useTodoPreferences.setState({ showCompleted })}
             />
             显示已完成
           </label>

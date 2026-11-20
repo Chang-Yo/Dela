@@ -773,8 +773,8 @@ function ProviderDetail({
             <Switch
               checked={provider.enabled}
               disabled={busy}
-              label={provider.enabled ? `停用 ${provider.name}` : `启用 ${provider.name}`}
-              onChange={(enabled) => onSetEnabled(provider.id, enabled)}
+              aria-label={provider.enabled ? `停用 ${provider.name}` : `启用 ${provider.name}`}
+              onCheckedChange={(enabled) => onSetEnabled(provider.id, enabled)}
             />
             {confirmDelete ? (
               <>

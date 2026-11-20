@@ -112,24 +112,24 @@ export function SystemNotifications() {
           <Switch
             checked={campus ?? true}
             disabled={campus === undefined || busy}
-            label="校园消息提醒"
-            onChange={(next) => void toggleCampus(next)}
+            aria-label="校园消息提醒"
+            onCheckedChange={(next) => void toggleCampus(next)}
           />
         </SettingRow>
         <SettingRow settingId="notify-run-failed" title="任务失败时提醒">
           <Switch
             checked={task?.failed ?? true}
             disabled={task === undefined || busy}
-            label="任务失败时提醒"
-            onChange={(next) => void toggleTask('failed', next)}
+            aria-label="任务失败时提醒"
+            onCheckedChange={(next) => void toggleTask('failed', next)}
           />
         </SettingRow>
         <SettingRow settingId="notify-run-completed" title="任务完成时提醒">
           <Switch
             checked={task?.completed ?? false}
             disabled={task === undefined || busy}
-            label="任务完成时提醒"
-            onChange={(next) => void toggleTask('completed', next)}
+            aria-label="任务完成时提醒"
+            onCheckedChange={(next) => void toggleTask('completed', next)}
           />
         </SettingRow>
         <SettingRow

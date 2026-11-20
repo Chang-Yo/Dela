@@ -430,8 +430,8 @@ function EntryForm({
               </div>
               <Switch
                 checked={useForFetch}
-                label="网页读取也使用 DeepSeek"
-                onChange={setUseForFetch}
+                aria-label="网页读取也使用 DeepSeek"
+                onCheckedChange={setUseForFetch}
               />
             </div>
           </>

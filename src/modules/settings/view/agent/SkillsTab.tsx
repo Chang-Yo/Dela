@@ -302,8 +302,8 @@ export function SkillsTab() {
                     <Switch
                       checked={skill.enabled}
                       disabled={busy}
-                      label={`启用 ${skill.name}`}
-                      onChange={(next) => void toggle(skill, next)}
+                      aria-label={`启用 ${skill.name}`}
+                      onCheckedChange={(next) => void toggle(skill, next)}
                     />
                   )}
                 </div>
