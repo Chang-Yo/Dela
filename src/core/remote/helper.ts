@@ -596,8 +596,7 @@ async function uploadArtifact(
   });
 }
 
-/** 找到或起一个 helper，返回端口与 token：run.json 在、pid 活着、版本对得上就复用，否则起新实例。
- * 两个 Dela 同时起时 helper 用 flock 只放一个进来，输的那个退出码 3，脚本改为等对方的 run.json。 */
+/** 共用版本化的可执行文件，运行状态按实际执行启动脚本的节点隔离。 */
 async function findOrStart(
   target: RemoteTarget,
   dir: string,
@@ -607,15 +606,19 @@ async function findOrStart(
   const script = [
     'set -e',
     `dir=${dir}`,
+    'node=$(hostname)',
+    'case "$node" in ""|.|..|*[!a-zA-Z0-9._-]*) printf "%s\\n" "无法识别远端主机名" >&2; exit 1;; esac',
+    'runtime="$dir/runtime/$node"',
     'umask 077',
-    'alive() { [ -s "$dir/run.json" ] && pid=$(sed -n \'s/.*"pid":\\([0-9]*\\).*/\\1/p\' "$dir/run.json") && [ -n "$pid" ] && [ "$(readlink "/proc/$pid/exe" 2>/dev/null)" = "$dir/dela-helper" ]; }',
-    'if alive; then printf REUSE; cat "$dir/run.json"; printf "\\n"; cat "$dir/token"; exit 0; fi',
-    `printf '%s' ${shellQuote(token)} > "$dir/token.new"`,
-    'mv -f "$dir/token.new" "$dir/token"',
-    'rm -f "$dir/run.json"',
-    `setsid nohup "$dir/dela-helper" --port 0 --token-file "$dir/token" --run-file "$dir/run.json" --lock-file "$dir/lock" --idle-timeout ${IDLE_TIMEOUT}${rg ? ` --rg "${rg}"` : ''} >> "$dir/helper.log" 2>&1 < /dev/null &`,
+    'mkdir -p "$runtime"',
+    'alive() { [ -s "$runtime/run.json" ] && pid=$(sed -n \'s/.*"pid":\\([0-9]*\\).*/\\1/p\' "$runtime/run.json") && [ -n "$pid" ] && [ "$(readlink "/proc/$pid/exe" 2>/dev/null)" = "$dir/dela-helper" ]; }',
+    'if alive; then printf REUSE; cat "$runtime/run.json"; printf "\\n"; cat "$runtime/token"; exit 0; fi',
+    `printf '%s' ${shellQuote(token)} > "$runtime/token.new"`,
+    'mv -f "$runtime/token.new" "$runtime/token"',
+    'rm -f "$runtime/run.json"',
+    `setsid nohup "$dir/dela-helper" --port 0 --token-file "$runtime/token" --run-file "$runtime/run.json" --lock-file "$runtime/lock" --idle-timeout ${IDLE_TIMEOUT}${rg ? ` --rg "${rg}"` : ''} >> "$runtime/helper.log" 2>&1 < /dev/null &`,
     'for i in $(seq 1 40); do alive && break; sleep 0.25; done',
-    'if alive; then printf START; cat "$dir/run.json"; printf "\\n"; cat "$dir/token"; else printf START-FAILED; tail -n 3 "$dir/helper.log" 2>/dev/null; exit 4; fi',
+    'if alive; then printf START; cat "$runtime/run.json"; printf "\\n"; cat "$runtime/token"; else printf START-FAILED; tail -n 3 "$runtime/helper.log" 2>/dev/null; exit 4; fi',
   ].join('\n');
   const result = await exec(target, script, { timeoutMs: STARTUP_WAIT_MS });
   const text = result.stdout.toString();
