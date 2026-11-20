@@ -52,6 +52,17 @@ import {
 import Database from 'better-sqlite3';
 import { spawn as spawnPty } from 'node-pty';
 
+const terminalSmokeTest = process.argv.includes('--terminal-smoke-test');
+const smokeTest = process.argv.includes('--smoke-test') || terminalSmokeTest;
+let startHidden = process.argv.includes('--hidden');
+// 单实例锁按 userData 判定：冒烟须先换到临时目录，否则开着的 Dela 会让它直接退出。
+if (smokeTest && !terminalSmokeTest) {
+  const profile = mkdtempSync(join(tmpdir(), 'dela-smoke-'));
+  app.setPath('userData', profile);
+  app.setPath('documents', profile);
+  app.setPath('home', profile);
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
@@ -87,15 +98,6 @@ ipcMain.handle('window:get-state', (event) => ({
   maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false,
 }));
 
-const terminalSmokeTest = process.argv.includes('--terminal-smoke-test');
-const smokeTest = process.argv.includes('--smoke-test') || terminalSmokeTest;
-let startHidden = process.argv.includes('--hidden');
-if (smokeTest && !terminalSmokeTest) {
-  const profile = mkdtempSync(join(tmpdir(), 'dela-smoke-'));
-  app.setPath('userData', profile);
-  app.setPath('documents', profile);
-  app.setPath('home', profile);
-}
 let stopModules: (() => void)[] = [];
 let tray: Tray | undefined;
 let mainWindow: BrowserWindow | undefined;
