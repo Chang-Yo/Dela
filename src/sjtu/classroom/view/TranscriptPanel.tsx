@@ -6,7 +6,6 @@ import type { ClassroomVideo, VideoCourse } from '../contract';
 import { Button } from '../../../ui/button';
 import { EmptyState } from '../../../ui/empty-state';
 import { SearchInput } from '../../../ui/search-input';
-import { IconButton } from '../../../ui/icon-button';
 import { cn } from '../../../ui/lib/cn';
 import { formatTime, lectureFileName, lectureTitle } from './player-format';
 import { useClassroom } from './store';
@@ -60,14 +59,16 @@ function TranscriptReader({ course, video }: { course: VideoCourse; video: Class
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="导出完整文稿"
             title="导出完整文稿"
             disabled={loading || !transcript || exporting}
             onClick={() => void exportText()}
           >
             {exporting ? <Spinner /> : <FileOutput />}
-          </IconButton>
+          </Button>
         </div>
       </div>
       <div

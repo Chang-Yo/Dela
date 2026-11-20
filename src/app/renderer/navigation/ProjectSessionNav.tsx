@@ -47,7 +47,6 @@ import { navIcon, navRow, navSectionTitle, rowActions } from './nav-styles';
 import { useRemoteActivity } from './remote-activity';
 import { RemoteConnectionTip } from './remote-connection-tip';
 import { useRemoteConnections } from './remote-connections';
-import { IconButton } from '../../../ui/icon-button';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import {
   Dialog,
@@ -210,9 +209,14 @@ export function ProjectSessionNav({
             <div className={cn(rowActions, rowActive ? 'bg-selected' : 'bg-hover')}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <IconButton size="sm" aria-label={`${label} 的项目菜单`} title="项目菜单">
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`${label} 的项目菜单`}
+                    title="项目菜单"
+                  >
                     <MoreHorizontal />
-                  </IconButton>
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="right" className="w-56">
                   <DropdownMenuLabel className="break-words text-sm text-ink">
@@ -287,15 +291,16 @@ export function ProjectSessionNav({
                 </DropdownMenuContent>
               </DropdownMenu>
               {onNewChat && (
-                <IconButton
-                  size="sm"
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   aria-label={`在 ${label} 中新建对话`}
                   title="新对话"
 
                   onClick={() => onNewChat(key)}
                 >
                   <SquarePen />
-                </IconButton>
+                </Button>
               )}
             </div>
           )}
@@ -441,15 +446,16 @@ export function ProjectSessionNav({
         >
           项目
         </span>
-        <IconButton
-          size="sm"
+        <Button
+          variant="ghost"
+          size="icon-xs"
           aria-label="新建项目"
 
           onClick={onNewProject}
           title="新建项目"
         >
           <Plus strokeWidth={1.8} />
-        </IconButton>
+        </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <section aria-labelledby="project-session-nav-title" className="grid content-start gap-px">

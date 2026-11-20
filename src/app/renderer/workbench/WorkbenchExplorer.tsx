@@ -50,7 +50,6 @@ import { useExplorerState } from './explorer-state';
 import { useViewportWidth } from '../../../ui/hooks/use-viewport-width';
 import { cn } from '../../../ui/lib/cn';
 import { overlayFade } from '../../../ui/lib/motion';
-import { IconButton } from '../../../ui/icon-button';
 import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
@@ -275,7 +274,9 @@ export function WorkbenchExplorer({
           style={narrow ? undefined : { width: effectiveWidth }}
         >
           <PanelHeader variant="plain">
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-controls="workspace-explorer"
               aria-expanded={visible}
               aria-label={visible ? '收起目录' : '展开目录'}
@@ -288,7 +289,7 @@ export function WorkbenchExplorer({
               title={visible ? '收起目录' : '展开目录'}
             >
               <PanelLeft strokeWidth={1.8} />
-            </IconButton>
+            </Button>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

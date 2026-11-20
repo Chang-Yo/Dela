@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 import { compareCanvasTerms, latestTermOf } from '../contract';
 import { canvasClient, stateKey, useCanvasState, useLibraryGrouping } from './use-canvas';
 
@@ -137,9 +137,9 @@ export function SourcesTree({
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <IconButton size="sm" aria-label={`${node.name} 的操作`}>
+                <Button variant="ghost" size="icon-xs" aria-label={`${node.name} 的操作`}>
                   <Ellipsis />
-                </IconButton>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 {course ? (

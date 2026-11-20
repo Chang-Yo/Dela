@@ -5,7 +5,6 @@ import type { TabId } from '../../../app/module';
 import type { ChatComment, ChatSessionSummary, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatClient } from './client';
 import { Button } from '../../../ui/button';
-import { IconButton } from '../../../ui/icon-button';
 import { ChatComposer } from './ChatComposer';
 import { composerContext } from './composer-context';
 import { ChatSessions } from './ChatSessions';
@@ -227,14 +226,28 @@ function ChatSessionView({
       className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-surface @container"
     >
       <div className="flex h-10 shrink-0 items-center gap-1 px-3">
-        <IconButton aria-label="历史对话" onClick={() => setSessionsOpen(true)} title="历史对话">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="历史对话"
+          onClick={() => setSessionsOpen(true)}
+          title="历史对话"
+        >
           <History />
-        </IconButton>
-        <IconButton aria-label="新对话" onClick={startNewChat} title="新对话">
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="新对话"
+          onClick={startNewChat}
+          title="新对话"
+        >
           <SquarePen />
-        </IconButton>
+        </Button>
         {reviewReady && (
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="工作区改动"
             onClick={() =>
               workbench.open(reviewTabId({ kind: 'uncommitted', sessionId: active }), {
@@ -244,27 +257,31 @@ function ChatSessionView({
             title="查看工作区未提交的改动"
           >
             <GitCompare />
-          </IconButton>
+          </Button>
         )}
         <div className="flex-1" />
         {chat && chat.messages.length > 0 && (
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="导出会话"
             disabled={busy || chat.running || chat.compacting || exporting}
             onClick={() => void saveConversation()}
             title="导出会话 ZIP"
           >
             <Download />
-          </IconButton>
+          </Button>
         )}
         {conversation && !sidechatOpen && !subagent && (
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="旁问"
             onClick={() => void openSidechat(active)}
             title="旁问：带着当前对话顺便问一句（/btw）"
           >
             <MessageCircleQuestion />
-          </IconButton>
+          </Button>
         )}
       </div>
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进会话都闪现 Key 表单。 */}

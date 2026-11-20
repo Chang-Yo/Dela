@@ -16,7 +16,7 @@ import { iconOf, titleOf } from './registry';
 import { ExplorerRevealButton } from './explorer-state';
 import { encodeTabDrag, hasTabDrag, parseTabDrag, setCurrentTabDrag, tabDragType } from './tab-dnd';
 import { GroupToolbar } from './GroupToolbar';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 
 export function TabBar({
   group,
@@ -181,9 +181,11 @@ export function TabBar({
                     {title}
                   </span>
                   {!isPinned && (
-                    <IconButton
-                      size="xs"
+                    <Button
+                      variant="ghost"
+                      size="icon-2xs"
                       aria-hidden
+                      aria-label="关闭标签"
                       className="relative after:absolute after:-inset-1 after:content-['']"
                       tabIndex={-1}
                       onClick={(event) => {
@@ -192,7 +194,7 @@ export function TabBar({
                       }}
                     >
                       <X />
-                    </IconButton>
+                    </Button>
                   )}
                 </div>
               </ContextMenuTrigger>

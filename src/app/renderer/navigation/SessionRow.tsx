@@ -8,7 +8,6 @@ import { cn } from '../../../ui/lib/cn';
 import { useSessionRunStatus, updateSession } from '../../../modules/chat/view';
 import { showToast } from '../../../ui/toast';
 import { navSubRow, rowActions } from './nav-styles';
-import { IconButton } from '../../../ui/icon-button';
 import { errorMessage } from '../../../core/protocol/contract';
 
 export interface NavSessionSummary {
@@ -115,8 +114,9 @@ export function SessionRow({
         </Button>
       ) : (
         <div className={cn(rowActions, active ? 'bg-selected' : 'bg-hover')}>
-          <IconButton
-            size="sm"
+          <Button
+            variant="ghost"
+            size="icon-xs"
             disabled={busy}
             aria-label={`${session.pinned ? '取消置顶' : '置顶'} ${title}`}
             title={session.pinned ? '取消置顶' : '置顶'}
@@ -124,10 +124,11 @@ export function SessionRow({
             onClick={() => void change(false)}
           >
             {session.pinned ? <PinOff /> : <Pin />}
-          </IconButton>
+          </Button>
           {onDelete && (
-            <IconButton
-              size="sm"
+            <Button
+              variant="ghost"
+              size="icon-xs"
               disabled={busy}
               aria-label={`归档 ${title}`}
               title="归档对话"
@@ -135,7 +136,7 @@ export function SessionRow({
               onClick={() => void change(true)}
             >
               <Archive />
-            </IconButton>
+            </Button>
           )}
         </div>
       )}

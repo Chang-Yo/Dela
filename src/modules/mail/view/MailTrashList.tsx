@@ -4,7 +4,7 @@ import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/lib/cn';
 import { PanelHeader } from '../../../ui/panel-header';
 import { ErrorText } from '../../../ui/error-text';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 
 type Props = {
   className?: string;
@@ -37,7 +37,9 @@ export function MailTrashList({
           <small className="shrink-0 text-xs text-ink-3">{items.length} 封</small>
         </div>
         <div className="flex-1" />
-        <IconButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label="清空已删除邮件"
           className="hover:text-danger disabled:cursor-wait"
           disabled={items.length === 0}
@@ -45,7 +47,7 @@ export function MailTrashList({
           title="清空已删除邮件"
         >
           <Trash2 strokeWidth={1.8} />
-        </IconButton>
+        </Button>
       </PanelHeader>
       {error && <ErrorText className="px-4 py-2">{error}</ErrorText>}
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-1">
@@ -97,22 +99,26 @@ export function MailTrashList({
                   </span>
                 </button>
                 <span className="flex shrink-0 items-center gap-1 pt-0.5">
-                  <IconButton
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label={`恢复到 ${item.folderName ?? '原文件夹'}`}
 
                     onClick={() => onRestore(item)}
                     title={`恢复到 ${item.folderName ?? '原文件夹'}`}
                   >
                     <RotateCcw strokeWidth={1.8} />
-                  </IconButton>
-                  <IconButton
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label="彻底删除"
                     className="hover:text-danger"
                     onClick={() => onPurge(item)}
                     title="彻底删除"
                   >
                     <Trash2 strokeWidth={1.8} />
-                  </IconButton>
+                  </Button>
                 </span>
               </div>
             );

@@ -7,7 +7,6 @@ import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { Button } from '../../../ui/button';
 import { useDismissOnOutsidePointer } from '../../../ui/hooks/use-dismiss-on-outside-pointer';
 import { EmptyState } from '../../../ui/empty-state';
-import { IconButton } from '../../../ui/icon-button';
 import { SearchInput } from '../../../ui/search-input';
 import { cn } from '../../../ui/lib/cn';
 import { poolKey, querySessions } from './sessions';
@@ -74,14 +73,16 @@ function SessionList({
               确认归档
             </Button>
           ) : (
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label={`归档对话 ${session.title}`}
               className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
               onClick={() => setConfirmingId(session.id)}
               title="归档对话"
             >
               <Archive />
-            </IconButton>
+            </Button>
           )}
         </div>
       ))}
@@ -183,9 +184,14 @@ export function ChatSessions({
             placeholder="搜索对话内容…"
             value={query}
           />
-          <IconButton aria-label="关闭" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="关闭"
+            onClick={() => onOpenChange(false)}
+          >
             <X strokeWidth={1.8} />
-          </IconButton>
+          </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-line p-2">
           {loadError && (

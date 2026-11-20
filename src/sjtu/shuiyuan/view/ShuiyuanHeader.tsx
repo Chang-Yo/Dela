@@ -7,7 +7,7 @@ import { SegmentedControl } from '../../../ui/segmented-control';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { cn } from '../../../ui/lib/cn';
 import { useShuiyuan, type ListSelection } from './store';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 import { listKey, useCounts, useSelectList, useSiteStructure } from './use-shuiyuan';
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -28,18 +28,20 @@ function PersonalButton({
   onClick: () => void;
 }) {
   return (
-    <IconButton
+    <Button
+      variant="ghost"
+      size="icon-md"
       aria-current={active ? 'page' : undefined}
+      aria-label={label}
       className="relative"
       onClick={onClick}
-      size="lg"
       title={label}
     >
       <Icon strokeWidth={1.8} />
       {count && count > 0 ? (
         <Badge variant="count" className="absolute -right-1.5 -top-1" count={count} />
       ) : null}
-    </IconButton>
+    </Button>
   );
 }
 
@@ -181,8 +183,9 @@ export function ShuiyuanHeader() {
               ))}
             </SelectContent>
           </Select>
-          <IconButton
-            size="lg"
+          <Button
+            variant="ghost"
+            size="icon-md"
             aria-label="刷新"
             onClick={() => {
               selectList(list);
@@ -191,7 +194,7 @@ export function ShuiyuanHeader() {
             title="刷新"
           >
             <RefreshCw className={cn(listLoading && 'animate-spin')} strokeWidth={1.8} />
-          </IconButton>
+          </Button>
         </div>
       </div>
     </header>

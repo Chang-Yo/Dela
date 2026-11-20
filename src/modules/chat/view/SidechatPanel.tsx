@@ -18,7 +18,7 @@ import {
 } from '../../../core/protocol/chat-input';
 import { agentClient } from './client';
 import { EmptyState } from '../../../ui/empty-state';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 import { showToast } from '../../../ui/toast';
 import { cn } from '../../../ui/lib/cn';
 import { useChatTabSource } from './chat-source';
@@ -216,25 +216,35 @@ export function SidechatPanel({
       >
         <header className="flex h-9 shrink-0 items-center gap-1 pl-3 pr-1.5">
           {title}
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="保留为新会话"
             disabled={busy || view.messages.length === 0}
             onClick={keep}
             title="保留为新会话"
           >
             <SquareArrowOutUpRight />
-          </IconButton>
+          </Button>
           <div className="flex-1" />
-          <IconButton aria-label="收起旁问" onClick={() => setMotion('collapse')} title="收起">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="收起旁问"
+            onClick={() => setMotion('collapse')}
+            title="收起"
+          >
             <ChevronUp />
-          </IconButton>
-          <IconButton
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="关闭旁问"
             onClick={() => setMotion('close')}
             title="关闭（内容不保留）"
           >
             <X />
-          </IconButton>
+          </Button>
         </header>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {view.messages.length > 0 ? (

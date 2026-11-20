@@ -4,7 +4,7 @@ import { CircleAlert, CircleCheck, Sparkles, X, type LucideIcon } from 'lucide-r
 import { Toast } from 'radix-ui';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { cn } from './lib/cn';
-import { IconButton } from './icon-button';
+import { Button } from './button';
 
 export type ToastVariant = 'error' | 'success';
 
@@ -57,9 +57,15 @@ export function ToastCard({
       </div>
       {action}
       {onClose && (
-        <IconButton aria-label="关闭通知" onClick={onClose} className="-mt-0.5">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="关闭通知"
+          onClick={onClose}
+          className="-mt-0.5"
+        >
           <X />
-        </IconButton>
+        </Button>
       )}
     </div>
   );

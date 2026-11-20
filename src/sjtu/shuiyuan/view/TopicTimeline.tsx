@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Slider as SliderPrimitive } from 'radix-ui';
 import { ArrowDownToLine, ArrowUpToLine, Lock, Reply } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { IconButton } from '../../../ui/icon-button';
 
 type TopicTimelineProps = {
   current: number;
@@ -156,13 +155,18 @@ export function FloorCapsule({ current, highest, onJump, reply }: TopicTimelineP
         >
           {progress ? (
             <>
-              <IconButton aria-label="跳到首楼" onClick={() => jump(1)}>
+              <Button variant="ghost" size="icon-sm" aria-label="跳到首楼" onClick={() => jump(1)}>
                 <ArrowUpToLine aria-hidden="true" strokeWidth={1.8} />
-              </IconButton>
+              </Button>
               <FloorField highest={highest} onJump={jump} value={current} />
-              <IconButton aria-label="跳到最新楼层" onClick={() => jump(highest)}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="跳到最新楼层"
+                onClick={() => jump(highest)}
+              >
                 <ArrowDownToLine aria-hidden="true" strokeWidth={1.8} />
-              </IconButton>
+              </Button>
             </>
           ) : null}
           {progress && reply ? (

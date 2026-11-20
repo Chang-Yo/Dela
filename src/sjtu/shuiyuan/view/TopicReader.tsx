@@ -35,7 +35,6 @@ import { FloorCapsule, TopicTimeline } from './TopicTimeline';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { ShuiyuanPost } from '../contract';
 import { Alert } from '../../../ui/alert';
-import { IconButton } from '../../../ui/icon-button';
 
 function quoteText(cooked: string): string {
   const doc = new DOMParser().parseFromString(cooked, 'text/html');
@@ -83,13 +82,15 @@ function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsPr
       </button>
       {canReply ? (
         <>
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label={`引用第 ${post.postNumber} 楼`}
             onClick={() => onQuote(post)}
             title="引用"
           >
             <Quote strokeWidth={1.8} />
-          </IconButton>
+          </Button>
           <button
             className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
             onClick={() => onReply(post)}

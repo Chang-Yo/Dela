@@ -23,7 +23,6 @@ import { draftsKey, mailClient } from './use-mail';
 import { acceleratorFromEvent } from '../../settings/contract';
 import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
-import { IconButton } from '../../../ui/icon-button';
 
 /** 邮箱页据此决定再点「写邮件」是否收起撰写面板。 */
 export type MailComposerHandle = { dirty: boolean };
@@ -671,7 +670,9 @@ export function MailComposer({
 
         {linkDraft === null ? (
           <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line">
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="加粗"
               aria-pressed={formatState.bold}
 
@@ -680,8 +681,10 @@ export function MailComposer({
               title="加粗"
             >
               <Bold strokeWidth={1.8} />
-            </IconButton>
-            <IconButton
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="斜体"
               aria-pressed={formatState.italic}
 
@@ -690,8 +693,10 @@ export function MailComposer({
               title="斜体"
             >
               <Italic strokeWidth={1.8} />
-            </IconButton>
-            <IconButton
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="添加链接"
               disabled={!hasLinkSelection}
 
@@ -700,9 +705,11 @@ export function MailComposer({
               title={hasLinkSelection ? '添加链接' : '选中文字后添加链接'}
             >
               <Link strokeWidth={1.8} />
-            </IconButton>
+            </Button>
             <span aria-hidden="true" className="mx-1 h-4 w-px bg-line" />
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="插入图片"
 
               onMouseDown={(event) => event.preventDefault()}
@@ -710,8 +717,10 @@ export function MailComposer({
               title="插入图片"
             >
               <ImagePlus strokeWidth={1.8} />
-            </IconButton>
-            <IconButton
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="添加附件"
 
               onMouseDown={(event) => event.preventDefault()}
@@ -719,7 +728,7 @@ export function MailComposer({
               title="添加附件"
             >
               <Paperclip strokeWidth={1.8} />
-            </IconButton>
+            </Button>
           </div>
         ) : (
           <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line">

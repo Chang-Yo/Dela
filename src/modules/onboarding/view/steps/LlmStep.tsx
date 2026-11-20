@@ -10,7 +10,6 @@ import { capModels } from './model-import';
 import type { LlmCatalogProvider, LlmVerifyResult } from '../../../../core/protocol/llm';
 import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
-import { IconButton } from '../../../../ui/icon-button';
 import { Button } from '../../../../ui/button';
 import { Collapsible } from '../../../../ui/collapsible';
 import { Input } from '../../../../ui/input';
@@ -215,7 +214,9 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                     value={apiKey}
                   />
                   <div className="absolute inset-y-0 right-0.5 flex items-center gap-1">
-                    <IconButton
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       aria-label="检测连接"
                       className="hover:text-ink-2 disabled:cursor-not-allowed"
                       disabled={verifyBusy || (vendor ? !selected : !baseUrl.trim())}
@@ -223,15 +224,17 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                       title="检测连接"
                     >
                       {verifyBusy ? <Spinner /> : <PlugZap aria-hidden="true" />}
-                    </IconButton>
-                    <IconButton
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       aria-label={showKey ? '隐藏 API Key' : '显示 API Key'}
                       className="hover:text-ink-2"
                       onClick={() => setShowKey((value) => !value)}
                       title={showKey ? '隐藏 API Key' : '显示 API Key'}
                     >
                       {showKey ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                    </IconButton>
+                    </Button>
                   </div>
                 </div>
                 {(verifyResult || importNotice) && (

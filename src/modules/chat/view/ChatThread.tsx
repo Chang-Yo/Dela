@@ -31,7 +31,6 @@ import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../cor
 import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';
-import { IconButton } from '../../../ui/icon-button';
 import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import { useChatTabSource, type MailDraftDialog } from './chat-source';
 import { formatDuration, ReplyTrace } from './ToolTimeline';
@@ -175,7 +174,9 @@ function UserMessage({
       <MessageActions>
         {message.content ? <CopyAction label="复制消息" text={message.content} /> : null}
         {editable && (
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="编辑消息"
             onClick={() => {
               setText(message.content);
@@ -184,7 +185,7 @@ function UserMessage({
             title="编辑并重新发送"
           >
             <Pencil />
-          </IconButton>
+          </Button>
         )}
       </MessageActions>
     </UserMessageFrame>
@@ -304,22 +305,26 @@ function AssistantMessage({
         <MessageActions className="mt-1">
           <CopyAction label="复制回答" text={content} />
           {onSaveNote && (
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="保存为笔记"
               onClick={() => onSaveNote(content)}
               title="保存为笔记"
             >
               <NotebookPen />
-            </IconButton>
+            </Button>
           )}
           {onFork && message.entryId && (
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="从这里分支"
               onClick={() => onFork(message.entryId!)}
               title="从这里分支为新对话"
             >
               <GitBranch />
-            </IconButton>
+            </Button>
           )}
         </MessageActions>
       )}

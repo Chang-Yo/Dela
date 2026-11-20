@@ -5,7 +5,6 @@ import { ArrowUp, Archive, Check, CircleAlert, Copy, Package, RotateCcw, X } fro
 import { Button } from '../button';
 import { Card } from '../card';
 import { cn } from '../lib/cn';
-import { IconButton } from '../icon-button';
 import { Shimmer } from '../shimmer';
 
 const COPY_FEEDBACK_MS = 1500;
@@ -116,9 +115,15 @@ export function UserMessageEditor({
         value={value}
       />
       <div className="mt-1.5 flex items-center gap-1">
-        <IconButton aria-label="取消编辑" onClick={onCancel} title="取消">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="取消编辑"
+          onClick={onCancel}
+          title="取消"
+        >
           <X />
-        </IconButton>
+        </Button>
         <Button
           aria-label="重新发送"
           className="rounded-full"
@@ -171,7 +176,9 @@ export function MessageActions({
 export function CopyAction({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <IconButton
+    <Button
+      variant="ghost"
+      size="icon-sm"
       aria-label={label}
       onClick={() => {
         void navigator.clipboard.writeText(text);
@@ -181,7 +188,7 @@ export function CopyAction({ text, label }: { text: string; label: string }) {
       title="复制"
     >
       {copied ? <Check className="text-success" /> : <Copy />}
-    </IconButton>
+    </Button>
   );
 }
 
