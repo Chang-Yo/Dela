@@ -233,7 +233,7 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 
 `ModuleDefinition` 除 `ipc` 外还有三个钩子：`register()` 在窗口创建前登记命令域、Skill 与各类注册口（冒烟测试同样调用）；`start()` 启动后台同步并返回停止函数；`openLink(url)` 让模块在应用内接管外部链接。
 
-交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts` 与 `app/contracts.ts` 例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。
+交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts`、`app/views.ts` 与 `app/contracts.ts` 三份清单例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。CI 每次都用 `scripts/strip-sjtu.ts` 从三份清单里去掉全部交大模块，再做类型检查、构建与冒烟，守住这条边界。
 
 Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
 
@@ -318,13 +318,13 @@ pnpm test
 
 CI 在 PR 创建、提交更新、重新打开、编辑及推送到 `dev`、`main` 时运行。
 
-| Workflow              | 职责                                           |
-| --------------------- | ---------------------------------------------- |
-| `quality.yml`         | 格式检查，按需执行 lint、类型检查与 actionlint |
-| `test.yml`            | Windows 应用构建与单元测试，上传 out 产物      |
-| `helper.yml`          | Go vet/test、双架构构建，供 CI 与 Release 共用 |
-| `desktop-windows.yml` | Windows 冒烟、目录包与安装包验证               |
-| `desktop-macos.yml`   | macOS 冒烟、目录包与安装包验证                 |
+| Workflow              | 职责                                                                                    |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| `quality.yml`         | 格式检查，按需执行 lint、类型检查与 actionlint                                          |
+| `test.yml`            | Windows 应用构建、单元测试与冒烟，上传 out 产物；再去掉交大模块重做类型检查、构建与冒烟 |
+| `helper.yml`          | Go vet/test、双架构构建，供 CI 与 Release 共用                                          |
+| `desktop-windows.yml` | Windows 冒烟、目录包与安装包验证                                                        |
+| `desktop-macos.yml`   | macOS 冒烟、目录包与安装包验证                                                          |
 
 - 分流按改动路径：纯文档不构建应用，workflow 改动额外跑 actionlint，应用源码与内置 Markdown 资源触发完整检查。精确规则以 `ci.yml` 的 filters 为准。
 - 类型检查由 quality 执行一次；Windows 与 macOS 用 `build:bundle` 构建并分别运行测试，Windows 打包复用 test 的 out 产物。本地 `build`、`check` 与打包命令仍包含类型检查。

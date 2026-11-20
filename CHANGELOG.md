@@ -17,6 +17,7 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 新增 magpie 插件 [`magpie-agent-dela`](https://www.npmjs.com/package/magpie-agent-dela)：在 magpie 中连接 Dela 后，magpie 网关的模型、MCP 服务器与 Skills 可直接在 Dela 中使用。
 - 新增 MCP 配置支持 `${NAME}` 与 `${NAME:-默认值}` 环境变量引用，连接时展开。
 - 修复远程项目在多节点共享 HOME 时的 helper 运行状态冲突，同版本节点共用可执行文件。
+- 移除导航快捷键 Ctrl+1/2/3（首页、邮箱、课表）；已自定义的这三项设置会被忽略。
 
 ## 3.0.0 - 2026-11-19
 

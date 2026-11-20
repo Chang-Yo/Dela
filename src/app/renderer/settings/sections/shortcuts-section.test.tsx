@@ -36,6 +36,7 @@ afterEach(async () => {
 });
 
 it('rejects a digit-family recording that conflicts at other digits', async () => {
+  useShortcuts.setState({ bindings: { ...defaultKeybindings(), 'open-settings': 'Mod+2' } });
   const writes: unknown[] = [];
   invoke.mockImplementation(async (channel: string, patch: unknown) => {
     if (channel !== 'settings:setKeybindings') return undefined;

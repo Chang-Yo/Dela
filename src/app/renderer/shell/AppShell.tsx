@@ -293,15 +293,6 @@ export function AppShell({
       case 'toggle-word-wrap':
         useEditorSettings.getState().toggleWordWrap();
         break;
-      case 'open-home':
-        navigate('home');
-        break;
-      case 'open-mail':
-        navigate({ page: 'mail' });
-        break;
-      case 'open-timetable':
-        navigate({ page: 'timetable' });
-        break;
       case 'open-settings':
         navigate('settings');
         break;
