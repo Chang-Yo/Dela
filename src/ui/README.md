@@ -25,12 +25,12 @@ Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt
 
 ## props 的命名
 
-| 含义     | 名字                                                                                          |
-| -------- | --------------------------------------------------------------------------------------------- |
-| 外观     | `variant`                                                                                     |
-| 大小     | `size`：`2xs`、`xs`、`sm`、`md`、`lg`、`xl`，默认 `md`，不用 `default`                        |
-| 语义色   | `tone`：`accent`、`success`、`warning`、`danger`、`neutral`，不用色相名                       |
-| 受控的值 | 沿用 Radix：`checked` / `onCheckedChange`、`value` / `onValueChange`、`open` / `onOpenChange` |
+| 含义     | 名字                                                                                                                    |
+| -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 外观     | `variant`                                                                                                               |
+| 大小     | `size`：`2xs`–`xl`，控件高度为 `2xs` 20、`xs` 24、`sm` 28、`md` 32、`lg` 40px；默认取该组件最常用的一档，不用 `default` |
+| 语义色   | `tone`：`accent`、`success`、`warning`、`danger`、`neutral`，不用色相名                                                 |
+| 受控的值 | 沿用 Radix：`checked` / `onCheckedChange`、`value` / `onValueChange`、`open` / `onOpenChange`                           |
 
 纯图标按钮用 `Button` 的 `size="icon-<大小>"`。它和同一大小的文字按钮等高，例如 `icon-sm` 和 `sm` 都是 28px，放在同一行天然对齐。纯图标按钮没有文字，必须写 `aria-label`。
 
