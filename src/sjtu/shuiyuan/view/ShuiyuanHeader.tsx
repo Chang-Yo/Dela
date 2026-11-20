@@ -131,7 +131,7 @@ export function ShuiyuanHeader() {
           <SegmentedControl
             aria-label="信息流类型"
             labels={feedLabels}
-            onChange={(kind) => selectList({ kind })}
+            onValueChange={(kind) => selectList({ kind })}
             options={feedKinds}
             value={feedKind === 'latest' || feedKind === 'featured' ? feedKind : null}
           />

@@ -11,7 +11,6 @@ type Rule = 'filename' | 'size' | 'tone' | 'style';
 const pending: Record<string, Rule[]> = {
   'button.tsx': ['size'],
   'lightbox.tsx': ['filename', 'style'],
-  'segmented-control.tsx': ['style'],
   'toast.tsx': ['filename', 'style'],
 };
 

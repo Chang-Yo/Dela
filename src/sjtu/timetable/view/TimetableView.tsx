@@ -253,7 +253,7 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
             </Button>
             <SegmentedControl
               labels={{ week: '周', month: '月' }}
-              onChange={setMode}
+              onValueChange={setMode}
               options={['week', 'month']}
               value={mode}
             />

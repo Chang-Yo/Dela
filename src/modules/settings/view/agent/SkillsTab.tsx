@@ -180,7 +180,7 @@ export function SkillsTab() {
         <div className="flex items-center justify-between gap-4">
           <SegmentedControl
             labels={FILTER_LABELS}
-            onChange={setFilter}
+            onValueChange={setFilter}
             options={['all', ...origins]}
             value={filter}
           />

@@ -124,7 +124,7 @@ function DesktopClassroomView() {
                 <SegmentedControl
                   options={['节次', '语音']}
                   value={sidebarTab}
-                  onChange={setSidebarTab}
+                  onValueChange={setSidebarTab}
                   className="w-full"
                 />
               </div>

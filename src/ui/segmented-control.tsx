@@ -1,28 +1,30 @@
 'use client';
 
 import type { LucideIcon } from 'lucide-react';
+import { cn } from './lib/cn';
 
-export function SegmentedControl<T extends string>({
+function SegmentedControl<T extends string>({
   options,
   labels,
   icons,
   value,
-  onChange,
-  className = '',
+  onValueChange,
+  className,
   'aria-label': label,
 }: {
   options: readonly T[];
   labels?: Readonly<Record<T, string>>;
   icons?: Readonly<Partial<Record<T, LucideIcon>>>;
   value: T | null;
-  onChange: (v: T) => void;
+  onValueChange: (value: T) => void;
   className?: string;
   'aria-label'?: string;
 }) {
   const index = value === null ? -1 : options.indexOf(value);
   return (
     <div
-      className={`relative inline-grid select-none rounded-card bg-inset p-0.5 ${className}`}
+      className={cn('relative inline-grid select-none rounded-card bg-inset p-0.5', className)}
+      data-slot="segmented-control"
       style={{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}
       role="group"
       aria-label={label}
@@ -44,7 +46,7 @@ export function SegmentedControl<T extends string>({
           <button
             key={opt}
             aria-pressed={opt === value}
-            onClick={() => onChange(opt)}
+            onClick={() => onValueChange(opt)}
             // 无 type 会默认提交表单（邮箱连接表单里也用到它）。
             type="button"
             className={`relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control px-2.5 py-1 text-xs
@@ -59,3 +61,5 @@ export function SegmentedControl<T extends string>({
     </div>
   );
 }
+
+export { SegmentedControl };

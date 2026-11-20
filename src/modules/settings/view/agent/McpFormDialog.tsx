@@ -91,7 +91,7 @@ export function McpFormDialog({
           {!isEdit && (
             <SegmentedControl
               labels={transportLabels}
-              onChange={setTransport}
+              onValueChange={setTransport}
               options={transports}
               value={transport}
             />

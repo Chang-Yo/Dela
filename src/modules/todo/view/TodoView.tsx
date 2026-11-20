@@ -385,7 +385,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
           <SegmentedControl
             icons={{ calendar: CalendarDays, list: List }}
             labels={{ calendar: '日历', list: '列表' }}
-            onChange={setView}
+            onValueChange={setView}
             options={views}
             value={view}
           />

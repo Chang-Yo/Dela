@@ -53,7 +53,7 @@ export function MailAccountForm({
         });
       }}
     >
-      <SegmentedControl className="w-full" onChange={setMode} options={modes} value={mode} />
+      <SegmentedControl className="w-full" onValueChange={setMode} options={modes} value={mode} />
       <label className="grid gap-2">
         <span className={label}>邮箱地址</span>
         <Input

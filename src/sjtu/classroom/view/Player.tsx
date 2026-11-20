@@ -271,7 +271,7 @@ export function Player({
         </div>
         {streams && streams.length > 1 && (
           <SegmentedControl
-            onChange={(label) => selectView(Number(label.replace('画面', '')) - 1)}
+            onValueChange={(label) => selectView(Number(label.replace('画面', '')) - 1)}
             options={streams.map((_, index) => viewLabel(index))}
             value={viewLabel(activeClamped)}
           />
