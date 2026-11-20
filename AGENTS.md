@@ -126,7 +126,7 @@ src/
 1. `core` 只依赖 Pi 和 Node；`core/protocol` 只依赖 zod
 2. `ui` 只依赖 react、radix、cva、lucide
 3. 模块之间只通过对方的 `index.ts` 引用；`view/` 只能引用 `core/protocol`，不能引用 core 的其他部分，也不能引用 `main/`
-4. `core`、`modules`、`app` 都不能引用 `sjtu`，唯一例外是 `app/modules.ts`。通用模块需要交大数据时，在通用模块的 `index.ts` 里开注册口，由交大模块注册进来
+4. `core`、`modules`、`app` 都不能引用 `sjtu`，例外是 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 三份清单。通用模块需要交大数据时，在通用模块的 `index.ts` 里开注册口，由交大模块注册进来
 5. 模块只能引用 `app/module.ts`，不能引用 app 的其他部分
 
 拿到需求后，先判断改动落在哪里：
