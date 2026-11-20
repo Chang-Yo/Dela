@@ -2,14 +2,6 @@ name: Test-sign Windows installer
 
 on:
   workflow_dispatch:
-    inputs:
-      project-slug:
-        description: Project slug shown in SignPath
-        required: true
-        type: string
-      artifact-configuration-slug:
-        description: ZIP configuration slug (leave blank for the project default)
-        type: string
 
 permissions:
   contents: read
@@ -44,8 +36,7 @@ jobs:
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ inputs.project-slug }}
-          artifact-configuration-slug: ${{ inputs.artifact-configuration-slug }}
+          project-slug: Dela
           signing-policy-slug: test-signing
           github-artifact-id: ${{ needs.windows.outputs.installer-artifact-id }}
           wait-for-completion: true
