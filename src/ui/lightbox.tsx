@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { overlayFade } from './motion';
+import { overlayFade } from './lib/motion';
 
 function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onClose: () => void }) {
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 const statusPillVariants = cva(
   'inline-flex items-center gap-1.5 rounded-full font-medium leading-none',

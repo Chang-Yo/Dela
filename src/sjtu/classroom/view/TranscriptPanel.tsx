@@ -7,7 +7,7 @@ import { Button } from '../../../ui/button';
 import { EmptyState } from '../../../ui/empty-state';
 import { SearchInput } from '../../../ui/search-input';
 import { IconButton } from '../../../ui/icon-button';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { formatTime, lectureFileName, lectureTitle } from './player-format';
 import { useClassroom } from './store';
 import { classroomClient, useSelection, useTranscript } from './use-classroom';

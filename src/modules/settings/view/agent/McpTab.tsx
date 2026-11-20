@@ -4,7 +4,7 @@ import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { McpServerView } from '../../../../core/protocol/capabilities';
 import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
-import { cn } from '../../../../ui/cn';
+import { cn } from '../../../../ui/lib/cn';
 import { showToast } from '../../../../ui/toast';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';

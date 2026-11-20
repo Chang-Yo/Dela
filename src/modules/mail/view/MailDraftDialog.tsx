@@ -4,8 +4,8 @@ import { Dialog } from 'radix-ui';
 import { MailComposer } from './MailComposer';
 import { leaveComposer } from './compose-close';
 import { errorMessage } from '../../../core/protocol/contract';
-import { dialogIn, dialogOverlay } from '../../../ui/motion';
-import { cn } from '../../../ui/cn';
+import { dialogIn, dialogOverlay } from '../../../ui/lib/motion';
+import { cn } from '../../../ui/lib/cn';
 import { mailClient } from './use-mail';
 
 export function MailDraftDialog({

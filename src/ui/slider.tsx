@@ -1,7 +1,7 @@
 'use client';
 
 import { Slider as SliderPrimitive } from 'radix-ui';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 export function Slider({
   value,

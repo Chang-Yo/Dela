@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Cloud, Plus } from 'lucide-react';
 import type { RemoteConnection } from '../contract';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { remoteAccent } from './remote-color';
 import { ConnectionForm } from './ConnectionForm';
 import { channelDot, remoteConnectionsQuery, useRemoteChannels } from './remote-state';

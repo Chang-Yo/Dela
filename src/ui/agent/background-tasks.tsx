@@ -1,10 +1,10 @@
 'use client';
 
 import { Bot, Layers, Square, SquareTerminal } from 'lucide-react';
-import { cn } from '../cn';
+import { cn } from '../lib/cn';
 import { IconButton } from '../icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '../popover';
-import { useNow } from '../use-now';
+import { useNow } from '../hooks/use-now';
 
 export type BackgroundTaskItem = {
   id: string;

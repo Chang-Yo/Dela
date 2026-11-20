@@ -11,6 +11,7 @@ Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt
   - 只在 Dela 的场景成立，但被多个模块共用：拼装件，例如 ConnectCard、DesktopOnlyNotice。它们也放在这里，因为模块不能引用 `app`。
   - 只有一个模块用：留在那个模块的 `view/`。
 - 同样的结构出现两次以上才提取；API 只按现有的真实用法设计，不为以后预留。
+- 目录：`hooks/` 放 hook，`lib/` 放工具函数，其余组件平铺在根目录。
 - `agent/` 是 Agent 对话的外观组件，建在基础组件之上；基础组件不能反过来引用它。Markdown 渲染器不进 `ui`，渲染结果经 `children` 传入。
 
 ## 组件写法

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
-import { useRootFontSize } from '../../../ui/root-font-size';
+import { useRootFontSize } from '../../../ui/hooks/root-font-size';
 import { sanitizeHtml } from '../../mail/view';
 import { showToast } from '../../../ui/toast';
 import type { TabId } from '../../workspace/contract';

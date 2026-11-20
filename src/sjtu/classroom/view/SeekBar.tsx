@@ -1,7 +1,7 @@
 // 播放进度条：缓冲层 + 已播层 + 拖拽预览与悬停时间气泡。
 // 拖拽期间只更新预览，松手才提交 seek，避免 timeupdate 与拖拽互相拉扯。
 import { useRef, useState } from 'react';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { formatTime } from './player-format';
 
 interface SeekBarProps {

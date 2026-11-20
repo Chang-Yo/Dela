@@ -9,7 +9,7 @@ import { ChatThread } from '../ChatThread';
 vi.mock('../markdown', () => ({
   ChatMarkdown: ({ children }: { children: ReactNode }) => <span>{children}</span>,
 }));
-vi.mock('../../../../ui/use-media-query', () => ({ useMediaQuery: () => true }));
+vi.mock('../../../../ui/hooks/use-media-query', () => ({ useMediaQuery: () => true }));
 vi.mock('../TurnChangesCard', () => ({
   TurnChangesCard: ({ turnId }: { turnId: string }) => <div data-turn-card={turnId} />,
 }));

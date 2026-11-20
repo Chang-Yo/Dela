@@ -18,8 +18,8 @@ import {
 import type { MailFolderInfo, MailAccountInfo, MailSyncStatus } from '../contract';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
-import { cn } from '../../../ui/cn';
-import { fadeIn } from '../../../ui/motion';
+import { cn } from '../../../ui/lib/cn';
+import { fadeIn } from '../../../ui/lib/motion';
 
 const FOLDER_ICONS: Record<string, LucideIcon> = {
   '\\Inbox': Inbox,

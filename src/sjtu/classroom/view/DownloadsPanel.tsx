@@ -5,7 +5,7 @@ import { ProgressRing } from '../../../ui/progress-ring';
 import { Button } from '../../../ui/button';
 import { EmptyState } from '../../../ui/empty-state';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
-import { formatBytes } from '../../../ui/format-bytes';
+import { formatBytes } from '../../../ui/lib/format-bytes';
 import type { VideoDownload } from '../contract';
 import { classroomClient, useDownloads } from './use-classroom';
 

@@ -10,7 +10,7 @@ import {
   Paperclip,
   Sparkles,
 } from 'lucide-react';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
 import { ReplyCommentRail } from './reply-comment';

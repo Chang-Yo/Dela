@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 function Checkbox({ className, ...props }: Omit<React.ComponentProps<'input'>, 'type'>) {
   return (

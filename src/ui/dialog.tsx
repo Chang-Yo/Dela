@@ -5,9 +5,9 @@ import { X } from 'lucide-react';
 import { AlertDialog as AlertDialogPrimitive, Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
 import { Button } from './button';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 import { IconButton } from './icon-button';
-import { dialogOverlay, dialogPanel } from './motion';
+import { dialogOverlay, dialogPanel } from './lib/motion';
 
 const contentVariants = cva(dialogPanel, {
   variants: {

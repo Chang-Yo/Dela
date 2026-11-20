@@ -2,7 +2,7 @@ import { Slot } from 'radix-ui';
 import { useId } from 'react';
 import type * as React from 'react';
 import { ErrorText } from './alert';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 type FieldProps = Omit<React.ComponentProps<'label'>, 'children'> & {
   label: React.ReactNode;

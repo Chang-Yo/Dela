@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../../ui/select';
-import { cn } from '../../../../ui/cn';
+import { cn } from '../../../../ui/lib/cn';
 import type {
   LlmCatalogModel,
   LlmCatalogProvider,

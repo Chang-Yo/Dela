@@ -4,7 +4,7 @@ import { errorMessage } from '../../../core/protocol/contract';
 import type { ShuiyuanTopicSummary } from '../contract';
 import { Card } from '../../../ui/card';
 import { EmptyState } from '../../../ui/empty-state';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { isTopicUnread, openTopic, useShuiyuan } from './store';
 import { avatarUrl, categoryOf, formatCount, formatListDate, tagColor } from './shuiyuan-format';

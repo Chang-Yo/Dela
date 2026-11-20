@@ -32,7 +32,7 @@ import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';
 import { IconButton } from '../../../ui/icon-button';
-import { useMediaQuery } from '../../../ui/use-media-query';
+import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import { useChatTabSource, type MailDraftDialog } from './chat-source';
 import { formatDuration, ReplyTrace } from './ToolTimeline';
 import { openSubagent } from './tool-views';

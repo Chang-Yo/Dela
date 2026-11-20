@@ -5,13 +5,13 @@ import { useDebounce } from 'use-debounce';
 import { Archive, MessageSquare, X } from 'lucide-react';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import { Button } from '../../../ui/button';
-import { useDismissOnOutsidePointer } from '../../../ui/use-dismiss-on-outside-pointer';
+import { useDismissOnOutsidePointer } from '../../../ui/hooks/use-dismiss-on-outside-pointer';
 import { EmptyState } from '../../../ui/empty-state';
 import { IconButton } from '../../../ui/icon-button';
 import { SearchInput } from '../../../ui/search-input';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { poolKey, querySessions } from './sessions';
-import { drawerFromRight } from '../../../ui/motion';
+import { drawerFromRight } from '../../../ui/lib/motion';
 import { errorMessage } from '../../../core/protocol/contract';
 
 function SessionList({

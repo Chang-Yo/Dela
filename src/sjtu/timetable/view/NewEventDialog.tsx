@@ -6,9 +6,9 @@ import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
 import { DateTimeStepper, EventColorRow, roundToMinute } from '../../../modules/todo/view';
-import { sheetUp } from '../../../ui/motion';
+import { sheetUp } from '../../../ui/lib/motion';
 import { timetableClient } from './use-timetable';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { ErrorText } from '../../../ui/alert';
 
 const HOUR_MS = 3_600_000;

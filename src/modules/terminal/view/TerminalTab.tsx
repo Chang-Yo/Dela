@@ -7,7 +7,7 @@ import { onTerminalEvent, terminalClient } from './client';
 import { useTerminalStore } from './store';
 import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import '@xterm/xterm/css/xterm.css';
 import { ErrorText } from '../../../ui/alert';
 import { errorMessage } from '../../../core/protocol/contract';

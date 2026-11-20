@@ -162,9 +162,11 @@
                   "!clsx",
                   "!tailwind-merge",
                   "!vitest",
-                  "!./*"
+                  "!./*",
+                  "!./hooks/*",
+                  "!./lib/*"
                 ],
-                "message": "ui 只依赖 react、radix、cva、lucide 与样式工具，零业务依赖：业务组件放在模块的 view/ 里，ui 只引用 src/ui 内的 ./ 文件。"
+                "message": "ui 只依赖 react、radix、cva、lucide 与样式工具，零业务依赖：业务组件放在模块的 view/ 里，ui 只引用 src/ui 内的 ./ 文件（含 ./hooks、./lib）。"
               }
             ]
           }
@@ -194,9 +196,44 @@
                   "!tailwind-merge",
                   "!vitest",
                   "!./*",
-                  "!../*"
+                  "!../*",
+                  "!../hooks/*",
+                  "!../lib/*"
                 ],
-                "message": "ui/agent 在 ui 基础组件之上组合 Agent 外观，只能引用同目录的 ./ 文件与上一级 ui 基础组件（../x），不依赖业务、store 与协议类型。"
+                "message": "ui/agent 在 ui 基础组件之上组合 Agent 外观，只能引用同目录的 ./ 文件与上一级 ui 基础组件、hooks、lib（../x），不依赖业务、store 与协议类型。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/ui/{hooks,lib}/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "*",
+                  "**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!radix-ui",
+                  "!radix-ui/**",
+                  "!class-variance-authority",
+                  "!lucide-react",
+                  "!clsx",
+                  "!tailwind-merge",
+                  "!vitest",
+                  "!./*",
+                  "!../hooks/*",
+                  "!../lib/*"
+                ],
+                "message": "ui/hooks 与 ui/lib 只能引用同目录的 ./ 文件以及 ../hooks、../lib，不能依赖组件、ui/agent 与业务。"
               }
             ]
           }

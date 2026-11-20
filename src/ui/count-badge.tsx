@@ -1,4 +1,4 @@
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 function CountBadge({ count, className }: { count: number; className?: string }) {
   return (

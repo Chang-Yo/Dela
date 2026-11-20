@@ -1,7 +1,7 @@
 import { HoverCard as HoverCardPrimitive } from 'radix-ui';
 import type * as React from 'react';
-import { cn } from './cn';
-import { menuPanel } from './menu-styles';
+import { cn } from './lib/cn';
+import { menuPanel } from './lib/menu-styles';
 
 function HoverCard({ ...props }: React.ComponentProps<typeof HoverCardPrimitive.Root>) {
   return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />;

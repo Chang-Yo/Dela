@@ -3,7 +3,7 @@
 import { CircleAlert, CircleCheck, Sparkles, X, type LucideIcon } from 'lucide-react';
 import { Toast } from 'radix-ui';
 import { useSyncExternalStore, type ReactNode } from 'react';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 import { IconButton } from './icon-button';
 
 export type ToastVariant = 'error' | 'success';

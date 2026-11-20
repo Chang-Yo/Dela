@@ -4,7 +4,7 @@ import { useState, type ComponentProps, type ReactNode } from 'react';
 import { ArrowUp, Archive, Check, CircleAlert, Copy, Package, RotateCcw, X } from 'lucide-react';
 import { Button } from '../button';
 import { Card } from '../card';
-import { cn } from '../cn';
+import { cn } from '../lib/cn';
 import { IconButton } from '../icon-button';
 import { Shimmer } from '../shimmer';
 

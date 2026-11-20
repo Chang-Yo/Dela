@@ -28,13 +28,13 @@ import { useEditorSettings } from '../../../modules/preview/view';
 import { usePreferences } from './preferences';
 import { showToast, Toaster } from '../../../ui/toast';
 import { DelaBrand } from '../../../modules/settings/view';
-import { cn } from '../../../ui/cn';
-import { useMediaQuery } from '../../../ui/use-media-query';
+import { cn } from '../../../ui/lib/cn';
+import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import type { NavTarget } from '../../module';
 import { useNavigationStore, type AppView, type ShellView } from '../navigation/view';
 import type { MobileDrawer } from './mobile-drawer';
 import { useShortcuts } from './shortcuts';
-import { useViewportWidth } from '../../../ui/use-viewport-width';
+import { useViewportWidth } from '../../../ui/hooks/use-viewport-width';
 import {
   ProjectSessionNav,
   type BusinessNavId,
@@ -49,7 +49,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
-import { drawerFromLeft, fadeIn, overlayFade } from '../../../ui/motion';
+import { drawerFromLeft, fadeIn, overlayFade } from '../../../ui/lib/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../../../modules/update/view';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';

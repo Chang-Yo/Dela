@@ -14,7 +14,7 @@ import { Switch } from '../../../../ui/switch';
 import { SegmentedControl } from '../../../../ui/segmented-control';
 import { useWorkspaceStore } from '../../../workspace/view';
 import { showToast } from '../../../../ui/toast';
-import { cn } from '../../../../ui/cn';
+import { cn } from '../../../../ui/lib/cn';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { ErrorText } from '../../../../ui/alert';

@@ -11,10 +11,10 @@ import type { TodoItem } from '../contract';
 import { todoCompleted, todoStatusLabels } from '../contract';
 import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
-import { useRootFontSize } from '../../../ui/root-font-size';
+import { useRootFontSize } from '../../../ui/hooks/root-font-size';
 import { sanitizeHtml } from '../../mail/view';
-import { useFrameBodyHeight } from '../../../ui/use-frame-body-height';
-import { cn } from '../../../ui/cn';
+import { useFrameBodyHeight } from '../../../ui/hooks/use-frame-body-height';
+import { cn } from '../../../ui/lib/cn';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 

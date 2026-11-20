@@ -10,7 +10,7 @@ import {
   Quote,
   Reply,
 } from 'lucide-react';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { Button } from '../../../ui/button';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { closeReading, openTopic, saveDraft, useShuiyuan, type Reading } from './store';

@@ -1,4 +1,4 @@
-import { rootFontSize } from '../../../ui/root-font-size';
+import { rootFontSize } from '../../../ui/hooks/root-font-size';
 
 // iframe 靠高度上报自适应，html 禁止纵向滚动条，否则滚动条挤占宽度引起重排、高度来回振荡；
 // htmlScrollY 为 'auto' 时（预览 iframe 固定高度、无上报回路）由内层自己滚。内层 rem 不继承外层，由 rootSize 注入。

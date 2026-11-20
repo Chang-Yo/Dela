@@ -1,9 +1,9 @@
 'use client';
 
 import { Fragment, useState, type ReactNode } from 'react';
-import { cn } from '../cn';
+import { cn } from '../lib/cn';
 import { Collapse, CollapseChevron } from '../collapse';
-import { fadeIn } from '../motion';
+import { fadeIn } from '../lib/motion';
 
 const toggleClass =
   'group/row flex h-7 w-full min-w-0 items-center gap-1 text-left text-sm text-ink-3 transition-colors duration-base hover:text-ink-2 focus-visible:outline-none focus-visible:text-ink-2';

@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 const panelHeaderVariants = cva('flex shrink-0 items-center', {
   variants: {

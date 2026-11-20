@@ -1,8 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
-import { sheetUp } from '../../../ui/motion';
+import { cn } from '../../../ui/lib/cn';
+import { sheetUp } from '../../../ui/lib/motion';
 
 export function TodoSheet({
   label,

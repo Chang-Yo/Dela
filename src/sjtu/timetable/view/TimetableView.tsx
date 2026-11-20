@@ -31,7 +31,7 @@ import {
   startOfDay,
   useTodoState,
 } from '../../../modules/todo/view';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { Callout } from '../../../ui/alert';
 

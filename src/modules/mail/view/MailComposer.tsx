@@ -15,7 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { mailContract, type MailComposeFile, type PreparedEmail } from '../contract';
 import { Button } from '../../../ui/button';
 import { PanelHeader } from '../../../ui/panel-header';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { formatSize } from './mail-format';
 import { showToast } from '../../../ui/toast';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';

@@ -27,8 +27,8 @@ import {
   startOfDay,
   weekDays,
 } from '../../../modules/todo/view';
-import { cn } from '../../../ui/cn';
-import { useNow } from '../../../ui/use-now';
+import { cn } from '../../../ui/lib/cn';
+import { useNow } from '../../../ui/hooks/use-now';
 
 // 当前时间线与「今天」高亮的刷新间隔：now 仅在渲染时取值，需定期重渲染保持新鲜。
 const NOW_REFRESH_INTERVAL_MS = 60_000;

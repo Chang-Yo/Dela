@@ -2,7 +2,7 @@ import { Paperclip, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import type { MailFolderInfo, MailMessageSummary } from '../contract';
 import { senderLabel, formatMailDate } from './mail-format';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { PanelHeader } from '../../../ui/panel-header';
 import { Shimmer } from '../../../ui/shimmer';
 import { Input } from '../../../ui/input';

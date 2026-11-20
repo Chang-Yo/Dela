@@ -20,7 +20,7 @@ import { agentClient } from './client';
 import { EmptyState } from '../../../ui/empty-state';
 import { IconButton } from '../../../ui/icon-button';
 import { showToast } from '../../../ui/toast';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { useChatTabSource } from './chat-source';
 import { useSessions } from './sessions';
 import { ChatComposer } from './ChatComposer';

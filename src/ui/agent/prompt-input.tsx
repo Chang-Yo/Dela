@@ -3,7 +3,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { ArrowUp, Check, CircleAlert, Settings, Square, X } from 'lucide-react';
 import { Button } from '../button';
-import { cn } from '../cn';
+import { cn } from '../lib/cn';
 import { IconButton } from '../icon-button';
 
 const MENU_ROW_UNITS = 9;

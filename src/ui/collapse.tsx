@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { cn } from './cn';
-import { useMediaQuery } from './use-media-query';
+import { cn } from './lib/cn';
+import { useMediaQuery } from './hooks/use-media-query';
 
 /** 收起动画结束后卸载内容：隐藏区域里的必填项不会拦住表单提交，也不会被 Tab 聚焦。 */
 function Collapse({

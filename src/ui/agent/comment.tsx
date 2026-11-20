@@ -2,7 +2,7 @@
 
 import { useState, type ComponentProps, type ReactNode, type Ref } from 'react';
 import { Check, TextQuote, X } from 'lucide-react';
-import { cn } from '../cn';
+import { cn } from '../lib/cn';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../hover-card';
 import { IconButton } from '../icon-button';
 import { Popover, PopoverAnchor, PopoverContent } from '../popover';

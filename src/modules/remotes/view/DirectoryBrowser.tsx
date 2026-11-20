@@ -8,7 +8,7 @@ import { Checkbox } from '../../../ui/checkbox';
 import { Input } from '../../../ui/input';
 import { SearchInput } from '../../../ui/search-input';
 import { Skeleton } from '../../../ui/skeleton';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import type { RemoteDraft } from '../contract';
 import { showToast } from '../../../ui/toast';
 import { remotesClient } from './client';

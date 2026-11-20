@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '../button';
 import { Card } from '../card';
-import { cn } from '../cn';
+import { cn } from '../lib/cn';
 import { Collapse, CollapseChevron } from '../collapse';
 import {
   DropdownMenu,

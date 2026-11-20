@@ -9,7 +9,7 @@ import {
   type ThemePreference,
   type ZoomPreference,
 } from '../contract';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { StepperControl } from '../../../ui/stepper';
 import blackLogo from '../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../assets/Dela_white_bg.svg';

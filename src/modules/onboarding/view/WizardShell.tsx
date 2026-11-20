@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { OnboardingWindowBar } from './onboarding-window-bar';
 import { Button } from '../../../ui/button';
 

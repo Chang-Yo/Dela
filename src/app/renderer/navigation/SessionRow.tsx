@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Button } from '../../../ui/button';
-import { useDismissOnOutsidePointer } from '../../../ui/use-dismiss-on-outside-pointer';
+import { useDismissOnOutsidePointer } from '../../../ui/hooks/use-dismiss-on-outside-pointer';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../../ui/hover-card';
 import { Archive, Cloud, Folder, Pin, PinOff } from 'lucide-react';
 import type { RunStatus } from '../../../core/protocol/agent';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { useSessionRunStatus, updateSession } from '../../../modules/chat/view';
 import { showToast } from '../../../ui/toast';
 import { navSubRow, rowActions } from './nav-styles';

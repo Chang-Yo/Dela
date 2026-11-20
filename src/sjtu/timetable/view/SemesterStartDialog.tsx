@@ -3,10 +3,10 @@ import { X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { weekStartFor } from './timetable-format';
 import { formatMonthDay, dayMilliseconds } from '../../../modules/todo/view';
-import { dialogIn, overlayFade } from '../../../ui/motion';
+import { dialogIn, overlayFade } from '../../../ui/lib/motion';
 import { errorMessage } from '../../../core/protocol/contract';
 import { timetableClient } from './use-timetable';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { ErrorText } from '../../../ui/alert';
 
 export function SemesterStartDialog({

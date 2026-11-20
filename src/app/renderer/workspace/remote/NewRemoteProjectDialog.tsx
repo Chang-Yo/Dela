@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../../ui/select';
-import { cn } from '../../../../ui/cn';
+import { cn } from '../../../../ui/lib/cn';
 import type { WorkspaceEntry } from '../../../../modules/workspace/contract';
 import type {
   RemoteConnection,

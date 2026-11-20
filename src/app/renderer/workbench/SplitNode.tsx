@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { LayoutNode } from '../../../modules/workspace/contract';
 import { Resizer } from '../../../ui/resizer';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { useWorkbenchLayout } from './layout-store';
 import { TabGroup } from './TabGroup';
 

@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import { LoaderCircle } from 'lucide-react';
 import type * as React from 'react';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 const spinnerVariants = cva('animate-spin', {
   variants: { size: { xs: 'size-3', sm: 'size-3.5', md: 'size-4', lg: 'size-5' } },

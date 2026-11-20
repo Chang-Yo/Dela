@@ -5,7 +5,7 @@ import type { Navigate, NoticeKind } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Callout } from '../../../ui/alert';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,

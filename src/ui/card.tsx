@@ -1,7 +1,7 @@
 import { Slot } from 'radix-ui';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 const cardVariants = cva('rounded-card', {
   variants: {

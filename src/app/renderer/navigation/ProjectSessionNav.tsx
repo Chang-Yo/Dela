@@ -1,7 +1,7 @@
 // 顶部功能入口与按项目分组的会话历史；会话数据与运行徽标由接入方注入，本组件不 import sessions/。
 import { useState } from 'react';
 import { Button } from '../../../ui/button';
-import { useDismissOnOutsidePointer } from '../../../ui/use-dismiss-on-outside-pointer';
+import { useDismissOnOutsidePointer } from '../../../ui/hooks/use-dismiss-on-outside-pointer';
 import { CollapseChevron } from '../../../ui/collapse';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
@@ -31,7 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
 import { EntryDialogs, type EntryDialogRequest } from '../workspace/entry-dialogs';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import type { WorkspaceEntry } from '../../../modules/workspace/contract';
 import { remoteAccent } from '../../../modules/remotes/view';
 import { useVisibleNavEntries, type NavEntryId } from './entries';

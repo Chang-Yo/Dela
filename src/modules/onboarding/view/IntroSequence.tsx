@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import logo from '../../../../assets/Dela_Logo.png';
 import { HandwritingLine } from './intro-handwriting';
 import { OnboardingWindowBar } from './onboarding-window-bar';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { Button } from '../../../ui/button';
-import { useMediaQuery } from '../../../ui/use-media-query';
+import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 
 const introVideos = import.meta.glob<{ default: string }>(
   '../../../../assets/onboarding-video.webm',

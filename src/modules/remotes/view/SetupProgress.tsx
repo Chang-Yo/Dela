@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { Collapse, CollapseChevron } from '../../../ui/collapse';
 import type { RemoteSetupProgress, RemoteSetupStep } from '../contract';
 import { Spinner } from '../../../ui/spinner';

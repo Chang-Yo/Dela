@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { MailConfigureInput } from '../contract';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Input } from '../../../ui/input';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { Collapse } from '../../../ui/collapse';
 import { ErrorText } from '../../../ui/alert';
 

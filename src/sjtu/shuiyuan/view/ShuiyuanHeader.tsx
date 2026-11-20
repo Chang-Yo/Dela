@@ -5,7 +5,7 @@ import { CountBadge } from '../../../ui/count-badge';
 import { SearchInput } from '../../../ui/search-input';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { useShuiyuan, type ListSelection } from './store';
 import { IconButton } from '../../../ui/icon-button';
 import { listKey, useCounts, useSelectList, useSiteStructure } from './use-shuiyuan';
