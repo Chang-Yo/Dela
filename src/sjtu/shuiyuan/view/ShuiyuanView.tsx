@@ -64,12 +64,9 @@ function DesktopShuiyuanView() {
           )}
         </div>
         {reading ? (
-          // key 随 topicId 变化：切帖重挂载阅读器，草稿与回复目标按帖子从会话内记忆恢复。
-          <div
-            className={cn('absolute inset-0 z-10 bg-surface', drawerFromRight)}
-            key={reading.topicId}
-          >
-            <TopicReader reading={reading} />
+          // 外层只在从列表进入时滑入；切帖只重挂载阅读器（草稿按帖子从会话内记忆恢复），不露出底下的信息流。
+          <div className={cn('absolute inset-0 z-10 bg-surface', drawerFromRight)}>
+            <TopicReader key={reading.topicId} reading={reading} />
           </div>
         ) : null}
       </div>

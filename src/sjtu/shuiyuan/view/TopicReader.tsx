@@ -13,7 +13,7 @@ import {
 import { cn } from '../../../ui/lib/cn';
 import { Button } from '../../../ui/button';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
-import { closeReading, openTopic, saveDraft, useShuiyuan, type Reading } from './store';
+import { followTopicLink, leaveTopic, saveDraft, useShuiyuan, type Reading } from './store';
 import { avatarUrl, categoryOf, formatCount, formatListDate, tagColor } from './shuiyuan-format';
 import {
   loadedSpan,
@@ -110,10 +110,16 @@ export function TopicReaderHeader({ reading }: { reading: Reading }) {
   const [addOpen, setAddOpen] = useState(false);
   const detail = useTopic(reading).data ?? null;
   const isPM = detail?.archetype === 'private_message';
+  const fromTopic = useShuiyuan((state) => state.trail.length > 0);
 
   return (
     <header className="flex items-center gap-2 border-b border-line bg-surface/95 px-3 py-2 backdrop-blur max-md:px-2">
-      <Button aria-label="返回信息流" onClick={closeReading} size="icon-sm" variant="ghost">
+      <Button
+        aria-label={fromTopic ? '返回上一帖' : '返回信息流'}
+        onClick={leaveTopic}
+        size="icon-sm"
+        variant="ghost"
+      >
         <ArrowLeft className="size-4" strokeWidth={1.8} />
       </Button>
       <h1 className="min-w-0 flex-1 truncate text-sm font-medium leading-tight">
@@ -316,9 +322,9 @@ export function TopicReader({ reading }: { reading: Reading }) {
     setPendingJump({ postNumber });
   };
 
-  const openTopicFromPost = (targetTopicId: number, postNumber?: number) => {
+  const openTopicFromPost = (fromPost: number, targetTopicId: number, postNumber?: number) => {
     if (targetTopicId === topicId) void jumpToPost(postNumber ?? 1);
-    else openTopic(targetTopicId, postNumber);
+    else followTopicLink({ topicId, postNumber: fromPost }, targetTopicId, postNumber);
   };
 
   // 水源原生引用：站点渲染成带头像的引用卡片，并通知被引用者。
@@ -476,7 +482,9 @@ export function TopicReader({ reading }: { reading: Reading }) {
                     <div className="mt-2.5">
                       <ShuiyuanHtmlBody
                         html={post.cooked}
-                        onOpenTopic={openTopicFromPost}
+                        onOpenTopic={(targetTopicId, postNumber) =>
+                          openTopicFromPost(post.postNumber, targetTopicId, postNumber)
+                        }
                         title={`第 ${post.postNumber} 楼`}
                       />
                     </div>

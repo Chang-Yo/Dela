@@ -17,6 +17,8 @@ type ReadMarks = Record<string, string>;
 interface ShuiyuanUi {
   list: ListSelection;
   reading: Reading | null;
+  /** 经帖内链接一路打开的来路，返回时逐级回到点链接的那一楼；从列表或外部打开时清空。 */
+  trail: readonly Reading[];
   readMarks: Readonly<ReadMarks>;
   /** 回复草稿按帖子在本次运行内记忆：返回信息流或切帖后回来仍在。 */
   drafts: Readonly<Record<number, Draft>>;
@@ -46,6 +48,7 @@ function loadReadMarks(): ReadMarks {
 export const useShuiyuan = create<ShuiyuanUi>(() => ({
   list: { kind: 'latest' },
   reading: null,
+  trail: [],
   readMarks: loadReadMarks(),
   drafts: {},
   uploads: {},
@@ -67,11 +70,25 @@ export function isTopicUnread(marks: Readonly<ReadMarks>, topic: ShuiyuanTopicSu
 }
 
 export function openTopic(topicId: number, postNumber?: number): void {
-  useShuiyuan.setState({ reading: { topicId, postNumber: postNumber ?? null } });
+  useShuiyuan.setState({ reading: { topicId, postNumber: postNumber ?? null }, trail: [] });
 }
 
-export function closeReading(): void {
-  useShuiyuan.setState({ reading: null });
+export function followTopicLink(
+  from: Reading,
+  topicId: number,
+  postNumber: number | undefined,
+): void {
+  useShuiyuan.setState(({ trail }) => ({
+    reading: { topicId, postNumber: postNumber ?? null },
+    trail: [...trail, from],
+  }));
+}
+
+export function leaveTopic(): void {
+  useShuiyuan.setState(({ trail }) => ({
+    reading: trail.at(-1) ?? null,
+    trail: trail.slice(0, -1),
+  }));
 }
 
 export function draftOf(topicId: number): Draft {

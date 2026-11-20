@@ -17,6 +17,7 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 新增 magpie 插件 [`magpie-agent-dela`](https://www.npmjs.com/package/magpie-agent-dela)：在 magpie 中连接 Dela 后，magpie 网关的模型、MCP 服务器与 Skills 可直接在 Dela 中使用。
 - 新增 MCP 配置支持 `${NAME}` 与 `${NAME:-默认值}` 环境变量引用，连接时展开。
 - 修复远程项目在多节点共享 HOME 时的 helper 运行状态冲突，同版本节点共用可执行文件。
+- 修复水源帖子内点链接打开其他帖子后无法返回：返回键会逐级回到原帖点链接的那一楼，切帖时不再闪出信息流。
 - 移除导航快捷键 Ctrl+1/2/3（首页、邮箱、课表）；已自定义的这三项设置会被忽略。
 - 调整界面组件库：统一组件写法、命名与尺寸档位，约定见 `src/ui/README.md` 并由 `pnpm lint` 检查，token 改名改由 ADR 0023 约束；图标按钮统一为浅色图标、轻回弹与键盘焦点框，复选框改为自绘样式。
 
