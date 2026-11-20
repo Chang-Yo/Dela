@@ -84,7 +84,7 @@
 
 ### 2.4 GUI
 
-标签工作台（聊天 / 笔记 / 预览 / 审阅 / 终端），经 IPC 消费同一套领域实现。UI 组件集中在 `src/ui`（fork 自 beautiful-ui，不再跟随上游），被替代的自研 UI 必须清理。
+标签工作台（聊天 / 笔记 / 预览 / 审阅 / 终端），经 IPC 消费同一套领域实现。UI 组件集中在 `src/ui`（fork 自 beautiful-ui，不再跟随上游），写法约定见 `src/ui/README.md`，被替代的自研 UI 必须清理。
 
 **标签规则**：所有「打开某样东西」的入口只决定打开什么、是否放到旁边；落在哪个组、是否预览只由 `workbench/open-target.ts` 决定，规则表写在该文件顶部并被测试逐条覆盖。要点：
 
@@ -116,7 +116,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 
 **尺寸一律由 rem 派生**（字号设置会整体缩放文字、间距、图标与圆角）：禁止写死像素字号与宽高，换算基准固定 16。字号用 token，圆角用 `src/ui` 的 `rounded-*`。保留 px 的只有三类——边框/描边/阴影、媒体与容器查询断点、第三方 dist 内改不到的固定值；拖拽调宽的容器尺寸也是 px，因为它是用户用鼠标量出的画布尺寸。沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层，由 `lib/root-font-size.ts` 把根字号注进内层。
 
-颜色、阴影、圆角、层级与时长只用 `src/ui/tokens.css` 的 token，名字已冻结（[ADR 0018](adr/0018-design-token-freeze.md)），缺少时新增而不是借用别的用途的 token。`pnpm lint` 会拦下 token 之外的写法和写了却不生成 CSS 的类名。
+颜色、阴影、圆角、层级与时长只用 `src/ui/tokens.css` 的 token，按用途命名，改名要走 ADR 并一次性全局替换（[ADR 0023](adr/0023-design-token-naming.md)），缺少时新增而不是借用别的用途的 token。`pnpm lint` 会拦下 token 之外的写法和写了却不生成 CSS 的类名。
 
 ## 3. 会话与上下文
 

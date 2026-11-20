@@ -18,11 +18,12 @@
 | [0015](0015-agent-protocol-v1.md)   | Agent 协议 v1 以单用户为前提                       | 已接受   |
 | [0016](0016-core-host-boundary.md)  | 数据库与项目由宿主持有，core 经端口使用            | 已接受   |
 | [0017](0017-contract-events.md)     | 契约声明推送事件，状态快照进查询缓存               | 已接受   |
-| [0018](0018-design-token-freeze.md) | Design token 的名字定稿并冻结                      | 已接受   |
+| [0018](0018-design-token-freeze.md) | Design token 的名字定稿并冻结                      | 部分取代 |
 | [0019](0019-view-manifest.md)       | 渲染端按清单装配模块的页面                         | 已接受   |
 | [0020](0020-workbench-port.md)      | 模块经工作台端口打开标签                           | 已接受   |
 | [0021](0021-context-directories.md) | 通用会话经辅助目录看到资料                         | 已接受   |
 | [0022](0022-json-config-files.md)   | 模型服务、MCP 与联网搜索存为 ~/.dela 下的明文 JSON | 已接受   |
+| [0023](0023-design-token-naming.md) | Design token 按用途命名，改名走 ADR                | 已接受   |
 
 新记录沿用下面的格式，控制在一屏以内：
 
