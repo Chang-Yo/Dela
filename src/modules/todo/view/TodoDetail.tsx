@@ -67,7 +67,7 @@ export function TodoDetail({
   const done = todoCompleted(item.status);
   const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
   return (
-    <TodoSheet fixedHeight label="待办详情" title={item.title} onClose={onClose}>
+    <TodoSheet fixedHeight title={item.title} onClose={onClose}>
       <div className="mt-3 shrink-0 space-y-1.5 text-sm text-ink-3">
         <p className="flex items-start gap-1.5">
           <BookOpen className="mt-0.5 size-3.5 shrink-0" />

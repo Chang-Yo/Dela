@@ -130,11 +130,7 @@ function TodoComposer({
   const [calendar, setCalendar] = useState(item?.calendar ?? false);
   const [color, setColor] = useState<CalendarEventColor>(item?.color ?? 'slate');
   return (
-    <TodoSheet
-      label={item ? '编辑待办' : '新建待办'}
-      title={item ? '编辑待办' : '新建待办'}
-      onClose={onCancel}
-    >
+    <TodoSheet title={item ? '编辑待办' : '新建待办'} onClose={onCancel}>
       <form
         className="mt-4 flex flex-col gap-4"
         onSubmit={(event) => {
