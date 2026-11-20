@@ -8,12 +8,11 @@ function ConnectCard({
   description,
   children,
   className,
-}: {
+  ...props
+}: Omit<React.ComponentProps<'section'>, 'title'> & {
   icon?: LucideIcon;
   title: React.ReactNode;
   description: React.ReactNode;
-  children?: React.ReactNode;
-  className?: string;
 }) {
   return (
     <section
@@ -22,6 +21,7 @@ function ConnectCard({
         className,
       )}
       data-slot="connect-card"
+      {...props}
     >
       {Icon && (
         <div className="grid size-10 place-items-center rounded-card bg-fill">

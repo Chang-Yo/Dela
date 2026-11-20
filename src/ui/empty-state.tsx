@@ -9,12 +9,12 @@ function EmptyState({
   description,
   action,
   className,
-}: {
+  ...props
+}: Omit<React.ComponentProps<'div'>, 'title'> & {
   icon?: LucideIcon;
   title: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
-  className?: string;
 }) {
   return (
     <div
@@ -23,6 +23,7 @@ function EmptyState({
         className,
       )}
       data-slot="empty-state"
+      {...props}
     >
       {Icon && <Icon aria-hidden="true" className="size-8 text-ink-3" strokeWidth={1.5} />}
       <p className="text-sm text-ink-2">{title}</p>

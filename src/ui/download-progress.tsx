@@ -1,13 +1,16 @@
-import { formatBytes } from './lib/format-bytes';
+import type * as React from 'react';
 import { cn } from './lib/cn';
+import { formatBytes } from './lib/format-bytes';
 
 /** 百分比向下取整，未完成不显示 100%；尺寸列定最小宽，数字增长时不抖动。 */
-export function DownloadProgress({
+function DownloadProgress({
   barClassName,
+  className,
   label,
   received,
   total,
-}: {
+  ...props
+}: React.ComponentProps<'div'> & {
   barClassName?: string;
   label: string;
   received: number;
@@ -15,7 +18,11 @@ export function DownloadProgress({
 }) {
   const percent = total ? Math.floor((received / total) * 100) : 0;
   return (
-    <div className="flex items-center gap-2 text-xs tabular-nums text-ink-3">
+    <div
+      className={cn('flex items-center gap-2 text-xs tabular-nums text-ink-3', className)}
+      data-slot="download-progress"
+      {...props}
+    >
       <span className="min-w-28 shrink-0 whitespace-nowrap">
         {formatBytes(received) ?? '0 B'} / {total === null ? '—' : (formatBytes(total) ?? '—')}
       </span>
@@ -38,3 +45,5 @@ export function DownloadProgress({
     </div>
   );
 }
+
+export { DownloadProgress };

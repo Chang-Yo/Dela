@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import { cn } from './lib/cn';
 import { useMediaQuery } from './hooks/use-media-query';
 
@@ -41,7 +41,11 @@ function Collapsible({
   );
 }
 
-function CollapsibleChevron({ open, className }: { open: boolean; className?: string }) {
+function CollapsibleChevron({
+  open,
+  className,
+  ...props
+}: ComponentProps<typeof ChevronRight> & { open: boolean }) {
   return (
     <ChevronRight
       aria-hidden="true"
@@ -50,6 +54,8 @@ function CollapsibleChevron({ open, className }: { open: boolean; className?: st
         open && 'rotate-90',
         className,
       )}
+      data-slot="collapsible-chevron"
+      {...props}
     />
   );
 }

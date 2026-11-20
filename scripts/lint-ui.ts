@@ -10,18 +10,10 @@ type Rule = 'filename' | 'size' | 'tone' | 'style';
 // 尚未对齐约定的组件。改好后必须从这里删除，新增的违规不允许加进来。
 const pending: Record<string, Rule[]> = {
   'button.tsx': ['size'],
-  'desktop-only-notice.tsx': ['style'],
-  'download-progress.tsx': ['style'],
-  'file-icon.tsx': ['style'],
   'lightbox.tsx': ['filename', 'style'],
-  'panel-toggle.tsx': ['style'],
-  'progress-ring.tsx': ['style'],
-  'resizable.tsx': ['style'],
   'segmented-control.tsx': ['style'],
-  'shimmer.tsx': ['style'],
   'slider.tsx': ['style'],
   'status-pill.tsx': ['size', 'tone', 'style'],
-  'stepper.tsx': ['style'],
   'switch.tsx': ['style'],
   'toast.tsx': ['filename', 'style'],
 };

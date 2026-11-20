@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { cn } from './lib/cn';
 
-type ResizableProps = {
+type ResizableProps = Omit<ComponentProps<'div'>, 'onChange' | 'defaultValue'> & {
   label: string;
   value: number;
   min: number;
@@ -10,10 +10,9 @@ type ResizableProps = {
   onChange: (value: number) => void;
   onResizingChange?: (resizing: boolean) => void;
   defaultValue?: number;
-  className?: string;
 };
 
-export function Resizable({
+function Resizable({
   label,
   value,
   min,
@@ -23,6 +22,7 @@ export function Resizable({
   onResizingChange,
   defaultValue,
   className,
+  ...props
 }: ResizableProps) {
   const start = useRef<{ pointerId: number; position: number; size: number } | null>(null);
   const horizontal = orientation === 'horizontal';
@@ -52,6 +52,7 @@ export function Resizable({
         'hover:bg-ink-3 focus-visible:bg-accent',
         className,
       )}
+      data-slot="resizable"
       onKeyDown={(event) => {
         if (event.key === 'Home') {
           event.preventDefault();
@@ -98,12 +99,13 @@ export function Resizable({
       }}
       role="separator"
       tabIndex={0}
+      {...props}
     />
   );
 }
 
 /** 持久化的面板宽度：拖动中只改本地值，拖动结束或键盘调整时才调用 commit。 */
-export function useResizableWidth(stored: number, commit: (width: number) => void) {
+function useResizableWidth(stored: number, commit: (width: number) => void) {
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const [resizing, setResizing] = useState(false);
   return {
@@ -119,3 +121,5 @@ export function useResizableWidth(stored: number, commit: (width: number) => voi
     },
   };
 }
+
+export { Resizable, useResizableWidth };

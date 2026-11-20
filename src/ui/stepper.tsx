@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from './lib/cn';
 
 type HoldPhase = 'idle' | 'waiting' | 'repeating';
 
@@ -68,14 +69,16 @@ function StepperInput({
   );
 }
 
-export function Stepper({
+function Stepper({
   canDecrease = true,
   canIncrease = true,
+  className,
   display,
   input,
   label,
   onStep,
-}: {
+  ...props
+}: ComponentProps<'div'> & {
   canDecrease?: boolean;
   canIncrease?: boolean;
   display: string;
@@ -94,7 +97,13 @@ export function Stepper({
   const buttonClass =
     'grid size-7 place-items-center rounded-control text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent select-none disabled:pointer-events-none disabled:opacity-40';
   return (
-    <div aria-label={label} className="flex items-center gap-0.5" role="group">
+    <div
+      aria-label={label}
+      className={cn('flex items-center gap-0.5', className)}
+      data-slot="stepper"
+      role="group"
+      {...props}
+    >
       <button
         aria-label={`减少${label}`}
         className={buttonClass}
@@ -130,3 +139,5 @@ export function Stepper({
     </div>
   );
 }
+
+export { Stepper };
