@@ -349,10 +349,7 @@ export function DirectoryBrowser({
           新建文件夹
         </button>
         <label className="flex items-center gap-1.5">
-          <Checkbox
-            checked={showHidden}
-            onChange={(event) => setShowHidden(event.target.checked)}
-          />
+          <Checkbox checked={showHidden} onCheckedChange={(next) => setShowHidden(next === true)} />
           显示隐藏目录
         </label>
       </div>
