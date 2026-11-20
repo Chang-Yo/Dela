@@ -1,44 +1,48 @@
-import { useEffect } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { Dialog as DialogPrimitive } from 'radix-ui';
+import { create } from 'zustand';
 import { overlayFade } from './lib/motion';
 
-function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div
-      aria-label="图片查看"
-      aria-modal="true"
-      className={`fixed inset-0 z-overlay grid cursor-zoom-out place-items-center bg-media/80 p-6 ${overlayFade}`}
-      onClick={() => onClose()}
-      role="dialog"
-    >
-      <img
-        alt={alt ?? ''}
-        className="max-h-full max-w-full rounded-card object-contain shadow-overlay"
-        src={src}
-      />
-    </div>
-  );
-}
-
-let mounted: { root: Root } | null = null;
+const useLightboxStore = create<{ image: { src: string; alt?: string } | null }>(() => ({
+  image: null,
+}));
 
 /** React 树外的图片点击也走同一个 Lightbox；重复调用只更新内容，不叠层。 */
-export function openLightbox(src: string, alt?: string): void {
-  if (!mounted) {
-    const host = document.createElement('div');
-    document.body.append(host);
-    mounted = { root: createRoot(host) };
-  }
-  mounted.root.render(<Lightbox alt={alt} onClose={closeLightbox} src={src} />);
+function openLightbox(src: string, alt?: string): void {
+  useLightboxStore.setState({ image: { src, alt } });
 }
 
 function closeLightbox(): void {
-  mounted?.root.render(null);
+  useLightboxStore.setState({ image: null });
 }
+
+function Lightbox() {
+  const image = useLightboxStore((state) => state.image);
+  return (
+    <DialogPrimitive.Root
+      open={image !== null}
+      onOpenChange={(open) => {
+        if (!open) closeLightbox();
+      }}
+    >
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className={`fixed inset-0 z-overlay grid cursor-zoom-out place-items-center bg-media/80 p-6 outline-none ${overlayFade}`}
+          data-slot="lightbox"
+          onClick={closeLightbox}
+        >
+          <DialogPrimitive.Title className="sr-only">图片查看</DialogPrimitive.Title>
+          {image && (
+            <img
+              alt={image.alt ?? ''}
+              className="max-h-full max-w-full rounded-card object-contain shadow-overlay"
+              src={image.src}
+            />
+          )}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+export { Lightbox, openLightbox };

@@ -27,6 +27,7 @@ import { Resizable } from '../../../ui/resizable';
 import { useEditorSettings } from '../../../modules/preview/view';
 import { usePreferences } from './preferences';
 import { showToast, Toaster } from '../../../ui/toast';
+import { Lightbox } from '../../../ui/lightbox';
 import { DelaBrand } from '../../../modules/settings/view';
 import { cn } from '../../../ui/lib/cn';
 import { useMediaQuery } from '../../../ui/hooks/use-media-query';
@@ -773,6 +774,7 @@ export function AppShell({
       >
         {children}
         <Toaster />
+        <Lightbox />
       </main>
     </div>
   );
