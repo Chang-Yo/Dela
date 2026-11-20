@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { LlmModelSettings, LlmProviderView, LlmVerifyResult } from '../protocol/llm';
 import {
@@ -9,16 +8,16 @@ import {
   llmModelSettings,
   reasoningEffortLevels,
 } from '../protocol/llm-models';
+import { providerIdSchema } from '../protocol/agent';
 import { llmCatalog, verifyModel } from './pi';
-import { CredentialDecryptionError } from '../ports';
 import {
+  addLlmProvider,
   loadLlmConfig,
-  saveLlmConfig,
-  type StoredLlmConfig,
+  writeLlmProvider,
   type StoredLlmProvider,
 } from './llm-config';
 
-const idSchema = z.string().uuid();
+const idSchema = providerIdSchema;
 const nameSchema = z.string().trim().min(1).max(50);
 const baseUrlSchema = z
   .string()
@@ -155,18 +154,12 @@ export async function saveLlmProvider(input: unknown): Promise<LlmProviderView> 
     }
   const baseUrl = builtin?.baseUrl ?? parsed.baseUrl!.replace(/\/+$/, '');
   const modelConfigs = builtin?.modelConfigs ?? parsed.modelConfigs;
-  let config: StoredLlmConfig;
-  try {
-    config = loadLlmConfig();
-  } catch (cause) {
-    // 添加提供商可重新建立失效配置；编辑已有提供商仍需能读到原配置，不能伪造其内容。
-    if (parsed.id || !(cause instanceof CredentialDecryptionError)) throw cause;
-    config = { providers: [] };
-  }
-  let provider: StoredLlmProvider | undefined;
+  const config = loadLlmConfig();
+  let provider: Omit<StoredLlmProvider, 'id'> & { id?: string };
   if (parsed.id) {
-    provider = config.providers.find(({ id }) => id === parsed.id);
-    if (!provider) throw new Error('要编辑的提供商不存在');
+    const existing = config.providers.find(({ id }) => id === parsed.id);
+    if (!existing) throw new Error('要编辑的提供商不存在');
+    provider = existing;
     Object.assign(provider, {
       name: parsed.name,
       baseUrl,
@@ -177,7 +170,6 @@ export async function saveLlmProvider(input: unknown): Promise<LlmProviderView> 
   } else {
     if (!parsed.apiKey) throw new Error('请填写 API Key');
     provider = {
-      id: randomUUID(),
       name: parsed.name,
       baseUrl,
       apiKey: parsed.apiKey,
@@ -185,7 +177,6 @@ export async function saveLlmProvider(input: unknown): Promise<LlmProviderView> 
       piProvider,
       enabled: true,
     };
-    config.providers.push(provider);
   }
   if (modelConfigs) {
     provider.modelConfigs = Object.fromEntries(
@@ -204,25 +195,16 @@ export async function saveLlmProvider(input: unknown): Promise<LlmProviderView> 
       Object.entries(provider.modelConfigs).filter(([id]) => parsed.models.includes(id)),
     );
   }
-  saveLlmConfig(config);
-  return viewOf(provider);
-}
-
-export function removeLlmProvider(id: string): void {
-  const providerId = idSchema.parse(id);
-  const config = loadLlmConfig();
-  const providers = config.providers.filter(({ id }) => id !== providerId);
-  if (providers.length === config.providers.length) return;
-  saveLlmConfig({ providers });
+  const { id, ...fields } = provider;
+  if (!id) return viewOf(addLlmProvider(fields));
+  writeLlmProvider({ ...fields, id });
+  return viewOf({ ...fields, id });
 }
 
 export function setLlmProviderEnabled(id: string, enabled: boolean): void {
-  const providerId = idSchema.parse(id);
-  const config = loadLlmConfig();
-  const provider = config.providers.find(({ id }) => id === providerId);
+  const provider = loadLlmConfig().providers.find((item) => item.id === id);
   if (!provider) throw new Error('提供商不存在');
-  provider.enabled = enabled;
-  saveLlmConfig(config);
+  writeLlmProvider({ ...provider, enabled });
 }
 
 /** 模型列表端点候选，并带上该候选对应的 OpenAI 兼容根地址：对话端点与模型列表同前缀，

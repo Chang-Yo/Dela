@@ -3,6 +3,7 @@ import { cp, lstat, mkdir, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, isAbsolute, join, relative } from 'node:path';
 import { builtinSkillsDirectory } from '../../../core/capabilities/skills';
+import { configFilePath } from '../../../core/config-files';
 import { hostPorts } from '../../../core/ports';
 import { availablePath } from '../../workspace';
 import type { BackupResult } from '../contract';
@@ -94,6 +95,15 @@ export async function exportUserData(window: BrowserWindow | null): Promise<Back
       await cp(skills, join(destination, '技能'), { recursive: true, filter: skipLinks });
     } catch {
       skipped.push('技能');
+    }
+  }
+  // 模型服务与 MCP 配置是 ~/.dela 下的明文 JSON，含 API Key，与 Skill 并列放一层。
+  for (const name of ['config.json', 'mcp.json'] as const) {
+    if (!existsSync(configFilePath(name))) continue;
+    try {
+      await cp(configFilePath(name), join(destination, '配置', name));
+    } catch {
+      skipped.push(name);
     }
   }
   return { status: 'exported', path: destination, skipped };

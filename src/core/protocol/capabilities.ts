@@ -1,5 +1,6 @@
 // 桌面私有的能力视图（Skills、MCP、联网搜索）：不进入 Agent 协议的 JSON Schema，也不带版本。
 import { z } from 'zod';
+import { providerIdSchema } from './agent';
 import { defineContract } from './contract';
 
 /** Skill 来处：builtin 为 Dela 写入 ~/.dela/skills 的内置技能，user 为本机用户目录，project 为本地项目目录。 */
@@ -32,7 +33,7 @@ export type McpTransportConfig =
   | { transport: 'stdio'; command: string; args: string[]; env: Record<string, string> }
   | { transport: 'http'; url: string; headers: Record<string, string> };
 
-/** MCP 服务器配置：只存在主进程，加密保存。 */
+/** MCP 服务器配置：只存在主进程，保存在 ~/.dela/mcp.json，id 就是名字。 */
 export type McpServerConfig = { id: string; name: string; enabled: boolean } & McpTransportConfig;
 
 export type McpServerInput = { name: string } & McpTransportConfig;
@@ -104,7 +105,9 @@ export interface RemoteSkillUpload {
   files: number;
 }
 
-const id = z.uuid();
+/** 联网搜索条目沿用模型服务 id 的规则；MCP 服务器以名字为 id。 */
+const id = providerIdSchema;
+const mcpServerId = z.string().min(1).max(60);
 const name = z.string().trim().min(1).max(100);
 /** Skill 的 id 是清单里的 SKILL.md 路径；主进程按清单解析，不接受清单外的路径。 */
 const skillId = z.string().min(1).max(32_767);
@@ -135,11 +138,11 @@ export const capabilitiesContract = defineContract(
     listMcpServers: { input: z.undefined(), output: mcpServers },
     addMcpServer: { input: z.custom<McpServerInput>(), output: mcpServers },
     updateMcpServer: {
-      input: z.object({ id, patch: z.custom<McpServerPatch>() }),
+      input: z.object({ id: mcpServerId, patch: z.custom<McpServerPatch>() }),
       output: mcpServers,
     },
-    removeMcpServer: { input: id, output: mcpServers },
-    refreshMcpServer: { input: id, output: mcpServers },
+    removeMcpServer: { input: mcpServerId, output: mcpServers },
+    refreshMcpServer: { input: mcpServerId, output: mcpServers },
     listBuiltinCapabilities: { input: z.undefined(), output: builtins },
     setBuiltinCapability: { input: z.object({ name, enabled: z.boolean() }), output: builtins },
     setBuiltinDomain: { input: z.object({ domain: name, enabled: z.boolean() }), output: builtins },
@@ -162,5 +165,8 @@ export const capabilitiesContract = defineContract(
   },
   {
     webSearchChanged: z.undefined(),
+    /** ~/.dela 下的配置文件被 Dela 以外的工具改动后推送最新列表。 */
+    listMcpServers: mcpServers,
+    listWebSearchEntries: webSearchEntries,
   },
 );

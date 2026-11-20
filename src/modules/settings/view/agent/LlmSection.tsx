@@ -396,7 +396,7 @@ function CatalogModelDialog({
 export function LlmSection() {
   const queryClient = useQueryClient();
   const providerList = useQuery({
-    queryKey: ['llm', 'providers'],
+    queryKey: ['llm', 'list'],
     queryFn: () => llmClient.list(),
     enabled: Boolean(window.dela),
   });
@@ -423,7 +423,7 @@ export function LlmSection() {
     setSelection(detail);
     try {
       await operation();
-      void queryClient.invalidateQueries({ queryKey: ['llm', 'providers'] });
+      void queryClient.invalidateQueries({ queryKey: ['llm', 'list'] });
     } catch (cause) {
       showToast({ variant: 'error', title: '供应商操作失败', description: errorMessage(cause) });
     }
@@ -450,13 +450,13 @@ export function LlmSection() {
 
   /** 保存结果并入列表；只有仍停留在本次保存的详情时才切到保存后的提供商。 */
   const handleSaved = (saved: LlmProviderView, source: Detail | null) => {
-    queryClient.setQueryData<LlmProviderView[]>(['llm', 'providers'], (current) =>
+    queryClient.setQueryData<LlmProviderView[]>(['llm', 'list'], (current) =>
       current?.some(({ id }) => id === saved.id)
         ? current.map((item) => (item.id === saved.id ? saved : item))
         : [...(current ?? []), saved],
     );
     setSelection((current) => (current === source ? { mode: 'edit', id: saved.id } : current));
-    void queryClient.invalidateQueries({ queryKey: ['llm', 'providers'] });
+    void queryClient.invalidateQueries({ queryKey: ['llm', 'list'] });
   };
 
   return (

@@ -61,7 +61,7 @@ afterEach(() => rmSync(userData, { recursive: true, force: true }));
 it('v6→v7：旧会话回填使用中的模型，配置去掉全局选择并全部启用', () => {
   v6Database();
   writeFileSync(configPath(), seal.encrypt(JSON.stringify(v6Config)));
-  expect(runMigrations({ userData, seal }, 7)).toBe(1);
+  expect(runMigrations({ userData, home: userData, seal }, 7)).toBe(1);
 
   const db = new Database(dbPath());
   expect(db.pragma('user_version', { simple: true })).toBe(7);
@@ -86,7 +86,7 @@ it('v6→v7：旧会话回填使用中的模型，配置去掉全局选择并全
 it('配置解不开时只加列，会话留空等用户选择', () => {
   v6Database();
   writeFileSync(configPath(), 'garbage');
-  runMigrations({ userData, seal: { ...seal, decrypt: () => '{' } }, 7);
+  runMigrations({ userData, home: userData, seal: { ...seal, decrypt: () => '{' } }, 7);
   const db = new Database(dbPath());
   expect(db.prepare('SELECT provider_id, model FROM sessions').get()).toEqual({
     provider_id: null,
@@ -106,7 +106,9 @@ it('某一步失败时数据库与配置都还原到迁移前', () => {
       throw new Error('keychain locked');
     },
   };
-  expect(() => runMigrations({ userData, seal: failing }, 7)).toThrow('keychain locked');
+  expect(() => runMigrations({ userData, home: userData, seal: failing }, 7)).toThrow(
+    'keychain locked',
+  );
   const db = new Database(dbPath());
   expect(db.pragma('user_version', { simple: true })).toBe(6);
   expect(() => db.prepare('SELECT provider_id FROM sessions').get()).toThrow();
@@ -115,11 +117,13 @@ it('某一步失败时数据库与配置都还原到迁移前', () => {
 });
 
 it('新安装与当前版本不迁移；缺少中间步骤的旧版本明确拒绝', () => {
-  expect(runMigrations({ userData, seal }, 7)).toBe(0);
+  expect(runMigrations({ userData, home: userData, seal }, 7)).toBe(0);
   const db = new Database(dbPath());
   db.pragma('user_version = 5');
   db.close();
-  expect(() => runMigrations({ userData, seal }, 7)).toThrow(UnsupportedDataVersionError);
+  expect(() => runMigrations({ userData, home: userData, seal }, 7)).toThrow(
+    UnsupportedDataVersionError,
+  );
   expect(existsSync(dbPath())).toBe(true);
 });
 
@@ -160,7 +164,7 @@ CREATE TABLE IF NOT EXISTS notification_refreshes (
     INSERT INTO shuiyuan_topics (topic_id, title, url, added_at) VALUES (1, '旧引用', 'u', '2026-10-01');`);
   before.pragma('user_version = 7');
   before.close();
-  expect(runMigrations({ userData, seal }, 8)).toBe(1);
+  expect(runMigrations({ userData, home: userData, seal }, 8)).toBe(1);
   const db = new Database(dbPath());
   expect(db.pragma('user_version', { simple: true })).toBe(8);
   expect(db.prepare('SELECT title, read_at, category, count FROM notifications').get()).toEqual({
@@ -191,7 +195,7 @@ CREATE TABLE IF NOT EXISTS notification_refreshes (
   expect(db.pragma('integrity_check', { simple: true })).toBe('ok');
   expect(db.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%_v7'").all()).toEqual([]);
   db.close();
-  expect(runMigrations({ userData, seal }, 8)).toBe(0);
+  expect(runMigrations({ userData, home: userData, seal }, 8)).toBe(0);
 });
 
 it('v8→v9：会话表补 parent_id，原有会话都是顶层会话', () => {
@@ -199,7 +203,7 @@ it('v8→v9：会话表补 parent_id，原有会话都是顶层会话', () => {
   const before = new Database(dbPath());
   before.pragma('user_version = 8');
   before.close();
-  expect(runMigrations({ userData, seal }, 9)).toBe(1);
+  expect(runMigrations({ userData, home: userData, seal }, 9)).toBe(1);
   const db = new Database(dbPath());
   expect(db.pragma('user_version', { simple: true })).toBe(9);
   expect(db.prepare('SELECT id, parent_id FROM sessions').all()).toEqual([
@@ -222,7 +226,7 @@ it('v9→v10：删掉 Pi packages 与试验功能的残留，其余设置与文�
     mkdirSync(join(userData, dir, 'inner'), { recursive: true });
   writeFileSync(join(userData, 'pi', 'mcp.log'), '');
 
-  expect(runMigrations({ userData, seal }, 10)).toBe(1);
+  expect(runMigrations({ userData, home: userData, seal }, 10)).toBe(1);
 
   const db = new Database(dbPath());
   expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'theme' }]);
@@ -280,7 +284,7 @@ it('v10→v11：指向内置厂商的配置换成 piProvider 并只留目录模�
     ),
   );
 
-  expect(runMigrations({ userData, seal }, 11)).toBe(1);
+  expect(runMigrations({ userData, home: userData, seal }, 11)).toBe(1);
 
   const { providers } = JSON.parse(readFileSync(configPath(), 'utf8'));
   expect(providers.map((p: Record<string, unknown>) => 'presetId' in p)).toEqual([
@@ -321,7 +325,7 @@ it('v11→v12：MCP 配置连同 env 移进加密文件并标为 stdio，数据�
   before.pragma('user_version = 11');
   before.close();
 
-  expect(runMigrations({ userData, seal }, 12)).toBe(1);
+  expect(runMigrations({ userData, home: userData, seal }, 12)).toBe(1);
 
   const db = new Database(dbPath());
   expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'theme' }]);
@@ -329,4 +333,112 @@ it('v11→v12：MCP 配置连同 env 移进加密文件并标为 stdio，数据�
   expect(JSON.parse(readFileSync(join(userData, 'mcp-servers.bin'), 'utf8'))).toEqual([
     { ...server, transport: 'stdio' },
   ]);
+});
+
+it('v12→v13：模型服务、联网搜索与 MCP 移进 ~/.dela 的 JSON，id 换成可读名字，已有的键不覆盖', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE sessions (id TEXT PRIMARY KEY, provider_id TEXT);
+    INSERT INTO sessions VALUES ('a', 'p1'), ('b', 'p2'), ('c', NULL);`);
+  const search = { id: 's1', name: 'Brave', provider: 'brave', apiKey: 'kb' };
+  before
+    .prepare("INSERT INTO workspace_settings VALUES ('web-search-api', ?), ('theme', 'dark')")
+    .run(JSON.stringify({ providers: [search], selectedId: 's1' }));
+  before.pragma('user_version = 12');
+  before.close();
+  const provider = {
+    id: 'p1',
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'kd',
+    models: ['chat', 'reasoner'],
+    modelConfigs: { reasoner: { effort: 'high' } },
+    piProvider: 'deepseek',
+    enabled: false,
+  };
+  const relay = { ...provider, id: 'p2', name: '中转', baseUrl: 'https://api.siliconflow.cn/v1' };
+  writeFileSync(
+    configPath(),
+    seal.encrypt(
+      JSON.stringify({
+        providers: [provider, { ...provider, id: 'p3' }, { ...relay, piProvider: null }],
+      }),
+    ),
+  );
+  writeFileSync(
+    join(userData, 'mcp-servers.bin'),
+    seal.encrypt(
+      JSON.stringify([
+        {
+          id: 'm1',
+          name: 'gh',
+          enabled: true,
+          transport: 'stdio',
+          command: 'npx',
+          args: [],
+          env: {},
+        },
+        { id: 'm2', name: 'web', enabled: false, transport: 'http', url: 'https://x', headers: {} },
+      ]),
+    ),
+  );
+  const dela = join(userData, '.dela');
+  mkdirSync(dela);
+  const magpie = { name: 'Magpie', baseUrl: 'http://127.0.0.1:3425/v1', apiKey: 'm', models: {} };
+  writeFileSync(join(dela, 'config.json'), JSON.stringify({ providers: { magpie } }));
+
+  expect(runMigrations({ userData, home: userData, seal }, 13)).toBe(1);
+
+  const deepseek = {
+    name: 'DeepSeek',
+    vendor: 'deepseek',
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'kd',
+    enabled: false,
+    models: { chat: {}, reasoner: { effort: 'high' } },
+  };
+  const config = JSON.parse(readFileSync(join(dela, 'config.json'), 'utf8'));
+  expect(config).toEqual({
+    providers: {
+      magpie,
+      deepseek,
+      siliconflow: { ...deepseek, name: '中转', vendor: undefined, baseUrl: relay.baseUrl },
+    },
+    webSearch: {
+      selected: 'brave',
+      services: { brave: { name: 'Brave', provider: 'brave', apiKey: 'kb' } },
+    },
+  });
+  expect(JSON.parse(readFileSync(join(dela, 'mcp.json'), 'utf8'))).toEqual({
+    mcpServers: {
+      gh: { command: 'npx', args: [], env: {} },
+      web: { type: 'http', url: 'https://x', headers: {}, disabled: true },
+    },
+  });
+  expect(readdirSync(userData).filter((name) => name.endsWith('.bin'))).toEqual([]);
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'theme' }]);
+  // p3 与 p1 内容相同，沿用同一项：重跑迁移也是这样，不会多出一份。
+  expect(db.prepare('SELECT provider_id FROM sessions ORDER BY id').pluck().all()).toEqual([
+    'deepseek',
+    'siliconflow',
+    null,
+  ]);
+  db.close();
+});
+
+it('v12→v13：~/.dela/config.json 已写坏时不改它，旧的加密文件保留', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE sessions (id TEXT PRIMARY KEY, provider_id TEXT);`);
+  before.pragma('user_version = 12');
+  before.close();
+  writeFileSync(configPath(), seal.encrypt(JSON.stringify({ providers: [] })));
+  mkdirSync(join(userData, '.dela'));
+  writeFileSync(join(userData, '.dela', 'config.json'), '{ broken');
+
+  runMigrations({ userData, home: userData, seal }, 13);
+
+  expect(readFileSync(join(userData, '.dela', 'config.json'), 'utf8')).toBe('{ broken');
+  expect(existsSync(configPath())).toBe(true);
 });

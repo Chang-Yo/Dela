@@ -57,12 +57,12 @@ const headerAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
 export function SearchConfigDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const list = useQuery({
-    queryKey: ['capabilities', 'webSearchEntries'],
+    queryKey: ['capabilities', 'listWebSearchEntries'],
     queryFn: () => capabilitiesClient.listWebSearchEntries(),
   });
   const entries = list.data;
   const setEntries = (next: WebSearchEntry[]) =>
-    queryClient.setQueryData(['capabilities', 'webSearchEntries'], next);
+    queryClient.setQueryData(['capabilities', 'listWebSearchEntries'], next);
   const [draft, setDraft] = useState<WebSearchEntryInput | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

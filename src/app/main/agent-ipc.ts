@@ -2,9 +2,9 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
 import { checkWorkspaceSender } from './window';
+import { deleteLlmProvider } from '../../core/agent/llm-config';
 import {
   listLlmProviders,
-  removeLlmProvider,
   saveLlmProvider,
   setLlmProviderEnabled,
   verifyLlm,
@@ -22,6 +22,7 @@ import {
 } from '../../core/agent/session/run';
 import { preloadPi } from '../../core/agent/session/store';
 import { emit, hostPorts } from '../../core/ports';
+import { ConfigFileError, watchConfigFiles, type ConfigFileName } from '../../core/config-files';
 import { hasSidechats, shutdownSidechats } from '../../core/agent/sidechat';
 import { gcChatMedia } from '../../core/agent/media';
 import {
@@ -107,7 +108,7 @@ const llm = implement(llmContract, {
     return saved;
   },
   remove: (id) => {
-    removeLlmProvider(id);
+    deleteLlmProvider(id);
     invalidateSessions(id);
   },
   setEnabled: ({ id, enabled }) => {
@@ -179,8 +180,25 @@ const capabilities = implement(capabilitiesContract, {
   readWebSearchKey,
 });
 
+/** 用户或 magpie 直接改了 ~/.dela 下的文件：会话按新配置重建，各窗口的列表跟着刷新。 */
+function onConfigFileChanged(name: ConfigFileName) {
+  invalidateSessions();
+  try {
+    if (name === 'mcp.json') emit(capabilitiesContract, 'listMcpServers', listMcpServers());
+    else {
+      emit(llmContract, 'list', listLlmProviders());
+      emit(capabilitiesContract, 'listWebSearchEntries', listWebSearchEntries());
+      emit(capabilitiesContract, 'webSearchChanged', undefined);
+    }
+  } catch (error) {
+    // 文件写坏时界面保留旧列表，下一次读取或保存会说明原因。
+    if (!(error instanceof ConfigFileError)) throw error;
+  }
+}
+
 export function registerAgentIpc() {
   void preloadPi();
+  watchConfigFiles(onConfigFileChanged);
   // 调用过协议的窗口才收得到会话事件。
   for (const channel of channelsOf(agentContract)) {
     const name = channel.slice(agentContract.namespace.length + 1);

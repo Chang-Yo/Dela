@@ -7,6 +7,8 @@ import { defineContract } from './contract';
 export const AGENT_PROTOCOL_VERSION = 1;
 
 const uuid = z.string().uuid();
+/** 模型服务的 id 是 ~/.dela/config.json 里的键：Dela 取厂商名或域名，用户和 magpie 等工具可以手写。 */
+export const providerIdSchema = z.string().regex(/^[\w.-]{1,64}$/);
 const sessionId = uuid;
 const projectId = uuid.nullable();
 
@@ -326,7 +328,11 @@ export const agentContract = defineContract(
     },
     'list-models': { input: empty, output: z.array(modelProviderViewSchema) },
     'set-model': {
-      input: z.object({ sessionId, providerId: uuid, model: z.string().min(1).max(200) }),
+      input: z.object({
+        sessionId,
+        providerId: providerIdSchema,
+        model: z.string().min(1).max(200),
+      }),
       output: workspaceChatSchema,
     },
     'set-effort': {

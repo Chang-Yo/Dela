@@ -1,4 +1,5 @@
 // 搜索服务多条目存储：新建即选中、删除回落与选择联动工具开关。
+import { readFileSync, rmSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { beforeEach, expect, it, vi } from 'vitest';
 
@@ -47,12 +48,14 @@ import {
   webSearchEntryInputSchema,
 } from '../web-search';
 import { provideTestHostPorts } from '../../test/host-mock';
+import { configFilePath } from '../../config-files';
 
 provideTestHostPorts({ database: () => database as never });
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');
   database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  rmSync(configFilePath('config.json'), { force: true });
   capabilityCalls.length = 0;
 });
 
@@ -78,6 +81,13 @@ it('新建即选中，更新已有条目不改选中', () => {
   expect(listWebSearchEntries().find(({ id }) => id === deep.id)).toMatchObject({
     apiKey: 'sk-2',
     useForFetch: true,
+  });
+  expect(JSON.parse(readFileSync(configFilePath('config.json'), 'utf8')).webSearch).toEqual({
+    selected: 'brave',
+    services: {
+      brave: { name: 'Brave', provider: 'brave', apiKey: 'BSA-1' },
+      deepseek: { name: '学校账号', provider: 'deepseek', apiKey: 'sk-2', useForFetch: true },
+    },
   });
 });
 
