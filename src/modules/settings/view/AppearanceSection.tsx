@@ -189,7 +189,7 @@ export function AppearanceSection({
               max: fontSizeMax,
               unit: 'px',
               value: fontSize,
-              onChange: selectFontSize,
+              onValueChange: selectFontSize,
             }}
             label="字号"
             onStep={(delta) => selectFontSize(fontSize + delta)}

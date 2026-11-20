@@ -31,14 +31,14 @@ function StepperInput({
   label,
   max,
   min,
-  onChange,
+  onValueChange,
   unit,
   value,
 }: {
   label: string;
   max: number;
   min: number;
-  onChange: (value: number) => void;
+  onValueChange: (value: number) => void;
   unit: string;
   value: number;
 }) {
@@ -49,7 +49,7 @@ function StepperInput({
     const parsed = Number(draft.trim());
     if (draft.trim() === '' || !Number.isFinite(parsed)) return;
     const next = Math.min(max, Math.max(min, Math.round(parsed)));
-    if (next !== value) onChange(next);
+    if (next !== value) onValueChange(next);
   };
   return (
     <span className="flex h-8 min-w-16 items-center justify-end gap-0.5 rounded-control bg-field pl-2 pr-1.5 text-sm font-medium tabular-nums text-ink shadow-hairline">
@@ -87,7 +87,7 @@ function Stepper({
     value: number;
     min: number;
     max: number;
-    onChange: (value: number) => void;
+    onValueChange: (value: number) => void;
   };
   label: string;
   onStep: (delta: 1 | -1) => void;
@@ -118,7 +118,7 @@ function Stepper({
           label={label}
           max={input.max}
           min={input.min}
-          onChange={input.onChange}
+          onValueChange={input.onValueChange}
           unit={input.unit}
           value={input.value}
         />
