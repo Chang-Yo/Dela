@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 import type { MailFolderInfo, MailAccountInfo, MailSyncStatus } from '../contract';
-import { PanelToggleButton } from '../../../ui/panel-toggle';
+import { PanelToggle } from '../../../ui/panel-toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { cn } from '../../../ui/lib/cn';
 import { fadeIn } from '../../../ui/lib/motion';
@@ -195,7 +195,7 @@ export function MailFolders({
     >
       {!hideHeader && (
         <div className="flex h-11 shrink-0 items-center px-3">
-          <PanelToggleButton
+          <PanelToggle
             collapsed={foldersCollapsed}
             controlsId="mail-folders"
             label="邮件文件夹"

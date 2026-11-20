@@ -10,7 +10,7 @@ import {
   type ZoomPreference,
 } from '../contract';
 import { cn } from '../../../ui/lib/cn';
-import { StepperControl } from '../../../ui/stepper';
+import { Stepper } from '../../../ui/stepper';
 import blackLogo from '../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../assets/Dela_white_bg.svg';
 import { SectionHeader } from './SectionHeader';
@@ -168,7 +168,7 @@ export function AppearanceSection({
           </div>
         </div>
         <SettingRow settingId="zoom" title="页面缩放">
-          <StepperControl
+          <Stepper
             canDecrease={zoom > zoomLevels[0]}
             canIncrease={zoom < zoomLevels.at(-1)!}
             display={zoomLabel(zoom)}
@@ -180,7 +180,7 @@ export function AppearanceSection({
           />
         </SettingRow>
         <SettingRow settingId="font-size" title="字号">
-          <StepperControl
+          <Stepper
             canDecrease={fontSize > fontSizeMin}
             canIncrease={fontSize < fontSizeMax}
             display={`${fontSize}px`}

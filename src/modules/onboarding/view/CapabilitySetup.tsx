@@ -4,7 +4,7 @@ import { Check, FileText } from 'lucide-react';
 import type { SkillView } from '../../../core/protocol/capabilities';
 import { ToastCard } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
-import { DownloadProgressRow } from '../../../ui/download-progress';
+import { DownloadProgress } from '../../../ui/download-progress';
 import { StepButton } from './step-controls';
 import { ErrorText } from '../../../ui/alert';
 import { capabilitiesClient } from '../../chat/view';
@@ -131,7 +131,7 @@ export function CapabilitySetup({
                       {dependency.phase ?? '正在准备组件…'}
                     </span>
                     {total ? (
-                      <DownloadProgressRow
+                      <DownloadProgress
                         barClassName="flex-1"
                         label={`${displayName} 下载进度`}
                         received={received}

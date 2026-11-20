@@ -9,7 +9,7 @@ import type {
 import type { WorkspaceEntry } from '../../../workspace/contract';
 import { Button } from '../../../../ui/button';
 import { Card } from '../../../../ui/card';
-import { DownloadProgressRow } from '../../../../ui/download-progress';
+import { DownloadProgress } from '../../../../ui/download-progress';
 import { Switch } from '../../../../ui/switch';
 import { SegmentedControl } from '../../../../ui/segmented-control';
 import { useWorkspaceStore } from '../../../workspace/view';
@@ -246,7 +246,7 @@ export function SkillsTab() {
                         </span>
                       ))}
                     {skill.dependency?.status === 'installing' && skill.dependency.total ? (
-                      <DownloadProgressRow
+                      <DownloadProgress
                         barClassName="w-16 md:w-40"
                         label={`${skill.name} 组件下载进度`}
                         received={skill.dependency.received ?? 0}

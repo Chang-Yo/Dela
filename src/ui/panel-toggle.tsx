@@ -1,18 +1,13 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
-type PanelToggleButtonProps = {
+type PanelToggleProps = {
   collapsed: boolean;
   onToggle: () => void;
   label: string;
   controlsId?: string;
 };
 
-export function PanelToggleButton({
-  collapsed,
-  onToggle,
-  label,
-  controlsId,
-}: PanelToggleButtonProps) {
+export function PanelToggle({ collapsed, onToggle, label, controlsId }: PanelToggleProps) {
   const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
   return (
     <button

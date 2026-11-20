@@ -68,7 +68,7 @@ function StepperInput({
   );
 }
 
-export function StepperControl({
+export function Stepper({
   canDecrease = true,
   canIncrease = true,
   display,

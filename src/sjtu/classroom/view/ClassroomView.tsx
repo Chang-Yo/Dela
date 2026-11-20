@@ -5,7 +5,7 @@ import { ConnectCard } from '../../../ui/connect-card';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { EmptyState } from '../../../ui/empty-state';
 import { PanelHeader } from '../../../ui/panel-header';
-import { PanelToggleButton } from '../../../ui/panel-toggle';
+import { PanelToggle } from '../../../ui/panel-toggle';
 import { Resizable, useResizableWidth } from '../../../ui/resizable';
 import { useViewportWidth } from '../../../ui/hooks/use-viewport-width';
 import { cn } from '../../../ui/lib/cn';
@@ -84,7 +84,7 @@ function DesktopClassroomView() {
               style={collapsed ? undefined : { width: effectiveWidth }}
             >
               <PanelHeader variant="plain">
-                <PanelToggleButton
+                <PanelToggle
                   collapsed={collapsed}
                   controlsId="classroom-courses"
                   label="课程列表"
@@ -171,7 +171,7 @@ function PlayerSection({
       <section className="relative grid min-w-0 flex-1 place-items-center">
         {collapsed && (
           <div className="absolute left-2 top-2">
-            <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
+            <PanelToggle collapsed label="课程列表" onToggle={onExpandSidebar} />
           </div>
         )}
         <EmptyState

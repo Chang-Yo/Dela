@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
-import { PanelToggleButton } from '../../../ui/panel-toggle';
+import { PanelToggle } from '../../../ui/panel-toggle';
 import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import type { ClassroomVideo, VideoCourse } from '../contract';
@@ -261,7 +261,7 @@ export function Player({
     >
       <div className="flex items-center gap-2 px-3 pt-2">
         {collapsedSidebar && onExpandSidebar && (
-          <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
+          <PanelToggle collapsed label="课程列表" onToggle={onExpandSidebar} />
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-ink">

@@ -2,7 +2,7 @@ import { formatBytes } from './lib/format-bytes';
 import { cn } from './lib/cn';
 
 /** 百分比向下取整，未完成不显示 100%；尺寸列定最小宽，数字增长时不抖动。 */
-export function DownloadProgressRow({
+export function DownloadProgress({
   barClassName,
   label,
   received,

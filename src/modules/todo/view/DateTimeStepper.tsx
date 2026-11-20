@@ -1,4 +1,4 @@
-import { StepperControl } from '../../../ui/stepper';
+import { Stepper } from '../../../ui/stepper';
 
 type StepperField = 'year' | 'month' | 'day' | 'hour' | 'minute';
 
@@ -64,7 +64,7 @@ export function DateTimeStepper({
       role="group"
     >
       {columns.map((column) => (
-        <StepperControl
+        <Stepper
           display={column.display}
           key={column.field}
           label={column.label}
