@@ -3,7 +3,7 @@
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
 import { cn } from './lib/cn';
-import { dialogOverlay, sheetUp } from './lib/motion';
+import { sheetUp } from './lib/motion';
 
 const Sheet = DialogPrimitive.Root;
 
@@ -13,7 +13,7 @@ function SheetContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className={dialogOverlay} data-slot="sheet-overlay" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-overlay" data-slot="sheet-overlay" />
       <DialogPrimitive.Content
         className={cn(
           `fixed inset-x-0 bottom-0 z-overlay mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl
