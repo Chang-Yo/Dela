@@ -210,7 +210,7 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface">
+    <div className="relative flex h-full min-h-0 flex-col bg-surface">
       <header className="border-b border-line bg-surface/95 px-4 py-2 backdrop-blur max-md:px-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="mr-1 min-w-0">

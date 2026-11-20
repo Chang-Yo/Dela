@@ -11,12 +11,13 @@ function SheetContent({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  // 不经 Portal：只盖住所在视图并在其中居中，调用方的根元素需要 relative。
   return (
-    <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-overlay" data-slot="sheet-overlay" />
+    <>
+      <DialogPrimitive.Overlay className="absolute inset-0 z-overlay" data-slot="sheet-overlay" />
       <DialogPrimitive.Content
         className={cn(
-          `fixed inset-x-0 bottom-0 z-overlay mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl
+          `absolute inset-x-0 bottom-0 z-overlay mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl
            flex-col overflow-y-auto rounded-t-window bg-surface p-5 text-ink shadow-overlay
            outline-none max-md:px-4 ${sheetUp}`,
           className,
@@ -24,7 +25,7 @@ function SheetContent({
         data-slot="sheet-content"
         {...props}
       />
-    </DialogPrimitive.Portal>
+    </>
   );
 }
 
