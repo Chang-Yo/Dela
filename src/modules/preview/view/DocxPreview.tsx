@@ -37,7 +37,7 @@ export function DocxPreview({ url }: { url: string }) {
           renderAltChunks: false,
         });
         // docx-preview 把渲染结果直接挂进主文档且不过滤超链接：统一按协议白名单剥除，
-        // 阻断文档内 javascript: 等链接经主文档点击触发（与 sanitize-html 同一白名单）。
+        // 阻断文档内 javascript: 等链接经主文档点击触发（与 HtmlFrame 同一白名单）。
         container.querySelectorAll('a[href]').forEach((a) => {
           try {
             if (!['https:', 'http:'].includes(new URL(a.getAttribute('href')!).protocol))

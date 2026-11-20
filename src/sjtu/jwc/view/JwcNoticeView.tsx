@@ -4,10 +4,8 @@ import { ArrowLeft, Download, ExternalLink, Paperclip } from 'lucide-react';
 import type { Navigate } from '../../../app/module';
 import { createClient, errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
-import { useRootFontSize } from '../../../ui/hooks/root-font-size';
-import { sanitizeHtml } from '../../../modules/mail/view';
-import { useFrameBodyHeight } from '../../../ui/hooks/use-frame-body-height';
 import { Button } from '../../../ui/button';
+import { HtmlFrame } from '../../../ui/html-frame';
 import { Input } from '../../../ui/input';
 import { jwcContract, type JwcNotice } from '../contract';
 import { ErrorText } from '../../../ui/error-text';
@@ -30,10 +28,7 @@ export function JwcNoticeView({
   });
   const notice = query.data;
   const [attachment, setAttachment] = useState<JwcNotice['attachments'][number] | null>(null);
-  const [height, setBody] = useFrameBodyHeight();
   const attachmentsRef = useRef<HTMLElement>(null);
-  const rootSize = useRootFontSize();
-  const html = notice ? sanitizeHtml(notice.html, notice.url, rootSize) : '';
   const openLink = (url: string) => {
     const file = notice?.attachments.find((entry) => entry.url === url);
     if (file) setAttachment(file);
@@ -98,24 +93,12 @@ export function JwcNoticeView({
         </p>
       ) : (
         <>
-          <iframe
+          <HtmlFrame
+            baseUrl={notice.url}
+            className="mt-5 overflow-hidden rounded-card bg-paper"
+            html={notice.html}
+            onLink={openLink}
             title="教务处通知正文"
-            className="mt-5 block w-full overflow-hidden rounded-card border-0 bg-paper"
-            sandbox="allow-same-origin"
-            referrerPolicy="no-referrer"
-            srcDoc={html}
-            style={{ height }}
-            onLoad={(event) => {
-              const document = event.currentTarget.contentDocument;
-              setBody(document?.body ?? null);
-              document?.addEventListener('click', (click) => {
-                const target = (click.target as Element).closest?.('a[href]');
-                if (target) {
-                  click.preventDefault();
-                  openLink(target.getAttribute('href')!);
-                }
-              });
-            }}
           />
           {notice.attachments.length > 0 && (
             <section

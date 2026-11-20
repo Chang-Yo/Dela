@@ -8,14 +8,6 @@ import { leaveComposer } from './compose-close';
 
 export { leaveComposer, registerComposeSave, saveComposers } from './compose-close';
 export { MailDraftDialog } from './MailDraftDialog';
-export {
-  frameHeightFromEvent,
-  frameImageFromEvent,
-  frameLinkFromEvent,
-  injectFrameHeightReport,
-} from './frame-height';
-export { renderMailHtml } from './mail-html-display';
-export { sanitizeHtml } from './sanitize-html';
 
 export const mailView = defineView({
   pages: {

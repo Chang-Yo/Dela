@@ -1,10 +1,6 @@
-import { useRef, useState } from 'react';
-import { renderMailHtml } from './mail-html-display';
-import { sanitizeMailHtml } from './mail-html';
+import { useState } from 'react';
 import { cn } from '../../../ui/lib/cn';
-import { frameHeightFromEvent, injectFrameHeightReport } from './frame-height';
-import { useRootFontSize } from '../../../ui/hooks/root-font-size';
-import { useFrameMessages } from '../../../ui/hooks/use-frame-messages';
+import { HtmlFrame } from '../../../ui/html-frame';
 
 const toolbarToggle = cn(
   'h-7 rounded-full px-3 text-xs transition-colors',
@@ -12,24 +8,17 @@ const toolbarToggle = cn(
   'aria-[pressed=false]:text-ink-3 aria-[pressed=false]:hover:bg-hover',
 );
 
-const INITIAL_BODY_HEIGHT = 240;
+/** cid: 内嵌图片的地址已在消毒时剥除，留下说明文字代替破图。 */
+const markInlineImages = (doc: Document) => {
+  for (const image of doc.querySelectorAll('img:not([src])'))
+    image.setAttribute('alt', image.getAttribute('alt') || '内嵌图片暂不可用');
+};
 
 export function MailHtmlBody({ html, text }: { html: string; text: string | null }) {
   // 远程图片默认加载（用户裁决）；担心跟踪像素时可按这封邮件一键隐藏，偏好不落盘。
   const [remoteImages, setRemoteImages] = useState(true);
   const [plain, setPlain] = useState(false);
   const [fitWidth, setFitWidth] = useState(false);
-  const [bodyHeight, setBodyHeight] = useState(INITIAL_BODY_HEIGHT);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const rootSize = useRootFontSize();
-  const doc = sanitizeMailHtml(html, remoteImages);
-  injectFrameHeightReport(doc);
-  const document = renderMailHtml(doc, fitWidth, rootSize);
-
-  useFrameMessages((event) => {
-    const height = frameHeightFromEvent(event, iframeRef.current);
-    if (height !== null) setBodyHeight(height);
-  });
 
   return (
     <div className="mt-3 flex flex-col">
@@ -64,14 +53,13 @@ export function MailHtmlBody({ html, text }: { html: string; text: string | null
           {text ?? new DOMParser().parseFromString(html, 'text/html').body.textContent}
         </div>
       ) : (
-        <iframe
-          className="mt-3 w-full rounded-t-card border-x border-t bg-paper"
-          ref={iframeRef}
-          referrerPolicy="no-referrer"
-          sandbox="allow-popups allow-scripts"
-          srcDoc={document}
-          style={{ height: bodyHeight }}
+        <HtmlFrame
+          className="mt-3 rounded-t-card border-x border-t bg-paper"
+          fitWidth={fitWidth}
+          html={html}
+          remoteImages={remoteImages}
           title="邮件正文"
+          transform={markInlineImages}
         />
       )}
     </div>

@@ -1,17 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { renderShuiyuanHtml, sanitizeShuiyuanHtml } from './shuiyuan-html';
-import {
-  frameHeightFromEvent,
-  frameImageFromEvent,
-  frameLinkFromEvent,
-  injectFrameHeightReport,
-} from '../../../modules/mail/view';
-import { openLightbox } from '../../../ui/lightbox';
-import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from '../contract';
-import { useRootFontSize } from '../../../ui/hooks/root-font-size';
-import { useFrameMessages } from '../../../ui/hooks/use-frame-messages';
-
-const INITIAL_BODY_HEIGHT = 48;
+import { useEffect, useState } from 'react';
+import { shuiyuanFrame } from './shuiyuan-html';
+import { HtmlFrame } from '../../../ui/html-frame';
+import { shuiyuanTopicFromUrl } from '../contract';
 
 /**
  * 应用的生效主题（偏好 system 时跟随系统）；iframe 文档取不到外层 class，
@@ -40,15 +30,12 @@ function useIsDarkTheme(): boolean {
   return dark;
 }
 
-/**
- * 水源楼层/引用正文的沙箱渲染：不透明源 iframe + 高度自适应上报，
- * 外链经 sandbox allow-popups + 主进程 windowOpenHandler 走系统浏览器。
- */
+/** 水源楼层/引用正文：给了 onOpenTopic 时站内话题链接在应用内打开，其余外链走系统浏览器。 */
 export function ShuiyuanHtmlBody({
   html,
   title = '帖子正文',
   onOpenTopic,
-  initialHeight = INITIAL_BODY_HEIGHT,
+  initialHeight = 48,
 }: {
   html: string;
   title?: string;
@@ -56,35 +43,18 @@ export function ShuiyuanHtmlBody({
   initialHeight?: number;
 }) {
   const dark = useIsDarkTheme();
-  const rootSize = useRootFontSize();
-  const [bodyHeight, setBodyHeight] = useState(initialHeight);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const internalNavigation = Boolean(onOpenTopic);
-  const doc = sanitizeShuiyuanHtml(html);
-  injectFrameHeightReport(doc, {
-    internalLinkHost: internalNavigation ? SHUIYUAN_HOST : undefined,
-    lightbox: true,
-  });
-  const document = renderShuiyuanHtml(doc, dark, rootSize);
-
-  useFrameMessages((event) => {
-    const height = frameHeightFromEvent(event, iframeRef.current);
-    if (height !== null) setBodyHeight(height);
-    const href = frameLinkFromEvent(event, iframeRef.current);
-    const target = href ? shuiyuanTopicFromUrl(href) : null;
-    if (target) onOpenTopic?.(target.topicId, target.postNumber);
-    const image = frameImageFromEvent(event, iframeRef.current);
-    if (image) openLightbox(image.src, image.alt);
-  });
-
+  const openLink = (url: string) => {
+    const topic = shuiyuanTopicFromUrl(url);
+    if (topic && onOpenTopic) onOpenTopic(topic.topicId, topic.postNumber);
+    else window.open(url);
+  };
   return (
-    <iframe
-      className="w-full border-0 bg-transparent"
-      ref={iframeRef}
-      referrerPolicy="no-referrer"
-      sandbox="allow-popups allow-scripts"
-      srcDoc={document}
-      style={{ height: bodyHeight }}
+    <HtmlFrame
+      {...shuiyuanFrame(dark)}
+      className="bg-transparent"
+      html={html}
+      initialHeight={initialHeight}
+      onLink={openLink}
       title={title}
     />
   );
