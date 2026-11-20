@@ -41,3 +41,12 @@ jobs:
           path: out/
           if-no-files-found: error
           retention-days: 1
+      # 交大模块必须能整体去掉：去掉后仍要通过类型检查、构建与冒烟（out/ 已上传，可以覆盖）。
+      - name: Remove SJTU modules
+        run: node scripts/strip-sjtu.ts
+      - name: Typecheck without SJTU
+        run: pnpm typecheck
+      - name: Build without SJTU
+        run: pnpm build:bundle
+      - name: Smoke test without SJTU
+        run: pnpm smoke
