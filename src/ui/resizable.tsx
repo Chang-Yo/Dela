@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useRef, useState, type ComponentProps } from 'react';
 import { cn } from './lib/cn';
 
 type ResizableProps = Omit<ComponentProps<'div'>, 'onChange' | 'defaultValue'> & {
@@ -26,9 +26,6 @@ function Resizable({
 }: ResizableProps) {
   const start = useRef<{ pointerId: number; position: number; size: number } | null>(null);
   const horizontal = orientation === 'horizontal';
-
-  // 拖拽中宿主卸载时 lostpointercapture 不会到达已移除元素，卸载时兜底复位 resizing 态。
-  useEffect(() => () => onResizingChange?.(false), []);
 
   const clamp = (size: number) => Math.min(max, Math.max(min, size));
   const finishPointer = () => {
