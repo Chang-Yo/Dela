@@ -38,7 +38,7 @@
 
 `@earendil-works/pi-coding-agent` 的 `createAgentSession` 就是 agent 内核。会话树（JSONL）、多轮工具上下文、自动压缩、重试、`AGENTS.md` 上下文文件、skills 发现与渐进加载都由 Pi 承担，Dela 不另写执行循环、上下文组装或压缩。
 
-工具来源分三类：Pi 内置（read / write / edit / bash / grep / find / ls）、Dela 自写（web_search / web_fetch / session_search / session_read / task / task_output / task_stop，以及同名覆盖 bash 加上 background 参数）、MCP（stdio 与 Streamable HTTP 服务器，配置在 `~/.dela/mcp.json`）。read/write/edit/bash 常驻不可关。
+工具来源分三类：Pi 内置（read / write / edit / bash / grep / find / ls）、Dela 自写（web_search / web_fetch / session_search / session_read / task / task_output / task_stop，以及同名覆盖 bash 加上 background 参数）、MCP（stdio 与 Streamable HTTP 服务器，配置在 `~/.dela/mcp.json`，连接时展开其中的 `${NAME}` 环境变量）。read/write/edit/bash 常驻不可关。
 
 两个容易踩的目录事实：
 

@@ -248,4 +248,25 @@ describe('Streamable HTTP', () => {
       headers: { Authorization: 'Bearer t' },
     });
   }, 20000);
+
+  it('连接时展开环境变量，文件里保留原样；变量未设置时报错', async () => {
+    vi.stubEnv('DELA_MCP_TOKEN', 't');
+    const [view] = await addMcpServer({
+      name: 'env-remote',
+      transport: 'http',
+      url,
+      headers: { Authorization: 'Bearer ${DELA_MCP_TOKEN}' },
+    });
+    expect(view).toMatchObject({ status: 'connected' });
+    expect(storedConfigs()['env-remote']?.headers).toEqual({
+      Authorization: 'Bearer ${DELA_MCP_TOKEN}',
+    });
+
+    vi.unstubAllEnvs();
+    const views = await refreshMcpServer('env-remote');
+    expect(views.find(({ id }) => id === 'env-remote')).toMatchObject({
+      status: 'error',
+      error: '环境变量 DELA_MCP_TOKEN 未设置',
+    });
+  }, 20000);
 });

@@ -10,7 +10,7 @@
 ## 决定
 
 - 模型服务与联网搜索存在 `~/.dela/config.json`（`providers`、`webSearch`），MCP 存在 `~/.dela/mcp.json`，格式与 Claude Code 的 `mcpServers` 相同。Skill 仍在 `~/.dela/skills`。
-- API Key 明文写在文件里，文件权限只给本人。不支持从环境变量或命令读取 Key。
+- API Key 明文写在文件里，文件权限只给本人。不支持从命令读取 Key。`mcp.json` 与 Claude Code 一样，连接时展开 `${NAME}` 与 `${NAME:-默认值}`，变量未设置就连接失败；`config.json` 不展开。
 - 条目以对象的键为 id。Dela 新建时取厂商名、域名或搜索服务类型，重名加序号，之后不再变；显示名另存，可以随便改。用户和其他工具可以手写。MCP 以服务器名字为 id。迁移把旧的 UUID 换成这种名字，并改写会话记住的 id。
 - Dela 每次读最新内容，只改自己要改的那一项，保留不认识的字段与条目。写错的单项跳过；整个文件不是有效 JSON 时报错，修正前不改写它。
 - 主进程监听这两个文件，被外部改动后重建空闲会话并推送最新列表。

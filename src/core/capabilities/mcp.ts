@@ -151,13 +151,29 @@ function stderrTail(sdk: McpSdk, transport: McpTransport): string {
   return tail ? `（服务器输出：${tail.slice(-STDERR_TAIL_CHARS)}）` : '';
 }
 
+/** 与 Claude Code 相同，连接时展开 ${NAME} 与 ${NAME:-默认值}；展开结果不写回文件。 */
+function expandEnv(text: string): string {
+  return text.replace(/\$\{(\w+)(?::-([^}]*))?\}/g, (_, name: string, fallback?: string) => {
+    const value = process.env[name];
+    if (fallback !== undefined) return value || fallback;
+    if (value === undefined) throw new Error(`环境变量 ${name} 未设置`);
+    return value;
+  });
+}
+
+const expandValues = (record: Record<string, string>) =>
+  Object.fromEntries(Object.entries(record).map(([key, value]) => [key, expandEnv(value)]));
+
 function createTransport(sdk: McpSdk, config: McpServerConfig): McpTransport {
   if (config.transport === 'http')
-    return new sdk.StreamableHttpTransport({ url: config.url, headers: { ...config.headers } });
+    return new sdk.StreamableHttpTransport({
+      url: expandEnv(config.url),
+      headers: expandValues(config.headers),
+    });
   return new sdk.StdioTransport({
-    command: config.command,
-    args: config.args,
-    env: { ...config.env },
+    command: expandEnv(config.command),
+    args: config.args.map(expandEnv),
+    env: expandValues(config.env),
   });
 }
 
@@ -267,8 +283,9 @@ function connectServer(entry: ManagedServer): Promise<void> {
     entry.status = 'connecting';
     const sdk = await loadMcpSdk();
     const client = new sdk.McpClient(CLIENT_INFO);
-    const transport = createTransport(sdk, entry.config);
+    let transport: McpTransport | null = null;
     try {
+      transport = createTransport(sdk, entry.config);
       await withTimeout(
         client.connect(transport),
         CONNECT_TIMEOUT_MS,
@@ -296,7 +313,7 @@ function connectServer(entry: ManagedServer): Promise<void> {
       dropAdoptedTools(entry);
       entry.toolCount = null;
       entry.status = 'error';
-      entry.error = `${connectError(sdk, error)}${stderrTail(sdk, transport)}`;
+      entry.error = `${connectError(sdk, error)}${transport ? stderrTail(sdk, transport) : ''}`;
     } finally {
       entry.connecting = null;
     }
