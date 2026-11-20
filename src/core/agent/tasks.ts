@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { finished } from 'node:stream/promises';
 import type { ToolDefinition, getShellConfig } from '@earendil-works/pi-coding-agent';
 import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../protocol/agent';
 import type { RemoteBackend } from '../remote/operations';
@@ -276,7 +277,9 @@ function startBash(
   };
   trackTask(
     { id, parent, kind: 'bash', label: command, stop: () => abort.abort(), log },
-    run(command, { signal: abort.signal, timeout, onData }).finally(() => file.end()),
+    run(command, { signal: abort.signal, timeout, onData }).finally(() =>
+      finished(file.end(), { cleanup: true }),
+    ),
   );
   return id;
 }
