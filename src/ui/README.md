@@ -1,6 +1,6 @@
 # src/ui
 
-Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt)，不再跟随上游。只依赖 react、radix、cva、lucide、zustand 与样式工具，不认识任何业务。
+Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt)，不再跟随上游。只依赖 react、radix、cva、lucide、zustand、DOMPurify 与样式工具，不认识任何业务。
 
 本文只写约定，不列组件清单：有哪些组件，直接看目录。
 
@@ -41,3 +41,11 @@ Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt
 - 颜色、阴影、圆角、层级与时长只用 `tokens.css` 里的通用 token（[ADR 0023](../../docs/adr/0023-design-token-naming.md)），不用应用调色板（`cal-*`、`syntax-*` 等）、Tailwind 原生色板和任意值。`pnpm lint` 会检查。
 - 尺寸一律由 rem 派生，用户在设置里调字号时整体缩放。正文 `text-sm`，次要文字 `text-xs`。
 - 按钮、输入框、下拉框这类基础控件用固定的 rem 高度（如 `h-8`），保证放在同一行时对齐；rem 会随字号设置一起缩放。
+
+## 外部网页
+
+邮件、通知、帖子这类别人写的 HTML 一律经 `HtmlFrame` 显示，不自己写 iframe，`pnpm lint` 会检查。
+
+- 安全规则只有一套：DOMPurify 消毒、地址只留 http(s)、严格沙箱与 CSP，调用方改不了。
+- 模块的特殊需求用 `transform` 改写已消毒的文档，样式用 `stylesheet` 传入，不往组件里加专门的开关。
+- iframe 里只有一段上报脚本，报告高度、链接点击、放大图片和滚动位置，怎么处理由外层决定。
