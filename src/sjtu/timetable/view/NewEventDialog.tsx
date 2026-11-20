@@ -63,7 +63,7 @@ export function NewEventDialog({
 
   return (
     <Sheet onOpenChange={(open) => !open && onClose()} open>
-      <SheetContent aria-describedby={undefined} side="bottom">
+      <SheetContent aria-describedby={undefined}>
         <div className="flex items-center justify-between">
           <SheetTitle className="tracking-tight">新建事件</SheetTitle>
           <Button
