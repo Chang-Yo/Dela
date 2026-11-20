@@ -4,7 +4,7 @@ import { cn } from './lib/cn';
 import { useMediaQuery } from './hooks/use-media-query';
 
 /** 收起动画结束后卸载内容：隐藏区域里的必填项不会拦住表单提交，也不会被 Tab 聚焦。 */
-function Collapse({
+function Collapsible({
   open,
   className,
   children,
@@ -26,7 +26,7 @@ function Collapse({
         'grid transition-[grid-template-rows,opacity] duration-slow ease-out-strong motion-reduce:transition-none',
         open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] opacity-0',
       )}
-      data-slot="collapse"
+      data-slot="collapsible"
       data-state={open ? 'open' : 'closed'}
       inert={!open}
       onTransitionEnd={(event) => {
@@ -41,7 +41,7 @@ function Collapse({
   );
 }
 
-function CollapseChevron({ open, className }: { open: boolean; className?: string }) {
+function CollapsibleChevron({ open, className }: { open: boolean; className?: string }) {
   return (
     <ChevronRight
       aria-hidden="true"
@@ -54,4 +54,4 @@ function CollapseChevron({ open, className }: { open: boolean; className?: strin
   );
 }
 
-export { Collapse, CollapseChevron };
+export { Collapsible, CollapsibleChevron };

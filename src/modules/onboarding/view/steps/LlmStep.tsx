@@ -12,7 +12,7 @@ import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import { IconButton } from '../../../../ui/icon-button';
 import { Button } from '../../../../ui/button';
-import { Collapse } from '../../../../ui/collapsible';
+import { Collapsible } from '../../../../ui/collapsible';
 import { Input } from '../../../../ui/input';
 import { llmClient } from '../../../chat/view';
 import { errorMessage } from '../../../../core/protocol/contract';
@@ -169,7 +169,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                   ))}
                   <SelectItem value={CUSTOM}>自定义（OpenAI 兼容）</SelectItem>
                 </StepSelect>
-                <Collapse open={custom}>
+                <Collapsible open={custom}>
                   <div className="grid gap-4 pt-4">
                     <label className="grid gap-2">
                       <span className="text-sm font-medium text-ink-2">名称</span>
@@ -194,7 +194,7 @@ export function LlmStep({ onDone }: { onDone: () => void }) {
                       />
                     </label>
                   </div>
-                </Collapse>
+                </Collapsible>
               </div>
             ),
           },

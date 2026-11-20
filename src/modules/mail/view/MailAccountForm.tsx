@@ -3,7 +3,7 @@ import type { MailConfigureInput } from '../contract';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/lib/cn';
-import { Collapse } from '../../../ui/collapsible';
+import { Collapsible } from '../../../ui/collapsible';
 import { ErrorText } from '../../../ui/alert';
 
 const modes = ['交大邮箱', '第三方 IMAP'] as const;
@@ -79,7 +79,7 @@ export function MailAccountForm({
             value={password}
           />
         </label>
-        <Collapse open={custom}>
+        <Collapsible open={custom}>
           <div className={cn('grid gap-4', wizard ? 'pt-5' : 'pt-4')}>
             <ServerRow
               field={field}
@@ -105,7 +105,7 @@ export function MailAccountForm({
               固定使用 SSL/TLS 加密；用户名即邮箱地址。发信走 SMTP，收信走 IMAP。
             </p>
           </div>
-        </Collapse>
+        </Collapsible>
       </div>
       {error && <ErrorText size="sm">{error}</ErrorText>}
       {submit}

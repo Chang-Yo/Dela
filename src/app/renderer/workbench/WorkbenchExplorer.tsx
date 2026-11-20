@@ -14,10 +14,10 @@ import {
 import { workspaceArchiveId, type WorkspaceEntry } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId } from '../../../modules/remotes/contract';
 import { Button } from '../../../ui/button';
-import { CollapseChevron } from '../../../ui/collapsible';
+import { CollapsibleChevron } from '../../../ui/collapsible';
 import { PanelHeader } from '../../../ui/panel-header';
 import { SearchInput } from '../../../ui/search-input';
-import { Resizer } from '../../../ui/resizable';
+import { Resizable } from '../../../ui/resizable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
   DropdownMenu,
@@ -484,7 +484,7 @@ export function WorkbenchExplorer({
                 onClick={() => setArchiveOpen((value) => !value)}
                 type="button"
               >
-                <CollapseChevron open={archiveOpen || Boolean(query.trim())} />
+                <CollapsibleChevron open={archiveOpen || Boolean(query.trim())} />
                 <Archive className="size-4" />
                 归档
               </button>
@@ -517,7 +517,7 @@ export function WorkbenchExplorer({
           </div>
         </div>
       </aside>
-      <Resizer
+      <Resizable
         className={cn('bg-transparent', !visible && 'hidden')}
         label="调整目录宽度"
         // 拖拽绑定用户偏好值与原上限：渲染宽度另有视口钳制，若把钳制值当 max，

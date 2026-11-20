@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react';
 import { Button } from '../button';
 import { Card } from '../card';
 import { cn } from '../lib/cn';
-import { Collapse, CollapseChevron } from '../collapsible';
+import { Collapsible, CollapsibleChevron } from '../collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,16 +47,16 @@ export function ChangesCard({
           onClick={() => setOpen((value) => !value)}
           type="button"
         >
-          <CollapseChevron className="text-ink-3" open={open} />
+          <CollapsibleChevron className="text-ink-3" open={open} />
           <span className="shrink-0 text-xs text-ink-3">本轮改动 · {fileCount} 个文件</span>
           {counts && <DiffCountsLabel className="min-w-0" counts={counts} />}
         </button>
-        <Collapse open={open}>
+        <Collapsible open={open}>
           <ul className="grid border-t border-line">{children}</ul>
           {warning && (
             <p className="border-t border-line px-3 py-2 text-xs leading-5 text-ink-3">{warning}</p>
           )}
-        </Collapse>
+        </Collapsible>
       </section>
     </Card>
   );

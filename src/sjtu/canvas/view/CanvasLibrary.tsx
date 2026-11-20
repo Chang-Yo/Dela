@@ -6,7 +6,7 @@ import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/lib/cn';
-import { CollapseChevron } from '../../../ui/collapsible';
+import { CollapsibleChevron } from '../../../ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,7 +58,7 @@ export function CanvasLibrary(props: LibraryProps) {
           onClick={() => setOpen((value) => !value)}
           type="button"
         >
-          <CollapseChevron open={expanded} />
+          <CollapsibleChevron open={expanded} />
           <GraduationCap className="size-4" />
           课程资料
         </button>

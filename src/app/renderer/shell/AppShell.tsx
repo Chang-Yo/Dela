@@ -23,7 +23,7 @@ import {
   SquareTerminal,
   X,
 } from 'lucide-react';
-import { Resizer } from '../../../ui/resizable';
+import { Resizable } from '../../../ui/resizable';
 import { useEditorSettings } from '../../../modules/preview/view';
 import { usePreferences } from './preferences';
 import { showToast, Toaster } from '../../../ui/toast';
@@ -719,7 +719,7 @@ export function AppShell({
           <div className="flex min-h-0 flex-1 flex-col" ref={onDrawerSlot} />
         </div>
       </aside>
-      <Resizer
+      <Resizable
         className={cn(
           'col-start-3 row-start-2 bg-transparent',
           // 折叠/窄屏时间隔条整体隐藏（网格列为固定 1px，不影响布局）：
@@ -735,7 +735,7 @@ export function AppShell({
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />
-      {/* 浮岛卡片：分隔线仅占 1px，拖动命中范围由 Resizer 的透明伪元素扩展。 */}
+      {/* 浮岛卡片：分隔线仅占 1px，拖动命中范围由 Resizable 的透明伪元素扩展。 */}
       <main
         className={cn(
           'relative col-start-4 row-start-2 mt-1 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-window bg-surface shadow-hairline',

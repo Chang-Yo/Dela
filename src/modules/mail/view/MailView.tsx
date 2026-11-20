@@ -20,7 +20,7 @@ import { MailReader } from './MailReader';
 import { MailComposer, type MailComposerHandle } from './MailComposer';
 import { MailTrashList } from './MailTrashList';
 import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
-import { Resizer } from '../../../ui/resizable';
+import { Resizable } from '../../../ui/resizable';
 import { Button } from '../../../ui/button';
 import { PanelHeader } from '../../../ui/panel-header';
 import { cn } from '../../../ui/lib/cn';
@@ -762,7 +762,7 @@ function DesktopMailView({
                 onSelect={(id) => openMessage(id, false)}
               />
             )}
-            <Resizer
+            <Resizable
               className={stacked ? 'hidden' : 'bg-line/60'}
               label="调整邮件列表宽度"
               max={480}

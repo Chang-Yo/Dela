@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from './lib/cn';
 
-type ResizerProps = {
+type ResizableProps = {
   label: string;
   value: number;
   min: number;
@@ -13,7 +13,7 @@ type ResizerProps = {
   className?: string;
 };
 
-export function Resizer({
+export function Resizable({
   label,
   value,
   min,
@@ -23,7 +23,7 @@ export function Resizer({
   onResizingChange,
   defaultValue,
   className,
-}: ResizerProps) {
+}: ResizableProps) {
   const start = useRef<{ pointerId: number; position: number; size: number } | null>(null);
   const horizontal = orientation === 'horizontal';
 
@@ -103,7 +103,7 @@ export function Resizer({
 }
 
 /** 持久化的面板宽度：拖动中只改本地值，拖动结束或键盘调整时才调用 commit。 */
-export function useResizerWidth(stored: number, commit: (width: number) => void) {
+export function useResizableWidth(stored: number, commit: (width: number) => void) {
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const [resizing, setResizing] = useState(false);
   return {

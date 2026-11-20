@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/lib/cn';
-import { Collapse, CollapseChevron } from '../../../ui/collapsible';
+import { Collapsible, CollapsibleChevron } from '../../../ui/collapsible';
 import type { RemoteSetupProgress, RemoteSetupStep } from '../contract';
 import { Spinner } from '../../../ui/spinner';
 
@@ -192,10 +192,10 @@ export function SetupProgress({
           onClick={() => setExpanded((value) => !value)}
           type="button"
         >
-          <CollapseChevron open={expanded} />
+          <CollapsibleChevron open={expanded} />
           详细日志
         </button>
-        <Collapse open={expanded}>
+        <Collapsible open={expanded}>
           <div
             className="grid max-h-36 content-start gap-0.5 overflow-y-auto rounded-control bg-surface px-2.5 py-2 font-mono text-xs leading-[1.7]"
             role="log"
@@ -219,7 +219,7 @@ export function SetupProgress({
             )}
             <span aria-hidden="true" className="absolute" key={lines.length} ref={stickToBottom} />
           </div>
-        </Collapse>
+        </Collapsible>
       </div>
     </div>
   );

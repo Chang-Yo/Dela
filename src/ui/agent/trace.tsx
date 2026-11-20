@@ -2,7 +2,7 @@
 
 import { Fragment, useState, type ReactNode } from 'react';
 import { cn } from '../lib/cn';
-import { Collapse, CollapseChevron } from '../collapsible';
+import { Collapsible, CollapsibleChevron } from '../collapsible';
 import { fadeIn } from '../lib/motion';
 
 const toggleClass =
@@ -21,12 +21,12 @@ export function TraceDisclosure({ head, children }: { head: ReactNode; children:
         onClick={() => setOpen(!open)}
         className={toggleClass}
       >
-        <CollapseChevron className="opacity-60 group-hover/row:opacity-100" open={open} />
+        <CollapsibleChevron className="opacity-60 group-hover/row:opacity-100" open={open} />
         {head}
       </button>
-      <Collapse className="ml-[1.125rem]" open={open}>
+      <Collapsible className="ml-[1.125rem]" open={open}>
         <div className="min-w-0 pb-2">{children}</div>
-      </Collapse>
+      </Collapsible>
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function Trace({
           onClick={() => setExpanded(!expanded)}
           className={cn(toggleClass, 'mb-1')}
         >
-          <CollapseChevron className="opacity-60 group-hover/row:opacity-100" open={expanded} />
+          <CollapsibleChevron className="opacity-60 group-hover/row:opacity-100" open={expanded} />
           <span className="min-w-0 truncate">{foldLabel}</span>
         </button>
       )}

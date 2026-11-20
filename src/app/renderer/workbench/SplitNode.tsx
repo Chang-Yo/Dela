@@ -1,8 +1,8 @@
-// 分割节点：递归渲染纵横分屏，组间比例经 Resizer 拖拽调整；store 只产生二元 split
+// 分割节点：递归渲染纵横分屏，组间比例经 Resizable 拖拽调整；store 只产生二元 split
 // （三屏经嵌套），渲染兼容 ≥2 子节点。
 import { useState } from 'react';
 import type { LayoutNode } from '../../../modules/workspace/contract';
-import { Resizer } from '../../../ui/resizable';
+import { Resizable } from '../../../ui/resizable';
 import { cn } from '../../../ui/lib/cn';
 import { useWorkbenchLayout } from './layout-store';
 import { TabGroup } from './TabGroup';
@@ -57,7 +57,7 @@ export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
       >
         <SplitNodeView node={node.children[0]!} path={[...path, 0]} onNewChat={onNewChat} />
       </div>
-      <Resizer
+      <Resizable
         label="调整分屏比例"
         orientation={node.orientation}
         value={value}
