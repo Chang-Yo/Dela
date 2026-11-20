@@ -19,11 +19,20 @@ const buttonVariants = cva(
         md: 'h-8 px-3 has-[>svg]:px-2.5',
         sm: 'h-7 px-2.5 text-xs has-[>svg]:px-2',
         lg: 'h-10 rounded-card px-4 text-sm has-[>svg]:px-3',
-        icon: 'size-8',
-        'icon-sm': 'size-7',
+        'icon-2xs': "size-5 [&_svg:not([class*='size-'])]:size-3.5",
         'icon-xs': "size-6 rounded-chip [&_svg:not([class*='size-'])]:size-3.5",
+        'icon-sm': 'size-7',
+        'icon-md': 'size-8',
       },
     },
+    compoundVariants: [
+      {
+        variant: 'ghost',
+        size: ['icon-2xs', 'icon-xs', 'icon-sm', 'icon-md'],
+        className:
+          'text-ink-3 aria-pressed:bg-selected aria-pressed:text-ink aria-[current=page]:bg-selected aria-[current=page]:text-ink',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
       size: 'md',
@@ -31,10 +40,16 @@ const buttonVariants = cva(
   },
 );
 
+type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>['size']>;
+type IconSize = Extract<ButtonSize, `icon-${string}`>;
+
 type ButtonProps = React.ComponentProps<'button'> &
-  VariantProps<typeof buttonVariants> & {
+  Omit<VariantProps<typeof buttonVariants>, 'size'> & {
     asChild?: boolean;
-  };
+  } & (
+    | { size?: Exclude<ButtonSize, IconSize> }
+    | ({ size: IconSize } & ({ 'aria-label': string } | { 'aria-labelledby': string }))
+  );
 
 function Button({ className, variant, size, asChild = false, type, ...props }: ButtonProps) {
   const Comp = asChild ? Slot.Root : 'button';
