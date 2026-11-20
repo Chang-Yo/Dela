@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FileText } from 'lucide-react';
 import type { SkillView } from '../../../core/protocol/capabilities';
-import { ToastCard } from '../../../ui/toast';
+import { Toast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { DownloadProgress } from '../../../ui/download-progress';
 import { StepButton } from './step-controls';
@@ -88,7 +88,7 @@ export function CapabilitySetup({
             const total = dependency.total;
             const received = dependency.received ?? 0;
             return (
-              <ToastCard
+              <Toast
                 key={skill.name}
                 variant="neutral"
                 icon={skill.name === 'document-reading' ? FileText : undefined}
@@ -145,7 +145,7 @@ export function CapabilitySetup({
                   dependency.error !== error && (
                     <ErrorText className="mt-2">{dependency.error}</ErrorText>
                   )}
-              </ToastCard>
+              </Toast>
             );
           })}
       </div>

@@ -1,12 +1,13 @@
 'use client';
 
 import { CircleAlert, CircleCheck, Sparkles, X, type LucideIcon } from 'lucide-react';
-import { Toast } from 'radix-ui';
-import { useSyncExternalStore, type ReactNode } from 'react';
+import { Toast as ToastPrimitive } from 'radix-ui';
+import type { ReactNode } from 'react';
+import { create } from 'zustand';
 import { cn } from './lib/cn';
 import { Button } from './button';
 
-export type ToastVariant = 'error' | 'success';
+type ToastVariant = 'error' | 'success';
 
 const tone = {
   error: { icon: CircleAlert, badge: 'bg-danger-tint text-danger', role: 'alert' },
@@ -14,7 +15,7 @@ const tone = {
   neutral: { icon: Sparkles, badge: 'bg-inset text-ink-2', role: 'group' },
 } as const;
 
-export function ToastCard({
+function Toast({
   variant,
   title,
   description,
@@ -37,6 +38,7 @@ export function ToastCard({
   const Icon = icon ?? tone[variant].icon;
   return (
     <div
+      data-slot="toast"
       role={role}
       aria-label={variant === 'neutral' ? title : undefined}
       className={cn(
@@ -71,7 +73,7 @@ export function ToastCard({
   );
 }
 
-export interface ToastItem {
+interface ToastItem {
   id: string;
   open: boolean;
   variant: ToastVariant | 'neutral';
@@ -86,39 +88,34 @@ const DURATION_MS: Record<ToastItem['variant'], number> = {
   neutral: 6000,
 };
 
-let items: ToastItem[] = [];
-const listeners = new Set<() => void>();
-
-function setItems(next: ToastItem[]) {
-  items = next;
-  for (const listener of listeners) listener();
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
+const useToastStore = create<{ items: ToastItem[] }>(() => ({ items: [] }));
 
 /** 瞬时动作结果由任意模块直接调用；持久状态仍内联展示。 */
-export function showToast(toast: Omit<ToastItem, 'id' | 'open'>) {
-  const opened = items.filter((item) => item.open);
-  setItems([...opened, { id: crypto.randomUUID(), open: true, ...toast }].slice(-MAX_OPEN_TOASTS));
+function showToast(toast: Omit<ToastItem, 'id' | 'open'>) {
+  useToastStore.setState(({ items }) => ({
+    items: [
+      ...items.filter((item) => item.open),
+      { id: crypto.randomUUID(), open: true, ...toast },
+    ].slice(-MAX_OPEN_TOASTS),
+  }));
 }
 
-export function dismissToast(id: string) {
-  setItems(items.map((item) => (item.id === id ? { ...item, open: false } : item)));
+function dismissToast(id: string) {
+  useToastStore.setState(({ items }) => ({
+    items: items.map((item) => (item.id === id ? { ...item, open: false } : item)),
+  }));
 }
 
-export function toasts() {
-  return items.filter((item) => item.open);
+function toasts() {
+  return useToastStore.getState().items.filter((item) => item.open);
 }
 
-export function Toaster() {
-  const current = useSyncExternalStore(subscribe, () => items);
+function Toaster() {
+  const current = useToastStore((state) => state.items);
   return (
-    <Toast.Provider>
+    <ToastPrimitive.Provider>
       {current.map((toast) => (
-        <Toast.Root
+        <ToastPrimitive.Root
           key={toast.id}
           open={toast.open}
           duration={DURATION_MS[toast.variant]}
@@ -127,18 +124,20 @@ export function Toaster() {
           }}
           className="data-[state=closed]:animate-toast-out data-[state=open]:animate-toast-in motion-reduce:animate-none"
         >
-          <ToastCard
+          <Toast
             variant={toast.variant}
             title={toast.title}
             description={toast.description}
             onClose={() => dismissToast(toast.id)}
           />
-        </Toast.Root>
+        </ToastPrimitive.Root>
       ))}
-      <Toast.Viewport
+      <ToastPrimitive.Viewport
         data-toast-host=""
         className="pointer-events-none absolute inset-x-0 top-0 z-toast flex flex-col items-center gap-2 px-4 pt-3"
       />
-    </Toast.Provider>
+    </ToastPrimitive.Provider>
   );
 }
+
+export { dismissToast, showToast, Toast, Toaster, toasts };

@@ -162,11 +162,12 @@
                   "!clsx",
                   "!tailwind-merge",
                   "!vitest",
+                  "!zustand",
                   "!./*",
                   "!./hooks/*",
                   "!./lib/*"
                 ],
-                "message": "ui 只依赖 react、radix、cva、lucide 与样式工具，零业务依赖：业务组件放在模块的 view/ 里，ui 只引用 src/ui 内的 ./ 文件（含 ./hooks、./lib）。"
+                "message": "ui 只依赖 react、radix、cva、lucide、zustand 与样式工具，零业务依赖：业务组件放在模块的 view/ 里，ui 只引用 src/ui 内的 ./ 文件（含 ./hooks、./lib）。"
               }
             ]
           }

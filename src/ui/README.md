@@ -1,6 +1,6 @@
 # src/ui
 
-Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt)，不再跟随上游。只依赖 react、radix、cva、lucide 与样式工具，不认识任何业务。
+Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt)，不再跟随上游。只依赖 react、radix、cva、lucide、zustand 与样式工具，不认识任何业务。
 
 本文只写约定，不列组件清单：有哪些组件，直接看目录。
 
