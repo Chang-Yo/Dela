@@ -7,7 +7,7 @@ type ResizableProps = Omit<ComponentProps<'div'>, 'onChange' | 'defaultValue'> &
   min: number;
   max: number;
   orientation?: 'vertical' | 'horizontal';
-  onChange: (value: number) => void;
+  onValueChange: (value: number) => void;
   onResizingChange?: (resizing: boolean) => void;
   defaultValue?: number;
 };
@@ -18,7 +18,7 @@ function Resizable({
   min,
   max,
   orientation = 'vertical',
-  onChange,
+  onValueChange,
   onResizingChange,
   defaultValue,
   className,
@@ -56,22 +56,22 @@ function Resizable({
       onKeyDown={(event) => {
         if (event.key === 'Home') {
           event.preventDefault();
-          onChange(min);
+          onValueChange(min);
           return;
         }
         if (event.key === 'End') {
           event.preventDefault();
-          onChange(max);
+          onValueChange(max);
           return;
         }
         const positive = horizontal ? event.key === 'ArrowDown' : event.key === 'ArrowRight';
         const negative = horizontal ? event.key === 'ArrowUp' : event.key === 'ArrowLeft';
         if (!positive && !negative) return;
         event.preventDefault();
-        onChange(clamp(value + (positive ? 20 : -20)));
+        onValueChange(clamp(value + (positive ? 20 : -20)));
       }}
       onDoubleClick={() => {
-        if (defaultValue !== undefined) onChange(clamp(defaultValue));
+        if (defaultValue !== undefined) onValueChange(clamp(defaultValue));
       }}
       onLostPointerCapture={finishPointer}
       onPointerCancel={finishPointer}
@@ -89,7 +89,7 @@ function Resizable({
         const begin = start.current;
         if (!begin || !event.isPrimary || event.pointerId !== begin.pointerId) return;
         const position = horizontal ? event.clientY : event.clientX;
-        onChange(clamp(begin.size + (position - begin.position)));
+        onValueChange(clamp(begin.size + (position - begin.position)));
       }}
       onPointerUp={(event) => {
         if (!event.isPrimary || event.pointerId !== start.current?.pointerId) return;
@@ -111,7 +111,7 @@ function useResizableWidth(stored: number, commit: (width: number) => void) {
   return {
     width: dragWidth ?? stored,
     resizing,
-    onChange: (width: number) => (resizing ? setDragWidth(width) : commit(width)),
+    onValueChange: (width: number) => (resizing ? setDragWidth(width) : commit(width)),
     onResizingChange: (next: boolean) => {
       setResizing(next);
       if (!next && dragWidth !== null) {

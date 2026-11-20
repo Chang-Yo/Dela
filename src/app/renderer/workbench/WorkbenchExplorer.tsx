@@ -109,7 +109,7 @@ export function WorkbenchExplorer({
   const expanded = useTreeState((s) => s.expanded);
   const query = useTreeState((s) => s.query);
   const pendingCreate = useTreeState((s) => s.pendingCreate);
-  const { width, resizing, onChange, onResizingChange } =
+  const { width, resizing, onValueChange, onResizingChange } =
     usePreferenceWidth('workspaceSidebarWidth');
   const collapsed = usePreferences((s) => s.workspaceSidebarCollapsed);
   const mobileOpen = useMobileDrawer((s) => s.drawer === 'explorer');
@@ -524,7 +524,7 @@ export function WorkbenchExplorer({
         // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
         max={SIDEBAR_MAX_WIDTH}
         min={SIDEBAR_MIN_WIDTH}
-        onChange={onChange}
+        onValueChange={onValueChange}
         onResizingChange={onResizingChange}
         value={width}
       />

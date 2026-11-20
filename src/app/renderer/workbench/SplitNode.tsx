@@ -64,7 +64,7 @@ export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
         min={minimum}
         max={maximum}
         defaultValue={dimension / 2}
-        onChange={(next) => {
+        onValueChange={(next) => {
           if (dimension > 0) setRatio(path, next / dimension);
         }}
         className={cn('bg-line/60', vertical ? 'w-px' : 'h-px')}

@@ -768,7 +768,7 @@ function DesktopMailView({
               label="调整邮件列表宽度"
               max={480}
               min={320}
-              onChange={setListWidth}
+              onValueChange={setListWidth}
               onResizingChange={setListResizing}
               value={listWidth}
             />

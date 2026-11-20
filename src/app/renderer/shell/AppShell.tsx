@@ -731,7 +731,7 @@ export function AppShell({
         // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
         max={360}
         min={200}
-        onChange={setSidebarWidth}
+        onValueChange={setSidebarWidth}
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />

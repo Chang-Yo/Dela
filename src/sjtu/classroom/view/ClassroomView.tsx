@@ -39,7 +39,7 @@ function DesktopClassroomView() {
   // 没有数据时重读会回到 pending；失败过就停在登录卡，按钮显示读取进度。
   const phase = courses.data ? 'ready' : courses.errorUpdateCount > 0 ? 'connect' : 'loading';
 
-  const { width, resizing, onChange, onResizingChange } = useResizableWidth(
+  const { width, resizing, onValueChange, onResizingChange } = useResizableWidth(
     useClassroomPreferences((state) => state.sidebarWidth),
     (sidebarWidth) => useClassroomPreferences.setState({ sidebarWidth }),
   );
@@ -145,7 +145,7 @@ function DesktopClassroomView() {
               label="调整课程列表宽度"
               max={SIDEBAR_MAX_WIDTH}
               min={SIDEBAR_MIN_WIDTH}
-              onChange={onChange}
+              onValueChange={onValueChange}
               onResizingChange={onResizingChange}
               value={width}
             />
