@@ -7,8 +7,7 @@ export const listMailFoldersTool = tool(
   z.object({}).strict(),
   async () => {
     const account = getMailState().account;
-    if (!account)
-      throw toolError('NOT_CONFIGURED', '邮箱未连接：请先在设置的邮件页配置交大邮箱账号');
+    if (!account) throw toolError('NOT_CONFIGURED', '邮箱未连接：请先在设置的邮件页配置邮箱账号');
     const folders = listMailFolders();
     return {
       items: folders,

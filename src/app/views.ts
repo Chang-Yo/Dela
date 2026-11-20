@@ -18,11 +18,13 @@ import { updateView } from '../modules/update/view';
 import { canvasView } from '../sjtu/canvas/view';
 import { classroomView } from '../sjtu/classroom/view';
 import { jwcView } from '../sjtu/jwc/view';
+import { sjtuMailView } from '../sjtu/mail/view';
 import { shuiyuanView } from '../sjtu/shuiyuan/view';
 import { timetableView } from '../sjtu/timetable/view';
 
 const moduleViews = [
   mailView,
+  sjtuMailView,
   todoView,
   timetableView,
   classroomView,

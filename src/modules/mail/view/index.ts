@@ -8,6 +8,7 @@ import { leaveComposer } from './compose-close';
 
 export { leaveComposer, registerComposeSave, saveComposers } from './compose-close';
 export { MailDraftDialog } from './MailDraftDialog';
+export { registerMailPreset, type MailPreset } from './presets';
 
 export const mailView = defineView({
   pages: {

@@ -167,6 +167,7 @@ Dela/
 │  │  ├─ canvas/              Canvas 课程资料、作业与公告
 │  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
 │  │  ├─ jwc/                 教务处通知
+│  │  ├─ mail/                交大邮箱的服务器预设，登记给通用邮件模块
 │  │  ├─ shuiyuan/            水源社区
 │  │  └─ timetable/           课表与日历事件
 │  └─ app/                    宿主与外壳

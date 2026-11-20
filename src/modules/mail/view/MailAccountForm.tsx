@@ -5,10 +5,11 @@ import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/lib/cn';
 import { Collapsible } from '../../../ui/collapsible';
 import { ErrorText } from '../../../ui/error-text';
+import { mailPresets } from './presets';
 
-const modes = ['交大邮箱', '第三方 IMAP'] as const;
+const OTHER = '其他邮箱';
 
-/** 向导页与邮箱空态共用的连接表单：交大邮箱走预设，第三方 IMAP 自填服务器参数。 */
+/** 向导页与邮箱空态共用的连接表单：登记过的常用邮箱走预设，其他邮箱自填服务器参数。 */
 export function MailAccountForm({
   error,
   onSubmit,
@@ -20,47 +21,55 @@ export function MailAccountForm({
   submit: ReactNode;
   variant?: 'app' | 'wizard';
 }) {
-  const [mode, setMode] = useState<(typeof modes)[number]>('交大邮箱');
+  const presets = mailPresets();
+  const modes = [...presets.map((preset) => preset.label), OTHER];
+  const [mode, setMode] = useState(modes[0]!);
   const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
   const [imapHost, setImapHost] = useState('');
   const [imapPort, setImapPort] = useState('993');
   const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState('465');
-  const custom = mode === '第三方 IMAP';
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const preset = presets.find((candidate) => candidate.label === mode);
   const wizard = variant === 'wizard';
   const field = wizard ? 'h-10 rounded-card' : '';
   const label = wizard ? 'text-sm font-medium text-ink-2' : 'text-xs font-medium text-ink-3';
+  const shownError = addressError ?? error;
 
   return (
     <form
       className={wizard ? 'grid gap-5' : 'grid gap-4'}
       onSubmit={(event) => {
         event.preventDefault();
+        const trimmed = address.trim();
+        if (preset && !trimmed.toLowerCase().endsWith(`@${preset.domain}`)) {
+          setAddressError(`${preset.label}地址需以 @${preset.domain} 结尾，或改选${OTHER}`);
+          return;
+        }
+        setAddressError(null);
         onSubmit({
-          address: address.trim(),
+          address: trimmed,
           password,
-          ...(custom
-            ? {
-                server: {
-                  imapHost: imapHost.trim(),
-                  imapPort: Number(imapPort),
-                  smtpHost: smtpHost.trim(),
-                  smtpPort: Number(smtpPort),
-                },
-              }
-            : {}),
+          server: preset?.server ?? {
+            imapHost: imapHost.trim(),
+            imapPort: Number(imapPort),
+            smtpHost: smtpHost.trim(),
+            smtpPort: Number(smtpPort),
+          },
         });
       }}
     >
-      <SegmentedControl className="w-full" onValueChange={setMode} options={modes} value={mode} />
+      {presets.length > 0 && (
+        <SegmentedControl className="w-full" onValueChange={setMode} options={modes} value={mode} />
+      )}
       <label className="grid gap-2">
         <span className={label}>邮箱地址</span>
         <Input
           autoComplete="off"
           className={field}
           onChange={(event) => setAddress(event.target.value)}
-          placeholder={custom ? 'name@example.com' : 'name@sjtu.edu.cn'}
+          placeholder={preset ? `name@${preset.domain}` : 'name@example.com'}
           required
           type="email"
           value={address}
@@ -73,13 +82,13 @@ export function MailAccountForm({
             autoComplete="current-password"
             className={field}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder={custom ? '邮箱密码或授权码' : 'jAccount 密码'}
+            placeholder={preset?.passwordHint ?? '邮箱密码或授权码'}
             required
             type="password"
             value={password}
           />
         </label>
-        <Collapsible open={custom}>
+        <Collapsible open={!preset}>
           <div className={cn('grid gap-4', wizard ? 'pt-5' : 'pt-4')}>
             <ServerRow
               field={field}
@@ -107,7 +116,7 @@ export function MailAccountForm({
           </div>
         </Collapsible>
       </div>
-      {error && <ErrorText size="sm">{error}</ErrorText>}
+      {shownError && <ErrorText size="sm">{shownError}</ErrorText>}
       {submit}
     </form>
   );
