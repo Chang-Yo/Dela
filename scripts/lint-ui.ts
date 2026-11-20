@@ -7,9 +7,6 @@ const uiDir = join(root, 'src/ui');
 
 type Rule = 'filename' | 'size' | 'tone' | 'style';
 
-// 尚未对齐约定的组件。改好后必须从这里删除，新增的违规不允许加进来。
-const pending: Record<string, Rule[]> = {};
-
 const sizes = new Set(['2xs', 'xs', 'sm', 'md', 'lg', 'xl']);
 const tones = new Set(['accent', 'success', 'warning', 'danger', 'neutral']);
 const isSize = (key: string) => sizes.has(key.replace(/^icon-/, ''));
@@ -106,20 +103,9 @@ const files = readdirSync(uiDir, { withFileTypes: true })
   .sort();
 
 const errors: string[] = [];
-for (const file of files) {
-  const known = pending[file] ?? [];
-  const found = violations(file, readFileSync(join(uiDir, file), 'utf8'));
-  for (const { rule, message } of found)
-    if (!known.includes(rule)) errors.push(`  src/ui/${file} [${rule}] ${message}`);
-  for (const rule of known)
-    if (!found.some((item) => item.rule === rule))
-      errors.push(
-        `  src/ui/${file} [${rule}] 已经符合约定：请从 scripts/lint-ui.ts 的 pending 清单里删除这一项。`,
-      );
-}
-for (const file of Object.keys(pending))
-  if (!files.includes(file))
-    errors.push(`  src/ui/${file} 已不存在：请从 scripts/lint-ui.ts 的 pending 清单里删除。`);
+for (const file of files)
+  for (const { rule, message } of violations(file, readFileSync(join(uiDir, file), 'utf8')))
+    errors.push(`  src/ui/${file} [${rule}] ${message}`);
 
 if (errors.length > 0) {
   console.log(
