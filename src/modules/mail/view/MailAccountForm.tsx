@@ -4,7 +4,7 @@ import { SegmentedControl } from '../../../ui/segmented-control';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/lib/cn';
 import { Collapsible } from '../../../ui/collapsible';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 
 const modes = ['交大邮箱', '第三方 IMAP'] as const;
 

@@ -1,7 +1,7 @@
 import { Slot } from 'radix-ui';
 import { useId } from 'react';
 import type * as React from 'react';
-import { ErrorText } from './alert';
+import { ErrorText } from './error-text';
 import { cn } from './lib/cn';
 
 type FieldProps = Omit<React.ComponentProps<'label'>, 'children'> & {

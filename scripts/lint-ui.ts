@@ -9,7 +9,6 @@ type Rule = 'filename' | 'size' | 'tone' | 'style';
 
 // 尚未对齐约定的组件。改好后必须从这里删除，新增的违规不允许加进来。
 const pending: Record<string, Rule[]> = {
-  'alert.tsx': ['filename', 'tone'],
   'button.tsx': ['size'],
   'desktop-only-notice.tsx': ['style'],
   'download-progress.tsx': ['style'],

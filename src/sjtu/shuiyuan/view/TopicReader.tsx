@@ -34,7 +34,7 @@ import { CategoryTag } from './TopicFeed';
 import { FloorCapsule, TopicTimeline } from './TopicTimeline';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { ShuiyuanPost } from '../contract';
-import { Callout } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
 import { IconButton } from '../../../ui/icon-button';
 
 function quoteText(cooked: string): string {
@@ -381,7 +381,7 @@ export function TopicReader({ reading }: { reading: Reading }) {
           ref={scrollRef}
         >
           <div className="mx-auto w-full max-w-2xl px-5 pt-5 pb-14 max-md:px-4 @min-[62rem]:pb-5">
-            {topic.error ? <Callout role="alert">{errorMessage(topic.error)}</Callout> : null}
+            {topic.error ? <Alert role="alert">{errorMessage(topic.error)}</Alert> : null}
             {!detail && !topic.error ? (
               <p className="py-8 text-center text-sm text-ink-3">正在加载帖子…</p>
             ) : null}

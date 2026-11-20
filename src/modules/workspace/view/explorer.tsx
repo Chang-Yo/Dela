@@ -16,7 +16,7 @@ import { FileText, Folder, FolderKanban } from 'lucide-react';
 import { cn } from '../../../ui/lib/cn';
 import { CollapsibleChevron } from '../../../ui/collapsible';
 import { fileIconUrl } from './file-icons';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 
 export interface ExplorerItem {
   gitIgnored?: boolean;

@@ -33,7 +33,7 @@ import {
 } from '../../../modules/todo/view';
 import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
-import { Callout } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
 
 type CalendarMode = 'week' | 'month';
 
@@ -307,9 +307,9 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
       </header>
 
       {loadError ? (
-        <Callout className="mx-4 mt-3" role="alert">
+        <Alert className="mx-4 mt-3" role="alert">
           {errorMessage(loadError)}
-        </Callout>
+        </Alert>
       ) : null}
 
       {!state.lastSyncedAt ? (

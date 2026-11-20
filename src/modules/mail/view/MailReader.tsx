@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { errorMessage } from '../../../core/protocol/contract';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 
 type Props = {
   className?: string;

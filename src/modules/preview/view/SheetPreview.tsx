@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { Button } from '../../../ui/button';
 import { pinchZoomRef } from './use-pinch-zoom';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
 
 const SHEET_ROW_LIMIT = 2000;

@@ -30,7 +30,8 @@ import { useMailPreferences } from './store';
 import { draftsKey, mailBoxKey, mailClient, mailStateKey, useMailState } from './use-mail';
 import { showToast } from '../../../ui/toast';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
-import { Callout, ErrorText } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 
 const MESSAGE_LIMIT = 200;
 
@@ -609,9 +610,9 @@ function DesktopMailView({
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       {sync?.phase === 'error' && sync.error && (
-        <Callout className="mx-4 mt-3" role="alert">
+        <Alert className="mx-4 mt-3" role="alert">
           同步出现问题：{sync.error}
-        </Callout>
+        </Alert>
       )}
       <div
         ref={observeGrid}

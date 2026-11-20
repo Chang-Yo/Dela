@@ -33,7 +33,7 @@ import {
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { showToast } from '../../../../ui/toast';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
 import {
   Dialog,

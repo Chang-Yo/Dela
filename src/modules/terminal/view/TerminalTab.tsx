@@ -9,7 +9,7 @@ import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/lib/cn';
 import '@xterm/xterm/css/xterm.css';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
 
 // xterm 的配色解析器不支持 oklch；借浏览器画布转换现有主题 token。

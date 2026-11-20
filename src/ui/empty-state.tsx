@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 import { cn } from './lib/cn';
 
-/** 加载中、出错不用它，分别用状态文字与 Callout。 */
+/** 加载中、出错不用它，分别用状态文字与 Alert。 */
 function EmptyState({
   icon: Icon,
   title,

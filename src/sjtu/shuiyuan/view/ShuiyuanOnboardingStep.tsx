@@ -4,7 +4,7 @@ import { KeyRound } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { StepButton, StepGuide, type StepButtonState } from '../../../modules/onboarding/view';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Button } from '../../../ui/button';
 import { Textarea } from '../../../ui/textarea';
 import { shuiyuanClient } from './use-shuiyuan';

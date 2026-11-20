@@ -7,7 +7,7 @@ import { dialogIn, overlayFade } from '../../../ui/lib/motion';
 import { errorMessage } from '../../../core/protocol/contract';
 import { timetableClient } from './use-timetable';
 import { cn } from '../../../ui/lib/cn';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 
 export function SemesterStartDialog({
   semester,

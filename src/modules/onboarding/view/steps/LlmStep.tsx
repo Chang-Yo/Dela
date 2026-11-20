@@ -8,7 +8,7 @@ import { StepGuide } from '../step-guide';
 import { StepModelImportDialog } from './step-model-import';
 import { capModels } from './model-import';
 import type { LlmCatalogProvider, LlmVerifyResult } from '../../../../core/protocol/llm';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
 import { IconButton } from '../../../../ui/icon-button';
 import { Button } from '../../../../ui/button';

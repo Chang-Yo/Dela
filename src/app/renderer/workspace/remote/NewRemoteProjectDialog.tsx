@@ -36,7 +36,7 @@ import {
 } from '../../../../modules/remotes/view';
 import { useNavigationStore } from '../../navigation/view';
 import { purgeRemovedEntries } from '../../workbench/removed-cleanup';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
 import { Dialog, DialogContent, DialogTitle } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';

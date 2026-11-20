@@ -21,7 +21,7 @@ import { showToast } from '../../../ui/toast';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
 import { draftsKey, mailClient } from './use-mail';
 import { acceleratorFromEvent } from '../../settings/contract';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import { IconButton } from '../../../ui/icon-button';
 

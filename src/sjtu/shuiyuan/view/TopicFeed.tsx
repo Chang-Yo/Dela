@@ -9,7 +9,7 @@ import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { isTopicUnread, openTopic, useShuiyuan } from './store';
 import { avatarUrl, categoryOf, formatCount, formatListDate, tagColor } from './shuiyuan-format';
 import { useFeed, useSiteStructure, type FeedSelection } from './use-shuiyuan';
-import { Callout } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
 import { Skeleton } from '../../../ui/skeleton';
 import { Spinner } from '../../../ui/spinner';
 
@@ -203,7 +203,7 @@ export function TopicFeed({ list }: { list: FeedSelection }) {
         />
       ) : null}
       {error ? (
-        <Callout
+        <Alert
           action={
             <button
               className="underline underline-offset-2"
@@ -217,7 +217,7 @@ export function TopicFeed({ list }: { list: FeedSelection }) {
           role="alert"
         >
           {error}
-        </Callout>
+        </Alert>
       ) : null}
     </div>
   );

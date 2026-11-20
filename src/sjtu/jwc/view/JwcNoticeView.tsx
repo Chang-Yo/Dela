@@ -10,7 +10,7 @@ import { useFrameBodyHeight } from '../../../ui/hooks/use-frame-body-height';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { jwcContract, type JwcNotice } from '../contract';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../ui/dialog';
 import { Field } from '../../../ui/field';

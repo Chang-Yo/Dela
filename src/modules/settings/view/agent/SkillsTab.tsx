@@ -17,7 +17,7 @@ import { showToast } from '../../../../ui/toast';
 import { cn } from '../../../../ui/lib/cn';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
 import {
   Dialog,

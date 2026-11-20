@@ -3,7 +3,7 @@ import type { MailTrashItem } from '../contract';
 import { senderLabel, formatMailDate } from './mail-format';
 import { cn } from '../../../ui/lib/cn';
 import { PanelHeader } from '../../../ui/panel-header';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { IconButton } from '../../../ui/icon-button';
 
 type Props = {

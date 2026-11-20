@@ -11,7 +11,7 @@ import type {
   OfficeExportProgress,
   ResourceRef,
 } from '../../workspace/contract';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import { errorMessage } from '../../../core/protocol/contract';
 

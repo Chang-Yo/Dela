@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '../../../core/protocol/contract';
 import { StepButton, StepGuide, type StepButtonState } from '../../../modules/onboarding/view';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { Input } from '../../../ui/input';
 import { canvasClient, stateKey } from './use-canvas';

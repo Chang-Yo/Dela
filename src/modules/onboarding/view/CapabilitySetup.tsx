@@ -6,7 +6,7 @@ import { ToastCard } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { DownloadProgress } from '../../../ui/download-progress';
 import { StepButton } from './step-controls';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { capabilitiesClient } from '../../chat/view';
 import { errorMessage } from '../../../core/protocol/contract';
 

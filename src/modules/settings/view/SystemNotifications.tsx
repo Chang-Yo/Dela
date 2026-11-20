@@ -9,7 +9,7 @@ import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';
 import { showToast } from '../../../ui/toast';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
 
 function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {

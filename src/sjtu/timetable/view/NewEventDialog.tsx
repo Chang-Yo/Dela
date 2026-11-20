@@ -9,7 +9,7 @@ import { DateTimeStepper, EventColorRow, roundToMinute } from '../../../modules/
 import { sheetUp } from '../../../ui/lib/motion';
 import { timetableClient } from './use-timetable';
 import { cn } from '../../../ui/lib/cn';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 
 const HOUR_MS = 3_600_000;
 

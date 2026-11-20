@@ -3,7 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Bell, BellOff, Check, CheckCheck, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { Navigate, NoticeKind } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
-import { Callout } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/lib/cn';
 import {
@@ -258,7 +258,7 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
       ) : null}
 
       {query.error ? (
-        <Callout
+        <Alert
           action={
             <Button
               className="mt-2"
@@ -273,12 +273,12 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
           role="alert"
         >
           {errorMessage(query.error)}
-        </Callout>
+        </Alert>
       ) : null}
       {sourceErrors.map((message) => (
-        <Callout className="mt-3" key={message} role="status">
+        <Alert className="mt-3" key={message} role="status">
           {message}
-        </Callout>
+        </Alert>
       ))}
 
       {query.isPending && !query.error ? (

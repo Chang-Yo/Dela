@@ -45,7 +45,7 @@ import { TodoDetail } from './TodoDetail';
 import { TodoSheet } from './TodoSheet';
 import { useTodoPreferences } from './preferences';
 import { dateLabel } from './todo-format';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import type { NavTargets } from '../../../app/module';
 
 const views = ['calendar', 'list'] as const;

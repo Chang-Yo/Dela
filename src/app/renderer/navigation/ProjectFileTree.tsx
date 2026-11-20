@@ -46,7 +46,7 @@ import { remoteAccent } from '../../../modules/remotes/view';
 import { remoteTitle, useRemoteTree } from './remote-tree';
 import { showToast } from '../../../ui/toast';
 import { onWorkspaceEvent, workspaceClient } from '../../../modules/workspace/view';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import { IconButton } from '../../../ui/icon-button';
 import { errorMessage } from '../../../core/protocol/contract';
