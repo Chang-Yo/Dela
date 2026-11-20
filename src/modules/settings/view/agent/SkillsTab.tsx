@@ -9,15 +9,15 @@ import type {
 import type { WorkspaceEntry } from '../../../workspace/contract';
 import { Button } from '../../../../ui/button';
 import { Card } from '../../../../ui/card';
-import { DownloadProgressRow } from '../../../../ui/download-progress';
+import { DownloadProgress } from '../../../../ui/download-progress';
 import { Switch } from '../../../../ui/switch';
 import { SegmentedControl } from '../../../../ui/segmented-control';
 import { useWorkspaceStore } from '../../../workspace/view';
 import { showToast } from '../../../../ui/toast';
-import { cn } from '../../../../ui/cn';
+import { cn } from '../../../../ui/lib/cn';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
 import {
   Dialog,
@@ -180,7 +180,7 @@ export function SkillsTab() {
         <div className="flex items-center justify-between gap-4">
           <SegmentedControl
             labels={FILTER_LABELS}
-            onChange={setFilter}
+            onValueChange={setFilter}
             options={['all', ...origins]}
             value={filter}
           />
@@ -246,7 +246,7 @@ export function SkillsTab() {
                         </span>
                       ))}
                     {skill.dependency?.status === 'installing' && skill.dependency.total ? (
-                      <DownloadProgressRow
+                      <DownloadProgress
                         barClassName="w-16 md:w-40"
                         label={`${skill.name} 组件下载进度`}
                         received={skill.dependency.received ?? 0}
@@ -302,8 +302,8 @@ export function SkillsTab() {
                     <Switch
                       checked={skill.enabled}
                       disabled={busy}
-                      label={`启用 ${skill.name}`}
-                      onChange={(next) => void toggle(skill, next)}
+                      aria-label={`启用 ${skill.name}`}
+                      onCheckedChange={(next) => void toggle(skill, next)}
                     />
                   )}
                 </div>

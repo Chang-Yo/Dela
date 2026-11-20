@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { PencilLine } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
-import { drawerFromRight } from '../../../ui/motion';
+import { drawerFromRight } from '../../../ui/lib/motion';
 import { BindCard } from './BindCard';
 import { NewMessageDialog } from './NewMessageDialog';
 import { BookmarkList, ListBackButton, NotificationList } from './PersonalLists';

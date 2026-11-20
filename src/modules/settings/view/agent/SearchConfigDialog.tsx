@@ -18,7 +18,7 @@ import type {
   WebSearchKeySource,
 } from '../../../../core/protocol/capabilities';
 import { Switch } from '../../../../ui/switch';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
 import { capabilitiesClient } from '../../../chat/view';
@@ -430,8 +430,8 @@ function EntryForm({
               </div>
               <Switch
                 checked={useForFetch}
-                label="网页读取也使用 DeepSeek"
-                onChange={setUseForFetch}
+                aria-label="网页读取也使用 DeepSeek"
+                onCheckedChange={setUseForFetch}
               />
             </div>
           </>

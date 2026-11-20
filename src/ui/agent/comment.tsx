@@ -2,9 +2,9 @@
 
 import { useState, type ComponentProps, type ReactNode, type Ref } from 'react';
 import { Check, TextQuote, X } from 'lucide-react';
-import { cn } from '../cn';
+import { cn } from '../lib/cn';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../hover-card';
-import { IconButton } from '../icon-button';
+import { Button } from '../button';
 import { Popover, PopoverAnchor, PopoverContent } from '../popover';
 
 export type CommentItem = { quote: string; comment: string };
@@ -134,9 +134,9 @@ export function CommentChip({
                 {item.comment && <span className="max-w-24 truncate text-ink-3">{item.quote}</span>}
                 <span className="truncate">{item.comment || item.quote}</span>
               </button>
-              <IconButton aria-label="移除评论" onClick={onRemove} size="sm">
+              <Button variant="ghost" size="icon-xs" aria-label="移除评论" onClick={onRemove}>
                 <X strokeWidth={2.2} />
-              </IconButton>
+              </Button>
             </span>
           </HoverCardTrigger>
         </PopoverAnchor>

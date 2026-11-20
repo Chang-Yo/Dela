@@ -4,14 +4,14 @@ import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { McpServerView } from '../../../../core/protocol/capabilities';
 import { Button } from '../../../../ui/button';
 import { Switch } from '../../../../ui/switch';
-import { cn } from '../../../../ui/cn';
+import { cn } from '../../../../ui/lib/cn';
 import { showToast } from '../../../../ui/toast';
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { mcpStatusBadge } from './mcp-logic';
 import { McpFormDialog, type McpEditState } from './McpFormDialog';
 import { ConfirmDialog } from '../../../../ui/dialog';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
 import { capabilitiesClient } from '../../../chat/view';
 import { errorMessage } from '../../../../core/protocol/contract';
@@ -143,8 +143,8 @@ export function McpTab() {
                     <Switch
                       checked={server.enabled}
                       disabled={busy}
-                      label={`启用 ${server.name}`}
-                      onChange={(next) => void toggle(server, next)}
+                      aria-label={`启用 ${server.name}`}
+                      onCheckedChange={(next) => void toggle(server, next)}
                     />
                     <Button
                       aria-label={`重连 ${server.name}`}

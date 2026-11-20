@@ -9,7 +9,8 @@ import type { RemoteConnection, RemoteDraft } from '../contract';
 import { useWorkspaceStore } from '../../workspace/view';
 import { remotesClient } from './client';
 import { refreshRemoteConnections } from './remote-state';
-import { Callout, ErrorText } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import { Field } from '../../../ui/field';
 import { errorMessage } from '../../../core/protocol/contract';
@@ -209,7 +210,7 @@ export function ConnectionForm({
       )}
       {error && <ErrorText>{error}</ErrorText>}
       {connection && onRemoved && removeConfirm && (
-        <Callout
+        <Alert
           action={
             <div className="flex items-center gap-2">
               <Button
@@ -236,7 +237,7 @@ export function ConnectionForm({
           {projects.length
             ? `删除连接将同时移除 ${projects.length} 个项目并删除其全部聊天记录；远端目录与文件保留。`
             : '删除连接？需要时重新添加即可。'}
-        </Callout>
+        </Alert>
       )}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">

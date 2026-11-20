@@ -9,8 +9,8 @@ import {
   type ThemePreference,
   type ZoomPreference,
 } from '../contract';
-import { cn } from '../../../ui/cn';
-import { StepperControl } from '../../../ui/stepper';
+import { cn } from '../../../ui/lib/cn';
+import { Stepper } from '../../../ui/stepper';
 import blackLogo from '../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../assets/Dela_white_bg.svg';
 import { SectionHeader } from './SectionHeader';
@@ -33,7 +33,7 @@ const icons: Array<{ id: IconPreference; label: string; src: string }> = [
 
 const zoomLabel = (zoom: ZoomPreference) => `${Math.round(zoom * 100)}%`;
 
-/** 主题卡片缩略图：靠 `bui-light` / `dark` 把卡片单独切到对应主题；「跟随系统」左右各半。 */
+/** 主题卡片缩略图：靠 `theme-light` / `dark` 把卡片单独切到对应主题；「跟随系统」左右各半。 */
 function ThemePreview({ mode }: { mode: ThemePreference }) {
   const bars = (
     <>
@@ -45,7 +45,7 @@ function ThemePreview({ mode }: { mode: ThemePreference }) {
   if (mode === 'system') {
     return (
       <div className="grid grid-cols-2 overflow-hidden rounded-control shadow-hairline">
-        <div className="bui-light grid content-center gap-2 bg-surface px-3 py-4">{bars}</div>
+        <div className="theme-light grid content-center gap-2 bg-surface px-3 py-4">{bars}</div>
         <div className="dark grid content-center gap-2 bg-surface px-3 py-4">{bars}</div>
       </div>
     );
@@ -54,7 +54,7 @@ function ThemePreview({ mode }: { mode: ThemePreference }) {
     <div
       className={cn(
         'grid content-center gap-2 rounded-control bg-surface px-3 py-4 shadow-hairline',
-        mode === 'dark' ? 'dark' : 'bui-light',
+        mode === 'dark' ? 'dark' : 'theme-light',
       )}
     >
       {bars}
@@ -168,7 +168,7 @@ export function AppearanceSection({
           </div>
         </div>
         <SettingRow settingId="zoom" title="页面缩放">
-          <StepperControl
+          <Stepper
             canDecrease={zoom > zoomLevels[0]}
             canIncrease={zoom < zoomLevels.at(-1)!}
             display={zoomLabel(zoom)}
@@ -180,7 +180,7 @@ export function AppearanceSection({
           />
         </SettingRow>
         <SettingRow settingId="font-size" title="字号">
-          <StepperControl
+          <Stepper
             canDecrease={fontSize > fontSizeMin}
             canIncrease={fontSize < fontSizeMax}
             display={`${fontSize}px`}
@@ -189,7 +189,7 @@ export function AppearanceSection({
               max: fontSizeMax,
               unit: 'px',
               value: fontSize,
-              onChange: selectFontSize,
+              onValueChange: selectFontSize,
             }}
             label="字号"
             onStep={(delta) => selectFontSize(fontSize + delta)}

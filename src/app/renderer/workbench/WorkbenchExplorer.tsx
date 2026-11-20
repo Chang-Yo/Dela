@@ -14,10 +14,10 @@ import {
 import { workspaceArchiveId, type WorkspaceEntry } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId } from '../../../modules/remotes/contract';
 import { Button } from '../../../ui/button';
-import { CollapseChevron } from '../../../ui/collapse';
+import { CollapsibleChevron } from '../../../ui/collapsible';
 import { PanelHeader } from '../../../ui/panel-header';
 import { SearchInput } from '../../../ui/search-input';
-import { Resizer } from '../../../ui/resizer';
+import { Resizable } from '../../../ui/resizable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
   DropdownMenu,
@@ -47,10 +47,9 @@ import { usePreferenceWidth, usePreferences } from '../shell/preferences';
 import { useMobileDrawer } from '../shell/mobile-drawer';
 import { RemotePortsDialog } from '../workspace/remote-ports-dialog';
 import { useExplorerState } from './explorer-state';
-import { useViewportWidth } from '../../../ui/use-viewport-width';
-import { cn } from '../../../ui/cn';
-import { overlayFade } from '../../../ui/motion';
-import { IconButton } from '../../../ui/icon-button';
+import { useViewportWidth } from '../../../ui/hooks/use-viewport-width';
+import { cn } from '../../../ui/lib/cn';
+import { overlayFade } from '../../../ui/lib/motion';
 import { localPathsOf, workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
@@ -109,7 +108,7 @@ export function WorkbenchExplorer({
   const expanded = useTreeState((s) => s.expanded);
   const query = useTreeState((s) => s.query);
   const pendingCreate = useTreeState((s) => s.pendingCreate);
-  const { width, resizing, onChange, onResizingChange } =
+  const { width, resizing, onValueChange, onResizingChange } =
     usePreferenceWidth('workspaceSidebarWidth');
   const collapsed = usePreferences((s) => s.workspaceSidebarCollapsed);
   const mobileOpen = useMobileDrawer((s) => s.drawer === 'explorer');
@@ -275,7 +274,9 @@ export function WorkbenchExplorer({
           style={narrow ? undefined : { width: effectiveWidth }}
         >
           <PanelHeader variant="plain">
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-controls="workspace-explorer"
               aria-expanded={visible}
               aria-label={visible ? '收起目录' : '展开目录'}
@@ -288,7 +289,7 @@ export function WorkbenchExplorer({
               title={visible ? '收起目录' : '展开目录'}
             >
               <PanelLeft strokeWidth={1.8} />
-            </IconButton>
+            </Button>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -484,7 +485,7 @@ export function WorkbenchExplorer({
                 onClick={() => setArchiveOpen((value) => !value)}
                 type="button"
               >
-                <CollapseChevron open={archiveOpen || Boolean(query.trim())} />
+                <CollapsibleChevron open={archiveOpen || Boolean(query.trim())} />
                 <Archive className="size-4" />
                 归档
               </button>
@@ -517,14 +518,14 @@ export function WorkbenchExplorer({
           </div>
         </div>
       </aside>
-      <Resizer
+      <Resizable
         className={cn('bg-transparent', !visible && 'hidden')}
         label="调整目录宽度"
         // 拖拽绑定用户偏好值与原上限：渲染宽度另有视口钳制，若把钳制值当 max，
         // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
         max={SIDEBAR_MAX_WIDTH}
         min={SIDEBAR_MIN_WIDTH}
-        onChange={onChange}
+        onValueChange={onValueChange}
         onResizingChange={onResizingChange}
         value={width}
       />

@@ -14,7 +14,7 @@ import {
 import { useShortcuts } from '../../shell/shortcuts';
 import { SectionHeader, SettingsGroup } from '../../../../modules/settings/view';
 import { showToast } from '../../../../ui/toast';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { errorMessage } from '../../../../core/protocol/contract';
 
 const platform = window.dela?.platform === 'darwin' ? 'mac' : 'other';

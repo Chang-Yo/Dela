@@ -1,6 +1,6 @@
 import { ChevronRight, Clock, Code, FolderOpen, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { Spinner } from '../../../ui/spinner';
 
 /** 即时渲染或纯源码，编辑的都是同一份原文。 */

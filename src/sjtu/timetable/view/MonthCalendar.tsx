@@ -14,7 +14,7 @@ import {
   weekDays,
 } from '../../../modules/todo/view';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 
 export function MonthCalendar({
   events,

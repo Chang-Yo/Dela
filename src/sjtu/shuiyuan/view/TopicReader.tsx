@@ -10,7 +10,7 @@ import {
   Quote,
   Reply,
 } from 'lucide-react';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { Button } from '../../../ui/button';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { closeReading, openTopic, saveDraft, useShuiyuan, type Reading } from './store';
@@ -34,8 +34,7 @@ import { CategoryTag } from './TopicFeed';
 import { FloorCapsule, TopicTimeline } from './TopicTimeline';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { ShuiyuanPost } from '../contract';
-import { Callout } from '../../../ui/alert';
-import { IconButton } from '../../../ui/icon-button';
+import { Alert } from '../../../ui/alert';
 
 function quoteText(cooked: string): string {
   const doc = new DOMParser().parseFromString(cooked, 'text/html');
@@ -83,13 +82,15 @@ function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsPr
       </button>
       {canReply ? (
         <>
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label={`引用第 ${post.postNumber} 楼`}
             onClick={() => onQuote(post)}
             title="引用"
           >
             <Quote strokeWidth={1.8} />
-          </IconButton>
+          </Button>
           <button
             className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
             onClick={() => onReply(post)}
@@ -381,7 +382,7 @@ export function TopicReader({ reading }: { reading: Reading }) {
           ref={scrollRef}
         >
           <div className="mx-auto w-full max-w-2xl px-5 pt-5 pb-14 max-md:px-4 @min-[62rem]:pb-5">
-            {topic.error ? <Callout role="alert">{errorMessage(topic.error)}</Callout> : null}
+            {topic.error ? <Alert role="alert">{errorMessage(topic.error)}</Alert> : null}
             {!detail && !topic.error ? (
               <p className="py-8 text-center text-sm text-ink-3">正在加载帖子…</p>
             ) : null}

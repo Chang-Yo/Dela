@@ -1,13 +1,13 @@
 import { useRef, useState } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { Bell, Bookmark, Mail, RefreshCw } from 'lucide-react';
-import { CountBadge } from '../../../ui/count-badge';
+import { Badge } from '../../../ui/badge';
 import { SearchInput } from '../../../ui/search-input';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { useShuiyuan, type ListSelection } from './store';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 import { listKey, useCounts, useSelectList, useSiteStructure } from './use-shuiyuan';
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -28,18 +28,20 @@ function PersonalButton({
   onClick: () => void;
 }) {
   return (
-    <IconButton
+    <Button
+      variant="ghost"
+      size="icon-md"
       aria-current={active ? 'page' : undefined}
+      aria-label={label}
       className="relative"
       onClick={onClick}
-      size="lg"
       title={label}
     >
       <Icon strokeWidth={1.8} />
       {count && count > 0 ? (
-        <CountBadge className="absolute -right-1.5 -top-1" count={count} />
+        <Badge variant="count" className="absolute -right-1.5 -top-1" count={count} />
       ) : null}
-    </IconButton>
+    </Button>
   );
 }
 
@@ -131,7 +133,7 @@ export function ShuiyuanHeader() {
           <SegmentedControl
             aria-label="信息流类型"
             labels={feedLabels}
-            onChange={(kind) => selectList({ kind })}
+            onValueChange={(kind) => selectList({ kind })}
             options={feedKinds}
             value={feedKind === 'latest' || feedKind === 'featured' ? feedKind : null}
           />
@@ -181,8 +183,9 @@ export function ShuiyuanHeader() {
               ))}
             </SelectContent>
           </Select>
-          <IconButton
-            size="lg"
+          <Button
+            variant="ghost"
+            size="icon-md"
             aria-label="刷新"
             onClick={() => {
               selectList(list);
@@ -191,7 +194,7 @@ export function ShuiyuanHeader() {
             title="刷新"
           >
             <RefreshCw className={cn(listLoading && 'animate-spin')} strokeWidth={1.8} />
-          </IconButton>
+          </Button>
         </div>
       </div>
     </header>

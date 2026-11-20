@@ -5,7 +5,7 @@ import { ProgressRing } from '../../../ui/progress-ring';
 import { Button } from '../../../ui/button';
 import { EmptyState } from '../../../ui/empty-state';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
-import { formatBytes } from '../../../ui/format-bytes';
+import { formatBytes } from '../../../ui/lib/format-bytes';
 import type { VideoDownload } from '../contract';
 import { classroomClient, useDownloads } from './use-classroom';
 
@@ -60,9 +60,9 @@ export function DownloadsPanel() {
 
 function ringTone(state: VideoDownload['state']) {
   if (state === 'progressing') return { tone: 'accent', label: '下载中' } as const;
-  if (state === 'completed') return { tone: 'green', label: '已完成' } as const;
-  if (state === 'interrupted') return { tone: 'red', label: '已中断' } as const;
-  return { tone: 'ink', label: '已取消' } as const;
+  if (state === 'completed') return { tone: 'success', label: '已完成' } as const;
+  if (state === 'interrupted') return { tone: 'danger', label: '已中断' } as const;
+  return { tone: 'neutral', label: '已取消' } as const;
 }
 
 function DownloadRow({

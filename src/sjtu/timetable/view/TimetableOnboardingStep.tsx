@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { StepButton, type StepButtonState } from '../../../modules/onboarding/view';
 import { connectAndSyncTimetable } from './use-timetable';
 

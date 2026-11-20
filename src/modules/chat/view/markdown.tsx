@@ -11,7 +11,7 @@ import {
   type DiagramPlugin,
   type LinkSafetyConfig,
 } from 'streamdown';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { mermaidConfig, renderMermaid } from '../../preview/view';
 import { useChatTabSource } from './chat-source';
 

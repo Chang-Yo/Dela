@@ -11,7 +11,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { ChevronLeft, ChevronRight, Minus, MoveHorizontal, Plus } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import 'pdfjs-dist/web/pdf_viewer.css';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
 
 declare const __PDF_ASSET_DIR__: string;

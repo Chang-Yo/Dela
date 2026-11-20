@@ -3,7 +3,7 @@ import { Button } from '../../../ui/button';
 import { EmptyState } from '../../../ui/empty-state';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { Skeleton } from '../../../ui/skeleton';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import type { ClassroomVideo, VideoCourse } from '../contract';
 import { lectureMeta, lectureTitle } from './player-format';
 import { useClassroom } from './store';

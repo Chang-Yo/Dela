@@ -22,7 +22,7 @@ export function StepModelImportDialog({
 }) {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="bui-light max-h-[85vh]">
+      <DialogContent className="theme-light max-h-[85vh]">
         <DialogTitle>导入模型</DialogTitle>
         <DialogDescription>勾选要加入配置的模型，最多保留 {LLM_MODEL_LIMIT} 个。</DialogDescription>
         <Picker
@@ -81,7 +81,7 @@ function Picker({
               className="flex min-w-0 cursor-pointer items-center gap-2 px-2.5 py-1.5 transition-colors hover:bg-hover"
               key={id}
             >
-              <Checkbox checked={checked.has(id)} onChange={() => toggle(id)} />
+              <Checkbox checked={checked.has(id)} onCheckedChange={() => toggle(id)} />
               <span className="min-w-0 flex-1 truncate font-mono text-xs" title={id}>
                 {id}
               </span>

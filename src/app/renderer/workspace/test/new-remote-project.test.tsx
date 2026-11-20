@@ -78,6 +78,15 @@ const listing = (path: string, names: string[]): RemoteBrowseResult => ({
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  // Radix 的 Checkbox、Switch 要量尺寸；jsdom 没有 ResizeObserver。
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   vi.stubGlobal('matchMedia', () => ({
     matches: true,
     addEventListener: () => {},

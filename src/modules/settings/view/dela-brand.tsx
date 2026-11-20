@@ -1,6 +1,6 @@
 import blackLogo from '../../../../assets/Dela_black_bg.svg';
 import whiteLogo from '../../../../assets/Dela_white_bg.svg';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 
 export function DelaBrand({ alt = 'Dela', className }: { alt?: string; className?: string }) {
   return (

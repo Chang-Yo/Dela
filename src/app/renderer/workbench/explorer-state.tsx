@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { PanelLeft } from 'lucide-react';
 import { usePreferences } from '../shell/preferences';
 import { useMobileDrawer } from '../shell/mobile-drawer';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 
 const NARROW_QUERY = '(max-width: 767px)';
 
@@ -32,7 +32,9 @@ export function ExplorerRevealButton({ className }: { className?: string }) {
   const hidden = narrow ? !mobileOpen : collapsed;
   if (!hidden) return null;
   return (
-    <IconButton
+    <Button
+      variant="ghost"
+      size="icon-sm"
       aria-label="展开目录"
       className={className}
       onClick={() => {
@@ -43,6 +45,6 @@ export function ExplorerRevealButton({ className }: { className?: string }) {
       title="展开目录"
     >
       <PanelLeft strokeWidth={1.8} />
-    </IconButton>
+    </Button>
   );
 }

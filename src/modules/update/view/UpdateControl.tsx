@@ -1,6 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { DownloadProgressRow } from '../../../ui/download-progress';
+import { DownloadProgress } from '../../../ui/download-progress';
 import { SettingRow, SettingsGroup } from '../../settings/view';
 import { useUpdateState, runUpdateAction, updateView } from './update';
 
@@ -27,7 +27,7 @@ export function UpdateControl() {
         title="软件更新"
       >
         {view.progress !== null ? (
-          <DownloadProgressRow
+          <DownloadProgress
             barClassName="w-16 md:w-40"
             label="更新下载进度"
             received={state.transferred}

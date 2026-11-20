@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '../cn';
+import { cn } from '../lib/cn';
 import { Shimmer } from '../shimmer';
 import { TraceDisclosure } from './trace';
 

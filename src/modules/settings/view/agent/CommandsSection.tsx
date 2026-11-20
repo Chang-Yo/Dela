@@ -9,7 +9,7 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup, SettingsGroupLabel } from '../SettingsGroup';
 import { settingsClient } from '../client';
 import { showToast } from '../../../../ui/toast';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
 import { errorMessage } from '../../../../core/protocol/contract';

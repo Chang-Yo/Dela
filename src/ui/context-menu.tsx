@@ -1,7 +1,7 @@
 import { ContextMenu as ContextMenuPrimitive } from 'radix-ui';
 import type * as React from 'react';
-import { cn } from './cn';
-import { menuItem, menuItemDestructive, menuPanel } from './menu-styles';
+import { cn } from './lib/cn';
+import { menuItem, menuItemDestructive, menuPanel } from './lib/menu-styles';
 
 function ContextMenu({ ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
   return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />;

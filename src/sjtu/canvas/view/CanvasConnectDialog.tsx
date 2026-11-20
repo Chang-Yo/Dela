@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Button } from '../../../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../ui/dialog';
 import { Field } from '../../../ui/field';

@@ -2,11 +2,11 @@ import { Paperclip, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import type { MailFolderInfo, MailMessageSummary } from '../contract';
 import { senderLabel, formatMailDate } from './mail-format';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { PanelHeader } from '../../../ui/panel-header';
 import { Shimmer } from '../../../ui/shimmer';
 import { Input } from '../../../ui/input';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 
 type Props = {
   className?: string;
@@ -56,7 +56,9 @@ export function MailMessageList({
           </small>
         </div>
         <div className="flex-1" />
-        <IconButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label="同步邮件"
           className="disabled:cursor-wait"
           disabled={spinning}
@@ -64,7 +66,7 @@ export function MailMessageList({
           title={syncLabel || '同步邮件'}
         >
           <RefreshCw className={cn(spinning && 'animate-spin')} strokeWidth={1.8} />
-        </IconButton>
+        </Button>
         <Input
           aria-label="搜索邮件"
           className="h-7 w-32 shrink-0 text-xs max-[1080px]:w-24"

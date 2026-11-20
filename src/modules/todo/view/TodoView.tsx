@@ -27,14 +27,14 @@ import {
   type TodoState,
 } from '../contract';
 import { Button } from '../../../ui/button';
-import { useNow } from '../../../ui/use-now';
-import { CountBadge } from '../../../ui/count-badge';
+import { useNow } from '../../../ui/hooks/use-now';
+import { Badge } from '../../../ui/badge';
 import { EmptyState } from '../../../ui/empty-state';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Switch } from '../../../ui/switch';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { EventColorRow } from './EventColorRow';
 import { formatTime, roundToMinute, startOfDay } from './calendar';
@@ -45,7 +45,7 @@ import { TodoDetail } from './TodoDetail';
 import { TodoSheet } from './TodoSheet';
 import { useTodoPreferences } from './preferences';
 import { dateLabel } from './todo-format';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import type { NavTargets } from '../../../app/module';
 
 const views = ['calendar', 'list'] as const;
@@ -100,7 +100,7 @@ function CalendarOptionRows({
         <span className="w-8 shrink-0 text-xs text-ink-3">日历</span>
         <div className="flex flex-1 items-center justify-between gap-2">
           <span className="text-sm">写入日历</span>
-          <Switch checked={calendar} label="写入日历" onChange={onCalendarChange} />
+          <Switch checked={calendar} aria-label="写入日历" onCheckedChange={onCalendarChange} />
         </div>
       </div>
     </>
@@ -130,11 +130,7 @@ function TodoComposer({
   const [calendar, setCalendar] = useState(item?.calendar ?? false);
   const [color, setColor] = useState<CalendarEventColor>(item?.color ?? 'slate');
   return (
-    <TodoSheet
-      label={item ? '编辑待办' : '新建待办'}
-      title={item ? '编辑待办' : '新建待办'}
-      onClose={onCancel}
-    >
+    <TodoSheet title={item ? '编辑待办' : '新建待办'} onClose={onCancel}>
       <form
         className="mt-4 flex flex-col gap-4"
         onSubmit={(event) => {
@@ -369,7 +365,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
               onClick={() => setFilter(value)}
             >
               {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
-              {count > 0 && <CountBadge count={count} />}
+              {count > 0 && <Badge variant="count" count={count} />}
             </Button>
           );
         })}
@@ -377,15 +373,15 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
           <label className="flex items-center gap-2 text-xs text-ink-3">
             <Switch
               checked={showCompleted}
-              label="显示已完成"
-              onChange={(showCompleted) => useTodoPreferences.setState({ showCompleted })}
+              aria-label="显示已完成"
+              onCheckedChange={(showCompleted) => useTodoPreferences.setState({ showCompleted })}
             />
             显示已完成
           </label>
           <SegmentedControl
             icons={{ calendar: CalendarDays, list: List }}
             labels={{ calendar: '日历', list: '列表' }}
-            onChange={setView}
+            onValueChange={setView}
             options={views}
             value={view}
           />

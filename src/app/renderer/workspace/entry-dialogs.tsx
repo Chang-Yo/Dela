@@ -13,7 +13,7 @@ import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/v
 import { useNoteDrafts } from '../../../modules/note/view';
 import { updateEntry, type EntryAction } from './entry-actions';
 import { NewRemoteProjectDialog } from './remote/NewRemoteProjectDialog';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../ui/dialog';
 import { Field } from '../../../ui/field';
 import { errorMessage } from '../../../core/protocol/contract';

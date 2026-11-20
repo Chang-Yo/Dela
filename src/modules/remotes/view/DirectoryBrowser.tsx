@@ -8,11 +8,11 @@ import { Checkbox } from '../../../ui/checkbox';
 import { Input } from '../../../ui/input';
 import { SearchInput } from '../../../ui/search-input';
 import { Skeleton } from '../../../ui/skeleton';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import type { RemoteDraft } from '../contract';
 import { showToast } from '../../../ui/toast';
 import { remotesClient } from './client';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 import { errorMessage } from '../../../core/protocol/contract';
 
 function crumbs(path: string): { name: string; path: string }[] {
@@ -142,8 +142,9 @@ export function DirectoryBrowser({
   return (
     <Card className="grid min-h-0 grid-rows-[auto_auto_1fr_auto]">
       <div className="flex items-center gap-1.5 border-b border-line px-2 py-1.5">
-        <IconButton
-          size="sm"
+        <Button
+          variant="ghost"
+          size="icon-xs"
           aria-label="主目录"
 
           disabled={!home}
@@ -151,7 +152,7 @@ export function DirectoryBrowser({
           title="主目录"
         >
           <House />
-        </IconButton>
+        </Button>
         {editing ? (
           <Input
             aria-label="远端路径"
@@ -349,10 +350,7 @@ export function DirectoryBrowser({
           新建文件夹
         </button>
         <label className="flex items-center gap-1.5">
-          <Checkbox
-            checked={showHidden}
-            onChange={(event) => setShowHidden(event.target.checked)}
-          />
+          <Checkbox checked={showHidden} onCheckedChange={(next) => setShowHidden(next === true)} />
           显示隐藏目录
         </label>
       </div>

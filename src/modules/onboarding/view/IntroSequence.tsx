@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import logo from '../../../../assets/Dela_Logo.png';
 import { HandwritingLine } from './intro-handwriting';
 import { OnboardingWindowBar } from './onboarding-window-bar';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { Button } from '../../../ui/button';
-import { useMediaQuery } from '../../../ui/use-media-query';
+import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 
 const introVideos = import.meta.glob<{ default: string }>(
   '../../../../assets/onboarding-video.webm',
@@ -41,7 +41,7 @@ export function IntroSequence({ onStart }: { onStart: () => void }) {
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-rows-[auto_1fr] bui-light bg-surface text-ink',
+        'relative grid h-dvh grid-rows-[auto_1fr] theme-light bg-surface text-ink',
         leaving && 'animate-fade-out',
       )}
       data-onboarding-intro=""

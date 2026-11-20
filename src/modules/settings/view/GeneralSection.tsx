@@ -46,8 +46,8 @@ export function GeneralSection({ navEntries }: { navEntries: ReactNode }) {
             <Switch
               checked={openAtLogin ?? false}
               disabled={openAtLogin === undefined || busy}
-              label="开机自启动"
-              onChange={(next) => void toggleOpenAtLogin(next)}
+              aria-label="开机自启动"
+              onCheckedChange={(next) => void toggleOpenAtLogin(next)}
             />
           </SettingRow>
         </SettingsGroup>

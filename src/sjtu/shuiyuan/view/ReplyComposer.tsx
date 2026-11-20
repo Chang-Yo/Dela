@@ -3,8 +3,8 @@ import { Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { FileWarning, Maximize2, Minimize2, Paperclip, Send, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { sheetUp } from '../../../ui/motion';
-import { cn } from '../../../ui/cn';
+import { sheetUp } from '../../../ui/lib/motion';
+import { cn } from '../../../ui/lib/cn';
 import { errorMessage } from '../../../core/protocol/contract';
 import { MarkdownEditor } from '../../../modules/note/view';
 import { showToast } from '../../../ui/toast';
@@ -14,7 +14,6 @@ import { SHUIYUAN_HOST } from '../contract';
 import { rememberUpload, useShuiyuan } from './store';
 import { shuiyuanClient } from './use-shuiyuan';
 import { Spinner } from '../../../ui/spinner';
-import { IconButton } from '../../../ui/icon-button';
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -194,15 +193,16 @@ export function ReplyComposer({
             : '回复帖子'}
         </span>
         {replyTarget ? (
-          <IconButton
-            size="xs"
+          <Button
+            variant="ghost"
+            size="icon-2xs"
             aria-label="改为回复帖子"
 
             onClick={onClearReplyTarget}
             title="改为回复帖子"
           >
             <X />
-          </IconButton>
+          </Button>
         ) : null}
         <div className="flex-1" />
         <Button

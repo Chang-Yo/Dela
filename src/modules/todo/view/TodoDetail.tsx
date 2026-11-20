@@ -11,10 +11,10 @@ import type { TodoItem } from '../contract';
 import { todoCompleted, todoStatusLabels } from '../contract';
 import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
-import { useRootFontSize } from '../../../ui/root-font-size';
+import { useRootFontSize } from '../../../ui/hooks/root-font-size';
 import { sanitizeHtml } from '../../mail/view';
-import { useFrameBodyHeight } from '../../../ui/use-frame-body-height';
-import { cn } from '../../../ui/cn';
+import { useFrameBodyHeight } from '../../../ui/hooks/use-frame-body-height';
+import { cn } from '../../../ui/lib/cn';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
 
@@ -67,7 +67,7 @@ export function TodoDetail({
   const done = todoCompleted(item.status);
   const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
   return (
-    <TodoSheet fixedHeight label="待办详情" title={item.title} onClose={onClose}>
+    <TodoSheet fixedHeight title={item.title} onClose={onClose}>
       <div className="mt-3 shrink-0 space-y-1.5 text-sm text-ink-3">
         <p className="flex items-start gap-1.5">
           <BookOpen className="mt-0.5 size-3.5 shrink-0" />

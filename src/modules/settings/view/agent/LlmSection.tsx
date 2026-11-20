@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Lock, Pencil, PlugZap, Plus, Search, Trash2 } from 'lucide-react';
-import { StatusPill } from '../../../../ui/status-pill';
+import { Badge } from '../../../../ui/badge';
 import { Switch } from '../../../../ui/switch';
 import { Button } from '../../../../ui/button';
 import { Card } from '../../../../ui/card';
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../../ui/select';
-import { cn } from '../../../../ui/cn';
+import { cn } from '../../../../ui/lib/cn';
 import type {
   LlmCatalogModel,
   LlmCatalogProvider,
@@ -33,7 +33,7 @@ import {
 import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { showToast } from '../../../../ui/toast';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
 import {
   Dialog,
@@ -773,8 +773,8 @@ function ProviderDetail({
             <Switch
               checked={provider.enabled}
               disabled={busy}
-              label={provider.enabled ? `停用 ${provider.name}` : `启用 ${provider.name}`}
-              onChange={(enabled) => onSetEnabled(provider.id, enabled)}
+              aria-label={provider.enabled ? `停用 ${provider.name}` : `启用 ${provider.name}`}
+              onCheckedChange={(enabled) => onSetEnabled(provider.id, enabled)}
             />
             {confirmDelete ? (
               <>
@@ -966,19 +966,19 @@ function ProviderDetail({
                       {id}
                     </span>
                     {vendor && !catalogModel && (
-                      <StatusPill dot={false} size="sm">
+                      <Badge dot={false} size="2xs">
                         已下架
-                      </StatusPill>
+                      </Badge>
                     )}
                     {settings?.vision && (
-                      <StatusPill dot={false} size="sm">
+                      <Badge dot={false} size="2xs">
                         视觉
-                      </StatusPill>
+                      </Badge>
                     )}
                     {settings?.contextWindow && (
-                      <StatusPill dot={false} size="sm">
+                      <Badge dot={false} size="2xs">
                         {compactTokens(settings.contextWindow)}
-                      </StatusPill>
+                      </Badge>
                     )}
                     <div className="flex shrink-0 items-center">
                       <Button

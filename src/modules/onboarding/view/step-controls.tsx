@@ -56,8 +56,8 @@ export function StepSelect({
       <SelectTrigger aria-label={label} className="w-full" size="lg">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      {/* 弹层 portal 到 body，脱离向导的 .bui-light 作用域，需单独带上。 */}
-      <SelectContent className="bui-light">{children}</SelectContent>
+      {/* 弹层 portal 到 body，脱离向导的 .theme-light 作用域，需单独带上。 */}
+      <SelectContent className="theme-light">{children}</SelectContent>
     </Select>
   );
 }

@@ -5,10 +5,10 @@ import { ConnectCard } from '../../../ui/connect-card';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { EmptyState } from '../../../ui/empty-state';
 import { PanelHeader } from '../../../ui/panel-header';
-import { PanelToggleButton } from '../../../ui/panel-toggle';
-import { Resizer, useResizerWidth } from '../../../ui/resizer';
-import { useViewportWidth } from '../../../ui/use-viewport-width';
-import { cn } from '../../../ui/cn';
+import { PanelToggle } from '../../../ui/panel-toggle';
+import { Resizable, useResizableWidth } from '../../../ui/resizable';
+import { useViewportWidth } from '../../../ui/hooks/use-viewport-width';
+import { cn } from '../../../ui/lib/cn';
 import { CourseList, CoursePicker } from './CourseList';
 import { TranscriptPanel } from './TranscriptPanel';
 import { SegmentedControl } from '../../../ui/segmented-control';
@@ -39,7 +39,7 @@ function DesktopClassroomView() {
   // 没有数据时重读会回到 pending；失败过就停在登录卡，按钮显示读取进度。
   const phase = courses.data ? 'ready' : courses.errorUpdateCount > 0 ? 'connect' : 'loading';
 
-  const { width, resizing, onChange, onResizingChange } = useResizerWidth(
+  const { width, resizing, onValueChange, onResizingChange } = useResizableWidth(
     useClassroomPreferences((state) => state.sidebarWidth),
     (sidebarWidth) => useClassroomPreferences.setState({ sidebarWidth }),
   );
@@ -84,7 +84,7 @@ function DesktopClassroomView() {
               style={collapsed ? undefined : { width: effectiveWidth }}
             >
               <PanelHeader variant="plain">
-                <PanelToggleButton
+                <PanelToggle
                   collapsed={collapsed}
                   controlsId="classroom-courses"
                   label="课程列表"
@@ -124,7 +124,7 @@ function DesktopClassroomView() {
                 <SegmentedControl
                   options={['节次', '语音']}
                   value={sidebarTab}
-                  onChange={setSidebarTab}
+                  onValueChange={setSidebarTab}
                   className="w-full"
                 />
               </div>
@@ -140,12 +140,12 @@ function DesktopClassroomView() {
             </div>
           </aside>
           {!collapsed && (
-            <Resizer
+            <Resizable
               className={cn('bg-transparent', collapsed && 'hidden')}
               label="调整课程列表宽度"
               max={SIDEBAR_MAX_WIDTH}
               min={SIDEBAR_MIN_WIDTH}
-              onChange={onChange}
+              onValueChange={onValueChange}
               onResizingChange={onResizingChange}
               value={width}
             />
@@ -171,7 +171,7 @@ function PlayerSection({
       <section className="relative grid min-w-0 flex-1 place-items-center">
         {collapsed && (
           <div className="absolute left-2 top-2">
-            <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
+            <PanelToggle collapsed label="课程列表" onToggle={onExpandSidebar} />
           </div>
         )}
         <EmptyState

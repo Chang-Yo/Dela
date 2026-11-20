@@ -97,8 +97,9 @@
 ## 7. 界面与 Design System
 
 - 界面优先使用 `ui` 中的组件和 design token，不写 arbitrary 值，不用 Tailwind 原生色板
-- token 的语义名称和层次已冻结（ADR 0018）：只能新增，不能修改或删除；值可以调整
-- 同样的界面结构出现两次以上，就提取为组件；先用基础组件组合，反复出现的复杂组合才提取为高级组件
+- token 按用途命名，不按色相命名；缺少时新增，不借用别的用途的 token。改名或删除要先写 ADR，并在同一个提交里全局替换、同步 lint（ADR 0023）
+- 同样的界面结构出现两次以上，就提取为组件；先用基础组件组合，反复出现的复杂组合才提取为高级组件。提取前先问：去掉 Dela 的文案和业务，它还成立吗？
+- 写或改 `ui` 里的组件前，先读 `src/ui/README.md` 的约定
 
 ## 8. 其他
 
@@ -123,7 +124,7 @@ src/
 依赖规则（由 CI 的 lint 检查）：
 
 1. `core` 不依赖 Electron、React，也不引用 `app`、`modules`、`sjtu`、`ui`，宿主能力经 `core/ports.ts` 注入；`core/protocol` 只依赖 zod
-2. `ui` 只依赖 react、radix、cva、lucide 与样式工具；`ui/agent` 建在基础组件之上，基础组件不能反过来引用它
+2. `ui` 只依赖 react、radix、cva、lucide、zustand 与样式工具；`ui/agent` 建在基础组件之上，基础组件不能反过来引用它
 3. 模块之间只通过对方的 `index.ts`、`contract.ts` 或 `view/index.ts` 引用；`view/` 只能引用 `core/protocol`、`app/module.ts`、其他模块的 `contract.ts` 与 `ui`，不能引用本模块的 `main/`；主进程侧不能引用 `view/`
 4. `core`、`modules`、`app` 都不能引用 `sjtu`，例外是 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 三份清单。通用模块需要交大数据时，在通用模块的 `index.ts` 里开注册口，由交大模块注册进来。CI 还会去掉全部交大模块后再做类型检查、构建与冒烟
 5. 模块只能引用 `app/module.ts`，不能引用 app 的其他部分

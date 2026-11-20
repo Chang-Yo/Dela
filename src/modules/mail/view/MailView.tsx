@@ -20,17 +20,18 @@ import { MailReader } from './MailReader';
 import { MailComposer, type MailComposerHandle } from './MailComposer';
 import { MailTrashList } from './MailTrashList';
 import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
-import { Resizer } from '../../../ui/resizer';
+import { Resizable } from '../../../ui/resizable';
 import { Button } from '../../../ui/button';
 import { PanelHeader } from '../../../ui/panel-header';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { ConnectCard } from '../../../ui/connect-card';
-import { useMediaQuery } from '../../../ui/use-media-query';
+import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import { useMailPreferences } from './store';
 import { draftsKey, mailBoxKey, mailClient, mailStateKey, useMailState } from './use-mail';
 import { showToast } from '../../../ui/toast';
 import { errorMessage, subscribe } from '../../../core/protocol/contract';
-import { Callout, ErrorText } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 
 const MESSAGE_LIMIT = 200;
 
@@ -609,9 +610,9 @@ function DesktopMailView({
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       {sync?.phase === 'error' && sync.error && (
-        <Callout className="mx-4 mt-3" role="alert">
+        <Alert className="mx-4 mt-3" role="alert">
           同步出现问题：{sync.error}
-        </Callout>
+        </Alert>
       )}
       <div
         ref={observeGrid}
@@ -762,12 +763,12 @@ function DesktopMailView({
                 onSelect={(id) => openMessage(id, false)}
               />
             )}
-            <Resizer
+            <Resizable
               className={stacked ? 'hidden' : 'bg-line/60'}
               label="调整邮件列表宽度"
               max={480}
               min={320}
-              onChange={setListWidth}
+              onValueChange={setListWidth}
               onResizingChange={setListResizing}
               value={listWidth}
             />

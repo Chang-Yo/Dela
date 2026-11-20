@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { ExternalLink, FileDown, Presentation, RefreshCw } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { useNow } from '../../../ui/use-now';
+import { useNow } from '../../../ui/hooks/use-now';
 import { EmptyState } from '../../../ui/empty-state';
 import { showToast } from '../../../ui/toast';
 import { onWorkspaceEvent, workspaceClient } from '../../workspace/view';
@@ -11,7 +11,7 @@ import type {
   OfficeExportProgress,
   ResourceRef,
 } from '../../workspace/contract';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import { errorMessage } from '../../../core/protocol/contract';
 

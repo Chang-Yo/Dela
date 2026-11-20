@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { TodoItem } from '../contract';
 import { todoCompleted } from '../contract';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { dateKey, eventColorStyle, formatMonthDay, formatTime, weekDays } from './calendar';
 import { groupTodosByDay, monthGridDays, todoCalendarColor } from './todo-calendar';
 

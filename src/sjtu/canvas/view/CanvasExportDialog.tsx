@@ -83,10 +83,10 @@ export function CanvasExportDialog({ onClose }: { onClose: () => void }) {
                   <Checkbox
                     checked={all}
                     disabled={exporting}
-                    onChange={(event) =>
+                    onCheckedChange={(next) =>
                       toggleGroup(
                         group.courses.map((course) => course.id),
-                        event.target.checked,
+                        next === true,
                       )
                     }
                   />
@@ -100,7 +100,7 @@ export function CanvasExportDialog({ onClose }: { onClose: () => void }) {
                     <Checkbox
                       checked={selected.has(course.id)}
                       disabled={exporting}
-                      onChange={(event) => toggleCourse(course.id, event.target.checked)}
+                      onCheckedChange={(next) => toggleCourse(course.id, next === true)}
                     />
                     <span className="min-w-0 flex-1 truncate" title={course.name}>
                       {course.name}

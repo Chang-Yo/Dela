@@ -1,10 +1,10 @@
 'use client';
 
 import { Bot, Layers, Square, SquareTerminal } from 'lucide-react';
-import { cn } from '../cn';
-import { IconButton } from '../icon-button';
+import { cn } from '../lib/cn';
+import { Button } from '../button';
 import { Popover, PopoverContent, PopoverTrigger } from '../popover';
-import { useNow } from '../use-now';
+import { useNow } from '../hooks/use-now';
 
 export type BackgroundTaskItem = {
   id: string;
@@ -85,9 +85,15 @@ function BackgroundTaskList({
             <span className="shrink-0 text-xs tabular-nums text-ink-3">
               {formatElapsed(now - task.startedAt)}
             </span>
-            <IconButton aria-label="停止" onClick={() => onStop(task.id)} title="停止">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="停止"
+              onClick={() => onStop(task.id)}
+              title="停止"
+            >
               <Square />
-            </IconButton>
+            </Button>
           </li>
         );
       })}

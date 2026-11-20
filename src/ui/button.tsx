@@ -1,7 +1,7 @@
 import { Slot } from 'radix-ui';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type * as React from 'react';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 const buttonVariants = cva(
   "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control text-sm font-medium transition-[background-color,color,box-shadow,transform,opacity] duration-base ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -16,25 +16,40 @@ const buttonVariants = cva(
         link: 'text-accent-ink underline-offset-4 hover:underline active:scale-100',
       },
       size: {
-        default: 'h-8 px-3 has-[>svg]:px-2.5',
+        md: 'h-8 px-3 has-[>svg]:px-2.5',
         sm: 'h-7 px-2.5 text-xs has-[>svg]:px-2',
         lg: 'h-10 rounded-card px-4 text-sm has-[>svg]:px-3',
-        icon: 'size-8',
-        'icon-sm': 'size-7',
+        'icon-2xs': "size-5 [&_svg:not([class*='size-'])]:size-3.5",
         'icon-xs': "size-6 rounded-chip [&_svg:not([class*='size-'])]:size-3.5",
+        'icon-sm': 'size-7',
+        'icon-md': 'size-8',
       },
     },
+    compoundVariants: [
+      {
+        variant: 'ghost',
+        size: ['icon-2xs', 'icon-xs', 'icon-sm', 'icon-md'],
+        className:
+          'text-ink-3 aria-pressed:bg-selected aria-pressed:text-ink aria-[current=page]:bg-selected aria-[current=page]:text-ink',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
-      size: 'default',
+      size: 'md',
     },
   },
 );
 
+type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>['size']>;
+type IconSize = Extract<ButtonSize, `icon-${string}`>;
+
 type ButtonProps = React.ComponentProps<'button'> &
-  VariantProps<typeof buttonVariants> & {
+  Omit<VariantProps<typeof buttonVariants>, 'size'> & {
     asChild?: boolean;
-  };
+  } & (
+    | { size?: Exclude<ButtonSize, IconSize> }
+    | ({ size: IconSize } & ({ 'aria-label': string } | { 'aria-labelledby': string }))
+  );
 
 function Button({ className, variant, size, asChild = false, type, ...props }: ButtonProps) {
   const Comp = asChild ? Slot.Root : 'button';

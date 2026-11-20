@@ -8,7 +8,7 @@ import { chatClient } from '../client';
 import { DiffScroller, PatchDiffView } from './pierre-diff';
 import { FileIcon } from '../../../../ui/file-icon';
 import { Centered, STATUS_TEXT, basenameOf, dirnameOf } from './view-utils';
-import { IconButton } from '../../../../ui/icon-button';
+import { Button } from '../../../../ui/button';
 import { PanelHeader } from '../../../../ui/panel-header';
 import { errorMessage } from '../../../../core/protocol/contract';
 
@@ -91,7 +91,9 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
         >
           {summary?.available ? `${files.length} 个文件` : ''}
         </span>
-        <IconButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label="刷新改动"
           className="ml-auto"
           disabled={busy}
@@ -99,7 +101,7 @@ export function UncommittedReview({ sessionId }: { sessionId: string }) {
           title="重新读取工作区改动"
         >
           <RefreshCw className={busy ? 'animate-spin' : undefined} />
-        </IconButton>
+        </Button>
       </PanelHeader>
       {summary && summary.warnings.length > 0 && (
         <div

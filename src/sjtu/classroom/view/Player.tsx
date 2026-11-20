@@ -14,7 +14,6 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { IconButton } from '../../../ui/icon-button';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Slider } from '../../../ui/slider';
 import { Button } from '../../../ui/button';
@@ -25,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
-import { PanelToggleButton } from '../../../ui/panel-toggle';
+import { PanelToggle } from '../../../ui/panel-toggle';
 import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import type { ClassroomVideo, VideoCourse } from '../contract';
@@ -261,7 +260,7 @@ export function Player({
     >
       <div className="flex items-center gap-2 px-3 pt-2">
         {collapsedSidebar && onExpandSidebar && (
-          <PanelToggleButton collapsed label="课程列表" onToggle={onExpandSidebar} />
+          <PanelToggle collapsed label="课程列表" onToggle={onExpandSidebar} />
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-ink">
@@ -271,19 +270,21 @@ export function Player({
         </div>
         {streams && streams.length > 1 && (
           <SegmentedControl
-            onChange={(label) => selectView(Number(label.replace('画面', '')) - 1)}
+            onValueChange={(label) => selectView(Number(label.replace('画面', '')) - 1)}
             options={streams.map((_, index) => viewLabel(index))}
             value={viewLabel(activeClamped)}
           />
         )}
-        <IconButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label="下载当前画面"
           disabled={!active}
           onClick={() => active && void download(active.view)}
           title="下载当前画面"
         >
           {streamsLoading ? <Spinner /> : <Download />}
-        </IconButton>
+        </Button>
       </div>
       <div className="relative mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-card bg-media shadow-hairline">
         {active && !failed ? (
@@ -374,9 +375,14 @@ export function Player({
         )}
       </div>
       <div className="flex items-center gap-1.5 px-3 py-2">
-        <IconButton aria-label={playing ? '暂停' : '播放'} onClick={togglePlay}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={playing ? '暂停' : '播放'}
+          onClick={togglePlay}
+        >
           {playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
-        </IconButton>
+        </Button>
         <span className="shrink-0 text-xs tabular-nums text-ink-3">
           {formatTime(scrubTime ?? currentTime)}
         </span>
@@ -391,7 +397,9 @@ export function Player({
         <span className="shrink-0 text-xs tabular-nums text-ink-3">{formatTime(duration)}</span>
         <VolumeControl onChange={applyVolume} value={volume} />
         <RateMenu onSelect={applyRate} rate={rate} />
-        <IconButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label={fullscreen ? '退出全屏' : '全屏'}
           onClick={() => {
             if (document.fullscreenElement === rootRef.current) void document.exitFullscreen();
@@ -400,7 +408,7 @@ export function Player({
           title={fullscreen ? '退出全屏' : '全屏'}
         >
           {fullscreen ? <Minimize /> : <Maximize />}
-        </IconButton>
+        </Button>
       </div>
     </div>
   );
@@ -412,16 +420,27 @@ function VolumeControl({ value, onChange }: { value: number; onChange: (v: numbe
   return (
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger asChild>
-        <IconButton aria-label={`音量 ${Math.round(value * 100)}%`} title="音量">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`音量 ${Math.round(value * 100)}%`}
+          title="音量"
+        >
           <Icon />
-        </IconButton>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-44 px-3 py-2.5">
         <div className="mb-1.5 flex items-center justify-between text-xs text-ink-3">
           <span>音量</span>
           <span className="tabular-nums">{Math.round(value * 100)}%</span>
         </div>
-        <Slider ariaLabel="音量" max={1} onValueChange={onChange} step={0.05} value={value} />
+        <Slider
+          aria-label="音量"
+          max={1}
+          onValueChange={([next = 0]) => onChange(next)}
+          step={0.05}
+          value={[value]}
+        />
       </PopoverContent>
     </Popover>
   );
@@ -431,13 +450,15 @@ function RateMenu({ rate, onSelect }: { rate: number; onSelect: (rate: number) =
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <IconButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label={`播放速度 ${rate}x`}
           className="w-auto gap-0.5 px-2 text-xs font-medium tabular-nums"
           title="播放速度"
         >
           {rate}x
-        </IconButton>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {RATE_OPTIONS.map((option) => (

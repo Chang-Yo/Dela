@@ -8,8 +8,8 @@ import {
 } from '../../../modules/mail/view';
 import { openLightbox } from '../../../ui/lightbox';
 import { SHUIYUAN_HOST, shuiyuanTopicFromUrl } from '../contract';
-import { useRootFontSize } from '../../../ui/root-font-size';
-import { useFrameMessages } from '../../../ui/use-frame-messages';
+import { useRootFontSize } from '../../../ui/hooks/root-font-size';
+import { useFrameMessages } from '../../../ui/hooks/use-frame-messages';
 
 const INITIAL_BODY_HEIGHT = 48;
 

@@ -1,5 +1,5 @@
 import type { CalendarEventColor } from '../contract';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { eventPalette } from './calendar';
 
 export function EventColorRow({

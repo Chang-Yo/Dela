@@ -19,8 +19,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { settingsSectionLabels, type SettingsSectionId } from '../contract';
-import { cn } from '../../../ui/cn';
-import { useHorizontalWheel } from '../../../ui/use-horizontal-wheel';
+import { cn } from '../../../ui/lib/cn';
+import { useHorizontalWheel } from '../../../ui/hooks/use-horizontal-wheel';
 
 export type { SettingsSectionId };
 

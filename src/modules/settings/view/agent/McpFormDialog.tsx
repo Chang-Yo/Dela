@@ -5,7 +5,7 @@ import { Textarea } from '../../../../ui/textarea';
 import { SegmentedControl } from '../../../../ui/segmented-control';
 import type { McpServerView, McpTransportConfig } from '../../../../core/protocol/capabilities';
 import { mcpUpdatePatch, parseMcpForm } from './mcp-logic';
-import { ErrorText } from '../../../../ui/alert';
+import { ErrorText } from '../../../../ui/error-text';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../../../../ui/dialog';
 import { Field } from '../../../../ui/field';
 import { capabilitiesClient } from '../../../chat/view';
@@ -91,7 +91,7 @@ export function McpFormDialog({
           {!isEdit && (
             <SegmentedControl
               labels={transportLabels}
-              onChange={setTransport}
+              onValueChange={setTransport}
               options={transports}
               value={transport}
             />

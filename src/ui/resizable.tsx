@@ -1,34 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
-import { cn } from './cn';
+import { useRef, useState, type ComponentProps } from 'react';
+import { cn } from './lib/cn';
 
-type ResizerProps = {
+type ResizableProps = Omit<ComponentProps<'div'>, 'onChange' | 'defaultValue'> & {
   label: string;
   value: number;
   min: number;
   max: number;
   orientation?: 'vertical' | 'horizontal';
-  onChange: (value: number) => void;
+  onValueChange: (value: number) => void;
   onResizingChange?: (resizing: boolean) => void;
   defaultValue?: number;
-  className?: string;
 };
 
-export function Resizer({
+function Resizable({
   label,
   value,
   min,
   max,
   orientation = 'vertical',
-  onChange,
+  onValueChange,
   onResizingChange,
   defaultValue,
   className,
-}: ResizerProps) {
+  ...props
+}: ResizableProps) {
   const start = useRef<{ pointerId: number; position: number; size: number } | null>(null);
   const horizontal = orientation === 'horizontal';
-
-  // 拖拽中宿主卸载时 lostpointercapture 不会到达已移除元素，卸载时兜底复位 resizing 态。
-  useEffect(() => () => onResizingChange?.(false), []);
 
   const clamp = (size: number) => Math.min(max, Math.max(min, size));
   const finishPointer = () => {
@@ -52,25 +49,26 @@ export function Resizer({
         'hover:bg-ink-3 focus-visible:bg-accent',
         className,
       )}
+      data-slot="resizable"
       onKeyDown={(event) => {
         if (event.key === 'Home') {
           event.preventDefault();
-          onChange(min);
+          onValueChange(min);
           return;
         }
         if (event.key === 'End') {
           event.preventDefault();
-          onChange(max);
+          onValueChange(max);
           return;
         }
         const positive = horizontal ? event.key === 'ArrowDown' : event.key === 'ArrowRight';
         const negative = horizontal ? event.key === 'ArrowUp' : event.key === 'ArrowLeft';
         if (!positive && !negative) return;
         event.preventDefault();
-        onChange(clamp(value + (positive ? 20 : -20)));
+        onValueChange(clamp(value + (positive ? 20 : -20)));
       }}
       onDoubleClick={() => {
-        if (defaultValue !== undefined) onChange(clamp(defaultValue));
+        if (defaultValue !== undefined) onValueChange(clamp(defaultValue));
       }}
       onLostPointerCapture={finishPointer}
       onPointerCancel={finishPointer}
@@ -88,7 +86,7 @@ export function Resizer({
         const begin = start.current;
         if (!begin || !event.isPrimary || event.pointerId !== begin.pointerId) return;
         const position = horizontal ? event.clientY : event.clientX;
-        onChange(clamp(begin.size + (position - begin.position)));
+        onValueChange(clamp(begin.size + (position - begin.position)));
       }}
       onPointerUp={(event) => {
         if (!event.isPrimary || event.pointerId !== start.current?.pointerId) return;
@@ -98,18 +96,19 @@ export function Resizer({
       }}
       role="separator"
       tabIndex={0}
+      {...props}
     />
   );
 }
 
 /** 持久化的面板宽度：拖动中只改本地值，拖动结束或键盘调整时才调用 commit。 */
-export function useResizerWidth(stored: number, commit: (width: number) => void) {
+function useResizableWidth(stored: number, commit: (width: number) => void) {
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const [resizing, setResizing] = useState(false);
   return {
     width: dragWidth ?? stored,
     resizing,
-    onChange: (width: number) => (resizing ? setDragWidth(width) : commit(width)),
+    onValueChange: (width: number) => (resizing ? setDragWidth(width) : commit(width)),
     onResizingChange: (next: boolean) => {
       setResizing(next);
       if (!next && dragWidth !== null) {
@@ -119,3 +118,5 @@ export function useResizerWidth(stored: number, commit: (width: number) => void)
     },
   };
 }
+
+export { Resizable, useResizableWidth };

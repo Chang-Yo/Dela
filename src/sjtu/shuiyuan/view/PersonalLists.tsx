@@ -12,7 +12,7 @@ import {
   useSelectList,
 } from './use-shuiyuan';
 import { describeNotification, formatListDate } from './shuiyuan-format';
-import { Callout } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
 
 export function ListBackButton() {
   const selectList = useSelectList();
@@ -61,7 +61,7 @@ export function BookmarkList() {
       {loading ? <p className="p-4 text-xs text-ink-3">加载中…</p> : null}
       {!loading && !error && bookmarks.length === 0 ? <EmptyState title="还没有收藏" /> : null}
       {error ? (
-        <Callout
+        <Alert
           action={
             <button
               className="underline underline-offset-2"
@@ -75,7 +75,7 @@ export function BookmarkList() {
           role="alert"
         >
           {error}
-        </Callout>
+        </Alert>
       ) : null}
     </div>
   );
@@ -136,7 +136,7 @@ export function NotificationList() {
       {loading ? <p className="p-4 text-xs text-ink-3">加载中…</p> : null}
       {!loading && !error && notifications.length === 0 ? <EmptyState title="暂无通知" /> : null}
       {error ? (
-        <Callout
+        <Alert
           action={
             <button
               className="underline underline-offset-2"
@@ -150,7 +150,7 @@ export function NotificationList() {
           role="alert"
         >
           {error}
-        </Callout>
+        </Alert>
       ) : null}
     </div>
   );

@@ -1,8 +1,8 @@
 import { Select as SelectPrimitive } from 'radix-ui';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import type * as React from 'react';
-import { cn } from './cn';
-import { menuItem, menuPanel } from './menu-styles';
+import { cn } from './lib/cn';
+import { menuItem, menuPanel } from './lib/menu-styles';
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />;
@@ -13,14 +13,14 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
 }
 
 const triggerSizes = {
-  default: '',
+  md: '',
   lg: 'h-10 rounded-card px-3',
 } as const;
 
 function SelectTrigger({
   className,
   children,
-  size = 'default',
+  size = 'md',
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & { size?: keyof typeof triggerSizes }) {
   return (

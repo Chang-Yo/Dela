@@ -1,34 +1,15 @@
 'use client';
 
 import { Slider as SliderPrimitive } from 'radix-ui';
-import { cn } from './cn';
+import type * as React from 'react';
+import { cn } from './lib/cn';
 
-export function Slider({
-  value,
-  onValueChange,
-  min = 0,
-  max = 1,
-  step = 0.05,
-  ariaLabel,
-  className,
-}: {
-  value: number;
-  onValueChange: (value: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-  ariaLabel?: string;
-  className?: string;
-}) {
+function Slider({ className, ...props }: React.ComponentProps<typeof SliderPrimitive.Root>) {
   return (
     <SliderPrimitive.Root
-      aria-label={ariaLabel}
       className={cn('relative flex h-4 w-full touch-none select-none items-center', className)}
-      max={max}
-      min={min}
-      onValueChange={(values) => onValueChange(values[0] ?? min)}
-      step={step}
-      value={[value]}
+      data-slot="slider"
+      {...props}
     >
       <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-line-strong">
         <SliderPrimitive.Range className="absolute h-full rounded-full bg-ink" />
@@ -43,3 +24,5 @@ export function Slider({
     </SliderPrimitive.Root>
   );
 }
+
+export { Slider };

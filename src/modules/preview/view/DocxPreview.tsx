@@ -3,7 +3,7 @@ import { Minus, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../../ui/button';
 import { pinchZoomRef } from './use-pinch-zoom';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
 
 const MIN_ZOOM = 0.5;

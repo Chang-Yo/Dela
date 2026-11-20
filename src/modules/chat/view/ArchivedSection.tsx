@@ -10,7 +10,8 @@ import { useWorkspaceStore } from '../../workspace/view';
 import { showToast } from '../../../ui/toast';
 import { refreshSessionLists, useSessions, updateSession } from './sessions';
 import { SectionHeader, SettingsGroup } from '../../settings/view';
-import { Callout, ErrorText } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { Navigate } from '../../../app/module';
 
@@ -155,7 +156,7 @@ export function ArchivedSection({ navigate }: { navigate: Navigate }) {
               恢复后重新出现在历史列表；永久删除无法撤销。共 {sessions?.length ?? 0} 条。
             </p>
             {confirm?.kind === 'all' && (
-              <Callout
+              <Alert
                 action={
                   <div className="flex items-center gap-2">
                     <Button
@@ -173,7 +174,7 @@ export function ArchivedSection({ navigate }: { navigate: Navigate }) {
                 }
               >
                 永久删除全部 {sessions?.length ?? 0} 条已归档对话？此操作无法撤销。
-              </Callout>
+              </Alert>
             )}
             {archived.error && <ErrorText>{errorMessage(archived.error)}</ErrorText>}
             {sessions && sessions.length === 0 && (

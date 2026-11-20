@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
 import { Button } from '../../../ui/button';
-import { formatBytes } from '../../../ui/format-bytes';
+import { formatBytes } from '../../../ui/lib/format-bytes';
 import { SettingRow } from './SettingRow';
 import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';

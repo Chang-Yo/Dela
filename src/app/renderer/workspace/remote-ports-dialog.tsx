@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Globe, RefreshCw, Square } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import { workspaceClient } from '../../../modules/workspace/view';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import {
   Dialog,

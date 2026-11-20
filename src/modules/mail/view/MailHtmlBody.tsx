@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import { renderMailHtml } from './mail-html-display';
 import { sanitizeMailHtml } from './mail-html';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { frameHeightFromEvent, injectFrameHeightReport } from './frame-height';
-import { useRootFontSize } from '../../../ui/root-font-size';
-import { useFrameMessages } from '../../../ui/use-frame-messages';
+import { useRootFontSize } from '../../../ui/hooks/root-font-size';
+import { useFrameMessages } from '../../../ui/hooks/use-frame-messages';
 
 const toolbarToggle = cn(
   'h-7 rounded-full px-3 text-xs transition-colors',

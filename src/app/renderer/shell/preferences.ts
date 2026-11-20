@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { z } from 'zod';
-import { useResizerWidth } from '../../../ui/resizer';
+import { useResizableWidth } from '../../../ui/resizable';
 
 export type ProjectNavPreference = { pinned?: boolean; section?: string };
 
@@ -123,5 +123,5 @@ export const usePreferences = create<PreferencesStore>()(
 export function usePreferenceWidth(key: 'workspaceSidebarWidth') {
   const stored = usePreferences((state) => state[key]);
   const setPreference = usePreferences((state) => state.setPreference);
-  return useResizerWidth(stored, (width) => setPreference(key, width));
+  return useResizableWidth(stored, (width) => setPreference(key, width));
 }

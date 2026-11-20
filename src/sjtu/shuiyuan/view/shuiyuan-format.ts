@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ShuiyuanNotificationItem, ShuiyuanSiteStructure, ShuiyuanUpload } from '../contract';
-import { formatBytes } from '../../../ui/format-bytes';
+import { formatBytes } from '../../../ui/lib/format-bytes';
 
 /** 水源站点的头像/资源基地址；renderer 直接引用远程图（CSP 已放行 https）。 */
 export const SHUIYUAN_ORIGIN = 'https://shuiyuan.sjtu.edu.cn';

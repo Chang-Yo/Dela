@@ -12,9 +12,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '../../../core/protocol/contract';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { SEARCH_LIMIT, searchContract, type SearchHit, type SearchIcon } from '../contract';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { EmptyState } from '../../../ui/empty-state';
 import { Spinner } from '../../../ui/spinner';
 import {

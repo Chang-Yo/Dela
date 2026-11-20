@@ -1,20 +1,20 @@
 import type { LucideIcon } from 'lucide-react';
 import type * as React from 'react';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
-/** 加载中、出错不用它，分别用状态文字与 Callout。 */
+/** 加载中、出错不用它，分别用状态文字与 Alert。 */
 function EmptyState({
   icon: Icon,
   title,
   description,
   action,
   className,
-}: {
+  ...props
+}: Omit<React.ComponentProps<'div'>, 'title'> & {
   icon?: LucideIcon;
   title: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
-  className?: string;
 }) {
   return (
     <div
@@ -23,6 +23,7 @@ function EmptyState({
         className,
       )}
       data-slot="empty-state"
+      {...props}
     >
       {Icon && <Icon aria-hidden="true" className="size-8 text-ink-3" strokeWidth={1.5} />}
       <p className="text-sm text-ink-2">{title}</p>

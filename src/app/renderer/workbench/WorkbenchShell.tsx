@@ -46,7 +46,7 @@ import { showToast } from '../../../ui/toast';
 import { MailDraftDialog } from '../../../modules/mail/view';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
-import { ErrorText } from '../../../ui/alert';
+import { ErrorText } from '../../../ui/error-text';
 import { officeRefOf, opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../views';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';

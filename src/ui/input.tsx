@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { cn } from './cn';
+import { cn } from './lib/cn';
 
 const inputVariants = {
   default:
@@ -8,7 +8,7 @@ const inputVariants = {
 } as const;
 
 const inputSizes = {
-  default: '',
+  md: '',
   lg: 'h-10 rounded-card px-3',
 } as const;
 
@@ -16,7 +16,7 @@ function Input({
   className,
   type,
   variant = 'default',
-  size = 'default',
+  size = 'md',
   ...props
 }: Omit<React.ComponentProps<'input'>, 'size'> & {
   variant?: keyof typeof inputVariants;

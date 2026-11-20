@@ -111,7 +111,7 @@ export function ConsentStep({ canBackup, onAgree }: ConsentStepProps) {
   const hint = backupHint();
 
   return (
-    <div className="grid h-dvh grid-rows-[auto_1fr_auto] bui-light bg-surface text-ink">
+    <div className="grid h-dvh grid-rows-[auto_1fr_auto] theme-light bg-surface text-ink">
       <OnboardingWindowBar />
 
       <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] justify-items-center gap-4 px-6 pt-8">

@@ -26,7 +26,7 @@
     "start": "electron .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "oxlint --deny-warnings src scripts && node scripts/lint-styles.ts",
+    "lint": "oxlint --deny-warnings src scripts && node scripts/lint-styles.ts && node scripts/lint-ui.ts",
     "metrics": "node scripts/refactor-metrics.ts",
     "test": "vitest run --passWithNoTests",
     "test:remote": "vitest run --config vitest.remote.config.ts",

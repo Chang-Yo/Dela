@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState, type DragEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { GroupNode, TabId } from '../../../modules/workspace/contract';
 import { ErrorBoundary } from '../shell/ErrorBoundary';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { GroupEmptyState } from './GroupEmptyState';
 import { ExplorerRevealButton } from './explorer-state';
 import { walkGroups } from './layout-schema';

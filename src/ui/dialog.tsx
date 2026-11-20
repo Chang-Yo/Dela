@@ -5,9 +5,8 @@ import { X } from 'lucide-react';
 import { AlertDialog as AlertDialogPrimitive, Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
 import { Button } from './button';
-import { cn } from './cn';
-import { IconButton } from './icon-button';
-import { dialogOverlay, dialogPanel } from './motion';
+import { cn } from './lib/cn';
+import { dialogOverlay, dialogPanel } from './lib/motion';
 
 const contentVariants = cva(dialogPanel, {
   variants: {
@@ -88,18 +87,19 @@ function DialogClose({
   'aria-label': label = '关闭',
   className,
   ...props
-}: React.ComponentProps<typeof IconButton>) {
+}: React.ComponentProps<'button'>) {
   return (
     <DialogPrimitive.Close asChild>
-      <IconButton
+      <Button
+        variant="ghost"
+        size="icon-xs"
         aria-label={label}
         className={className}
         data-slot="dialog-close"
-        size="sm"
         {...props}
       >
         <X />
-      </IconButton>
+      </Button>
     </DialogPrimitive.Close>
   );
 }

@@ -2,8 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '../button';
 import { Card } from '../card';
-import { Collapse, CollapseChevron } from '../collapse';
-import { IconButton } from '../icon-button';
+import { Collapsible, CollapsibleChevron } from '../collapsible';
 
 /** 后台任务结束的通知行，展开后是任务带回的正文。 */
 export function TaskNotice({
@@ -38,16 +37,18 @@ export function TaskNotice({
             打开子会话
           </Button>
         )}
-        <IconButton
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-expanded={open}
           aria-label={open ? '收起通知' : '展开通知'}
           className="size-6"
           onClick={() => setOpen((value) => !value)}
         >
-          <CollapseChevron open={open} />
-        </IconButton>
+          <CollapsibleChevron open={open} />
+        </Button>
       </div>
-      <Collapse open={open}>{children}</Collapse>
+      <Collapsible open={open}>{children}</Collapsible>
     </Card>
   );
 }

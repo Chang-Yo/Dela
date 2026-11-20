@@ -31,9 +31,9 @@ import {
   startOfDay,
   useTodoState,
 } from '../../../modules/todo/view';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
-import { Callout } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
 
 type CalendarMode = 'week' | 'month';
 
@@ -210,7 +210,7 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface">
+    <div className="relative flex h-full min-h-0 flex-col bg-surface">
       <header className="border-b border-line bg-surface/95 px-4 py-2 backdrop-blur max-md:px-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="mr-1 min-w-0">
@@ -253,7 +253,7 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
             </Button>
             <SegmentedControl
               labels={{ week: '周', month: '月' }}
-              onChange={setMode}
+              onValueChange={setMode}
               options={['week', 'month']}
               value={mode}
             />
@@ -307,9 +307,9 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
       </header>
 
       {loadError ? (
-        <Callout className="mx-4 mt-3" role="alert">
+        <Alert className="mx-4 mt-3" role="alert">
           {errorMessage(loadError)}
-        </Callout>
+        </Alert>
       ) : null}
 
       {!state.lastSyncedAt ? (

@@ -1,7 +1,7 @@
 import { Popover as PopoverPrimitive } from 'radix-ui';
 import type * as React from 'react';
-import { cn } from './cn';
-import { menuPanel } from './menu-styles';
+import { cn } from './lib/cn';
+import { menuPanel } from './lib/menu-styles';
 
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;

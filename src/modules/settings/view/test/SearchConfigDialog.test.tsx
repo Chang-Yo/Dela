@@ -22,6 +22,15 @@ let root: Root;
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  // Radix 的 Checkbox、Switch 要量尺寸；jsdom 没有 ResizeObserver。
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);

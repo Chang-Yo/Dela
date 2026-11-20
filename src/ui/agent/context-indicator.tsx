@@ -14,11 +14,11 @@ function formatTokens(tokens: number): string {
   return tokens < 1000 ? '0K' : `${(tokens / 1000).toFixed(1).replace(/\.0$/, '')}K`;
 }
 
-function usageTone(percent: number | null): 'ink' | 'orange' | 'red' {
-  if (percent === null) return 'ink';
-  if (percent >= 90) return 'red';
-  if (percent >= 70) return 'orange';
-  return 'ink';
+function usageTone(percent: number | null): 'neutral' | 'warning' | 'danger' {
+  if (percent === null) return 'neutral';
+  if (percent >= 90) return 'danger';
+  if (percent >= 70) return 'warning';
+  return 'neutral';
 }
 
 export function ContextIndicator({
@@ -30,7 +30,7 @@ export function ContextIndicator({
 }) {
   const tone = usageTone(usage.percent);
   const color =
-    tone === 'red' ? 'var(--danger)' : tone === 'orange' ? 'var(--warning)' : 'var(--ink-2)';
+    tone === 'danger' ? 'var(--danger)' : tone === 'warning' ? 'var(--warning)' : 'var(--ink-2)';
   return (
     <Popover>
       <PopoverTrigger asChild>

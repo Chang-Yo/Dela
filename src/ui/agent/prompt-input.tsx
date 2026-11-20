@@ -3,8 +3,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { ArrowUp, Check, CircleAlert, Settings, Square, X } from 'lucide-react';
 import { Button } from '../button';
-import { cn } from '../cn';
-import { IconButton } from '../icon-button';
+import { cn } from '../lib/cn';
 
 const MENU_ROW_UNITS = 9;
 const scrollRowIntoView = (node: HTMLLIElement | null) =>
@@ -62,9 +61,9 @@ export function PromptInputChip({
       {icon}
       <span className="truncate">{label}</span>
       {detail && <span className="shrink-0 text-ink-3">{detail}</span>}
-      <IconButton aria-label={removeLabel} onClick={onRemove} size="sm">
+      <Button variant="ghost" size="icon-xs" aria-label={removeLabel} onClick={onRemove}>
         <X strokeWidth={2.2} />
-      </IconButton>
+      </Button>
     </span>
   );
 }

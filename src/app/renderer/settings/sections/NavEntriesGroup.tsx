@@ -14,8 +14,8 @@ export function NavEntriesGroup() {
           <SettingRow key={entry.id} settingId={`nav-entry-${entry.id}`} title={entry.label}>
             <Switch
               checked={!hiddenEntries.includes(entry.id)}
-              label={`在导航中显示${entry.label}`}
-              onChange={(next) => setEntryVisible(entry.id, next)}
+              aria-label={`在导航中显示${entry.label}`}
+              onCheckedChange={(next) => setEntryVisible(entry.id, next)}
             />
           </SettingRow>
         ))}

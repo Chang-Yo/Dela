@@ -23,18 +23,19 @@ import {
   SquareTerminal,
   X,
 } from 'lucide-react';
-import { Resizer } from '../../../ui/resizer';
+import { Resizable } from '../../../ui/resizable';
 import { useEditorSettings } from '../../../modules/preview/view';
 import { usePreferences } from './preferences';
 import { showToast, Toaster } from '../../../ui/toast';
+import { Lightbox } from '../../../ui/lightbox';
 import { DelaBrand } from '../../../modules/settings/view';
-import { cn } from '../../../ui/cn';
-import { useMediaQuery } from '../../../ui/use-media-query';
+import { cn } from '../../../ui/lib/cn';
+import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import type { NavTarget } from '../../module';
 import { useNavigationStore, type AppView, type ShellView } from '../navigation/view';
 import type { MobileDrawer } from './mobile-drawer';
 import { useShortcuts } from './shortcuts';
-import { useViewportWidth } from '../../../ui/use-viewport-width';
+import { useViewportWidth } from '../../../ui/hooks/use-viewport-width';
 import {
   ProjectSessionNav,
   type BusinessNavId,
@@ -49,12 +50,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
-import { drawerFromLeft, fadeIn, overlayFade } from '../../../ui/motion';
+import { drawerFromLeft, fadeIn, overlayFade } from '../../../ui/lib/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../../../modules/update/view';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';
 import { pageHasDrawer } from '../../views';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 import { Kbd } from '../../../ui/kbd';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import {
@@ -333,7 +334,9 @@ export function AppShell({
         )}
       >
         <div className="flex h-full items-center">
-          <IconButton
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-controls="main-nav"
             aria-expanded={!navHidden}
             aria-label={navHidden ? '展开侧边栏' : '收起侧边栏'}
@@ -359,8 +362,10 @@ export function AppShell({
             ) : (
               <PanelLeftClose strokeWidth={1.8} />
             )}
-          </IconButton>
-          <IconButton
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="后退"
             className="[-webkit-app-region:no-drag] ml-1.5"
             disabled={!canBack}
@@ -368,8 +373,10 @@ export function AppShell({
             title="后退"
           >
             <ArrowLeft strokeWidth={1.8} />
-          </IconButton>
-          <IconButton
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             aria-label="前进"
             className="[-webkit-app-region:no-drag] ml-0.5"
             disabled={!canForward}
@@ -377,10 +384,12 @@ export function AppShell({
             title="前进"
           >
             <ArrowRight strokeWidth={1.8} />
-          </IconButton>
+          </Button>
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] ml-2 flex h-full items-center gap-1">
-              <IconButton
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-current={view === 'home' ? 'page' : undefined}
                 aria-label="首页"
 
@@ -388,12 +397,14 @@ export function AppShell({
                 title="首页"
               >
                 <House strokeWidth={1.8} />
-              </IconButton>
+              </Button>
               {visibleEntries.map((item) => {
                 const Icon = item.icon;
                 const active = item.id === 'sources' ? sourcesActive : view === item.id;
                 return (
-                  <IconButton
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     aria-current={active ? 'page' : undefined}
                     aria-label={item.label}
 
@@ -404,10 +415,12 @@ export function AppShell({
                     title={item.label}
                   >
                     <Icon strokeWidth={1.8} />
-                  </IconButton>
+                  </Button>
                 );
               })}
-              <IconButton
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-current={view === 'settings' ? 'page' : undefined}
                 aria-label="设置"
 
@@ -415,7 +428,7 @@ export function AppShell({
                 title="设置"
               >
                 <Settings strokeWidth={1.8} />
-              </IconButton>
+              </Button>
             </div>
           )}
           <UpdateBadge onOpen={() => useNavigationStore.getState().openSettings('general')} />
@@ -423,7 +436,9 @@ export function AppShell({
         <div className="flex h-full items-center">
           {!narrow && sidebarCollapsed && (
             <div className="[-webkit-app-region:no-drag] flex h-full items-center gap-1 pr-1">
-              <IconButton
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-current={view === 'todo' ? 'page' : undefined}
                 aria-label={todoUnreadCount > 0 ? `TODO，${todoUnreadCount} 条新消息` : 'TODO'}
 
@@ -434,8 +449,10 @@ export function AppShell({
                   className={cn('size-4', todoUnreadCount > 0 && 'text-accent')}
                   strokeWidth={1.8}
                 />
-              </IconButton>
-              <IconButton
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
                 aria-current={view === 'notifications' ? 'page' : undefined}
                 className="relative"
@@ -449,15 +466,17 @@ export function AppShell({
                     className="absolute right-1 top-1 size-1.5 rounded-full bg-accent ring-2 ring-page"
                   />
                 )}
-              </IconButton>
-              <IconButton
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-label="搜索"
 
                 onClick={onSearch}
                 title="全局搜索 (Ctrl/⌘+K)"
               >
                 <Search strokeWidth={1.8} />
-              </IconButton>
+              </Button>
             </div>
           )}
           {view === 'workbench' && projectId && window.dela && (
@@ -511,25 +530,29 @@ export function AppShell({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <IconButton
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-label="打开项目终端"
 
                 onClick={() => projectId && useNavigationStore.getState().openTerminal(projectId)}
                 title="打开项目终端"
               >
                 <SquareTerminal strokeWidth={1.8} />
-              </IconButton>
+              </Button>
             </div>
           )}
           {view === 'workbench' && projectId === null && window.dela && (
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="新聊天"
               className="[-webkit-app-region:no-drag] mr-1"
               onClick={() => void useNavigationStore.getState().newChat(null)}
               title="新聊天"
             >
               <MessageCirclePlus strokeWidth={1.8} />
-            </IconButton>
+            </Button>
           )}
           <WindowControls />
         </div>
@@ -616,7 +639,9 @@ export function AppShell({
               </span>
             </div>
             <div className="flex-1" />
-            <IconButton
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-current={view === 'todo' ? 'page' : undefined}
               aria-label={todoUnreadCount > 0 ? `TODO，${todoUnreadCount} 条新消息` : 'TODO'}
 
@@ -627,8 +652,10 @@ export function AppShell({
                 className={cn('size-4', todoUnreadCount > 0 && 'text-accent')}
                 strokeWidth={1.8}
               />
-            </IconButton>
-            <IconButton
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label={notificationCount > 0 ? `通知，${notificationCount} 条未读` : '通知'}
               aria-current={view === 'notifications' ? 'page' : undefined}
               className={cn('relative', view === 'notifications' && 'bg-selected text-ink')}
@@ -642,8 +669,10 @@ export function AppShell({
                   className="absolute right-1 top-1 size-1.5 rounded-full bg-accent ring-2 ring-page"
                 />
               )}
-            </IconButton>
-            <IconButton
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="搜索"
 
               onClick={() => {
@@ -653,7 +682,7 @@ export function AppShell({
               title="全局搜索 (Ctrl/⌘+K)"
             >
               <Search strokeWidth={1.8} />
-            </IconButton>
+            </Button>
           </div>
           <ProjectSessionNav
             activeBusinessId={navEntries.find((entry) => entry.id === view)?.id ?? null}
@@ -719,7 +748,7 @@ export function AppShell({
           <div className="flex min-h-0 flex-1 flex-col" ref={onDrawerSlot} />
         </div>
       </aside>
-      <Resizer
+      <Resizable
         className={cn(
           'col-start-3 row-start-2 bg-transparent',
           // 折叠/窄屏时间隔条整体隐藏（网格列为固定 1px，不影响布局）：
@@ -731,11 +760,11 @@ export function AppShell({
         // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。
         max={360}
         min={200}
-        onChange={setSidebarWidth}
+        onValueChange={setSidebarWidth}
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />
-      {/* 浮岛卡片：分隔线仅占 1px，拖动命中范围由 Resizer 的透明伪元素扩展。 */}
+      {/* 浮岛卡片：分隔线仅占 1px，拖动命中范围由 Resizable 的透明伪元素扩展。 */}
       <main
         className={cn(
           'relative col-start-4 row-start-2 mt-1 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-window bg-surface shadow-hairline',
@@ -745,6 +774,7 @@ export function AppShell({
       >
         {children}
         <Toaster />
+        <Lightbox />
       </main>
     </div>
   );

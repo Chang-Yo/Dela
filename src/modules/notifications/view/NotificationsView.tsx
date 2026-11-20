@@ -3,9 +3,9 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Bell, BellOff, Check, CheckCheck, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { Navigate, NoticeKind } from '../../../app/module';
 import { errorMessage } from '../../../core/protocol/contract';
-import { Callout } from '../../../ui/alert';
+import { Alert } from '../../../ui/alert';
 import { Button } from '../../../ui/button';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
 import { EmptyState } from '../../../ui/empty-state';
-import { StatusPill } from '../../../ui/status-pill';
+import { Badge } from '../../../ui/badge';
 import type { NotificationItem } from '../contract';
 import { groupNotifications, likeGroupSummary } from './group-notifications';
 import { useNotificationSourceFilter } from './source-filter';
@@ -258,7 +258,7 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
       ) : null}
 
       {query.error ? (
-        <Callout
+        <Alert
           action={
             <Button
               className="mt-2"
@@ -273,12 +273,12 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
           role="alert"
         >
           {errorMessage(query.error)}
-        </Callout>
+        </Alert>
       ) : null}
       {sourceErrors.map((message) => (
-        <Callout className="mt-3" key={message} role="status">
+        <Alert className="mt-3" key={message} role="status">
           {message}
-        </Callout>
+        </Alert>
       ))}
 
       {query.isPending && !query.error ? (
@@ -304,9 +304,9 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
             return (
               <NotificationRow
                 badge={
-                  <StatusPill className="mt-1 shrink-0 tabular-nums" dot={false} size="sm">
+                  <Badge className="mt-1 shrink-0 tabular-nums" dot={false} size="2xs">
                     {unreadCount} 未读
-                  </StatusPill>
+                  </Badge>
                 }
                 item={latest}
                 key={entry.key}

@@ -10,7 +10,7 @@ import {
   Paperclip,
   Sparkles,
 } from 'lucide-react';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
 import { ReplyCommentRail } from './reply-comment';
@@ -33,7 +33,7 @@ import {
   PromptInputTrigger,
 } from '../../../ui/agent/prompt-input';
 import { QueuedMessages } from '../../../ui/agent/queued-messages';
-import { IconButton } from '../../../ui/icon-button';
+import { Button } from '../../../ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { useChatTabSource } from './chat-source';
 import type {
@@ -498,23 +498,37 @@ export function ChatComposer({
           value={value}
         />
         <PromptInputToolbar>
-          <IconButton aria-label="添加图片或附件" onClick={pickFiles} title="添加图片或附件">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="添加图片或附件"
+            onClick={pickFiles}
+            title="添加图片或附件"
+          >
             <Paperclip />
-          </IconButton>
-          <IconButton aria-label="引用资料" onClick={insertMention} title="引用资料（@）">
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="引用资料"
+            onClick={insertMention}
+            title="引用资料（@）"
+          >
             <AtSign />
-          </IconButton>
+          </Button>
           {!sidechat && (
             <Popover onOpenChange={openSearchPicker} open={searchPickerOpen}>
               <PopoverTrigger asChild>
-                <IconButton
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   aria-label={
                     selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'
                   }
                   title={selectedSearch ? `联网搜索：${selectedSearch.name}` : '联网搜索：未开启'}
                 >
                   <Globe className={selectedSearch ? 'text-success' : undefined} />
-                </IconButton>
+                </Button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-64" side="bottom">
                 {searchEntries === null ? (

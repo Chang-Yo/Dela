@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { cn } from '../../../ui/cn';
+import { cn } from '../../../ui/lib/cn';
 
 export function CredentialRow({
   children,

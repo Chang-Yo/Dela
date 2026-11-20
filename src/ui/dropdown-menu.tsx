@@ -2,8 +2,8 @@ import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
 import { useRef } from 'react';
 import type * as React from 'react';
-import { cn } from './cn';
-import { menuItem, menuItemDestructive, menuPanel } from './menu-styles';
+import { cn } from './lib/cn';
+import { menuItem, menuItemDestructive, menuPanel } from './lib/menu-styles';
 
 function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
