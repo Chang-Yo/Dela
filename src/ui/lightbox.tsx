@@ -27,6 +27,7 @@ function Lightbox() {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Content
           aria-describedby={undefined}
+          aria-label="图片查看"
           className={`fixed inset-0 z-overlay grid cursor-zoom-out place-items-center bg-media/80 p-6 outline-none ${overlayFade}`}
           data-slot="lightbox"
           onClick={closeLightbox}
