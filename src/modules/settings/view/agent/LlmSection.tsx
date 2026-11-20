@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Lock, Pencil, PlugZap, Plus, Search, Trash2 } from 'lucide-react';
-import { StatusPill } from '../../../../ui/status-pill';
+import { Badge } from '../../../../ui/badge';
 import { Switch } from '../../../../ui/switch';
 import { Button } from '../../../../ui/button';
 import { Card } from '../../../../ui/card';
@@ -966,19 +966,19 @@ function ProviderDetail({
                       {id}
                     </span>
                     {vendor && !catalogModel && (
-                      <StatusPill dot={false} size="sm">
+                      <Badge dot={false} size="2xs">
                         已下架
-                      </StatusPill>
+                      </Badge>
                     )}
                     {settings?.vision && (
-                      <StatusPill dot={false} size="sm">
+                      <Badge dot={false} size="2xs">
                         视觉
-                      </StatusPill>
+                      </Badge>
                     )}
                     {settings?.contextWindow && (
-                      <StatusPill dot={false} size="sm">
+                      <Badge dot={false} size="2xs">
                         {compactTokens(settings.contextWindow)}
-                      </StatusPill>
+                      </Badge>
                     )}
                     <div className="flex shrink-0 items-center">
                       <Button

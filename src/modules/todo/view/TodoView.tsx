@@ -28,7 +28,7 @@ import {
 } from '../contract';
 import { Button } from '../../../ui/button';
 import { useNow } from '../../../ui/hooks/use-now';
-import { CountBadge } from '../../../ui/count-badge';
+import { Badge } from '../../../ui/badge';
 import { EmptyState } from '../../../ui/empty-state';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
@@ -369,7 +369,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
               onClick={() => setFilter(value)}
             >
               {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
-              {count > 0 && <CountBadge count={count} />}
+              {count > 0 && <Badge variant="count" count={count} />}
             </Button>
           );
         })}

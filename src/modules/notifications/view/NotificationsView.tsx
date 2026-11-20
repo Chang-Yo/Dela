@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
 import { EmptyState } from '../../../ui/empty-state';
-import { StatusPill } from '../../../ui/status-pill';
+import { Badge } from '../../../ui/badge';
 import type { NotificationItem } from '../contract';
 import { groupNotifications, likeGroupSummary } from './group-notifications';
 import { useNotificationSourceFilter } from './source-filter';
@@ -304,9 +304,9 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
             return (
               <NotificationRow
                 badge={
-                  <StatusPill className="mt-1 shrink-0 tabular-nums" dot={false} size="sm">
+                  <Badge className="mt-1 shrink-0 tabular-nums" dot={false} size="2xs">
                     {unreadCount} 未读
-                  </StatusPill>
+                  </Badge>
                 }
                 item={latest}
                 key={entry.key}

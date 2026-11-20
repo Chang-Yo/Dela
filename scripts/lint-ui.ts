@@ -13,7 +13,6 @@ const pending: Record<string, Rule[]> = {
   'lightbox.tsx': ['filename', 'style'],
   'segmented-control.tsx': ['style'],
   'slider.tsx': ['style'],
-  'status-pill.tsx': ['size', 'tone', 'style'],
   'switch.tsx': ['style'],
   'toast.tsx': ['filename', 'style'],
 };

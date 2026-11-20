@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { Bell, Bookmark, Mail, RefreshCw } from 'lucide-react';
-import { CountBadge } from '../../../ui/count-badge';
+import { Badge } from '../../../ui/badge';
 import { SearchInput } from '../../../ui/search-input';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
@@ -37,7 +37,7 @@ function PersonalButton({
     >
       <Icon strokeWidth={1.8} />
       {count && count > 0 ? (
-        <CountBadge className="absolute -right-1.5 -top-1" count={count} />
+        <Badge variant="count" className="absolute -right-1.5 -top-1" count={count} />
       ) : null}
     </IconButton>
   );
