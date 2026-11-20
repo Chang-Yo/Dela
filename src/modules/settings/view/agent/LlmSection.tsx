@@ -885,7 +885,7 @@ function ProviderDetail({
             value={apiKey}
           />
           <p className="text-xs leading-relaxed text-ink-3">
-            密钥经系统加密保存在本机，不会回传页面。留空即沿用已保存的密钥。
+            密钥以明文保存在本机的 ~/.dela/config.json 中。留空即沿用已保存的密钥。
           </p>
         </div>
         <div className="grid gap-2 text-sm">

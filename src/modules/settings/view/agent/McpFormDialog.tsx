@@ -16,7 +16,7 @@ export type McpEditState = { mode: 'create' } | { mode: 'edit'; server: McpServe
 const codeAreaClass = 'min-h-20 resize-y py-2 font-mono text-xs';
 const transports = ['stdio', 'http'] as const;
 const transportLabels = { stdio: '本地命令', http: '远程地址' };
-const secretHint = '值经系统钥匙串加密保存在本机，不会再显示在界面上。';
+const secretHint = '填写的值以明文保存在本机的 ~/.dela/mcp.json 中。';
 
 export function McpFormDialog({
   editing,
