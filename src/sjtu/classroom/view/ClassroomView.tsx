@@ -6,7 +6,7 @@ import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { EmptyState } from '../../../ui/empty-state';
 import { PanelHeader } from '../../../ui/panel-header';
 import { PanelToggleButton } from '../../../ui/panel-toggle';
-import { Resizer, useResizerWidth } from '../../../ui/resizer';
+import { Resizer, useResizerWidth } from '../../../ui/resizable';
 import { useViewportWidth } from '../../../ui/hooks/use-viewport-width';
 import { cn } from '../../../ui/lib/cn';
 import { CourseList, CoursePicker } from './CourseList';

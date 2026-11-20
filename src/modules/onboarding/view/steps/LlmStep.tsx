@@ -12,7 +12,7 @@ import { ErrorText } from '../../../../ui/alert';
 import { Spinner } from '../../../../ui/spinner';
 import { IconButton } from '../../../../ui/icon-button';
 import { Button } from '../../../../ui/button';
-import { Collapse } from '../../../../ui/collapse';
+import { Collapse } from '../../../../ui/collapsible';
 import { Input } from '../../../../ui/input';
 import { llmClient } from '../../../chat/view';
 import { errorMessage } from '../../../../core/protocol/contract';

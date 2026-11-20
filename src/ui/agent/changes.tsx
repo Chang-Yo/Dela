@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react';
 import { Button } from '../button';
 import { Card } from '../card';
 import { cn } from '../lib/cn';
-import { Collapse, CollapseChevron } from '../collapse';
+import { Collapse, CollapseChevron } from '../collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -2,7 +2,7 @@
 // （三屏经嵌套），渲染兼容 ≥2 子节点。
 import { useState } from 'react';
 import type { LayoutNode } from '../../../modules/workspace/contract';
-import { Resizer } from '../../../ui/resizer';
+import { Resizer } from '../../../ui/resizable';
 import { cn } from '../../../ui/lib/cn';
 import { useWorkbenchLayout } from './layout-store';
 import { TabGroup } from './TabGroup';

@@ -23,7 +23,7 @@ import {
   SquareTerminal,
   X,
 } from 'lucide-react';
-import { Resizer } from '../../../ui/resizer';
+import { Resizer } from '../../../ui/resizable';
 import { useEditorSettings } from '../../../modules/preview/view';
 import { usePreferences } from './preferences';
 import { showToast, Toaster } from '../../../ui/toast';

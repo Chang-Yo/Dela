@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Button } from '../../../ui/button';
 import { useDismissOnOutsidePointer } from '../../../ui/hooks/use-dismiss-on-outside-pointer';
-import { CollapseChevron } from '../../../ui/collapse';
+import { CollapseChevron } from '../../../ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
   Cloud,

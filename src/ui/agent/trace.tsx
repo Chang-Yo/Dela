@@ -2,7 +2,7 @@
 
 import { Fragment, useState, type ReactNode } from 'react';
 import { cn } from '../lib/cn';
-import { Collapse, CollapseChevron } from '../collapse';
+import { Collapse, CollapseChevron } from '../collapsible';
 import { fadeIn } from '../lib/motion';
 
 const toggleClass =

@@ -14,10 +14,10 @@ import {
 import { workspaceArchiveId, type WorkspaceEntry } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId } from '../../../modules/remotes/contract';
 import { Button } from '../../../ui/button';
-import { CollapseChevron } from '../../../ui/collapse';
+import { CollapseChevron } from '../../../ui/collapsible';
 import { PanelHeader } from '../../../ui/panel-header';
 import { SearchInput } from '../../../ui/search-input';
-import { Resizer } from '../../../ui/resizer';
+import { Resizer } from '../../../ui/resizable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
   DropdownMenu,

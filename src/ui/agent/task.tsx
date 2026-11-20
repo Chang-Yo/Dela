@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '../button';
 import { Card } from '../card';
-import { Collapse, CollapseChevron } from '../collapse';
+import { Collapse, CollapseChevron } from '../collapsible';
 import { IconButton } from '../icon-button';
 
 /** 后台任务结束的通知行，展开后是任务带回的正文。 */

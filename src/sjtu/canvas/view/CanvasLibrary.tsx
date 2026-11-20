@@ -6,7 +6,7 @@ import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import { Button } from '../../../ui/button';
 import { cn } from '../../../ui/lib/cn';
-import { CollapseChevron } from '../../../ui/collapse';
+import { CollapseChevron } from '../../../ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,

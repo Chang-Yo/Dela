@@ -20,7 +20,7 @@ import { MailReader } from './MailReader';
 import { MailComposer, type MailComposerHandle } from './MailComposer';
 import { MailTrashList } from './MailTrashList';
 import { formatMailDate, formatFullDate, senderLabel } from './mail-format';
-import { Resizer } from '../../../ui/resizer';
+import { Resizer } from '../../../ui/resizable';
 import { Button } from '../../../ui/button';
 import { PanelHeader } from '../../../ui/panel-header';
 import { cn } from '../../../ui/lib/cn';

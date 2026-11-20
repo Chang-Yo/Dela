@@ -3,7 +3,7 @@ import type { MailConfigureInput } from '../contract';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../ui/lib/cn';
-import { Collapse } from '../../../ui/collapse';
+import { Collapse } from '../../../ui/collapsible';
 import { ErrorText } from '../../../ui/alert';
 
 const modes = ['交大邮箱', '第三方 IMAP'] as const;

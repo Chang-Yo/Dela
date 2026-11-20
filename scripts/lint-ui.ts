@@ -11,6 +11,7 @@ type Rule = 'filename' | 'size' | 'tone' | 'style';
 const pending: Record<string, Rule[]> = {
   'alert.tsx': ['filename', 'tone'],
   'button.tsx': ['size'],
+  'collapsible.tsx': ['filename'],
   'desktop-only-notice.tsx': ['style'],
   'download-progress.tsx': ['filename', 'style'],
   'file-icon.tsx': ['style'],
@@ -18,7 +19,7 @@ const pending: Record<string, Rule[]> = {
   'panel-header.tsx': ['size'],
   'panel-toggle.tsx': ['filename', 'style'],
   'progress-ring.tsx': ['tone', 'style'],
-  'resizer.tsx': ['style'],
+  'resizable.tsx': ['filename', 'style'],
   'segmented-control.tsx': ['style'],
   'shimmer.tsx': ['style'],
   'slider.tsx': ['style'],
