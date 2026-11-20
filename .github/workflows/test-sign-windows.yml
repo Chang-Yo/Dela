@@ -46,7 +46,7 @@ jobs:
           organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
           project-slug: ${{ inputs.project-slug }}
           artifact-configuration-slug: ${{ inputs.artifact-configuration-slug }}
-          signing-policy-slug: test-sign
+          signing-policy-slug: test-signing
           github-artifact-id: ${{ needs.windows.outputs.installer-artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 3600
