@@ -5,10 +5,9 @@ import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
 import { Input } from '../../../ui/input';
+import { Sheet, SheetContent, SheetTitle } from '../../../ui/sheet';
 import { DateTimeStepper, EventColorRow, roundToMinute } from '../../../modules/todo/view';
-import { sheetUp } from '../../../ui/lib/motion';
 import { timetableClient } from './use-timetable';
-import { cn } from '../../../ui/lib/cn';
 import { ErrorText } from '../../../ui/error-text';
 
 const HOUR_MS = 3_600_000;
@@ -63,24 +62,10 @@ export function NewEventDialog({
   };
 
   return (
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-overlay"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onClose();
-      }}
-      role="dialog"
-    >
-      <div aria-hidden="true" className="absolute inset-0" onMouseDown={onClose} />
-      <section
-        aria-label="新建事件"
-        className={cn(
-          sheetUp,
-          'absolute inset-x-0 bottom-0 mx-auto flex max-h-[calc(100%-2rem)] w-full max-w-xl flex-col overflow-y-auto rounded-t-window bg-surface p-5 shadow-overlay max-md:px-4',
-        )}
-      >
+    <Sheet onOpenChange={(open) => !open && onClose()} open>
+      <SheetContent aria-describedby={undefined} side="bottom">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold tracking-tight">新建事件</h2>
+          <SheetTitle className="tracking-tight">新建事件</SheetTitle>
           <Button
             aria-label="关闭"
             className="-mr-2"
@@ -137,7 +122,7 @@ export function NewEventDialog({
             </Button>
           </div>
         </form>
-      </section>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
