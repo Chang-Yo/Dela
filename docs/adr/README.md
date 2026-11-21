@@ -16,7 +16,7 @@
 | [0013](0013-host-ports.md)          | 宿主能力经端口注入，业务模块不直接引用 Electron    | 已接受   |
 | [0014](0014-core-registries.md)     | Core 通过注册表接入业务能力                        | 已接受   |
 | [0015](0015-agent-protocol-v1.md)   | Agent 协议 v1 以单用户为前提                       | 已接受   |
-| [0016](0016-core-host-boundary.md)  | 数据库与项目由宿主持有，core 经端口使用            | 已接受   |
+| [0016](0016-core-host-boundary.md)  | 数据库与项目由宿主持有，core 经端口使用            | 部分取代 |
 | [0017](0017-contract-events.md)     | 契约声明推送事件，状态快照进查询缓存               | 已接受   |
 | [0018](0018-design-token-freeze.md) | Design token 的名字定稿并冻结                      | 部分取代 |
 | [0019](0019-view-manifest.md)       | 渲染端按清单装配模块的页面                         | 已接受   |
@@ -25,6 +25,7 @@
 | [0022](0022-json-config-files.md)   | 模型服务、MCP 与联网搜索存为 ~/.dela 下的明文 JSON | 已接受   |
 | [0023](0023-design-token-naming.md) | Design token 按用途命名，改名走 ADR                | 已接受   |
 | [0024](0024-todo-owns-schedule.md)  | 待办是用户安排的唯一入口，课表只显示学校课程       | 已接受   |
+| [0025](0025-module-owned-schema.md) | 模块自带表结构与迁移，宿主统一执行                 | 已接受   |
 
 新记录沿用下面的格式，控制在一屏以内：
 
