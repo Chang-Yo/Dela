@@ -13,7 +13,7 @@ import {
 import { join } from 'node:path';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { closeDatabase, getDatabase, SCHEMA_VERSION } from './database';
+import { closeDatabase, getDatabase } from './database';
 import { runMigrations } from './migrations';
 import { checkWorkspaceSender } from './window';
 import type { TrayAction } from '../preload/api';
@@ -172,17 +172,14 @@ app
       );
       if (app.isPackaged && !smokeTest) startHidden ||= app.getLoginItemSettings().wasOpenedAtLogin;
     } else Menu.setApplicationMenu(null);
-    runMigrations(
-      {
-        userData: app.getPath('userData'),
-        home: app.getPath('home'),
-        seal: {
-          encrypt: (text) => safeStorage.encryptString(text),
-          decrypt: (data) => safeStorage.decryptString(data),
-        },
+    runMigrations({
+      userData: app.getPath('userData'),
+      home: app.getPath('home'),
+      seal: {
+        encrypt: (text) => safeStorage.encryptString(text),
+        decrypt: (data) => safeStorage.decryptString(data),
       },
-      SCHEMA_VERSION,
-    );
+    });
     getDatabase();
     // 随包 MinGit 与 rg/fd 前插 PATH，终端与 Agent 子进程开箱可用。
     prependRuntimePath();

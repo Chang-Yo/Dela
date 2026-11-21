@@ -29,7 +29,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               }
             ]
           }
@@ -85,7 +85,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               }
             ]
           }
@@ -125,7 +125,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "regex": "^(\\.\\./)+(agent|capabilities)(/|$)",
@@ -279,7 +279,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               }
             ]
           }
@@ -299,7 +299,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "group": ["**/app/*", "!**/app/module"],
@@ -354,7 +354,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "group": ["**/app/*", "!**/app/module"],
@@ -439,7 +439,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "group": ["**/core/*", "!**/core/protocol", "**/core/*/**", "!**/core/protocol/**"],
@@ -497,7 +497,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "group": ["**/core/*", "!**/core/protocol", "**/core/*/**", "!**/core/protocol/**"],
@@ -567,7 +567,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的四份清单（modules、views、contracts、schemas）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "regex": "^(\\.\\./)+(core/)?(agent|capabilities)(/|$)",
@@ -593,6 +593,27 @@
                   "**/sjtu/*/*/**"
                 ],
                 "message": "清单只引用模块的 index.ts 或 contract.ts。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/app/schemas.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/modules/**",
+                  "**/sjtu/**",
+                  "!**/modules/*/data/schema",
+                  "!**/sjtu/*/data/schema"
+                ],
+                "message": "表结构清单只引用模块的 data/schema.ts，免得测试与冒烟载入模块代码。"
               }
             ]
           }

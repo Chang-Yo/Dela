@@ -13,7 +13,7 @@ export interface HostPorts {
   imageCodec: ImageCodec;
   desktop: Desktop;
   network: Network;
-  /** 宿主打开并迁移好的数据库；表结构与迁移归宿主（core 只读写 sessions 与自己的设置键）。 */
+  /** 宿主打开并按各方的 Schema 建表、迁移好的数据库（0025）。 */
   database(): SqlDatabase;
   workspaceClient(): ClientHandle | null;
   projects: Projects;
@@ -43,6 +43,16 @@ export interface SqlDatabase {
   transaction<Args extends unknown[], Result>(
     fn: (...args: Args) => Result,
   ): (...args: Args) => Result;
+}
+
+/**
+ * 一个模块自己的表（0025）：tables 是当前结构，只在模块第一次出现时执行；
+ * 之后改表写成迁移，键为 YYYYMMDD-简述，按日期执行一次。
+ */
+export interface Schema {
+  owner: string;
+  tables: string[];
+  migrations?: Record<string, (db: SqlDatabase) => void>;
 }
 
 export interface RemoteProject {
