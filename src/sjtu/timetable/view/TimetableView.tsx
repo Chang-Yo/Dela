@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarRange, ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react';
-import type { Navigate } from '../../../app/module';
+import { CalendarRange, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
-import type { CalendarEvent } from '../contract';
 import { Button } from '../../../ui/button';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { MonthCalendar } from './MonthCalendar';
-import { NewEventDialog } from './NewEventDialog';
 import { SemesterStartDialog } from './SemesterStartDialog';
 import { TimetableConnectCard } from './TimetableConnectCard';
 import { connectAndSyncTimetable, timetableClient, useTimetableState } from './use-timetable';
@@ -24,20 +21,14 @@ import {
   weekForDate,
   weekStartFor,
 } from './timetable-format';
-import {
-  addDays,
-  formatMonthDay,
-  mondayOf,
-  startOfDay,
-  useTodoState,
-} from '../../../modules/todo/view';
+import { addDays, formatMonthDay, mondayOf, startOfDay } from '../../../modules/todo/view';
 import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { Alert } from '../../../ui/alert';
 
 type CalendarMode = 'week' | 'month';
 
-export function TimetableView({ navigate }: { navigate: Navigate }) {
+export function TimetableView() {
   if (!window.dela) {
     return (
       <DesktopOnlyNotice
@@ -46,10 +37,10 @@ export function TimetableView({ navigate }: { navigate: Navigate }) {
       />
     );
   }
-  return <DesktopTimetableView navigate={navigate} />;
+  return <DesktopTimetableView />;
 }
 
-function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
+function DesktopTimetableView() {
   const queryClient = useQueryClient();
   const [requestedSemester, setRequestedSemester] = useState<string>();
   const stateQuery = useTimetableState(requestedSemester);
@@ -62,13 +53,11 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
   });
   const state = stateQuery.data;
   const lessons = lessonsQuery.data ?? [];
-  const todoItems = useTodoState().data?.items ?? [];
   // 选中的教学周只在本学期有效：换学期后回到本周，同步或改开学日期不会把用户拉回本周。
   const [weekChoice, setWeekChoice] = useState<{ semester: string; week: number } | null>(null);
   const [month, setMonth] = useState(() => startOfDay(new Date()));
   const [mode, setMode] = useState<CalendarMode>('week');
   const [busy, setBusy] = useState(false);
-  const [eventDraft, setEventDraft] = useState<{ start: Date; end: Date } | null>(null);
   const [semesterDraft, setSemesterDraft] = useState(false);
   const [detail, setDetail] = useState<CalendarItemDetail | null>(null);
 
@@ -85,41 +74,6 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
 
   const semesterWeekStart = weekStartFor(state?.semesterStart ?? null, selectedWeek);
   const visibleWeekStart = semesterWeekStart ?? mondayOf(new Date());
-  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
-  const monthGridStart = mondayOf(monthStart);
-  const nextMonth = new Date(month.getFullYear(), month.getMonth() + 1, 1);
-  const monthGridEnd = addDays(mondayOf(nextMonth), 7);
-  const eventRangeStart = mode === 'week' ? visibleWeekStart : monthGridStart;
-  const eventRangeEnd = mode === 'week' ? addDays(visibleWeekStart, 7) : monthGridEnd;
-
-  const eventsQuery = useQuery({
-    queryKey: ['timetable', 'events', eventRangeStart.toISOString(), eventRangeEnd.toISOString()],
-    queryFn: () =>
-      timetableClient.events({
-        startAt: eventRangeStart.toISOString(),
-        endAt: eventRangeEnd.toISOString(),
-      }),
-    placeholderData: keepPreviousData,
-  });
-
-  // 写入日历的个人待办派生为 30 分钟事件块、止于截止时刻；id 走 `todo:` 前缀命名空间。
-  const todoEvents = todoItems.flatMap((todo) => {
-    if (todo.source !== 'personal' || !todo.calendar || !todo.dueAt) return [];
-    const dueAt = Date.parse(todo.dueAt);
-    if (dueAt < eventRangeStart.getTime() || dueAt > eventRangeEnd.getTime()) return [];
-    return [
-      {
-        id: `todo:${todo.id}`,
-        todoId: todo.id,
-        title: todo.title,
-        startAt: new Date(dueAt - 30 * 60_000).toISOString(),
-        endAt: todo.dueAt,
-        location: null,
-        color: todo.color ?? null,
-      } satisfies CalendarEvent,
-    ];
-  });
-  const calendarEvents = [...(eventsQuery.data ?? []), ...todoEvents];
 
   const foundWeeks = [...new Set(lessons.flatMap((lesson) => lesson.weekNumbers))].sort(
     (a, b) => a - b,
@@ -128,7 +82,7 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
     ? foundWeeks
     : Array.from({ length: 18 }, (_, index) => index + 1);
   const weekLessons = lessons.filter((lesson) => activeInWeek(lesson, selectedWeek));
-  const loadError = stateQuery.error ?? lessonsQuery.error ?? eventsQuery.error;
+  const loadError = stateQuery.error ?? lessonsQuery.error;
 
   const reload = () => queryClient.invalidateQueries({ queryKey: ['timetable'] });
 
@@ -165,16 +119,6 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
       await reload();
     };
     await syncTimetable().finally(() => setBusy(false));
-  };
-
-  const openNewEvent = (start?: Date, end?: Date) => {
-    const startDay = start ?? startOfDay(new Date());
-    // 月历拖拽给出的是整天，统一落在 9:00–10:00，弹窗内可再改。
-    const startAt = new Date(startDay);
-    const endAt = new Date(end ?? startDay);
-    startAt.setHours(9, 0, 0, 0);
-    endAt.setHours(10, 0, 0, 0);
-    setEventDraft({ start: startAt, end: endAt });
   };
 
   if (!state) {
@@ -257,10 +201,6 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
               options={['week', 'month']}
               value={mode}
             />
-            <Button onClick={() => openNewEvent()} size="sm">
-              <Plus />
-              新建事件
-            </Button>
           </div>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -315,39 +255,15 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
       {!state.lastSyncedAt ? (
         <TimetableConnectCard semester={semester} />
       ) : mode === 'week' ? (
-        <WeekCalendar
-          events={semesterWeekStart ? calendarEvents : []}
-          lessons={weekLessons}
-          onOpen={setDetail}
-          weekStart={semesterWeekStart}
-        />
+        <WeekCalendar lessons={weekLessons} onOpen={setDetail} weekStart={semesterWeekStart} />
       ) : (
         <MonthCalendar
-          events={calendarEvents}
           lessons={lessons}
           month={month}
-          onCreate={openNewEvent}
           onEditSemesterStart={() => setSemesterDraft(true)}
           semesterStart={state.semesterStart}
         />
       )}
-
-      {eventDraft ? (
-        <NewEventDialog
-          draft={eventDraft}
-          onClose={() => setEventDraft(null)}
-          onCreated={() => {
-            setEventDraft(null);
-            // 课表尚未同步时日历区显示的是登录卡，事件已落库但无处可见，须明确告知。
-            if (!state.lastSyncedAt)
-              showToast({
-                variant: 'success',
-                title: '事件已保存',
-                description: '同步课表后会在日历中显示',
-              });
-          }}
-        />
-      ) : null}
 
       {semesterDraft ? (
         <SemesterStartDialog
@@ -361,17 +277,7 @@ function DesktopTimetableView({ navigate }: { navigate: Navigate }) {
         />
       ) : null}
 
-      {detail ? (
-        <EventDetailDialog
-          detail={detail}
-          onClose={() => setDetail(null)}
-          onDeleted={() => setDetail(null)}
-          onOpenTodo={(todoId) => {
-            setDetail(null);
-            navigate({ page: 'todo', todoId });
-          }}
-        />
-      ) : null}
+      {detail ? <EventDetailDialog detail={detail} onClose={() => setDetail(null)} /> : null}
     </div>
   );
 }

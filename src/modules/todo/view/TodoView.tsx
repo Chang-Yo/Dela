@@ -1,9 +1,7 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  CalendarCheck,
   CalendarDays,
-  CalendarPlus,
   ChevronLeft,
   ChevronRight,
   Circle,
@@ -14,18 +12,22 @@ import {
   Plus,
   RefreshCw,
   Trash2,
-  X,
 } from 'lucide-react';
 import { createClient, errorMessage } from '../../../core/protocol/contract';
 import {
   todoContract,
+  todoFinished,
+  todoOverdue,
   todoStatusLabel,
   todoSyncedAt,
   todoSyncError,
+  todoTimeLabel,
+  todoTimeSchema,
   type CalendarEventColor,
   type TodoItem,
   type TodoSaveInput,
   type TodoState,
+  type TodoTime,
 } from '../contract';
 import { Button } from '../../../ui/button';
 import { useNow } from '../../../ui/hooks/use-now';
@@ -38,14 +40,13 @@ import { Switch } from '../../../ui/switch';
 import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { EventColorRow } from './EventColorRow';
-import { formatTime, roundToMinute, startOfDay } from './calendar';
+import { dateKey, formatTime, roundToMinute, startOfDay } from './calendar';
 import { DateTimeStepper } from './DateTimeStepper';
 import { TodoCalendar } from './TodoCalendar';
 import { monthLabel } from './todo-calendar';
 import { TodoDetail } from './TodoDetail';
 import { TodoSheet } from './TodoSheet';
 import { useTodoPreferences } from './preferences';
-import { dateLabel } from './todo-format';
 import { ErrorText } from '../../../ui/error-text';
 import type { NavTargets } from '../../../app/module';
 
@@ -73,49 +74,78 @@ function openLink(url: string) {
 const inputClass =
   'w-full rounded-control bg-field px-2.5 py-1.5 text-sm text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base placeholder:text-ink-3 focus-visible:bg-surface focus-visible:shadow-focus';
 
-/** 新建待办的默认截止时间取当天结束，避免保存瞬间就被判为「已过截止时间」。 */
-function defaultDueAt(): Date {
-  const date = new Date();
-  date.setHours(23, 59, 0, 0);
-  return date;
-}
-
 const rowActionClass =
   'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100';
 
-function CalendarOptionRows({
-  calendar,
-  color,
-  onCalendarChange,
-  onColorChange,
-}: {
-  calendar: boolean;
-  color: CalendarEventColor;
-  onCalendarChange: (value: boolean) => void;
-  onColorChange: (value: CalendarEventColor) => void;
-}) {
+const timeKinds = ['none', 'due', 'span', 'allDay'] as const;
+type TimeKind = (typeof timeKinds)[number];
+
+/** 日历上选中的日期范围，起止都是当天零点。 */
+interface TodoDraft {
+  start: Date;
+  end: Date;
+}
+
+interface ComposerTime extends TodoDraft {
+  kind: TimeKind;
+}
+
+// 截止默认当天结束，免得一保存就算逾期；时段默认上午一小时。
+function timeOnDay(kind: TimeKind, day: Date, endDay = day): ComposerTime {
+  const at = (date: Date, hour: number, minute = 0) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute);
+  if (kind === 'span') return { kind, start: at(day, 9), end: at(day, 10) };
+  if (kind === 'allDay') return { kind, start: at(day, 0), end: at(endDay, 0) };
+  return { kind, start: at(day, 23, 59), end: at(day, 23, 59) };
+}
+
+function initialTime(item: TodoItem | undefined, draft: TodoDraft | null): ComposerTime {
+  if (!item) {
+    const today = startOfDay(new Date());
+    const { start, end } = draft ?? { start: today, end: today };
+    return start.getTime() === end.getTime()
+      ? timeOnDay('due', start)
+      : timeOnDay('allDay', start, end);
+  }
+  const time = item.time;
+  if (!time) return timeOnDay('none', startOfDay(new Date()));
+  if (time.kind === 'due') {
+    const at = roundToMinute(new Date(time.at));
+    return { kind: time.kind, start: at, end: at };
+  }
+  if (time.kind === 'span') {
+    return {
+      kind: time.kind,
+      start: roundToMinute(new Date(time.start)),
+      end: roundToMinute(new Date(time.end)),
+    };
+  }
+  return {
+    kind: time.kind,
+    start: new Date(`${time.startDate}T00:00:00`),
+    end: new Date(`${time.endDate}T00:00:00`),
+  };
+}
+
+function ComposerRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <>
-      <EventColorRow onColorChange={onColorChange} value={color} />
-      <div className="flex h-11 items-center gap-2 px-3">
-        <span className="w-8 shrink-0 text-xs text-ink-3">日历</span>
-        <div className="flex flex-1 items-center justify-between gap-2">
-          <span className="text-sm">写入日历</span>
-          <Switch checked={calendar} aria-label="写入日历" onCheckedChange={onCalendarChange} />
-        </div>
-      </div>
-    </>
+    <div className="flex min-h-11 items-center gap-2 px-3">
+      <span className="w-8 shrink-0 text-xs text-ink-3">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
   );
 }
 
 function TodoComposer({
   item,
+  draft,
   busy,
   onCancel,
   onDelete,
   onSave,
 }: {
   item?: TodoItem;
+  draft: TodoDraft | null;
   busy: boolean;
   onCancel: () => void;
   onDelete?: () => void;
@@ -123,27 +153,28 @@ function TodoComposer({
 }) {
   const [title, setTitle] = useState(item?.title ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
-  // 新建默认到今天结束：取当前时刻会让待办一保存就显示「已过截止时间」。
-  // 编辑保留原值，允许为空。
-  const [dueAt, setDueAt] = useState<Date | null>(() =>
-    item ? (item.dueAt ? roundToMinute(new Date(item.dueAt)) : null) : defaultDueAt(),
-  );
-  const [calendar, setCalendar] = useState(item?.calendar ?? false);
+  const [{ kind, start, end }, setTime] = useState(() => initialTime(item, draft));
   const [color, setColor] = useState<CalendarEventColor>(item?.color ?? 'slate');
+  // 改开始时结束跟着平移，保持原有时长。
+  const moveStart = (next: Date) =>
+    setTime({ kind, start: next, end: new Date(end.getTime() + next.getTime() - start.getTime()) });
+  const time: TodoTime | null =
+    kind === 'none'
+      ? null
+      : kind === 'due'
+        ? { kind, at: start.toISOString() }
+        : kind === 'span'
+          ? { kind, start: start.toISOString(), end: end.toISOString() }
+          : { kind, startDate: dateKey(start), endDate: dateKey(end) };
+  const checked = time && todoTimeSchema.safeParse(time);
+  const timeError = checked && !checked.success ? checked.error.issues[0]?.message : null;
   return (
     <TodoSheet title={item ? '编辑待办' : '新建待办'} onClose={onCancel}>
       <form
         className="mt-4 flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
-          onSave({
-            id: item?.id,
-            title,
-            notes,
-            dueAt: dueAt ? dueAt.toISOString() : null,
-            calendar,
-            color,
-          });
+          onSave({ id: item?.id, title, notes, time, color });
         }}
       >
         <Input
@@ -156,38 +187,59 @@ function TodoComposer({
           variant="ghost"
         />
         <Card className="grid divide-y">
-          <div className="flex min-h-11 items-center gap-2 px-3">
-            <span className="w-8 shrink-0 text-xs text-ink-3">截止</span>
-            <div className="min-w-0 flex-1">
-              {dueAt === null ? (
-                <Button type="button" variant="outline" onClick={() => setDueAt(defaultDueAt())}>
-                  <Plus className="size-4" />
-                  设置截止时间
-                </Button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <DateTimeStepper onChange={setDueAt} value={dueAt} />
-                  </div>
-                  <button
-                    className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-3 transition-colors hover:text-ink"
-                    onClick={() => setDueAt(null)}
-                    type="button"
-                  >
-                    <X className="size-3" />
-                    清除
-                  </button>
-                </div>
-              )}
-            </div>
+          <div className="flex h-11 items-center gap-2 px-3">
+            <span className="w-8 shrink-0 text-xs text-ink-3">时间</span>
+            <SegmentedControl
+              aria-label="时间类型"
+              labels={{ none: '无', due: '截止', span: '时段', allDay: '全天' }}
+              onValueChange={(next) => setTime(timeOnDay(next, startOfDay(start)))}
+              options={timeKinds}
+              value={kind}
+            />
           </div>
-          <CalendarOptionRows
-            calendar={calendar}
-            color={color}
-            onCalendarChange={setCalendar}
-            onColorChange={setColor}
-          />
+          {kind === 'due' && (
+            <ComposerRow label="截止">
+              <DateTimeStepper onChange={moveStart} value={start} />
+            </ComposerRow>
+          )}
+          {kind === 'span' && (
+            <>
+              <ComposerRow label="开始">
+                <DateTimeStepper label="开始时间" onChange={moveStart} value={start} />
+              </ComposerRow>
+              <ComposerRow label="结束">
+                <DateTimeStepper
+                  fields="time"
+                  label="结束时间"
+                  onChange={(next) => setTime({ kind, start, end: next })}
+                  value={end}
+                />
+              </ComposerRow>
+            </>
+          )}
+          {kind === 'allDay' && (
+            <>
+              <ComposerRow label="开始">
+                <DateTimeStepper
+                  fields="date"
+                  label="开始日期"
+                  onChange={moveStart}
+                  value={start}
+                />
+              </ComposerRow>
+              <ComposerRow label="结束">
+                <DateTimeStepper
+                  fields="date"
+                  label="结束日期"
+                  onChange={(next) => setTime({ kind, start, end: next })}
+                  value={end}
+                />
+              </ComposerRow>
+            </>
+          )}
+          <EventColorRow onColorChange={setColor} value={color} />
         </Card>
+        {timeError && <ErrorText size="sm">{timeError}</ErrorText>}
         <textarea
           aria-label="备注"
           className={cn(inputClass, 'min-h-20 resize-y')}
@@ -216,7 +268,7 @@ function TodoComposer({
             <Button type="button" variant="ghost" onClick={onCancel}>
               取消
             </Button>
-            <Button disabled={busy || !title.trim()} type="submit">
+            <Button disabled={busy || !title.trim() || !!timeError} type="submit">
               保存
             </Button>
           </div>
@@ -238,13 +290,13 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
   const showCompleted = useTodoPreferences((state) => state.showCompleted);
   const [detailId, setDetailId] = useState<string | null>(target.todoId ?? null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<TodoDraft | null>(null);
   // 每次跳转都是新对象，据此在渲染中切到它的详情。
   const [shownTarget, setShownTarget] = useState(target);
   if (target !== shownTarget) {
     setShownTarget(target);
     if (target.todoId) {
-      setCreating(false);
+      setCreating(null);
       setEditingId(null);
       setDetailId(target.todoId);
     }
@@ -273,12 +325,17 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
   const items =
     state?.items.filter(
       (item) =>
-        (filter === 'all' || item.source === filter) && (showCompleted || item.status !== 'done'),
+        (filter === 'all' || item.source === filter) && (showCompleted || !todoFinished(item, now)),
     ) ?? [];
   const pendingCount = (source: string) =>
     (state?.items ?? []).filter(
-      (item) => item.status !== 'done' && (source === 'all' || item.source === source),
+      (item) => !todoFinished(item, now) && (source === 'all' || item.source === source),
     ).length;
+  const startCreating = (draft: TodoDraft) => {
+    setCreating(draft);
+    setEditingId(null);
+    setDetailId(null);
+  };
   const sources = state?.sources ?? [];
   const connected = sources.some((source) => source.connected);
   const syncedAt = state ? todoSyncedAt(state) : null;
@@ -346,9 +403,8 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
               size="sm"
               disabled={!window.dela}
               onClick={() => {
-                setCreating(true);
-                setEditingId(null);
-                setDetailId(null);
+                const today = startOfDay(new Date());
+                startCreating({ start: today, end: today });
               }}
             >
               <Plus className="size-4" />
@@ -402,14 +458,21 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
             {window.dela ? '正在加载…' : '请在 Dela 桌面端使用 TODO'}
           </p>
         ) : view === 'calendar' ? (
-          <TodoCalendar items={items} month={month} onOpenItem={(item) => openItem(item.id)} />
+          <TodoCalendar
+            items={items}
+            month={month}
+            onCreate={(start, end) => {
+              if (window.dela) startCreating({ start, end });
+            }}
+            onOpenItem={(item) => openItem(item.id)}
+          />
         ) : !items.length ? (
           <EmptyState title="暂无符合条件的待办" />
         ) : (
           <ul className="space-y-1">
             {items.map((item) => {
               const done = item.status === 'done';
-              const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
+              const overdue = todoOverdue(item, now);
               const personal = item.source === 'personal';
               return (
                 <li
@@ -452,50 +515,18 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
                       {!item.readAt && (
                         <span aria-label="未读" className="size-1.5 shrink-0 rounded-full bg-ink" />
                       )}
-                      {item.source === 'personal' && item.calendar && (
-                        <span
-                          aria-label="已写入日历"
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: `var(--cal-${item.color ?? 'slate'}-bg)` }}
-                        />
-                      )}
                     </div>
                     <p className="mt-1 text-xs text-ink-3">
                       {item.group?.label ?? '个人待办'} · {todoStatusLabel(item)}
                     </p>
                     <p className={cn('mt-1 text-xs', overdue ? 'text-danger' : 'text-ink-3')}>
                       {overdue ? '已过截止时间 · ' : ''}
-                      {dateLabel(item.dueAt)}
+                      {todoTimeLabel(item.time)}
                     </p>
                   </button>
                   <div className="flex shrink-0 items-center gap-0.5 self-center">
                     {personal ? (
                       <>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          disabled={busy}
-                          className={rowActionClass}
-                          aria-label={
-                            item.calendar ? `取消写入日历 ${item.title}` : `写入日历 ${item.title}`
-                          }
-                          title={item.calendar ? '取消写入日历' : '写入日历'}
-                          onClick={() =>
-                            void run(() =>
-                              todo.save({
-                                id: item.id,
-                                title: item.title,
-                                calendar: !item.calendar,
-                              }),
-                            )
-                          }
-                        >
-                          {item.calendar ? (
-                            <CalendarCheck className="size-4" />
-                          ) : (
-                            <CalendarPlus className="size-4" />
-                          )}
-                        </Button>
                         <Button
                           size="icon-sm"
                           variant="ghost"
@@ -572,9 +603,10 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
         <TodoComposer
           key={editing ? editing.id : 'new'}
           item={editing}
+          draft={creating}
           busy={busy}
           onCancel={() => {
-            setCreating(false);
+            setCreating(null);
             setEditingId(null);
           }}
           onDelete={
@@ -589,7 +621,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
           onSave={(input) =>
             void run(() => todo.save(input), {
               after: () => {
-                setCreating(false);
+                setCreating(null);
                 setEditingId(null);
               },
               failTitle: '保存待办失败',

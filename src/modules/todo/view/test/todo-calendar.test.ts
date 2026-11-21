@@ -9,7 +9,7 @@ function todo(overrides: Partial<TodoItem> = {}): TodoItem {
     source: 'canvas',
     title: '作业',
     notes: '',
-    dueAt: new Date(2026, 9, 21, 23, 59).toISOString(),
+    time: { kind: 'due', at: new Date(2026, 9, 21, 23, 59).toISOString() },
     status: 'open',
     completedAt: null,
     readAt: null,
@@ -18,24 +18,30 @@ function todo(overrides: Partial<TodoItem> = {}): TodoItem {
   };
 }
 
+const due = (hour: number, day = 21) => ({
+  kind: 'due' as const,
+  at: new Date(2026, 9, day, hour).toISOString(),
+});
+
 describe('TODO 月历', () => {
-  it('按本地日期分组、按截止时刻排序，并跳过没有有效截止时间的待办', () => {
+  it('按本地日期分组、按开始时刻排序，全天铺满起止之间的每一天', () => {
     const grouped = groupTodosByDay([
-      todo({ id: 'late', title: '晚交', dueAt: new Date(2026, 9, 21, 9).toISOString() }),
-      todo({ id: 'early', title: '早交', dueAt: new Date(2026, 9, 21, 8).toISOString() }),
-      todo({ id: 'next-day', dueAt: new Date(2026, 9, 22, 8).toISOString() }),
-      todo({ id: 'undated', dueAt: null }),
-      todo({ id: 'invalid', dueAt: 'not-a-date' }),
+      todo({ id: 'late', time: due(9) }),
+      todo({ id: 'early', time: due(8) }),
+      todo({ id: 'next-day', time: due(8, 22) }),
+      todo({
+        id: 'trip',
+        time: { kind: 'allDay', startDate: '2026-10-21', endDate: '2026-10-23' },
+      }),
+      todo({ id: 'undated', time: null }),
     ]);
 
-    expect(grouped.get(dateKey(new Date(2026, 9, 21)))?.map((item) => item.id)).toEqual([
-      'early',
-      'late',
-    ]);
-    expect(grouped.get(dateKey(new Date(2026, 9, 22)))?.map((item) => item.id)).toEqual([
-      'next-day',
-    ]);
-    expect(grouped.size).toBe(2);
+    const ids = (day: number) =>
+      grouped.get(dateKey(new Date(2026, 9, day)))?.map((item) => item.id);
+    expect(ids(21)).toEqual(['trip', 'early', 'late']);
+    expect(ids(22)).toEqual(['trip', 'next-day']);
+    expect(ids(23)).toEqual(['trip']);
+    expect(grouped.size).toBe(3);
   });
 
   it('月历从周一开始并补齐完整周', () => {

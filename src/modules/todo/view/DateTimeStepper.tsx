@@ -44,19 +44,24 @@ export function DateTimeStepper({
   label = '截止时间',
   value,
   onChange,
+  fields = 'datetime',
 }: {
   label?: string;
   value: Date;
   onChange: (date: Date) => void;
+  fields?: 'datetime' | 'date' | 'time';
 }) {
   const pad = (input: number) => `${input}`.padStart(2, '0');
-  const columns: { display: string; field: StepperField; label: string }[] = [
+  const date: { display: string; field: StepperField; label: string }[] = [
     { display: `${value.getFullYear()}年`, field: 'year', label: '年份' },
     { display: `${value.getMonth() + 1}月`, field: 'month', label: '月份' },
     { display: `${value.getDate()}日`, field: 'day', label: '日期' },
+  ];
+  const time: typeof date = [
     { display: `${pad(value.getHours())}时`, field: 'hour', label: '小时' },
     { display: `${pad(value.getMinutes())}分`, field: 'minute', label: '分钟' },
   ];
+  const columns = fields === 'date' ? date : fields === 'time' ? time : [...date, ...time];
   return (
     <div
       aria-label={label}

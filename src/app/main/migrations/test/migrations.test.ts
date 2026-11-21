@@ -609,3 +609,51 @@ it('v15→v16：待办状态换成 open/done/unknown，Canvas 的说法与课程
   ]);
   db.close();
 });
+
+it('v16→v17：截止改为三选一的时间，课表日程并入个人待办，同一天成时段、跨天成全天', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT NOT NULL, data TEXT NOT NULL, read_at TEXT, notice_at TEXT);
+    CREATE TABLE calendar_events (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
+      start_at TEXT NOT NULL, end_at TEXT NOT NULL, location TEXT, color TEXT, created_at TEXT NOT NULL);`);
+  const insert = before.prepare("INSERT INTO todo_items (id, owner, data) VALUES (?, 'local', ?)");
+  insert.run(
+    'a',
+    JSON.stringify({ id: 'a', title: '有截止', dueAt: '2026-11-03T15:59:00.000Z', calendar: true }),
+  );
+  insert.run('b', JSON.stringify({ id: 'b', title: '无截止', dueAt: null, calendar: false }));
+  const at = (day: number, hour: number) => new Date(2026, 10, day, hour).toISOString();
+  const event = before.prepare(
+    "INSERT INTO calendar_events (title, start_at, end_at, location, color, created_at) VALUES (?, ?, ?, ?, ?, 'c')",
+  );
+  event.run('组会', at(3, 9), at(3, 10), '电院 3-200', 'teal');
+  event.run('出差', at(4, 9), at(6, 0), null, 'unknown');
+  before.pragma('user_version = 16');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 17)).toBe(1);
+
+  const db = new Database(dbPath());
+  const items = (db.prepare('SELECT data FROM todo_items').pluck().all() as string[]).map(
+    (value) => JSON.parse(value) as Record<string, unknown>,
+  );
+  expect(items.slice(0, 2)).toEqual([
+    { id: 'a', title: '有截止', time: { kind: 'due', at: '2026-11-03T15:59:00.000Z' } },
+    { id: 'b', title: '无截止', time: null },
+  ]);
+  expect(items.slice(2)).toMatchObject([
+    {
+      source: 'personal',
+      title: '组会',
+      notes: '地点：电院 3-200',
+      time: { kind: 'span', start: at(3, 9), end: at(3, 10) },
+      status: 'open',
+      color: 'teal',
+    },
+    { title: '出差', time: { kind: 'allDay', startDate: '2026-11-04', endDate: '2026-11-05' } },
+  ]);
+  expect(items[3]).not.toHaveProperty('color');
+  expect(
+    db.prepare("SELECT name FROM sqlite_master WHERE name = 'calendar_events'").get(),
+  ).toBeUndefined();
+  db.close();
+});

@@ -22,7 +22,7 @@ function todoItem(overrides: Partial<TodoItem>): TodoItem {
     source: 'personal',
     title: '写周报',
     notes: '',
-    dueAt: null,
+    time: null,
     status: 'open',
     completedAt: null,
     readAt: null,
@@ -48,7 +48,7 @@ function todoState(overrides: Partial<TodoState> = {}): TodoState {
         source: 'canvas',
         title: '作业一',
         group: { id: '1', label: '操作系统' },
-        dueAt: '2026-10-01T16:00:00.000Z',
+        time: { kind: 'due', at: '2026-10-01T16:00:00.000Z' },
         status: 'done',
         statusLabel: '已提交',
         bodyHtml: '<p>作业描述 HTML</p>',
@@ -93,6 +93,11 @@ describe('query_todos', () => {
       total: number;
     };
     expect(open.total).toBe(1);
+    const ranged = todoDomain.commands.query_todos.execute({
+      startAt: '2026-10-01T00:00:00.000Z',
+      endAt: '2026-10-02T00:00:00.000Z',
+    }) as { items: { id: string }[] };
+    expect(ranged.items.map((item) => item.id)).toEqual(['canvas:owner:1:2']);
   });
 
   it('warns about sources that are not connected', () => {

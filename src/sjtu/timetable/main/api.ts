@@ -1,12 +1,8 @@
 import type { WebContents } from 'electron';
 import { z } from 'zod';
-import { emit, hostPorts } from '../../../core/ports';
-import { calendarEventColors } from '../../../modules/todo/contract';
+import { hostPorts } from '../../../core/ports';
 import {
   semesterSchema,
-  timetableContract,
-  type calendarEventInput,
-  type CalendarEvent,
   type TimetableLesson,
   type TimetableResult,
   type TimetableState,
@@ -69,31 +65,6 @@ type LessonRow = {
   credits: number | null;
   note: string | null;
 };
-
-type CalendarEventRow = {
-  id: number;
-  title: string;
-  start_at: string;
-  end_at: string;
-  location: string | null;
-  color: string | null;
-};
-
-function mapEvent(row: CalendarEventRow): CalendarEvent {
-  const stored = row.color;
-  return {
-    id: row.id,
-    title: row.title,
-    startAt: row.start_at,
-    endAt: row.end_at,
-    location: row.location,
-    // 旧缓存或异常值回退为无色，渲染时按中性色处理。
-    color:
-      stored && (calendarEventColors as readonly string[]).includes(stored)
-        ? (stored as CalendarEvent['color'])
-        : null,
-  };
-}
 
 export function parseSemesterStart(values: readonly unknown[] | undefined): string | null {
   const dates = (values ?? [])
@@ -351,76 +322,18 @@ export function querySchedule(input: unknown) {
     args.startAt,
     args.endAt,
   );
-  const events = listCalendarEvents(args.startAt, args.endAt).map((event) => ({
-    ...event,
-    source: 'event' as const,
-  }));
   const warnings = [...courses.warnings];
   if (!row?.last_synced_at) warnings.push('该学期课表尚未同步');
   return {
     semester,
     timezone: 'Asia/Shanghai',
-    items: [...courses.items, ...events].sort((a, b) => a.startAt.localeCompare(b.startAt)),
+    items: courses.items.sort((a, b) => a.startAt.localeCompare(b.startAt)),
     coverage: {
       courseSyncedAt: row?.last_synced_at || null,
       complete: warnings.length === 0,
       warnings,
     },
   };
-}
-
-export function listCalendarEvents(startAt: string, endAt: string) {
-  return (
-    hostPorts()
-      .database()
-      .prepare(
-        `SELECT id, title, start_at, end_at, location, color FROM calendar_events
-         WHERE end_at > ? AND start_at < ? ORDER BY start_at`,
-      )
-      .all(startAt, endAt) as CalendarEventRow[]
-  ).map(mapEvent);
-}
-
-export function createCalendarEvent(event: z.output<typeof calendarEventInput>) {
-  const result = hostPorts()
-    .database()
-    .prepare(
-      `INSERT INTO calendar_events (title, start_at, end_at, location, color, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      event.title,
-      event.startAt,
-      event.endAt,
-      event.location || null,
-      event.color || null,
-      new Date().toISOString(),
-    ) as { lastInsertRowid: number | bigint };
-  emit(timetableContract, 'events', undefined);
-  return mapEvent({
-    id: Number(result.lastInsertRowid),
-    title: event.title,
-    start_at: event.startAt,
-    end_at: event.endAt,
-    location: event.location || null,
-    color: event.color || null,
-  });
-}
-
-export function deleteCalendarEvent(id: number) {
-  // 只删自建事件；课程在 timetable_lessons 表，不经此入口。
-  hostPorts().database().prepare('DELETE FROM calendar_events WHERE id = ?').run(id);
-  emit(timetableContract, 'events', undefined);
-}
-
-export function getCalendarEvent(id: number): CalendarEvent | null {
-  const row = hostPorts()
-    .database()
-    .prepare(
-      'SELECT id, title, start_at, end_at, location, color FROM calendar_events WHERE id = ?',
-    )
-    .get(id) as CalendarEventRow | undefined;
-  return row ? mapEvent(row) : null;
 }
 
 export function getTimetableState(semester = currentSemester()): TimetableState {

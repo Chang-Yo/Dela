@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getTodoState } from '../../../../modules/todo';
+import { getTodoState, todoInRange } from '../../../../modules/todo';
 import {
   coverage,
   freshness,
@@ -30,8 +30,7 @@ export const queryAssignmentsTool = tool(
     const items = state.items.flatMap(({ bodyHtml: _omit, ...item }) =>
       item.source === canvasTaskSource.id &&
       (courseId === undefined || item.group?.id === String(courseId)) &&
-      (!startAt || (item.dueAt && Date.parse(item.dueAt) >= Date.parse(startAt))) &&
-      (!endAt || (item.dueAt && Date.parse(item.dueAt) < Date.parse(endAt))) &&
+      todoInRange(item.time, startAt, endAt) &&
       (completed === undefined || item.status === (completed ? 'done' : 'open'))
         ? [item]
         : [],

@@ -22,6 +22,6 @@ description: Canvas 课程平台：课程与资料检索、作业要求阅读、
 
 - 只匹配缓存标题；先确认状态已连接、课程已同步
 - 实验报告、大作业的要求文档读完后，把要点整理进项目笔记，课件用 link 或 copy 挂进项目
-- 作业同步进 TODO，截止时间用 query_assignments 查；到期日可用 curriculum 的 create_event 写入日历
+- 作业同步进 TODO，截止时间用 query_assignments 查，并已显示在 TODO 月历上，无需另建日程
 - 作业描述是 HTML，查询结果不含正文；正文经 read_resource 读取作业资料
 - 通用：`dela help` 查看全部命令与参数；不确定就先 help，不要猜测

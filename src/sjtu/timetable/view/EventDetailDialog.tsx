@@ -1,21 +1,7 @@
-import { useState } from 'react';
-import {
-  CalendarRange,
-  CircleCheckBig,
-  Clock,
-  GraduationCap,
-  MapPin,
-  Trash2,
-  User,
-} from 'lucide-react';
-import { errorMessage } from '../../../core/protocol/contract';
-import type { CalendarEvent } from '../contract';
-import { Button } from '../../../ui/button';
-import { formatEventRange, formatMinuteOfDay, periodBoundary } from './timetable-format';
-import { calendarToneKey, colorFor, formatMonthDay, weekdayName } from '../../../modules/todo/view';
+import { CalendarRange, Clock, GraduationCap, MapPin, User } from 'lucide-react';
+import { formatMinuteOfDay, periodBoundary } from './timetable-format';
+import { colorFor, formatMonthDay, weekdayName } from '../../../modules/todo/view';
 import type { CalendarItemDetail } from './WeekCalendar';
-import { showToast } from '../../../ui/toast';
-import { timetableClient } from './use-timetable';
 import {
   Dialog,
   DialogContent,
@@ -25,51 +11,21 @@ import {
 } from '../../../ui/dialog';
 
 export function EventDetailDialog({
-  detail,
+  detail: { lesson, date },
   onClose,
-  onDeleted,
-  onOpenTodo,
 }: {
   detail: CalendarItemDetail;
   onClose: () => void;
-  onDeleted: () => void;
-  onOpenTodo?: (todoId: string) => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const deleteEvent = async (event: CalendarEvent) => {
-    // 待办派生事件的删除只能发生在 TODO 视图；此入口只接受数字 id 的自建事件。
-    if (typeof event.id !== 'number') return;
-    setDeleting(true);
-    try {
-      await timetableClient.deleteEvent(event.id);
-      onDeleted();
-    } catch (reason) {
-      setDeleting(false);
-      setConfirming(false);
-      showToast({ variant: 'error', title: '删除事件失败', description: errorMessage(reason) });
-    }
-  };
-
-  const tone =
-    detail.kind === 'lesson'
-      ? colorFor(detail.lesson.courseCode || detail.lesson.courseName)
-      : calendarToneKey(detail.event.color);
-
-  let timeText;
-  if (detail.kind === 'lesson') {
-    const start = periodBoundary(detail.lesson.startPeriod, 'start');
-    const end = periodBoundary(detail.lesson.endPeriod, 'end');
-    timeText = detail.date
-      ? `${formatMonthDay(detail.date)}（${weekdayName(detail.date)}）${formatMinuteOfDay(start)} – ${formatMinuteOfDay(end)}`
-      : `${formatMinuteOfDay(start)} – ${formatMinuteOfDay(end)}`;
-  } else {
-    timeText = formatEventRange(detail.event);
-  }
+  const tone = colorFor(lesson.courseCode || lesson.courseName);
+  const start = formatMinuteOfDay(periodBoundary(lesson.startPeriod, 'start'));
+  const end = formatMinuteOfDay(periodBoundary(lesson.endPeriod, 'end'));
+  const timeText = date
+    ? `${formatMonthDay(date)}（${weekdayName(date)}）${start} – ${end}`
+    : `${start} – ${end}`;
 
   return (
-    <Dialog onOpenChange={(open) => !open && !deleting && onClose()} open>
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="max-h-[calc(100dvh-2rem)] w-100 max-w-[calc(100vw-2rem)] overflow-y-auto p-5">
         <div className="flex items-start gap-2.5">
           <span
@@ -78,13 +34,13 @@ export function EventDetailDialog({
             style={{ backgroundColor: `var(--cal-${tone}-bg)` }}
           />
           <DialogTitle className="min-w-0 flex-1 break-words leading-snug tracking-tight">
-            {detail.kind === 'lesson' ? detail.lesson.courseName : detail.event.title}
+            {lesson.courseName}
           </DialogTitle>
           <DialogClose />
         </div>
-        {detail.kind === 'lesson' && (detail.lesson.className || detail.lesson.courseCode) ? (
+        {lesson.className || lesson.courseCode ? (
           <DialogDescription className="pl-5">
-            {[detail.lesson.className, detail.lesson.courseCode].filter(Boolean).join(' · ')}
+            {[lesson.className, lesson.courseCode].filter(Boolean).join(' · ')}
           </DialogDescription>
         ) : null}
         <div className="mt-4 grid gap-2.5 pl-5 text-sm">
@@ -92,96 +48,29 @@ export function EventDetailDialog({
             <Clock className="mt-0.5 size-4 shrink-0 text-ink-3" />
             <span className="tabular-nums">{timeText}</span>
           </div>
-          {detail.kind === 'todo' ? (
+          <div className="flex items-start gap-2">
+            <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
+            <span className="break-words">
+              {[lesson.classroom, lesson.campus].filter(Boolean).join(' · ') || '地点未定'}
+            </span>
+          </div>
+          {lesson.teacher ? (
             <div className="flex items-start gap-2">
-              <CircleCheckBig className="mt-0.5 size-4 shrink-0 text-ink-3" />
-              <span>来自个人待办的截止时间</span>
+              <User className="mt-0.5 size-4 shrink-0 text-ink-3" />
+              <span className="break-words">{lesson.teacher}</span>
             </div>
           ) : null}
-          {detail.kind !== 'lesson' ? (
-            detail.event.location ? (
-              <div className="flex items-start gap-2">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                <span className="break-words">{detail.event.location}</span>
-              </div>
-            ) : null
-          ) : (
-            <>
-              <div className="flex items-start gap-2">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                <span className="break-words">
-                  {[detail.lesson.classroom, detail.lesson.campus].filter(Boolean).join(' · ') ||
-                    '地点未定'}
-                </span>
-              </div>
-              {detail.lesson.teacher ? (
-                <div className="flex items-start gap-2">
-                  <User className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                  <span className="break-words">{detail.lesson.teacher}</span>
-                </div>
-              ) : null}
-              <div className="flex items-start gap-2">
-                <CalendarRange className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                <span>{detail.lesson.weeksText}</span>
-              </div>
-              {detail.lesson.credits != null ? (
-                <div className="flex items-start gap-2">
-                  <GraduationCap className="mt-0.5 size-4 shrink-0 text-ink-3" />
-                  <span>{detail.lesson.credits} 学分</span>
-                </div>
-              ) : null}
-            </>
-          )}
+          <div className="flex items-start gap-2">
+            <CalendarRange className="mt-0.5 size-4 shrink-0 text-ink-3" />
+            <span>{lesson.weeksText}</span>
+          </div>
+          {lesson.credits != null ? (
+            <div className="flex items-start gap-2">
+              <GraduationCap className="mt-0.5 size-4 shrink-0 text-ink-3" />
+              <span>{lesson.credits} 学分</span>
+            </div>
+          ) : null}
         </div>
-        {detail.kind === 'event' ? (
-          <div className="mt-5 flex items-center gap-1.5">
-            {confirming ? (
-              <>
-                <span className="text-xs text-ink-3">确认删除？</span>
-                <Button
-                  disabled={deleting}
-                  onClick={() => void deleteEvent(detail.event)}
-                  size="sm"
-                  variant="destructive"
-                >
-                  删除
-                </Button>
-                <Button
-                  disabled={deleting}
-                  onClick={() => setConfirming(false)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  取消
-                </Button>
-              </>
-            ) : (
-              <Button
-                className="text-danger hover:text-danger"
-                onClick={() => setConfirming(true)}
-                size="sm"
-                variant="ghost"
-              >
-                <Trash2 className="size-3.5" />
-                删除
-              </Button>
-            )}
-          </div>
-        ) : null}
-        {detail.kind === 'todo' && detail.event.todoId && onOpenTodo ? (
-          <div className="mt-5 flex items-center">
-            <Button
-              onClick={() => {
-                onOpenTodo(detail.event.todoId!);
-                onClose();
-              }}
-              size="sm"
-              variant="outline"
-            >
-              <CircleCheckBig className="size-3.5" />在 TODO 中查看
-            </Button>
-          </div>
-        ) : null}
       </DialogContent>
     </Dialog>
   );

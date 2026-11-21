@@ -1,4 +1,4 @@
-// 课表：从教学信息网同步个人课表；日历事件的读写暂时也在这里。
+// 课表：从教学信息网同步个人课表，只读；个人安排归待办（ADR 0024）。
 import type { WebContents } from 'electron';
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
@@ -8,11 +8,8 @@ import { registerSettingsSearch } from '../../modules/settings';
 import { timetableContract } from './contract';
 import { timetableDomain } from './main/agent';
 import {
-  createCalendarEvent,
   currentSemester,
-  deleteCalendarEvent,
   getTimetableState,
-  listCalendarEvents,
   listLessons,
   openLoginWindow,
   setSemesterStart,
@@ -24,9 +21,6 @@ export const timetableModule = defineModule({
   ipc: implement(timetableContract, {
     state: getTimetableState,
     lessons: (semester = currentSemester()) => listLessons(semester),
-    events: ({ startAt, endAt }) => listCalendarEvents(startAt, endAt),
-    createEvent: createCalendarEvent,
-    deleteEvent: deleteCalendarEvent,
     setSemesterStart: ({ semester, value }) => setSemesterStart(semester, value),
     sync: (semester = currentSemester()) => syncTimetable(semester),
     // 契约调用只来自工作区窗口，登录窗以它为父窗口。

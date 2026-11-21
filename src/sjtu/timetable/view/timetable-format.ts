@@ -1,15 +1,6 @@
-import { classPeriods, type CalendarEvent, type TimetableLesson } from '../contract';
+import { classPeriods, type TimetableLesson } from '../contract';
 import type { CSSProperties } from 'react';
-import {
-  addDays,
-  dateKey,
-  dayMilliseconds,
-  formatMonthDay,
-  formatTime,
-  mondayOf,
-  startOfDay,
-  weekdayName,
-} from '../../../modules/todo/view';
+import { addDays, dayMilliseconds, mondayOf } from '../../../modules/todo/view';
 
 export const timelineStart = 8 * 60;
 export const timelineEnd = 24 * 60;
@@ -30,31 +21,6 @@ export function parseDate(value: string): Date {
 
 export function formatMinuteOfDay(minute: number): string {
   return `${`${Math.floor(minute / 60)}`.padStart(2, '0')}:${`${minute % 60}`.padStart(2, '0')}`;
-}
-
-// 事件的完整起止时间：同日只写一个日期，跨日两端各带日期与星期。
-export function formatEventRange(event: Pick<CalendarEvent, 'startAt' | 'endAt'>): string {
-  const start = new Date(event.startAt);
-  const end = new Date(event.endAt);
-  const startText = `${formatMonthDay(start)}（${weekdayName(start)}）${formatTime(start)}`;
-  return dateKey(start) === dateKey(end)
-    ? `${startText} – ${formatTime(end)}`
-    : `${startText} – ${formatMonthDay(end)}（${weekdayName(end)}）${formatTime(end)}`;
-}
-
-// 事件在某天的首末段标志：只有事件真实起止日才是 start/end，
-// 被周视图切割的延续日不算；结束恰为午夜时与 localEventsByDay 一致记为前一天。
-export function eventDayEdges(
-  event: Pick<CalendarEvent, 'startAt' | 'endAt'>,
-  day: Date,
-): { isStart: boolean; isEnd: boolean } {
-  const dayTime = startOfDay(day).getTime();
-  const end = new Date(event.endAt);
-  const endDay = startOfDay(new Date(end.getTime() - (end.getHours() || end.getMinutes() ? 0 : 1)));
-  return {
-    isStart: startOfDay(new Date(event.startAt)).getTime() === dayTime,
-    isEnd: endDay.getTime() === dayTime,
-  };
 }
 
 export function semesterLabel(semester: string): string {
@@ -164,21 +130,4 @@ export function weekForDate(semesterStart: string | null, date: Date): number | 
 
 export function activeInWeek(lesson: TimetableLesson, week: number): boolean {
   return lesson.weekNumbers.length === 0 || lesson.weekNumbers.includes(week);
-}
-
-export function localEventsByDay(events: readonly CalendarEvent[]): Map<string, CalendarEvent[]> {
-  const grouped = new Map<string, CalendarEvent[]>();
-  for (const event of events) {
-    const start = startOfDay(new Date(event.startAt));
-    const end = new Date(event.endAt);
-    // 结束时刻恰为午夜时归属前一天，避免跨天任务多占一天。
-    const last = startOfDay(new Date(end.getTime() - (end.getHours() || end.getMinutes() ? 0 : 1)));
-    for (let day = start; day.getTime() <= last.getTime(); day = addDays(day, 1)) {
-      const key = dateKey(day);
-      const current = grouped.get(key);
-      if (current) current.push(event);
-      else grouped.set(key, [event]);
-    }
-  }
-  return grouped;
 }

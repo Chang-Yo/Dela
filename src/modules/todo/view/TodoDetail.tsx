@@ -1,6 +1,5 @@
 import {
   BookOpen,
-  CalendarCheck,
   CalendarClock,
   CircleCheckBig,
   ExternalLink,
@@ -8,7 +7,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { TodoItem } from '../contract';
-import { todoStatusLabel } from '../contract';
+import { todoOverdue, todoStatusLabel, todoTimeLabel } from '../contract';
 import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
 import { HtmlFrame } from '../../../ui/html-frame';
@@ -34,7 +33,7 @@ export function TodoDetail({
   openLabel: string;
 }) {
   const personal = item.source === 'personal';
-  const overdue = item.status !== 'done' && item.dueAt && Date.parse(item.dueAt) < now;
+  const overdue = todoOverdue(item, now);
   return (
     <TodoSheet fixedHeight title={item.title} onClose={onClose}>
       <div className="mt-3 shrink-0 space-y-1.5 text-sm text-ink-3">
@@ -46,18 +45,12 @@ export function TodoDetail({
         </p>
         <p className={cn('flex items-center gap-1.5', overdue && 'text-danger')}>
           <CalendarClock className="size-3.5 shrink-0" />
-          截止：{dateLabel(item.dueAt)}
+          {todoTimeLabel(item.time)}
         </p>
         {item.completedAt && (
           <p className="flex items-center gap-1.5">
             <CircleCheckBig className="size-3.5 shrink-0" />
             完成于：{dateLabel(item.completedAt)}
-          </p>
-        )}
-        {personal && item.calendar && (
-          <p className="flex items-center gap-1.5">
-            <CalendarCheck className="size-3.5 shrink-0" />
-            已写入日历
           </p>
         )}
       </div>

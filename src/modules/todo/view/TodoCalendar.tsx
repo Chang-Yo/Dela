@@ -2,12 +2,12 @@ import { useState } from 'react';
 import type { TodoItem } from '../contract';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { cn } from '../../../ui/lib/cn';
-import { dateKey, eventColorStyle, formatMonthDay, formatTime, weekDays } from './calendar';
-import { groupTodosByDay, monthGridDays, todoCalendarColor } from './todo-calendar';
+import { dateKey, eventColorStyle, formatMonthDay, weekDays } from './calendar';
+import { groupTodosByDay, monthGridDays, todoCalendarColor, todoChipTime } from './todo-calendar';
 
 function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) => void }) {
   const done = item.status === 'done';
-  const time = item.dueAt ? formatTime(new Date(item.dueAt)) : '';
+  const time = todoChipTime(item.time);
   const group = item.group?.label ?? '个人待办';
   return (
     <button
@@ -18,6 +18,7 @@ function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) =
         done && 'opacity-60',
       )}
       onClick={() => onOpen(item)}
+      onMouseDown={(event) => event.stopPropagation()}
       style={eventColorStyle(todoCalendarColor(item))}
       title={`${group} · ${item.title}${time ? ` · ${time}` : ''}`}
     >
@@ -41,7 +42,10 @@ function DayOverflow({
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint">
+      <PopoverTrigger
+        className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         +{items.length - 3}
         <span className="@max-[320px]:hidden"> 更多</span>
       </PopoverTrigger>
@@ -65,7 +69,7 @@ function DayOverflow({
                   style={eventColorStyle(todoCalendarColor(item))}
                 >
                   <span className="shrink-0 tabular-nums opacity-70">
-                    {item.dueAt ? formatTime(new Date(item.dueAt)) : ''}
+                    {todoChipTime(item.time)}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span
@@ -92,14 +96,23 @@ export function TodoCalendar({
   items,
   month,
   onOpenItem,
+  onCreate,
 }: {
   items: readonly TodoItem[];
   month: Date;
   onOpenItem: (item: TodoItem) => void;
+  /** 单击一天或拖过几天，起止都是当天零点。 */
+  onCreate: (start: Date, end: Date) => void;
 }) {
   const grouped = groupTodosByDay(items);
   const days = monthGridDays(month);
   const todayKey = dateKey(new Date());
+  const [drag, setDrag] = useState<{ anchor: Date; current: Date } | null>(null);
+  const range = drag
+    ? drag.anchor <= drag.current
+      ? [drag.anchor, drag.current]
+      : [drag.current, drag.anchor]
+    : null;
 
   return (
     <section aria-label="待办日历" className="@container">
@@ -110,23 +123,50 @@ export function TodoCalendar({
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      {/* 松开鼠标总落在某个日格上；移出网格视为放弃，因此不需要监听整个窗口。 */}
+      <div className="grid select-none grid-cols-7" onMouseLeave={() => setDrag(null)}>
         {days.map((date) => {
           const key = dateKey(date);
           const dayItems = grouped.get(key) ?? [];
           const currentMonth =
             date.getMonth() === month.getMonth() && date.getFullYear() === month.getFullYear();
           const today = key === todayKey;
+          const selected = !!range && date >= range[0]! && date <= range[1]!;
           return (
             <div
+              aria-current={today ? 'date' : undefined}
               aria-label={`${date.getMonth() + 1}月${date.getDate()}日${
                 dayItems.length ? `，${dayItems.length} 个待办` : ''
               }`}
               className={cn(
-                'flex min-h-24 flex-col border-b border-line p-1.5 text-left @max-[320px]:min-h-16 @max-[320px]:p-1',
+                // 用 div + role 是为了能嵌套待办按钮，button 里不能再放交互元素。
+                'flex min-h-24 flex-col border-b border-line p-1.5 text-left transition-colors duration-base hover:bg-hover @max-[320px]:min-h-16 @max-[320px]:p-1',
                 !currentMonth && 'bg-inset text-ink-3',
+                selected && 'bg-accent-tint',
               )}
               key={key}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onCreate(date, date);
+                }
+              }}
+              onMouseDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                setDrag({ anchor: date, current: date });
+              }}
+              onMouseEnter={() => {
+                if (drag) setDrag({ ...drag, current: date });
+              }}
+              onMouseUp={() => {
+                if (!range) return;
+                setDrag(null);
+                onCreate(range[0]!, range[1]!);
+              }}
             >
               <span
                 className={cn(

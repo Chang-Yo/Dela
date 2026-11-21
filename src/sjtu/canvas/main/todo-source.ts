@@ -63,7 +63,7 @@ export const canvasTaskSource: TaskSource = {
         {
           externalId: `${group.id}:${a.id}`,
           title: typeof a.name === 'string' ? a.name : '未命名作业',
-          dueAt: typeof a.due_at === 'string' ? a.due_at : null,
+          time: typeof a.due_at === 'string' ? { kind: 'due', at: a.due_at } : null,
           ...canvasTodoStatus(a),
           completedAt: typeof sub?.submitted_at === 'string' ? sub.submitted_at : null,
           url: typeof a.html_url === 'string' ? a.html_url : undefined,
