@@ -45,7 +45,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 });
 
 import type { BackupResult } from '../../contract';
-import { exportUserData } from '../backup';
+import { excludeFromBackup, exportUserData } from '../backup';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { closeDatabase, getDatabase, SCHEMA_VERSION } from '../../../../app/main/database';
 
@@ -181,7 +181,8 @@ it('单个条目复制失败不影响其余条目，名字如实回报', async (
 });
 
 it('excludes snapshot content and its sealed key while keeping database metadata', async () => {
-  const root = join(userData, 'shuiyuan-snapshots');
+  excludeFromBackup('snapshots');
+  const root = join(userData, 'snapshots');
   mkdirSync(join(root, '42'), { recursive: true });
   writeFileSync(join(root, 'key.bin'), 'sealed-key');
   writeFileSync(join(root, '42', 'page-0.json'), 'encrypted-body');
@@ -191,7 +192,7 @@ it('excludes snapshot content and its sealed key while keeping database metadata
     )
     .run();
   const result = exported(await exportUserData(null));
-  expect(existsSync(join(result.path, '应用数据', 'shuiyuan-snapshots'))).toBe(false);
+  expect(existsSync(join(result.path, '应用数据', 'snapshots'))).toBe(false);
   const db = new Database(join(result.path, '应用数据', 'dela.db'), { readonly: true });
   expect(db.prepare('SELECT title FROM shuiyuan_topics WHERE topic_id=42').pluck().get()).toBe(
     '标题',

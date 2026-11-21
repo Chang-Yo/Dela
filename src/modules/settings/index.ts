@@ -25,6 +25,8 @@ import {
 } from './main/prefs';
 import { openAtLogin, setOpenAtLogin, setTheme, setZoom } from './main/system';
 
+export { excludeFromBackup } from './main/backup';
+export { registerCacheDirectory } from './main/cache';
 export { hasConsented } from './main/consent';
 export {
   readSetting,
