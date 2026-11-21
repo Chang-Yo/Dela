@@ -2,6 +2,7 @@ import { statSync } from 'node:fs';
 import { basename } from 'node:path';
 import { hostPorts } from '../../../core/ports';
 import type { OfficeExportInfo } from '../../../core/protocol/workbench';
+import { workspaceEntryExists } from '../../workspace';
 
 /** version 为导出时源文件的 mtime-size。 */
 export interface OfficeExportLink {
@@ -39,13 +40,7 @@ export function officeExportPreviewInfo(
 ): OfficeExportInfo | null {
   try {
     // 条目被用户删除时（磁盘文件仍在）协议会 404，返回 null 让读取方回退到确认卡片。
-    if (
-      !hostPorts()
-        .database()
-        .prepare('SELECT 1 FROM workspace_entries WHERE id=?')
-        .get(link.entryId)
-    )
-      return null;
+    if (!workspaceEntryExists(link.entryId)) return null;
     const stats = statSync(link.path);
     return {
       previewUrl: `dela-resource://workspace/${encodeURIComponent(link.entryId)}?v=${stats.mtimeMs}-${stats.size}`,

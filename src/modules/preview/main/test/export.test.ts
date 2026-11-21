@@ -10,11 +10,15 @@ import { z } from 'zod';
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 vi.mock('../../../workspace', () => ({
   createWorkspaceEntry: vi.fn(),
+  storedFolder: vi.fn(),
+  rootFolderNamed: vi.fn(),
+  registerWorkspaceFile: vi.fn(() => 'entry'),
+  relinkWorkspaceFile: vi.fn(() => false),
   availablePath: (parent: string, name: string) => join(parent, name),
 }));
 vi.mock('../parse', () => ({ classifyOfficeFile: vi.fn(async () => 'pptx') }));
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
-import { createWorkspaceEntry } from '../../../workspace';
+import { createWorkspaceEntry, storedFolder } from '../../../workspace';
 import { registerResourceResolver } from '../../../../core/capabilities/resources';
 import { exportOfficePdf } from '../export';
 import { readOfficeExportLink } from '../links';
@@ -38,19 +42,12 @@ beforeEach(() => {
   writeFileSync(source, 'synthetic presentation');
   db = new Database(':memory:');
   db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT)');
-  db.exec(
-    'CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT, kind TEXT, source_id TEXT, local_path TEXT, updated_at TEXT)',
-  );
   provideTestHostPorts({ database });
   workspacePath.mockResolvedValue(source);
   vi.mocked(createWorkspaceEntry).mockImplementation(() => {
     const path = join(directory, '预览导出');
     mkdirSync(path);
-    db.prepare('INSERT INTO workspace_entries (id, kind, local_path) VALUES (?, ?, ?)').run(
-      'exports',
-      'folder',
-      path,
-    );
+    vi.mocked(storedFolder).mockReturnValue({ id: 'exports', path });
     return { id: 'exports' } as ReturnType<typeof createWorkspaceEntry>;
   });
   vi.mocked(spawn).mockImplementation((_command, _args, options) => {

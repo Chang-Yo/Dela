@@ -83,14 +83,8 @@ export function saveRemote(draft: RemoteDraft & { id?: string | null }): RemoteC
 /** 删除连接连同名下项目按「移除项目」语义带走（会话删、远端目录留）；动态导入避开模块环。 */
 export async function removeRemote(id: string): Promise<void> {
   remoteById(id);
-  const projects = hostPorts()
-    .database()
-    .prepare(`SELECT id FROM workspace_entries WHERE remote_id=? AND kind='project'`)
-    .all(id) as { id: string }[];
-  if (projects.length) {
-    const { removeWorkspaceEntry } = await import('../../workspace');
-    for (const project of projects) await removeWorkspaceEntry(project.id);
-  }
+  const { remoteProjectIds, removeWorkspaceEntry } = await import('../../workspace');
+  for (const projectId of remoteProjectIds(id)) await removeWorkspaceEntry(projectId);
   hostPorts().database().prepare('DELETE FROM remotes WHERE id=?').run(id);
 }
 

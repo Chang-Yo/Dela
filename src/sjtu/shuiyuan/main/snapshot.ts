@@ -12,12 +12,14 @@ import { emit, hostPorts } from '../../../core/ports';
 import {
   SHUIYUAN_HOST,
   SHUIYUAN_SNAPSHOT_PAGE_SIZE,
+  SHUIYUAN_SOURCE_PREFIX,
   shuiyuanContract,
   type ShuiyuanPost,
   type ShuiyuanSnapshotState,
 } from '../contract';
 import { loadShuiyuanCredential } from './credentials';
 import { systemNotifyToast } from '../../../modules/notifications';
+import { sourceIdsWithPrefix } from '../../../modules/workspace';
 import { getShuiyuanTopic, loadShuiyuanPosts, SHUIYUAN_ORIGIN } from './api';
 import { noteShuiyuanResponse, waitForShuiyuanBackgroundSlot } from './budget';
 
@@ -50,8 +52,10 @@ let running: { topicId: number; controller: AbortController } | null = null;
 const progress = new Map<number, Progress>();
 let progressSentAt = 0;
 
-const referencedTopics = `SELECT CAST(substr(source_id, 16) AS INTEGER) AS topic_id FROM workspace_entries
-  WHERE kind = 'source' AND source_id LIKE 'shuiyuan-topic:%'`;
+const referencedTopicIds = () =>
+  sourceIdsWithPrefix(SHUIYUAN_SOURCE_PREFIX)
+    .map((sourceId) => Number.parseInt(sourceId.slice(SHUIYUAN_SOURCE_PREFIX.length), 10))
+    .filter(Number.isInteger);
 
 export function shuiyuanSnapshotState(topicId: number): ShuiyuanSnapshotState | null {
   const row = hostPorts()
@@ -116,9 +120,9 @@ export function refreshShuiyuanSnapshot(topicIdInput: unknown): void {
   const referenced = hostPorts()
     .database()
     .prepare(
-      `SELECT 1 FROM shuiyuan_topics WHERE topic_id = ? AND topic_id IN (${referencedTopics})`,
+      'SELECT 1 FROM shuiyuan_topics WHERE topic_id = ? AND topic_id IN (SELECT value FROM json_each(?))',
     )
-    .get(topicId);
+    .get(topicId, JSON.stringify(referencedTopicIds()));
   if (!referenced) throw new Error('该水源帖子已不在任何项目中');
   queueShuiyuanSnapshot(topicId);
 }
@@ -418,18 +422,15 @@ async function downloadImage(
 /** 帖子从所有项目移除后：取消保存、删除快照文件、清空状态列（引用行保留，重新添加时直接复用）。 */
 export async function collectShuiyuanSnapshots(): Promise<void> {
   const db = hostPorts().database();
-  const referenced = new Set(
-    (db.prepare(referencedTopics).all() as { topic_id: number }[])
-      .map((row) => row.topic_id)
-      .filter(Number.isInteger),
-  );
+  const referencedIds = referencedTopicIds();
+  const referenced = new Set(referencedIds);
   for (let index = queue.length - 1; index >= 0; index--)
     if (!referenced.has(queue[index]!)) queue.splice(index, 1);
   if (running && !referenced.has(running.topicId)) running.controller.abort();
   db.prepare(
     `UPDATE shuiyuan_topics SET snapshot_status = NULL, snapshot_at = NULL, snapshot_error = NULL
-     WHERE snapshot_status IS NOT NULL AND topic_id NOT IN (${referencedTopics})`,
-  ).run();
+     WHERE snapshot_status IS NOT NULL AND topic_id NOT IN (SELECT value FROM json_each(?))`,
+  ).run(JSON.stringify(referencedIds));
   for (const name of await readdir(snapshotRoot()).catch(() => []))
     if (/^\d+(?:\.partial)?$/.test(name) && !referenced.has(Number.parseInt(name, 10)))
       await rm(join(snapshotRoot(), name), { recursive: true, force: true });
@@ -446,8 +447,8 @@ export async function resumeShuiyuanSnapshots(): Promise<void> {
     .database()
     .prepare(
       `SELECT topic_id FROM shuiyuan_topics
-       WHERE topic_id IN (${referencedTopics}) AND snapshot_status IS NOT 'failed'`,
+       WHERE topic_id IN (SELECT value FROM json_each(?)) AND snapshot_status IS NOT 'failed'`,
     )
-    .all() as { topic_id: number }[];
+    .all(JSON.stringify(referencedTopicIds())) as { topic_id: number }[];
   for (const { topic_id: topicId } of topicIds) ensureShuiyuanSnapshot(topicId);
 }

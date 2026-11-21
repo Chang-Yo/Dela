@@ -5,7 +5,14 @@ import { basename, extname } from 'node:path';
 import { hostPorts } from '../../../core/ports';
 import { resourceAddressSchema, resourceResolver } from '../../../core/capabilities/resources';
 import type { ResourceAddress } from '../../../core/protocol/workbench';
-import { availablePath, createWorkspaceEntry } from '../../workspace';
+import {
+  availablePath,
+  createWorkspaceEntry,
+  registerWorkspaceFile,
+  relinkWorkspaceFile,
+  rootFolderNamed,
+  storedFolder,
+} from '../../workspace';
 import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
 import { classifyOfficeFile } from './parse';
 import type { OfficeExportProgress } from '../../workspace/contract';
@@ -102,10 +109,6 @@ function friendlyPowerShellError(stderr: string, code: number | null): string {
 
 function ensureExportFolder(): { id: string; path: string } {
   const db = hostPorts().database();
-  const row = (id: string) =>
-    db
-      .prepare("SELECT id, local_path AS path FROM workspace_entries WHERE id=? AND kind='folder'")
-      .get(id) as { id: string; path: string | null } | undefined;
   const usable = (item: { id: string; path: string | null } | undefined) => {
     if (item?.path && existsSync(item.path)) return { id: item.id, path: item.path };
     return undefined;
@@ -115,16 +118,12 @@ function ensureExportFolder(): { id: string; path: string } {
     .get(EXPORT_FOLDER_SETTING) as { value: string } | undefined;
   // 设置键优先（文件夹被重命名后仍可找回），缺失时按名称兜底，最后才新建。
   const folder =
-    usable(stored ? row(stored.value) : undefined) ??
+    usable(stored ? storedFolder(stored.value) : undefined) ??
+    usable(rootFolderNamed(EXPORT_FOLDER_NAME)) ??
     usable(
-      db
-        .prepare(
-          "SELECT id, local_path AS path FROM workspace_entries WHERE parent_id IS NULL AND name=? AND kind='folder' LIMIT 1",
-        )
-        .get(EXPORT_FOLDER_NAME) as { id: string; path: string | null } | undefined,
-    ) ??
-    usable(
-      row(createWorkspaceEntry({ parentId: null, name: EXPORT_FOLDER_NAME, kind: 'folder' }).id),
+      storedFolder(
+        createWorkspaceEntry({ parentId: null, name: EXPORT_FOLDER_NAME, kind: 'folder' }).id,
+      ),
     );
   if (!folder) throw new Error('无法创建「预览导出」文件夹');
   db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(
@@ -139,29 +138,9 @@ function registerExportEntry(
   previousEntryId: string | undefined,
   path: string,
 ): string {
-  const db = hostPorts().database();
-  const now = new Date().toISOString();
-  if (
-    previousEntryId &&
-    db.prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(previousEntryId)
-  ) {
-    // local_path 必须与落盘路径同步：用户可能已重命名/移动过该条目。
-    db.prepare('UPDATE workspace_entries SET name=?, local_path=?, updated_at=? WHERE id=?').run(
-      basename(path),
-      path,
-      now,
-      previousEntryId,
-    );
-    return previousEntryId;
-  }
-  const id = randomUUID();
-  // 导出的 PDF 需要稳定身份（关联记录按 id 指向它），所以落一行 file 条目；
-  // 列名显式写出：这张表的列随 schema 版本增删过，位置参数会静默错位。
-  db.prepare(
-    `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
-     VALUES (?, ?, ?, 'file', NULL, ?, ?)`,
-  ).run(id, folderId, basename(path), path, now);
-  return id;
+  // 用户可能已重命名/移动过旧条目，所以先让它跟上落盘路径；导出的 PDF 需要稳定身份。
+  if (previousEntryId && relinkWorkspaceFile(previousEntryId, path)) return previousEntryId;
+  return registerWorkspaceFile(folderId, path);
 }
 
 // PowerPoint COM 是单实例服务器：并发转换会互相打断（先完成方的 Quit 终止共享实例），

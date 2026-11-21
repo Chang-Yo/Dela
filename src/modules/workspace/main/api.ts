@@ -410,6 +410,65 @@ export function entry(id: string): WorkspaceEntry {
   return item;
 }
 
+export const workspaceEntryExists = (id: string) =>
+  hostPorts().database().prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(id) !==
+  undefined;
+
+/** 以身份行登记的文件夹；纯路径文件夹没有这一行。 */
+export const storedFolder = (id: string) =>
+  hostPorts()
+    .database()
+    .prepare("SELECT id, local_path AS path FROM workspace_entries WHERE id=? AND kind='folder'")
+    .get(id) as { id: string; path: string | null } | undefined;
+
+export const rootFolderNamed = (name: string) =>
+  hostPorts()
+    .database()
+    .prepare(
+      "SELECT id, local_path AS path FROM workspace_entries WHERE parent_id IS NULL AND name=? AND kind='folder' LIMIT 1",
+    )
+    .get(name) as { id: string; path: string | null } | undefined;
+
+/** 登记一个已落盘的文件，供关联记录按 id 指向它；列名显式写出，避免 schema 变动后错位。 */
+export function registerWorkspaceFile(parentId: string, path: string): string {
+  const id = randomUUID();
+  hostPorts()
+    .database()
+    .prepare(
+      `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
+       VALUES (?, ?, ?, 'file', NULL, ?, ?)`,
+    )
+    .run(id, parentId, basename(path), path, new Date().toISOString());
+  return id;
+}
+
+/** 让条目的名称与路径跟上落盘位置；条目不存在时返回 false。 */
+export function relinkWorkspaceFile(id: string, path: string): boolean {
+  const result = hostPorts()
+    .database()
+    .prepare('UPDATE workspace_entries SET name=?, local_path=?, updated_at=? WHERE id=?')
+    .run(basename(path), path, new Date().toISOString(), id) as { changes: number };
+  return result.changes > 0;
+}
+
+export const remoteProjectIds = (remoteId: string) =>
+  (
+    hostPorts()
+      .database()
+      .prepare("SELECT id FROM workspace_entries WHERE remote_id=? AND kind='project'")
+      .all(remoteId) as { id: string }[]
+  ).map((project) => project.id);
+
+export const sourceIdsWithPrefix = (prefix: string) =>
+  (
+    hostPorts()
+      .database()
+      .prepare(
+        "SELECT source_id AS sourceId FROM workspace_entries WHERE kind='source' AND substr(source_id, 1, ?)=?",
+      )
+      .all(prefix.length, prefix) as { sourceId: string }[]
+  ).map((row) => row.sourceId);
+
 function fileEntry(
   path: string,
   parentId: string | null = null,
