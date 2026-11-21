@@ -13,6 +13,7 @@ import { v13tov14 } from './v13tov14';
 import { v14tov15 } from './v14tov15';
 import { v15tov16 } from './v15tov16';
 import { v16tov17 } from './v16tov17';
+import { v17ToBaseline } from './v17tobaseline';
 
 const migrations: Migration[] = [
   { from: 6, run: v6tov7 },
@@ -40,14 +41,21 @@ export class UnsupportedDataVersionError extends Error {
   }
 }
 
-/** 把已有数据逐级迁到 target；新安装（没有数据库或 user_version 为 0）不迁移。返回执行的步数。 */
-export function runMigrations(context: MigrationContext, target: number): number {
+/** 旧版过渡（0025）只迁到 v17，之后交给各模块按名字登记的迁移。 */
+const lastVersion = 17;
+
+/**
+ * 把旧版数据逐级迁到 target，迁到 v17 时再记下各模块的起点。新安装（没有数据库或
+ * user_version 为 0）与已经过渡的库不迁移。返回执行的步数。
+ */
+export function runMigrations(context: MigrationContext, target = lastVersion): number {
   const path = join(context.userData, 'dela.db');
   if (!existsSync(path)) return 0;
   const db = new Database(path);
   try {
     const version = db.pragma('user_version', { simple: true }) as number;
-    if (version === 0 || version === target) return 0;
+    const baseline = target === lastVersion;
+    if (version === 0 || version > lastVersion || (version === target && !baseline)) return 0;
     if (version > target) throw new Error('数据库由更新版本的 Dela 创建，请升级到最新版本');
     const steps: Migration[] = [];
     for (let from = version; from < target; from++) {
@@ -69,6 +77,7 @@ export function runMigrations(context: MigrationContext, target: number): number
           step.run(db, context);
           db.pragma(`user_version = ${step.from + 1}`);
         })();
+      if (baseline) db.transaction(() => v17ToBaseline(db))();
     } catch (error) {
       db.close();
       for (const file of backups) copyFileSync(`${file}.migrating`, file);

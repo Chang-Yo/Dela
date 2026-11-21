@@ -1,9 +1,12 @@
 // 邮件作为通知来源：收件箱未读进通知中心，通知的已读与可见跟随邮件缓存（seen、本地删除）。
 import {
+  deleteNotifications,
   existingNotifications,
   publishNotificationState,
   registerNoticeSource,
   saveNotificationRefresh,
+  setNotificationsRead,
+  storedNotifications,
   systemNotifyItem,
   upsertNotification,
   type NoticeSource,
@@ -59,16 +62,22 @@ function syncMailNotices(recordSuccess: boolean): void {
       systemNotifyItem({ id, source: 'mail', title, href });
   }
   // 本地删除的邮件不再显示通知；已读取自邮件本身，邮件不记录已读时刻，用通知时间占位。
-  db.prepare(
-    `DELETE FROM notifications WHERE source = 'mail' AND account_key = ? AND NOT EXISTS (
-       SELECT 1 FROM mail_messages m WHERE m.id = json_extract(notifications.href, '$.messageId') AND m.deleted_at IS NULL)`,
-  ).run(key);
-  db.prepare(
-    `UPDATE notifications SET read_at = CASE WHEN (
-       SELECT m.seen FROM mail_messages m WHERE m.id = json_extract(notifications.href, '$.messageId')
-     ) = 1 THEN COALESCE(read_at, created_at) ELSE NULL END
-     WHERE source = 'mail' AND account_key = ?`,
-  ).run(key);
+  const findMessage = db.prepare(
+    'SELECT seen FROM mail_messages WHERE id = ? AND deleted_at IS NULL',
+  );
+  const gone: string[] = [];
+  const seen: string[] = [];
+  const unseen: string[] = [];
+  for (const notice of storedNotifications('mail', key)) {
+    const message = findMessage.get((notice.href as { messageId: number }).messageId ?? null) as
+      { seen: number } | undefined;
+    if (!message) gone.push(notice.id);
+    else if (message.seen === 1) seen.push(notice.id);
+    else unseen.push(notice.id);
+  }
+  deleteNotifications(gone);
+  setNotificationsRead(seen, true);
+  setNotificationsRead(unseen, false);
   const sync = getMailState().sync;
   if (sync.phase === 'error') saveNotificationRefresh('mail', key, sync.error ?? '邮箱同步失败');
   else if (recordSuccess) saveNotificationRefresh('mail', key, null);

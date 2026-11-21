@@ -116,6 +116,25 @@ it('某一步失败时数据库与配置都还原到迁移前', () => {
   expect(readFileSync(configPath())).toEqual(before);
 });
 
+it('迁到 v17 后补建缺失的表并记下各模块的起点，过渡过的库不再迁移', () => {
+  const before = new Database(dbPath());
+  before.exec(
+    'CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT NOT NULL, data TEXT NOT NULL)',
+  );
+  before.pragma('user_version = 17');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal })).toBe(0);
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(18);
+  expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'sessions'").get()).toBeTruthy();
+  expect(
+    db.prepare("SELECT name FROM schema_migrations WHERE module = 'notifications'").pluck().all(),
+  ).toEqual(['baseline']);
+  db.close();
+  expect(runMigrations({ userData, home: userData, seal })).toBe(0);
+});
+
 it('新安装与当前版本不迁移；缺少中间步骤的旧版本明确拒绝', () => {
   expect(runMigrations({ userData, home: userData, seal }, 7)).toBe(0);
   const db = new Database(dbPath());

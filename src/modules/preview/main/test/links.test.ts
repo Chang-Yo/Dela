@@ -15,12 +15,8 @@ vi.mock('electron', () => ({ app: { getPath: vi.fn(() => tmpdir()) } }));
 
 const db = new Database(':memory:');
 db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT)');
-db.exec(
-  'CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT, kind TEXT, source_id TEXT, note_id TEXT, local_path TEXT, remote_id TEXT, updated_at TEXT)',
-);
 
 const link: OfficeExportLink = {
-  entryId: '00000000-0000-4000-8000-000000000002',
   path: 'Dela/workspace/预览导出/A.pdf',
   version: 'v1',
   exportedAt: '2026-09-28T00:00:00.000Z',
@@ -28,11 +24,6 @@ const link: OfficeExportLink = {
 
 beforeEach(() => {
   db.exec('DELETE FROM workspace_settings');
-  db.exec('DELETE FROM workspace_entries');
-  db.prepare('INSERT INTO workspace_entries (id, kind) VALUES (?, ?)').run(
-    link.entryId,
-    'imported',
-  );
   provideTestHostPorts({ database: () => db });
 });
 
@@ -68,9 +59,6 @@ describe('office export links', () => {
       expect(
         officeExportPreviewInfo({ ...stored, path: join(dir, 'missing.pdf') }, 'v1'),
       ).toBeNull();
-      // 条目被删除（仓库约定删除条目不删磁盘文件）后回退 null，让读取方显示导出卡片。
-      db.prepare('DELETE FROM workspace_entries WHERE id=?').run(link.entryId);
-      expect(officeExportPreviewInfo(stored, 'v1')).toBeNull();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

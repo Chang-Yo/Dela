@@ -188,7 +188,13 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 
 模型推理档位只按模型保存；搜索结果直接携带会话的 `projectId`，不再推导旧入口身份。
 
-schema v15。业务代码只认当前格式；旧数据在启动时由 `src/app/main/migrations/` 逐级升级（规则见该目录的 README），缺少对应迁移的旧版本与更新版本创建的数据拒绝打开。
+只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，经 `defineModule` 的 `schema` 交给宿主；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。只有表的主人写自己表的 SQL，别人经主人 `index.ts` 导出的函数读写，`scripts/lint-tables.ts` 把关；`workspace_settings` 是谁都能用的共享键值表。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
+
+写模块的迁移时：
+
+- 只改自己的表，以及别的表里属于自己的数据（例如自己的 id）；不 import 业务代码，已发布的迁移不再修改。
+- 改了表就同时改 `tables` 里的建表语句：新装的库直接按它建表，并把已有的迁移记为已执行。
+- 迁移期间外键检查关闭，重建表不受影响，结束后才打开。
 
 模型选择属于会话：提供商只有启用/停用，没有全局「使用中」；新会话沿用最近发过消息的会话的模型，开始使用时写定。提供商分两类：内置厂商（`piProvider` 指向 Pi 目录中的厂商，模型只能从目录选）与自定义 OpenAI 兼容服务。
 
@@ -225,7 +231,7 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modules/search`）是第一个范例，后续模块照它的结构做。设计理由见 ADR [0009](adr/0009-renderer-state.md)、[0011](adr/0011-module-contracts.md)、[0012](adr/0012-nav-targets.md)。
 
 1. **契约**：在 `contract.ts` 中用 `defineContract` 声明通道与入参 schema，返回值用 `z.custom<T>()` 只给类型。
-2. **主进程**：在 `index.ts` 中用 `defineModule` 和 `implement` 导出模块；实现放在 `main/`。别的模块需要提供数据时，在 `index.ts` 中开注册口。
+2. **主进程**：在 `index.ts` 中用 `defineModule` 和 `implement` 导出模块，有表的模块同时给出 `data/schema.ts` 里的 `schema`；实现放在 `main/`。别的模块需要提供数据时，在 `index.ts` 中开注册口。
 3. **登记**：模块加进 `app/modules.ts`，契约加进 `app/contracts.ts`，删除旧的 `ipcMain.handle`、preload 文件和 `DelaApi` 字段。
 4. **界面**：组件放在 `view/`，从 `view/index.ts` 导出。用 `createClient(contract, window.dela?.bridge)` 加 `useQuery` 取数，不写 Effect、requestId 和定时器。
 5. **跳转**：页面参数通过 `NavTargets` 接口合并登记。
@@ -233,7 +239,7 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 
 `ModuleDefinition` 除 `ipc` 外还有三个钩子：`register()` 在窗口创建前登记命令域、Skill 与各类注册口（冒烟测试同样调用）；`start()` 启动后台同步并返回停止函数；`openLink(url)` 让模块在应用内接管外部链接。
 
-交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts`、`app/views.ts` 与 `app/contracts.ts` 三份清单例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。CI 每次都用 `scripts/strip-sjtu.ts` 从三份清单里去掉全部交大模块，再做类型检查、构建与冒烟，守住这条边界。
+交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 三份清单例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。CI 每次都用 `scripts/strip-sjtu.ts` 从三份清单里去掉全部交大模块，再做类型检查、构建与冒烟，守住这条边界。
 
 Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
 
@@ -274,26 +280,26 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 
 ## 12. 常用命令
 
-| 命令                                | 用途                                                           |
-| ----------------------------------- | -------------------------------------------------------------- |
-| `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                   |
-| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）    |
-| `pnpm build`                        | 类型检查 + 三个入口生产构建                                    |
-| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用             |
-| `pnpm lint`                         | oxlint（含依赖边界）+ `scripts/lint-styles.ts` 样式 token 检查 |
-| `pnpm check`                        | `format:check` + `lint` + `build` + `test`                     |
-| `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                            |
-| `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行         |
-| `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离  |
-| `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位    |
-| `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                      |
-| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）            |
-| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）     |
-| `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                   |
-| `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`  |
-| `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                 |
-| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）      |
-| `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                          |
+| 命令                                | 用途                                                          |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                  |
+| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）   |
+| `pnpm build`                        | 类型检查 + 三个入口生产构建                                   |
+| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用            |
+| `pnpm lint`                         | oxlint（含依赖边界）+ 样式 token、ui 组件与表归属检查         |
+| `pnpm check`                        | `format:check` + `lint` + `build` + `test`                    |
+| `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                           |
+| `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行        |
+| `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离 |
+| `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位   |
+| `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                     |
+| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）           |
+| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）    |
+| `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                  |
+| `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
+| `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                |
+| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）     |
+| `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                         |
 
 `pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`smoke:documents`）外不发送真实请求。
 

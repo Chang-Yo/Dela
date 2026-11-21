@@ -47,7 +47,13 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 import type { BackupResult } from '../../contract';
 import { excludeFromBackup, exportUserData } from '../backup';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
-import { closeDatabase, getDatabase, SCHEMA_VERSION } from '../../../../app/main/database';
+import {
+  closeDatabase,
+  getDatabase,
+  openDatabase,
+  SCHEMA_VERSION,
+} from '../../../../app/main/database';
+import { settingsSchema } from '../../data/schema';
 
 let base: string;
 let userData: string;
@@ -100,6 +106,7 @@ beforeEach(() => {
     },
     database: getDatabase,
   });
+  openDatabase([{ id: 'settings', schema: settingsSchema }]);
   mkdirSync(join(state.home, '.dela', 'skills', 'mine'), { recursive: true });
   writeFileSync(join(state.home, '.dela', 'skills', 'mine', 'SKILL.md'), 'keep');
   writeFileSync(join(state.home, '.dela', 'config.json'), '{}');
@@ -187,15 +194,13 @@ it('excludes snapshot content and its sealed key while keeping database metadata
   writeFileSync(join(root, 'key.bin'), 'sealed-key');
   writeFileSync(join(root, '42', 'page-0.json'), 'encrypted-body');
   getDatabase()
-    .prepare(
-      "INSERT INTO shuiyuan_topics(topic_id, title, url, added_at) VALUES(42, '标题', 'url', 'now')",
-    )
+    .prepare("INSERT INTO workspace_settings(key, value) VALUES('snapshots.meta', '标题')")
     .run();
   const result = exported(await exportUserData(null));
   expect(existsSync(join(result.path, '应用数据', 'snapshots'))).toBe(false);
   const db = new Database(join(result.path, '应用数据', 'dela.db'), { readonly: true });
-  expect(db.prepare('SELECT title FROM shuiyuan_topics WHERE topic_id=42').pluck().get()).toBe(
-    '标题',
-  );
+  expect(
+    db.prepare("SELECT value FROM workspace_settings WHERE key='snapshots.meta'").pluck().get(),
+  ).toBe('标题');
   db.close();
 });

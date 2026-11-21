@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -9,12 +9,12 @@ import { z } from 'zod';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 vi.mock('../../../workspace', () => ({
-  createWorkspaceEntry: vi.fn(),
+  workspaceRootDirectory: vi.fn(),
   availablePath: (parent: string, name: string) => join(parent, name),
 }));
 vi.mock('../parse', () => ({ classifyOfficeFile: vi.fn(async () => 'pptx') }));
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
-import { createWorkspaceEntry } from '../../../workspace';
+import { workspaceRootDirectory } from '../../../workspace';
 import { registerResourceResolver } from '../../../../core/capabilities/resources';
 import { exportOfficePdf } from '../export';
 import { readOfficeExportLink } from '../links';
@@ -38,21 +38,9 @@ beforeEach(() => {
   writeFileSync(source, 'synthetic presentation');
   db = new Database(':memory:');
   db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT)');
-  db.exec(
-    'CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT, kind TEXT, source_id TEXT, local_path TEXT, updated_at TEXT)',
-  );
   provideTestHostPorts({ database });
   workspacePath.mockResolvedValue(source);
-  vi.mocked(createWorkspaceEntry).mockImplementation(() => {
-    const path = join(directory, '预览导出');
-    mkdirSync(path);
-    db.prepare('INSERT INTO workspace_entries (id, kind, local_path) VALUES (?, ?, ?)').run(
-      'exports',
-      'folder',
-      path,
-    );
-    return { id: 'exports' } as ReturnType<typeof createWorkspaceEntry>;
-  });
+  vi.mocked(workspaceRootDirectory).mockReturnValue(directory);
   vi.mocked(spawn).mockImplementation((_command, _args, options) => {
     const child = Object.assign(new EventEmitter(), { stderr: new EventEmitter() });
     queueMicrotask(() => {
@@ -78,7 +66,7 @@ it('Mac 拒绝转换，且不解析源文件或写入导出数据', async () => 
   expect(spawn).not.toHaveBeenCalled();
 });
 
-it('Windows 保留 PowerPoint 调用、进度与 PDF 关联保存', async () => {
+it('Windows 首次导出新建「预览导出」文件夹，并保存 PowerPoint 进度与 PDF 关联', async () => {
   vi.stubGlobal('process', { ...process, platform: 'win32' });
   const progress = vi.fn();
   await exportOfficePdf({ type: 'workspace', id: source }, progress);

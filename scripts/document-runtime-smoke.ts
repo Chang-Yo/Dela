@@ -9,7 +9,8 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/main/host-electron';
-import { closeDatabase } from '../src/app/main/database';
+import { closeDatabase, openDatabase } from '../src/app/main/database';
+import { modules } from '../src/app/modules';
 import { listSkills, setSkillEnabled } from '../src/core/capabilities/skills';
 import {
   documentDependency,
@@ -28,6 +29,7 @@ app.whenReady().then(async () => {
   let exitCode = 1;
   try {
     provideHostPorts(electronPorts);
+    openDatabase(modules);
     assert.equal(process.platform, 'darwin');
     assert.equal(process.arch, 'arm64');
     assert.equal(documentDependency().status, 'missing');

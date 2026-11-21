@@ -170,12 +170,48 @@ export function archiveProject(projectId: string | null): string[] {
   return ids.map(({ id }) => id);
 }
 
+/** 项目降为文件夹后，名下会话转为随聊。 */
+export function detachProjectSessions(projectId: string): void {
+  hostPorts()
+    .database()
+    .prepare('UPDATE sessions SET project_id=NULL WHERE project_id=?')
+    .run(projectId);
+}
+
 export const childSessionIds = (id: string) =>
   (
     hostPorts().database().prepare('SELECT id FROM sessions WHERE parent_id=?').all(id) as {
       id: string;
     }[]
   ).map((child) => child.id);
+
+/** 项目名下的顶层会话（含归档），子 Agent 会话随父会话处理。 */
+export const projectSessionIds = (projectId: string) =>
+  (
+    hostPorts()
+      .database()
+      .prepare('SELECT id FROM sessions WHERE project_id=? AND parent_id IS NULL')
+      .all(projectId) as { id: string }[]
+  ).map((session) => session.id);
+
+/** 全局搜索只按标题匹配顶层会话，最近更新的在前。 */
+export function searchSessionTitles(
+  query: string,
+  limit: number,
+): { id: string; projectId: string | null; title: string }[] {
+  const pattern = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+  return hostPorts()
+    .database()
+    .prepare(
+      `SELECT id, project_id AS projectId, title FROM sessions WHERE parent_id IS NULL
+       ${query ? "AND title LIKE ? ESCAPE '\\'" : ''} ORDER BY updated_at DESC LIMIT ?`,
+    )
+    .all(...(query ? [pattern, limit] : [limit])) as {
+    id: string;
+    projectId: string | null;
+    title: string;
+  }[];
+}
 
 export function removeSession(id: string) {
   hostPorts().database().prepare('DELETE FROM sessions WHERE id=?').run(id);

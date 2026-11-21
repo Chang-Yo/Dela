@@ -11,11 +11,12 @@ vi.mock('electron', () => ({
 }));
 vi.mock('../todo', () => ({ getTodoState: () => ({ items: [] }) }));
 
-import { closeDatabase, getDatabase } from '../database';
+import { closeDatabase, getDatabase, openDatabase } from '../database';
 import type { SearchGroup } from '../../../modules/search/contract';
 import { registerSearchProvider, searchModule } from '../../../modules/search';
+import { remotesModule } from '../../../modules/remotes';
 import { workspaceModule } from '../../../modules/workspace';
-import { mailSearch } from '../../../modules/mail';
+import { mailModule, mailSearch } from '../../../modules/mail';
 import { provideTestHostPorts } from '../../../core/test/host-mock';
 
 const timestamp = '2026-09-16T12:00:00.000Z';
@@ -30,6 +31,7 @@ const hitsOf = (query: string, group: string) =>
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-search-'));
   provideTestHostPorts({ database: getDatabase });
+  openDatabase([remotesModule, workspaceModule, mailModule]);
   workspaceModule.register?.();
   registerSearchProvider(mailSearch);
   run(

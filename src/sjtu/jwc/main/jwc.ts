@@ -3,7 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { load } from 'cheerio';
 import { hostPorts } from '../../../core/ports';
-import { systemNotifyItem, type NoticeSource } from '../../../modules/notifications';
+import {
+  insertNotificationIfAbsent,
+  saveNotificationRefresh,
+  storedNotice,
+  systemNotifyItem,
+  type NoticeSource,
+} from '../../../modules/notifications';
 import type { JwcNotice } from '../contract';
 
 const origin = 'https://jwc.sjtu.edu.cn';
@@ -125,46 +131,38 @@ export async function refreshJwc(force = false): Promise<void> {
     }
     sync.checkedAt = Date.now();
     db.transaction(() => {
-      const insert = db.prepare(`INSERT OR IGNORE INTO notifications
-        (id, source, account_key, title, body, created_at, read_at, source_unread, href)
-        VALUES (?, 'jwc', ?, ?, ?, ?, NULL, 1, ?)`);
       for (const item of added)
-        insert.run(
-          item.id,
+        insertNotificationIfAbsent(
+          'jwc',
           accountKey,
+          item.id,
           item.title,
           item.body,
           item.createdAt,
-          JSON.stringify(item.href),
+          item.href,
         );
       db.prepare('INSERT OR REPLACE INTO workspace_settings (key, value) VALUES (?, ?)').run(
         syncKey,
         JSON.stringify(sync),
       );
-      db.prepare(
-        `INSERT INTO notification_refreshes (source, account_key, last_success_at, error)
-        VALUES ('jwc', ?, ?, NULL) ON CONFLICT(source, account_key) DO UPDATE SET
-        last_success_at = excluded.last_success_at, error = NULL`,
-      ).run(accountKey, new Date().toISOString());
+      saveNotificationRefresh('jwc', accountKey, null);
     })();
     if (!initialSync) for (const item of added) systemNotifyItem(item);
   } catch (error) {
-    db.prepare(
-      `INSERT INTO notification_refreshes (source, account_key, last_success_at, error)
-      VALUES ('jwc', ?, NULL, ?) ON CONFLICT(source, account_key) DO UPDATE SET error = excluded.error`,
-    ).run(accountKey, error instanceof Error ? error.message : String(error));
+    saveNotificationRefresh(
+      'jwc',
+      accountKey,
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
 export async function getJwcNotice(id: string): Promise<JwcNotice> {
   const cached = notices.get(id);
   if (cached) return cached;
-  const row = hostPorts()
-    .database()
-    .prepare("SELECT title, created_at, href FROM notifications WHERE id = ? AND source = 'jwc'")
-    .get(id) as { title: string; created_at: string; href: string } | undefined;
+  const row = storedNotice('jwc', id);
   if (!row) throw new Error('通知不存在');
-  const { url } = JSON.parse(row.href) as { url: string };
+  const { url } = row.href as { url: string };
   if (new URL(url).origin !== origin) throw new Error('此通知发布在外部网站，请查看原文');
   const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
   if (!response.ok) throw new Error(`教务处正文请求失败（${response.status}）`);
@@ -184,7 +182,7 @@ export async function getJwcNotice(id: string): Promise<JwcNotice> {
   const notice = {
     id,
     title: row.title,
-    publishedAt: row.created_at,
+    publishedAt: row.createdAt,
     url,
     html: content.html()!,
     attachments,

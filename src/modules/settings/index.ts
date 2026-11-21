@@ -5,6 +5,7 @@ import { getAgentInstruction, setAgentInstruction } from '../../core/agent/instr
 import { hostPorts } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { settingsContract } from './contract';
+import { settingsSchema } from './data/schema';
 import { exportUserData } from './main/backup';
 import { cacheSize, clearCaches } from './main/cache';
 import { recordConsent } from './main/consent';
@@ -42,6 +43,7 @@ export { notifyRunFinished } from './main/task-notify';
 
 export const settingsModule = defineModule({
   id: 'settings',
+  schema: settingsSchema,
   ipc: implement(settingsContract, {
     theme: savedTheme,
     setTheme,

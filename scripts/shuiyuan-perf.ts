@@ -18,7 +18,8 @@ import {
   handleShuiyuanSnapshotRequest,
 } from '../src/sjtu/shuiyuan/main/snapshot-files';
 import { queueShuiyuanSnapshot } from '../src/sjtu/shuiyuan/main/snapshot';
-import { getDatabase } from '../src/app/main/database';
+import { openDatabase } from '../src/app/main/database';
+import { shuiyuanSchema } from '../src/sjtu/shuiyuan/data/schema';
 import { saveShuiyuanCredential } from '../src/sjtu/shuiyuan/main/credentials';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-shuiyuan-perf-'));
@@ -116,7 +117,7 @@ app
         username: 'benchmark',
         boundAt: savedAt,
       });
-      getDatabase()
+      openDatabase([{ id: 'shuiyuan', schema: shuiyuanSchema }])
         .prepare('INSERT INTO shuiyuan_topics(topic_id,title,url,added_at) VALUES(42,?,?,?)')
         .run('性能基准', 'https://fixture.invalid', savedAt);
       await writeFile(

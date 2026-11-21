@@ -14,7 +14,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/main/host-electron';
-import { closeDatabase, getDatabase } from '../src/app/main/database';
+import { closeDatabase, openDatabase } from '../src/app/main/database';
+import { modules } from '../src/app/modules';
 import { mailModule, prepareEmail } from '../src/modules/mail';
 import {
   canvasNextPage,
@@ -131,7 +132,7 @@ app
   .whenReady()
   .then(async () => {
     provideHostPorts(electronPorts);
-    const db = getDatabase();
+    const db = openDatabase(modules);
     db.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)").run(
       join(profile, 'notes'),
     );
@@ -351,7 +352,7 @@ app
       }),
     );
     renameSync(moveFrom, moveTo);
-    closeDatabase();
+    openDatabase(modules);
     getWorkspaceState();
     assert(existsSync(join(moveTo, '笔记 (2).md')));
     // 越出父目录的路径段直接拒绝；Windows 保留名仍按段替换成安全名字。
@@ -473,7 +474,7 @@ app
     await invoke(`await window.dela.bridge.invoke('workspace:remove', ${JSON.stringify(moveTo)});`);
     assert.equal((await readWorkspaceEntry(ref2.id)).format, 'html');
     assert(existsSync(path));
-    closeDatabase();
+    openDatabase(modules);
     assert.deepEqual(
       await invoke(
         `return await window.dela.bridge.invoke('workspace:layout', ${JSON.stringify(promoted.id)});`,

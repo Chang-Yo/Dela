@@ -5,7 +5,6 @@ import type { OfficeExportInfo } from '../../../core/protocol/workbench';
 
 /** version 为导出时源文件的 mtime-size。 */
 export interface OfficeExportLink {
-  entryId: string;
   path: string;
   version: string;
   exportedAt: string;
@@ -38,17 +37,10 @@ export function officeExportPreviewInfo(
   version: string,
 ): OfficeExportInfo | null {
   try {
-    // 条目被用户删除时（磁盘文件仍在）协议会 404，返回 null 让读取方回退到确认卡片。
-    if (
-      !hostPorts()
-        .database()
-        .prepare('SELECT 1 FROM workspace_entries WHERE id=?')
-        .get(link.entryId)
-    )
-      return null;
+    // PDF 被删除或移走时返回 null，让读取方回退到确认卡片。
     const stats = statSync(link.path);
     return {
-      previewUrl: `dela-resource://workspace/${encodeURIComponent(link.entryId)}?v=${stats.mtimeMs}-${stats.size}`,
+      previewUrl: `dela-resource://workspace/${encodeURIComponent(link.path)}?v=${stats.mtimeMs}-${stats.size}`,
       title: basename(link.path),
       stale: link.version !== version,
     };

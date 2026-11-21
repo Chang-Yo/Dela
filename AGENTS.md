@@ -119,7 +119,7 @@ src/
 └─ app/        Electron 入口、宿主端口实现、工作台外壳、模块清单（modules、views、contracts）
 ```
 
-每个模块按需包含 `index.ts`（模块定义，主进程侧出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/`（`view/index.ts` 是界面侧出口）、`data/`；Agent 的命令域与 Skill 放在 `main/agent/`。
+每个模块按需包含 `index.ts`（模块定义，主进程侧出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/`（`view/index.ts` 是界面侧出口）、`data/`（`data/schema.ts` 是本模块的表与迁移）；Agent 的命令域与 Skill 放在 `main/agent/`。
 
 依赖规则（由 CI 的 lint 检查）：
 
@@ -158,6 +158,7 @@ Dela/
 │  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
 │  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
 │  │  ├─ remote/              远程执行后端与 helper 通道
+│  │  ├─ data/                会话表的结构与迁移
 │  │  ├─ config-files.ts      ~/.dela 下的 JSON 配置（模型服务、联网搜索、MCP）
 │  │  └─ ports.ts             宿主端口（HostPorts）
 │  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
@@ -177,7 +178,7 @@ Dela/
 │     ├─ modules.ts           主进程模块清单
 │     ├─ contracts.ts         IPC 契约清单
 │     ├─ views.ts             渲染端视图清单
-│     ├─ main/                Electron 入口、数据库与迁移、IPC 注册与宿主端口实现
+│     ├─ main/                Electron 入口、数据库、旧版数据过渡、IPC 注册与宿主端口实现
 │     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
 │     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
 ├─ helper/                    Go 远端 helper

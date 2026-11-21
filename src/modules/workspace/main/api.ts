@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { hostPorts, type Projects } from '../../../core/ports';
 import { remoteById, targetOf } from '../../remotes';
 import { locateRemote } from '../../../core/remote/operations';
+import { detachProjectSessions, projectSessionIds } from '../../../core/agent/session/store';
 import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from './sources';
 import { availablePath, diskName } from './disk-name';
 import { officeExportPreviewInfo, officeZipMime, readOfficeExportLink } from '../../preview';
@@ -409,6 +410,24 @@ export function entry(id: string): WorkspaceEntry {
   return item;
 }
 
+export const remoteProjectIds = (remoteId: string) =>
+  (
+    hostPorts()
+      .database()
+      .prepare("SELECT id FROM workspace_entries WHERE remote_id=? AND kind='project'")
+      .all(remoteId) as { id: string }[]
+  ).map((project) => project.id);
+
+export const sourceIdsWithPrefix = (prefix: string) =>
+  (
+    hostPorts()
+      .database()
+      .prepare(
+        "SELECT source_id AS sourceId FROM workspace_entries WHERE kind='source' AND substr(source_id, 1, ?)=?",
+      )
+      .all(prefix.length, prefix) as { sourceId: string }[]
+  ).map((row) => row.sourceId);
+
 function fileEntry(
   path: string,
   parentId: string | null = null,
@@ -663,6 +682,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
         .run(nextId);
     }
   } else if (parsed.kind === 'folder' && current.kind === 'project') {
+    detachProjectSessions(current.id);
     hostPorts().database().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
     void collectWorkspaceSources();
     nextId = to;
@@ -779,7 +799,7 @@ export function saveWorkspaceNote(id: string, text: string, revision: string): s
   return next;
 }
 
-/** 外键级联删不掉子项目的会话（会残留成随聊），所以先拒绝并点名。 */
+/** 级联删不掉子项目名下的会话，所以先拒绝并点名。 */
 function assertNoChildProjects(projectId: string): void {
   const children = hostPorts()
     .database()
@@ -801,11 +821,7 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     // 动态导入避开 agent/session → workspace/api 的环。
     const { deleteSession } = await import('../../../core/agent/session/commands');
     const { invalidateSessions } = await import('../../../core/agent/session/run');
-    const ids = hostPorts()
-      .database()
-      .prepare('SELECT id FROM sessions WHERE project_id=? AND parent_id IS NULL')
-      .all(item.id) as { id: string }[];
-    for (const row of ids) await deleteSession(row.id);
+    for (const sessionId of projectSessionIds(item.id)) await deleteSession(sessionId);
     invalidateSessions();
     hostPorts().database().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
     await collectWorkspaceSources();

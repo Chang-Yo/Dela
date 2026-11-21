@@ -15,6 +15,7 @@ import {
   remotePortsState,
 } from '../remotes';
 import { workspaceContract } from './contract';
+import { workspaceSchema } from './data/schema';
 import { registerSearchProvider } from '../search';
 import {
   chooseDirectory,
@@ -72,12 +73,15 @@ export {
   importWorkspaceFiles,
   projectLocation,
   readWorkspaceEntry,
+  remoteProjectIds,
   remoteProjectOf,
   removeWorkspaceEntry,
   saveWorkspaceNote,
+  sourceIdsWithPrefix,
   updateWorkspaceEntry,
   workspaceFilePath,
   workspaceProjects,
+  workspaceRootDirectory,
 } from './main/api';
 export {
   documentHint,
@@ -107,6 +111,7 @@ export { registerWorkspaceSource, workspaceSource, type WorkspaceSource } from '
 
 export const workspaceModule = defineModule({
   id: 'workspace',
+  schema: workspaceSchema,
   ipc: implement(workspaceContract, {
     state: workspaceState,
     listLocalDirectory,

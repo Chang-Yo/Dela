@@ -3,7 +3,19 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
 vi.mock('electron', () => ({ app: { isPackaged: true }, dialog: { showSaveDialog: vi.fn() } }));
-vi.mock('../../../../modules/notifications', () => ({ systemNotifyItem: vi.fn() }));
+vi.mock('../../../../modules/todo', () => ({
+  getTodoState: () => ({ items: [], sources: [], syncing: false }),
+  todoSyncedAt: () => null,
+  todoSyncError: () => null,
+  todoNotifications: () => [],
+  onTaskNotice: vi.fn(),
+  onTodoChange: vi.fn(),
+  markTodoRead: vi.fn(),
+}));
+vi.mock('../../../../modules/notifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../modules/notifications')>()),
+  systemNotifyItem: vi.fn(),
+}));
 vi.mock('node:fs/promises', () => ({ writeFile: vi.fn() }));
 
 import { app, dialog } from 'electron';
@@ -131,10 +143,11 @@ it('列表读取失败不推进基线，下次成功仍可发现新增', async (
 
 it('保留正文表格图片、识别附件，并在同一会话提交验证码后保存真实文件', async () => {
   db.prepare(
-    'INSERT INTO notifications (id, source, title, created_at, href) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO notifications (id, source, account_key, title, created_at, href) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(
     'jwc:991',
     'jwc',
+    'students',
     '通知',
     '2026-10-28',
     JSON.stringify({ kind: 'jwc', url: `${origin}/info/1222/991.htm` }),

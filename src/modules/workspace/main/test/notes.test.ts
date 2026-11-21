@@ -60,7 +60,7 @@ function createDb(): Database.Database {
     CREATE INDEX workspace_parent ON workspace_entries(parent_id);
     CREATE TABLE sessions (
       id TEXT PRIMARY KEY,
-      project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL,
+      project_id TEXT,
       file TEXT NOT NULL,
       title TEXT NOT NULL DEFAULT '新对话',
       message_count INTEGER NOT NULL DEFAULT 0,
@@ -512,7 +512,7 @@ describe('saveWorkspaceNote 外部冲突', () => {
 });
 
 describe('folder↔project 转换', () => {
-  it('升格生成条目 UUID 并记录项目目录；转换伴随重命名时项目目录跟随移动，降格回到路径身份', () => {
+  it('升格生成条目 UUID 并记录项目目录；转换伴随重命名时项目目录跟随移动，降格回到路径身份、名下会话转为随聊', () => {
     const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
     expect(isAbsolute(folder.id)).toBe(true);
     const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
@@ -528,7 +528,11 @@ describe('folder↔project 转换', () => {
       db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(promoted.id),
     ).toEqual({ path: join(workspaceRoot(), '毕业设计') });
 
+    db.prepare(
+      "INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES ('s1', ?, 'f', 'now', 'now')",
+    ).run(promoted.id);
     const demoted = updateWorkspaceEntry(promoted.id, { name: '归档课题', kind: 'folder' });
+    expect(db.prepare("SELECT project_id FROM sessions WHERE id='s1'").pluck().get()).toBeNull();
     expect(existsSync(join(workspaceRoot(), '归档课题'))).toBe(true);
     expect(isAbsolute(demoted.id)).toBe(true);
     expect(demoted.id).toBe(join(workspaceRoot(), '归档课题'));

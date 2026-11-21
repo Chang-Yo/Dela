@@ -4,6 +4,7 @@ import { registerCommandDomain } from '../../core/capabilities/commands';
 import { implement } from '../../core/protocol/contract';
 import { registerSearchProvider } from '../search';
 import { todoContract } from './contract';
+import { todoSchema } from './data/schema';
 import { todoDomain } from './main/agent';
 import { todoSearch } from './main/search';
 import { getTodoState, markTodoRead, refreshTodos, removeTodo, saveTodo } from './main/store';
@@ -33,6 +34,7 @@ function syncInBackground() {
 
 export const todoModule = defineModule({
   id: 'todo',
+  schema: todoSchema,
   ipc: implement(todoContract, {
     state: getTodoState,
     refresh: refreshTodos,

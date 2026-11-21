@@ -6,6 +6,7 @@ import { hostPorts } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { registerSettingsSearch } from '../../modules/settings';
 import { timetableContract } from './contract';
+import { timetableSchema } from './data/schema';
 import { timetableDomain } from './main/agent';
 import {
   currentSemester,
@@ -18,6 +19,7 @@ import {
 
 export const timetableModule = defineModule({
   id: 'timetable',
+  schema: timetableSchema,
   ipc: implement(timetableContract, {
     state: getTimetableState,
     lessons: (semester = currentSemester()) => listLessons(semester),

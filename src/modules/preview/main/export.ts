@@ -1,18 +1,16 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
-import { basename, extname } from 'node:path';
-import { hostPorts } from '../../../core/ports';
+import { existsSync, mkdirSync, renameSync, statSync, unlinkSync } from 'node:fs';
+import { basename, extname, join } from 'node:path';
 import { resourceAddressSchema, resourceResolver } from '../../../core/capabilities/resources';
 import type { ResourceAddress } from '../../../core/protocol/workbench';
-import { availablePath, createWorkspaceEntry } from '../../workspace';
+import { availablePath, workspaceRootDirectory } from '../../workspace';
 import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
 import { classifyOfficeFile } from './parse';
 import type { OfficeExportProgress } from '../../workspace/contract';
 
-// 我的资料下集中存放导出 PDF 的固定文件夹；id 记在 settings，重命名后仍能找回。
+// 资料根目录下集中存放导出 PDF 的文件夹；和其他文件一样按路径识别，改名后下次导出会重建。
 const EXPORT_FOLDER_NAME = '预览导出';
-const EXPORT_FOLDER_SETTING = 'preview-export-folder';
 const EXPORT_TIMEOUT_MS = 5 * 60 * 1000;
 
 // PowerShell 5.1 兼容（不用 PS7 语法）；路径经环境变量传入，不拼接进命令文本。
@@ -100,68 +98,10 @@ function friendlyPowerShellError(stderr: string, code: number | null): string {
   return detail ? `PowerPoint 导出失败：${detail}` : `PowerPoint 导出失败（退出码 ${code}）`;
 }
 
-function ensureExportFolder(): { id: string; path: string } {
-  const db = hostPorts().database();
-  const row = (id: string) =>
-    db
-      .prepare("SELECT id, local_path AS path FROM workspace_entries WHERE id=? AND kind='folder'")
-      .get(id) as { id: string; path: string | null } | undefined;
-  const usable = (item: { id: string; path: string | null } | undefined) => {
-    if (item?.path && existsSync(item.path)) return { id: item.id, path: item.path };
-    return undefined;
-  };
-  const stored = db
-    .prepare('SELECT value FROM workspace_settings WHERE key=?')
-    .get(EXPORT_FOLDER_SETTING) as { value: string } | undefined;
-  // 设置键优先（文件夹被重命名后仍可找回），缺失时按名称兜底，最后才新建。
-  const folder =
-    usable(stored ? row(stored.value) : undefined) ??
-    usable(
-      db
-        .prepare(
-          "SELECT id, local_path AS path FROM workspace_entries WHERE parent_id IS NULL AND name=? AND kind='folder' LIMIT 1",
-        )
-        .get(EXPORT_FOLDER_NAME) as { id: string; path: string | null } | undefined,
-    ) ??
-    usable(
-      row(createWorkspaceEntry({ parentId: null, name: EXPORT_FOLDER_NAME, kind: 'folder' }).id),
-    );
-  if (!folder) throw new Error('无法创建「预览导出」文件夹');
-  db.prepare('INSERT OR REPLACE INTO workspace_settings VALUES (?, ?)').run(
-    EXPORT_FOLDER_SETTING,
-    folder.id,
-  );
-  return folder;
-}
-
-function registerExportEntry(
-  folderId: string,
-  previousEntryId: string | undefined,
-  path: string,
-): string {
-  const db = hostPorts().database();
-  const now = new Date().toISOString();
-  if (
-    previousEntryId &&
-    db.prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(previousEntryId)
-  ) {
-    // local_path 必须与落盘路径同步：用户可能已重命名/移动过该条目。
-    db.prepare('UPDATE workspace_entries SET name=?, local_path=?, updated_at=? WHERE id=?').run(
-      basename(path),
-      path,
-      now,
-      previousEntryId,
-    );
-    return previousEntryId;
-  }
-  const id = randomUUID();
-  // 导出的 PDF 需要稳定身份（关联记录按 id 指向它），所以落一行 file 条目；
-  // 列名显式写出：这张表的列随 schema 版本增删过，位置参数会静默错位。
-  db.prepare(
-    `INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
-     VALUES (?, ?, ?, 'file', NULL, ?, ?)`,
-  ).run(id, folderId, basename(path), path, now);
-  return id;
+function exportFolder(): string {
+  const path = join(workspaceRootDirectory(), EXPORT_FOLDER_NAME);
+  mkdirSync(path, { recursive: true });
+  return path;
 }
 
 // PowerPoint COM 是单实例服务器：并发转换会互相打断（先完成方的 Quit 终止共享实例），
@@ -183,11 +123,10 @@ async function runOfficeExport(
   if ((await classifyOfficeFile(path)) !== 'pptx')
     throw new Error('仅支持导出 PowerPoint 演示文稿（pptx）');
   const stats = statSync(path);
-  const folder = ensureExportFolder();
   const pdfName = `${basename(path, extname(path))}.pdf`;
   const previous = readOfficeExportLink(ref.type, String(ref.id));
   const target =
-    previous && existsSync(previous.path) ? previous.path : availablePath(folder.path, pdfName);
+    previous && existsSync(previous.path) ? previous.path : availablePath(exportFolder(), pdfName);
   // 先写到临时名再改回目标名：转换失败时不破坏上一次的导出。
   const temporary = `${target}.${randomUUID()}.part.pdf`;
   try {
@@ -216,9 +155,7 @@ async function runOfficeExport(
     }
     throw error;
   }
-  const entryId = registerExportEntry(folder.id, previous?.entryId, target);
   const link: OfficeExportLink = {
-    entryId,
     path: target,
     version: `${stats.mtimeMs}-${stats.size}`,
     exportedAt: new Date().toISOString(),

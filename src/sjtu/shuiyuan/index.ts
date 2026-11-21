@@ -13,6 +13,7 @@ import {
 } from '../../modules/settings';
 import { registerPreviewHost, registerWorkspaceSource } from '../../modules/workspace';
 import { shuiyuanContract } from './contract';
+import { shuiyuanSchema } from './data/schema';
 import { shuiyuanDomain } from './main/agent';
 import {
   bindShuiyuan,
@@ -51,6 +52,7 @@ import {
 
 export const shuiyuanModule = defineModule({
   id: 'shuiyuan',
+  schema: shuiyuanSchema,
   ipc: implement(shuiyuanContract, {
     state: () => getShuiyuanState(),
     startAuth: () => startShuiyuanAuth(hostPorts().workspaceClient() as WebContents),

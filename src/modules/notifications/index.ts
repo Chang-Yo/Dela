@@ -3,6 +3,7 @@ import { defineModule } from '../../app/module';
 import { implement } from '../../core/protocol/contract';
 import { onTaskNotice, onTodoChange } from '../todo';
 import { notificationsContract } from './contract';
+import { notificationsSchema } from './data/schema';
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -15,10 +16,16 @@ import {
 import { messageAlertsEnabled, setMessageAlerts, showMessageNotice } from './main/system';
 
 export {
+  deleteNotifications,
   existingNotifications,
+  insertNotificationIfAbsent,
+  markNotificationsRead,
   publishNotificationState,
   registerNoticeSource,
   saveNotificationRefresh,
+  setNotificationsRead,
+  storedNotice,
+  storedNotifications,
   systemNotifyItem,
   upsertNotification,
   type NoticeLink,
@@ -38,6 +45,7 @@ function refreshInBackground() {
 
 export const notificationsModule = defineModule({
   id: 'notifications',
+  schema: notificationsSchema,
   ipc: implement(notificationsContract, {
     state: notificationState,
     refresh: () => refreshNotifications(true),
