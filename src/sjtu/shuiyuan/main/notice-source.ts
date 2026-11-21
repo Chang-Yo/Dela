@@ -1,10 +1,11 @@
 import type { ShuiyuanNotificationItem } from '../contract';
 import { loadShuiyuanCredential } from './credentials';
-import { hostPorts } from '../../../core/ports';
 import type { NotificationCategory } from '../../../modules/notifications/contract';
 import {
   existingNotifications,
+  markNotificationsRead,
   saveNotificationRefresh,
+  storedNotifications,
   systemNotifyItem,
   upsertNotification,
   type NoticeSource,
@@ -25,17 +26,15 @@ function shuiyuanCategory(type: number): NotificationCategory {
   return 'other';
 }
 
-function unreadLikes(key: string): Map<string, number> {
+interface ShuiyuanTopicHref {
+  topicId?: number;
+}
+
+function unreadLikes(key: string): Map<string, number | undefined> {
   return new Map(
-    (
-      hostPorts()
-        .database()
-        .prepare(
-          `SELECT id, json_extract(href, '$.topicId') AS topicId FROM notifications
-           WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like' AND read_at IS NULL`,
-        )
-        .all(key) as { id: string; topicId: number }[]
-    ).map((row) => [row.id, row.topicId]),
+    storedNotifications('shuiyuan', key)
+      .filter((notice) => notice.category === 'like' && notice.unread)
+      .map((notice) => [notice.id, (notice.href as ShuiyuanTopicHref).topicId]),
   );
 }
 
@@ -132,15 +131,11 @@ export const shuiyuanNoticeSource: NoticeSource = {
         : null,
   // 点赞按主题成组展示与弹窗，打开或标记其中一条即视为读完该主题的全部点赞。
   markRead(id, key) {
-    hostPorts()
-      .database()
-      .prepare(
-        `UPDATE notifications SET read_at = COALESCE(read_at, ?)
-         WHERE source = 'shuiyuan' AND account_key = ? AND category = 'like'
-           AND json_extract(href, '$.topicId') = (
-             SELECT json_extract(href, '$.topicId') FROM notifications WHERE id = ? AND category = 'like'
-           )`,
-      )
-      .run(new Date().toISOString(), key, id);
+    const likes = storedNotifications('shuiyuan', key)
+      .filter((notice) => notice.category === 'like')
+      .map((notice) => ({ id: notice.id, topicId: (notice.href as ShuiyuanTopicHref).topicId }));
+    const topicId = likes.find((like) => like.id === id)?.topicId;
+    if (topicId === undefined) return;
+    markNotificationsRead(likes.filter((like) => like.topicId === topicId).map((like) => like.id));
   },
 };

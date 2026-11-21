@@ -242,6 +242,82 @@ export function existingNotifications(source: string, key: string): Map<string, 
   );
 }
 
+/** 已存在则保持原样（不覆盖标题与已读状态）。 */
+export function insertNotificationIfAbsent(
+  source: string,
+  accountKey: string,
+  id: string,
+  title: string,
+  body: string,
+  createdAt: string,
+  href: object,
+): void {
+  database()
+    .prepare(
+      `INSERT OR IGNORE INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href)
+       VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?)`,
+    )
+    .run(id, source, accountKey, title, body, createdAt, JSON.stringify(href));
+}
+
+export function storedNotice(
+  source: string,
+  id: string,
+): { title: string; createdAt: string; href: object } | undefined {
+  const row = database()
+    .prepare('SELECT title, created_at, href FROM notifications WHERE id = ? AND source = ?')
+    .get(id, source) as { title: string; created_at: string; href: string } | undefined;
+  return row && { title: row.title, createdAt: row.created_at, href: JSON.parse(row.href) };
+}
+
+export function storedNotifications(
+  source: string,
+  key: string,
+): { id: string; category: NotificationCategory | null; unread: boolean; href: object }[] {
+  return (
+    database()
+      .prepare(
+        'SELECT id, category, read_at, href FROM notifications WHERE source = ? AND account_key = ?',
+      )
+      .all(source, key) as {
+      id: string;
+      category: NotificationCategory | null;
+      read_at: string | null;
+      href: string;
+    }[]
+  ).map((row) => ({
+    id: row.id,
+    category: row.category,
+    unread: row.read_at === null,
+    href: JSON.parse(row.href),
+  }));
+}
+
+export function deleteNotifications(ids: readonly string[]): void {
+  database()
+    .prepare('DELETE FROM notifications WHERE id IN (SELECT value FROM json_each(?))')
+    .run(JSON.stringify(ids));
+}
+
+/** 设为已读时沿用已有已读时刻，原本没有则用通知时间占位；设为未读则清空。 */
+export function setNotificationsRead(ids: readonly string[], read: boolean): void {
+  database()
+    .prepare(
+      `UPDATE notifications SET read_at = ${read ? 'COALESCE(read_at, created_at)' : 'NULL'}
+       WHERE id IN (SELECT value FROM json_each(?))`,
+    )
+    .run(JSON.stringify(ids));
+}
+
+export function markNotificationsRead(ids: readonly string[]): void {
+  database()
+    .prepare(
+      `UPDATE notifications SET read_at = COALESCE(read_at, ?)
+       WHERE id IN (SELECT value FROM json_each(?))`,
+    )
+    .run(new Date().toISOString(), JSON.stringify(ids));
+}
+
 export function refreshNotifications(force = false): Promise<NotificationState> {
   if (activeRefresh) return activeRefresh;
   activeRefresh = (async () => {

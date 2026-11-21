@@ -16,10 +16,16 @@ import {
 import { messageAlertsEnabled, setMessageAlerts, showMessageNotice } from './main/system';
 
 export {
+  deleteNotifications,
   existingNotifications,
+  insertNotificationIfAbsent,
+  markNotificationsRead,
   publishNotificationState,
   registerNoticeSource,
   saveNotificationRefresh,
+  setNotificationsRead,
+  storedNotice,
+  storedNotifications,
   systemNotifyItem,
   upsertNotification,
   type NoticeLink,
