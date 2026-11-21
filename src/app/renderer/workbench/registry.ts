@@ -2,12 +2,12 @@
 import type { ComponentType } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { Eye, FileText, GitCompare, MessageSquare, SquareTerminal } from 'lucide-react';
-import type { TabId, TabKind } from '../../../modules/workspace/contract';
 import { ChatTab, ReviewTab, reviewTabTitle, useSessions } from '../../../modules/chat/view';
 import { titleOf as entryTitleOf } from '../workspace/entry-dialogs';
 import { NoteTab } from '../../../modules/note/view';
 import { PreviewTab } from '../../../modules/preview/view';
 import { TerminalTab } from '../../../modules/terminal/view';
+import type { TabId, TabKind } from '../../../core/protocol/workbench';
 
 export interface TabComponentProps {
   tabId: TabId;

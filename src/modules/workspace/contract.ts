@@ -1,5 +1,4 @@
-import type { FileFormat } from '../../core/protocol/files';
-import type { ResourceAddress } from '../../core/protocol/resources';
+import type { DocumentContent, ResourceAddress } from '../../core/protocol/workbench';
 import type { RemoteDirectoryEntry, RemotePortsState } from '../remotes/contract';
 import { workbenchLayoutSchema, type WorkbenchLayout } from './layout';
 import { z } from 'zod';
@@ -19,31 +18,6 @@ export const workspaceEntryIdSchema = z
       z.uuid().safeParse(value).success || /^(?:[a-z]:[\\/]|\\\\[^\\]+\\[^\\]+|\/)/i.test(value),
     { message: '请选择工作区文件路径或有效的条目' },
   );
-
-export interface DocumentContent {
-  title: string;
-  /** html 只来自模块登记的资料；工作区与远端文件按 FileFormat 分类。 */
-  format: FileFormat | 'html';
-  text?: string;
-  /** 文本只读：超过编辑上限、或来自远端项目。truncated 表示 text 只是文件开头。 */
-  readOnly?: boolean;
-  truncated?: boolean;
-  bytes?: Uint8Array;
-  previewUrl?: string;
-  mime?: string;
-  url?: string;
-  dueAt?: string | null;
-  updatedAt?: string | null;
-  revision?: string;
-  office?: { export?: OfficeExportInfo };
-}
-
-/** 已导出 PDF 与源 pptx 的关联信息；stale 表示源文件在导出后更新过。 */
-export interface OfficeExportInfo {
-  previewUrl: string;
-  title: string;
-  stale: boolean;
-}
 
 export interface OfficeExportProgress {
   phase: 'preparing' | 'converting' | 'writing';

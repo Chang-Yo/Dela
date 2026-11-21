@@ -1,6 +1,6 @@
 // 项目快捷方式注册口：条目只存 sourceId，读取与校验交给认领它的模块；工作区不认识具体平台。
-import type { DocumentContent } from '../contract';
 import type { ResourceContent } from './resources';
+import type { DocumentContent } from '../../../core/protocol/workbench';
 
 export interface WorkspaceSource {
   /** sourceId 以它开头的都归本模块；与界面侧登记的前缀相同。 */

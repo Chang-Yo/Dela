@@ -1,7 +1,6 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 import type { Navigate, SourceDocumentProps } from '../../../app/module';
-import type { ResourceAddress } from '../../../core/protocol/resources';
-import type { DocumentContent, TabId } from '../../workspace/contract';
+import type { DocumentContent, ResourceAddress, TabId } from '../../../core/protocol/workbench';
 
 export interface LoadedDocument {
   content: DocumentContent;

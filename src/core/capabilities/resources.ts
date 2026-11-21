@@ -1,6 +1,6 @@
 // 资源地址注册表：每种地址由登记它的模块给出格式、说明与读取方式，core 不认识具体来源。
 import { z } from 'zod';
-import type { ResourceAddress } from '../protocol/resources';
+import type { ResourceAddress } from '../protocol/workbench';
 
 export interface ResourceResolver<Address extends ResourceAddress = ResourceAddress> {
   schema: z.ZodType<Address>;

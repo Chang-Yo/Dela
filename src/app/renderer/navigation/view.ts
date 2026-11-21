@@ -6,7 +6,6 @@ import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useEntryDialog } from '../workspace/entry-dialog-store';
 import { useMobileDrawer } from '../shell/mobile-drawer';
 import type { SettingsSectionId } from '../../../modules/settings/contract';
-import type { TabId } from '../../../modules/workspace/contract';
 import { useWorkspaceStore } from '../../../modules/workspace/view';
 import { formatByName, opensInEditor } from '../../../core/protocol/files';
 import { parseRemoteNodeId } from '../../../modules/remotes/contract';
@@ -14,6 +13,7 @@ import { showToast } from '../../../ui/toast';
 import type { NavTarget, NavTargets } from '../../module';
 import { pages, views } from '../../views';
 import { errorMessage } from '../../../core/protocol/contract';
+import type { TabId } from '../../../core/protocol/workbench';
 
 export type ShellView = 'home' | 'workbench' | 'settings';
 

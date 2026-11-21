@@ -23,7 +23,7 @@ import {
   readOfficeExportLink,
 } from '../../../modules/preview';
 import { loadCanvasToken, saveCanvasToken } from './credentials';
-import type { DocumentContent } from '../../../modules/workspace/contract';
+import type { DocumentContent } from '../../../core/protocol/workbench';
 
 const origin = 'https://oc.sjtu.edu.cn';
 const apiRoot = `${origin}/api/v1/`;

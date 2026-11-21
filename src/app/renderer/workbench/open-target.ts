@@ -9,9 +9,9 @@
 //                                会话等单例已打开时只聚焦，不开第二份
 //
 // 资料工作台的课件是并排比对着看的，每个都留标签；项目工作台是干活的地方，只看看的文件不该占栏位。
-import type { TabId } from '../../../modules/workspace/contract';
 import { findGroup, walkGroups } from './layout-schema';
 import { previewable, useWorkbenchLayout } from './layout-store';
+import type { TabId } from '../../../core/protocol/workbench';
 
 function groupRightOfFocus(): string | null {
   const { root, focus } = useWorkbenchLayout.getState();

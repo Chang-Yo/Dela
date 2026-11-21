@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 'lucide-react';
-import type { TabId } from '../../../app/module';
 import type { ChatComment, ChatSessionSummary, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatClient } from './client';
 import { Button } from '../../../ui/button';
@@ -25,6 +24,7 @@ import { reviewTabId } from './review/tab-id';
 import { SidechatPanel } from './SidechatPanel';
 import { openSidechat, useSidechats } from './sidechat-store';
 import { errorMessage } from '../../../core/protocol/contract';
+import type { TabId } from '../../../core/protocol/workbench';
 
 function parseChatTabId(tabId: string): string | null {
   if (!tabId.startsWith('chat:')) return null;

@@ -4,7 +4,7 @@ import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { hostPorts } from '../../../core/ports';
 import { resourceAddressSchema, resourceResolver } from '../../../core/capabilities/resources';
-import type { ResourceAddress } from '../../../core/protocol/resources';
+import type { ResourceAddress } from '../../../core/protocol/workbench';
 import { availablePath, createWorkspaceEntry } from '../../workspace';
 import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
 import { classifyOfficeFile } from './parse';

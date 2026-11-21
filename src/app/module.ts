@@ -2,9 +2,7 @@
 import type { Implementation } from '../core/protocol/contract';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
-import type { DocumentContent, TabId } from '../modules/workspace/contract';
-
-export type { TabId };
+import type { DocumentContent, TabId } from '../core/protocol/workbench';
 
 /**
  * 可跳转的页面及其参数。页面所属的模块用接口合并登记自己的一项，例如

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DocumentContent } from '../../../workspace/contract';
 
 const invoke = vi.hoisted(() => {
   const invoke = vi.fn();
@@ -10,6 +9,7 @@ const invoke = vi.hoisted(() => {
   return invoke;
 });
 import { useNoteDrafts } from '../drafts';
+import type { DocumentContent } from '../../../../core/protocol/workbench';
 
 const content: DocumentContent = { title: 'Note', format: 'markdown', text: 'old', revision: 'r1' };
 

@@ -3,7 +3,7 @@ import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { workspaceEntryIdSchema } from '../contract';
 import { resourceAddressSchema, resourceResolver } from '../../../core/capabilities/resources';
-import type { ResourceAddress } from '../../../core/protocol/resources';
+import type { ResourceAddress } from '../../../core/protocol/workbench';
 import { entry, importWorkspaceFiles, workspaceFilePath } from './api';
 import { localFileFormat, textRevision } from './files';
 import { workspaceSource } from './sources';

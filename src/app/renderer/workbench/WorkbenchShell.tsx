@@ -2,15 +2,13 @@
 import { useEffect, type ReactNode } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
-  type DocumentContent,
   type WorkspaceEntry,
-  type TabId,
   decodeAssetPath,
   isRelativeAssetPath,
   noteAssetUrl,
 } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../../modules/remotes/contract';
-import type { ResourceAddress } from '../../../core/protocol/resources';
+import type { DocumentContent, ResourceAddress, TabId } from '../../../core/protocol/workbench';
 import {
   ChatTabSourceProvider,
   type ChatTabSource,

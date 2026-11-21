@@ -5,15 +5,11 @@ import { useNow } from '../../../ui/hooks/use-now';
 import { EmptyState } from '../../../ui/empty-state';
 import { showToast } from '../../../ui/toast';
 import { onWorkspaceEvent, workspaceClient } from '../../workspace/view';
-import type {
-  OfficeExportEvent,
-  OfficeExportInfo,
-  OfficeExportProgress,
-} from '../../workspace/contract';
+import type { OfficeExportEvent, OfficeExportProgress } from '../../workspace/contract';
 import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import { errorMessage } from '../../../core/protocol/contract';
-import type { ResourceAddress } from '../../../core/protocol/resources';
+import type { OfficeExportInfo, ResourceAddress } from '../../../core/protocol/workbench';
 
 function progressText(progress: OfficeExportProgress | null, opening = false): string {
   if (opening) return '导出完成，正在打开…';

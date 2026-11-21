@@ -10,7 +10,7 @@ import {
   resourceResolver,
   type ResourceResolver,
 } from '../../../core/capabilities/resources';
-import type { ResourceAddress } from '../../../core/protocol/resources';
+import type { ResourceAddress } from '../../../core/protocol/workbench';
 import { freshness, offset, toolError } from '../../../core/capabilities/domain-tools';
 
 /** 业务层中文错误消息 → 统一错误码（消息保持原文）；未识别的错误原样抛出。 */

@@ -5,7 +5,6 @@ import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
 import { HtmlFrame } from '../../../ui/html-frame';
 import { showToast } from '../../../ui/toast';
-import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
 import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
@@ -13,6 +12,7 @@ import { previewScrollOf, rememberPreviewScroll } from './scroll-memory';
 import { parsePreviewTabId } from './tab-id';
 import { Spinner } from '../../../ui/spinner';
 import { errorMessage } from '../../../core/protocol/contract';
+import type { TabId } from '../../../core/protocol/workbench';
 
 const PdfReader = lazy(() =>
   import('./PdfReader').then((module) => ({ default: module.PdfReader })),

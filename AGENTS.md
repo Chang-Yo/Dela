@@ -128,6 +128,8 @@ src/
 3. 模块之间只通过对方的 `index.ts`、`contract.ts` 或 `view/index.ts` 引用；`view/` 只能引用 `core/protocol`、`app/module.ts`、其他模块的 `contract.ts` 与 `ui`，不能引用本模块的 `main/`；主进程侧不能引用 `view/`
 4. `core`、`modules`、`app` 都不能引用 `sjtu`，例外是 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 三份清单。通用模块需要交大数据时，在通用模块的 `index.ts` 里开注册口，由交大模块注册进来。CI 还会去掉全部交大模块后再做类型检查、构建与冒烟
 5. 模块只能引用 `app/module.ts`，不能引用 app 的其他部分
+6. `app/module.ts` 不引用任何模块，它与模块共用的类型放在 `core/protocol`
+7. 项目快捷方式的 sourceId 前缀以模块名开头（如 `canvas-`、`shuiyuan-topic:`），前缀重叠时登记直接报错
 
 拿到需求后，先判断改动落在哪里：
 

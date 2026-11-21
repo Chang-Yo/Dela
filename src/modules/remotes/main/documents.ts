@@ -1,6 +1,5 @@
 // 远端文件只读预览：字节不能整篇进内存，文本/图片只读限长片段，PDF/Office 经 dela-resource 按 Range 拉取。
 // PPTX 导出依赖本地路径，按不支持处理。
-import type { DocumentContent } from '../../workspace/contract';
 import {
   TEXT_EDIT_MAX_BYTES,
   TEXT_PREVIEW_MAX_BYTES,
@@ -10,6 +9,7 @@ import {
 } from '../../../core/protocol/files';
 import { readRemoteRange, statRemoteFile } from '../../../core/remote/operations';
 import type { RemoteTarget } from '../../../core/remote/transport';
+import type { DocumentContent } from '../../../core/protocol/workbench';
 
 const IMAGE_LIMIT = 32 * 1024 * 1024;
 
