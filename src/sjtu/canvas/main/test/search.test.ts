@@ -10,8 +10,9 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
 }));
 
-import { closeDatabase, getDatabase } from '../../../../app/main/database';
+import { closeDatabase, getDatabase, openDatabase } from '../../../../app/main/database';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import { canvasSchema } from '../../data/schema';
 import { courseFileSearch } from '../search';
 
 provideTestHostPorts({ database: getDatabase });
@@ -23,6 +24,7 @@ const run = (sql: string, ...values: unknown[]) =>
 
 beforeAll(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-canvas-search-'));
+  openDatabase([{ id: 'canvas', schema: canvasSchema }]);
 });
 afterAll(() => {
   closeDatabase();

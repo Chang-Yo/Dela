@@ -188,7 +188,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 
 模型推理档位只按模型保存；搜索结果直接携带会话的 `projectId`，不再推导旧入口身份。
 
-只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，登记到 `app/schemas.ts`；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
+只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，经 `defineModule` 的 `schema` 交给宿主；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
 
 写模块的迁移时：
 
@@ -231,15 +231,15 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modules/search`）是第一个范例，后续模块照它的结构做。设计理由见 ADR [0009](adr/0009-renderer-state.md)、[0011](adr/0011-module-contracts.md)、[0012](adr/0012-nav-targets.md)。
 
 1. **契约**：在 `contract.ts` 中用 `defineContract` 声明通道与入参 schema，返回值用 `z.custom<T>()` 只给类型。
-2. **主进程**：在 `index.ts` 中用 `defineModule` 和 `implement` 导出模块；实现放在 `main/`。别的模块需要提供数据时，在 `index.ts` 中开注册口。
-3. **登记**：模块加进 `app/modules.ts`，契约加进 `app/contracts.ts`，有表的模块把 `data/schema.ts` 加进 `app/schemas.ts`，删除旧的 `ipcMain.handle`、preload 文件和 `DelaApi` 字段。
+2. **主进程**：在 `index.ts` 中用 `defineModule` 和 `implement` 导出模块，有表的模块同时给出 `data/schema.ts` 里的 `schema`；实现放在 `main/`。别的模块需要提供数据时，在 `index.ts` 中开注册口。
+3. **登记**：模块加进 `app/modules.ts`，契约加进 `app/contracts.ts`，删除旧的 `ipcMain.handle`、preload 文件和 `DelaApi` 字段。
 4. **界面**：组件放在 `view/`，从 `view/index.ts` 导出。用 `createClient(contract, window.dela?.bridge)` 加 `useQuery` 取数，不写 Effect、requestId 和定时器。
 5. **跳转**：页面参数通过 `NavTargets` 接口合并登记。
 6. **测试**：主进程查询对着 `database.ts` 建出的真实表跑，不写影子 schema；UI 不写快照和样式断言。
 
 `ModuleDefinition` 除 `ipc` 外还有三个钩子：`register()` 在窗口创建前登记命令域、Skill 与各类注册口（冒烟测试同样调用）；`start()` 启动后台同步并返回停止函数；`openLink(url)` 让模块在应用内接管外部链接。
 
-交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 与 `app/schemas.ts` 四份清单例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。CI 每次都用 `scripts/strip-sjtu.ts` 从四份清单里去掉全部交大模块，再做类型检查、构建与冒烟，守住这条边界。
+交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 三份清单例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。CI 每次都用 `scripts/strip-sjtu.ts` 从三份清单里去掉全部交大模块，再做类型检查、构建与冒烟，守住这条边界。
 
 Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
 

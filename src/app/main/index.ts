@@ -13,7 +13,7 @@ import {
 import { join } from 'node:path';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { closeDatabase, getDatabase } from './database';
+import { closeDatabase, openDatabase } from './database';
 import { runMigrations } from './migrations';
 import { checkWorkspaceSender } from './window';
 import type { TrayAction } from '../preload/api';
@@ -180,7 +180,7 @@ app
         decrypt: (data) => safeStorage.decryptString(data),
       },
     });
-    getDatabase();
+    openDatabase(modules);
     // 随包 MinGit 与 rg/fd 前插 PATH，终端与 Agent 子进程开箱可用。
     prependRuntimePath();
     registerPreviewProtocol();

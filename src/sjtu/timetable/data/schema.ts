@@ -1,7 +1,6 @@
 import type { Schema } from '../../../core/ports';
 
 export const timetableSchema: Schema = {
-  owner: 'timetable',
   tables: [
     `CREATE TABLE IF NOT EXISTS timetable_sync (
       semester TEXT PRIMARY KEY,

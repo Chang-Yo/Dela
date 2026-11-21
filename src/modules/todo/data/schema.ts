@@ -1,7 +1,6 @@
 import type { Schema } from '../../../core/ports';
 
 export const todoSchema: Schema = {
-  owner: 'todo',
   tables: [
     `CREATE TABLE IF NOT EXISTS todo_items (
       id TEXT PRIMARY KEY,

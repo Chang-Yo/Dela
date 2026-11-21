@@ -7,6 +7,7 @@ import { implement } from '../../core/protocol/contract';
 import { registerSearchProvider } from '../search';
 import { registerSettingsSearch } from '../settings';
 import { mailContract } from './contract';
+import { mailSchema } from './data/schema';
 import {
   confirmDraftClose,
   downloadAttachment,
@@ -56,6 +57,7 @@ function syncInBackground() {
 
 export const mailModule = defineModule({
   id: 'mail',
+  schema: mailSchema,
   ipc: implement(mailContract, {
     state: getMailState,
     configure: configureMailAccount,

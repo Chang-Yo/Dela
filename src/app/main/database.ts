@@ -1,14 +1,14 @@
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
+import { coreSchema } from '../../core/data/schema';
 import { hostPorts, type Schema } from '../../core/ports';
-import { schemas } from '../schemas';
+import type { ModuleDefinition } from '../module';
 
 let database: Database.Database | null = null;
 
 /** 宿主自己的表：各模块共用的设置键值，新键以模块 id 开头。 */
 const hostSchema: Schema = {
-  owner: 'app',
   tables: [
     `CREATE TABLE IF NOT EXISTS workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
   ],
@@ -17,11 +17,14 @@ const hostSchema: Schema = {
 /** 18 起表结构由 schema_migrations 记账；更早的库先经 migrations/ 的旧版过渡。 */
 export const SCHEMA_VERSION = 18;
 
-/** 表示模块的表已按当时的结构建好，此前的迁移不再执行。 */
+/** 表示这一方的表已按当时的结构建好，此前的迁移不再执行。 */
 const baseline = 'baseline';
 
-export function getDatabase(): Database.Database {
-  if (database) return database;
+type Owner = Schema & { owner: string };
+
+/** 按宿主、core 与各模块声明的表结构打开数据库；之后 getDatabase 直接取用。 */
+export function openDatabase(modules: ModuleDefinition[]): Database.Database {
+  closeDatabase();
   const dir = hostPorts().paths.userData();
   mkdirSync(dir, { recursive: true });
   const db = new Database(join(dir, 'dela.db'));
@@ -30,11 +33,19 @@ export function getDatabase(): Database.Database {
     const version = db.pragma('user_version', { simple: true }) as number;
     if (version !== 0 && version !== SCHEMA_VERSION)
       throw new Error('数据库格式不受支持，请使用当前版本创建的数据目录');
+    const owners: Owner[] = [
+      { owner: 'app', ...hostSchema },
+      { owner: 'core', ...coreSchema },
+      ...modules.flatMap((module) =>
+        module.schema ? [{ owner: module.id, ...module.schema }] : [],
+      ),
+    ];
+    // better-sqlite3 默认开外键检查：建表不依赖模块顺序、迁移重建表不触发级联，都要先关掉。
+    db.pragma('foreign_keys = OFF');
     db.transaction(() => {
-      applySchemas(db, [hostSchema, ...schemas]);
+      applySchemas(db, owners);
       db.pragma(`user_version = ${SCHEMA_VERSION}`);
     })();
-    // 迁移要重建表，外键检查在迁移之后才打开。
     db.pragma('foreign_keys = ON');
   } catch (error) {
     db.close();
@@ -44,8 +55,13 @@ export function getDatabase(): Database.Database {
   return db;
 }
 
-/** 新出现的模块直接建当前结构并跳过已有迁移；其余模块按日期、同日按模块 id 补跑迁移。 */
-function applySchemas(db: Database.Database, owners: Schema[]): void {
+export function getDatabase(): Database.Database {
+  if (!database) throw new Error('数据库尚未打开');
+  return database;
+}
+
+/** 新出现的一方直接建当前结构并跳过已有迁移；其余按日期、同日按 id 补跑迁移。 */
+function applySchemas(db: Database.Database, owners: Owner[]): void {
   db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
     module TEXT NOT NULL,
     name TEXT NOT NULL,

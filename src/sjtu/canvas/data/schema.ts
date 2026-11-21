@@ -1,7 +1,6 @@
 import type { Schema } from '../../../core/ports';
 
 export const canvasSchema: Schema = {
-  owner: 'canvas',
   tables: [
     `CREATE TABLE IF NOT EXISTS canvas_courses (
       id INTEGER PRIMARY KEY,

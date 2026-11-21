@@ -2,7 +2,6 @@ import type { Schema } from '../../../core/ports';
 
 // Dela 不保存任何 SSH 凭据：密钥、端口与跳板由 ssh 自己按 ~/.ssh/config 解析。
 export const remotesSchema: Schema = {
-  owner: 'remotes',
   tables: [
     `CREATE TABLE IF NOT EXISTS remotes (
       id TEXT PRIMARY KEY,

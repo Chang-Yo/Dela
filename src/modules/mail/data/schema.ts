@@ -1,7 +1,6 @@
 import type { Schema } from '../../../core/ports';
 
 export const mailSchema: Schema = {
-  owner: 'mail',
   tables: [
     `CREATE TABLE IF NOT EXISTS mail_accounts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

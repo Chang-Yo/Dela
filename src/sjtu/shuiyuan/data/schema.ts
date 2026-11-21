@@ -2,7 +2,6 @@ import type { Schema } from '../../../core/ports';
 
 // 用户把帖子添加到项目时写入一行；快照正文与图片存在 userData/shuiyuan-snapshots。
 export const shuiyuanSchema: Schema = {
-  owner: 'shuiyuan',
   tables: [
     `CREATE TABLE IF NOT EXISTS shuiyuan_topics (
       topic_id INTEGER PRIMARY KEY,

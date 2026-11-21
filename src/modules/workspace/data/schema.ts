@@ -2,7 +2,6 @@ import type { Schema } from '../../../core/ports';
 
 // 条目身份以路径为主，只有项目与项目快捷方式建行；远程项目的 local_path 是远端 POSIX 路径。
 export const workspaceSchema: Schema = {
-  owner: 'workspace',
   tables: [
     `CREATE TABLE IF NOT EXISTS workspace_entries (
       id TEXT PRIMARY KEY,

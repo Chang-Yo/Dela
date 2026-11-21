@@ -46,11 +46,10 @@ export interface SqlDatabase {
 }
 
 /**
- * 一个模块自己的表（0025）：tables 是当前结构，只在模块第一次出现时执行；
+ * 一方自己的表（0025）：tables 是当前结构，只在这一方第一次出现时执行；
  * 之后改表写成迁移，键为 YYYYMMDD-简述，按日期执行一次。
  */
 export interface Schema {
-  owner: string;
   tables: string[];
   migrations?: Record<string, (db: SqlDatabase) => void>;
 }

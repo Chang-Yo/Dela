@@ -4,6 +4,7 @@ import { helperSession, helperStates, onHelperState, retryHelper } from '../../c
 import { emit } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { remotesContract } from './contract';
+import { remotesSchema } from './data/schema';
 import { pickKeyFile } from './main/actions';
 import {
   browseRemote,
@@ -37,6 +38,7 @@ const targetById = (id: string) => targetOf(remoteById(id));
 
 export const remotesModule = defineModule({
   id: 'remotes',
+  schema: remotesSchema,
   ipc: implement(remotesContract, {
     list: listRemotes,
     save: saveRemote,

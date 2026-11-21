@@ -1,5 +1,6 @@
 // 模块与 app 之间唯一的中立文件：模块用它声明主进程与界面两侧，app 读取这些声明。
 import type { Implementation } from '../core/protocol/contract';
+import type { Schema } from '../core/ports';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
 import type { DocumentContent, TabId } from '../core/protocol/workbench';
@@ -16,6 +17,8 @@ export type NavTarget = {
 
 export interface ModuleDefinition {
   id: string;
+  /** 本模块的表与迁移（0025），由宿主建表并记在模块 id 名下。 */
+  schema?: Schema;
   /** 模块内部契约的主进程实现，由 app 注册到 IPC。 */
   ipc?: Implementation;
   /** 应用就绪后、窗口创建前调用：登记 IPC、命令域与各类注册口。冒烟测试同样调用。 */

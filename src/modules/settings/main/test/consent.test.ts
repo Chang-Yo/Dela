@@ -11,14 +11,16 @@ vi.mock('electron', () => ({
   app: { getPath: () => state.root, getVersion: () => '1.1.0', isPackaged: false },
 }));
 
-import { closeDatabase, getDatabase } from '../../../../app/main/database';
+import { closeDatabase, getDatabase, openDatabase } from '../../../../app/main/database';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { settingsContract } from '../../contract';
+import { settingsSchema } from '../../data/schema';
 import { hasConsented, recordConsent } from '../consent';
 
 beforeEach(() => {
   state.root = mkdtempSync(join(tmpdir(), 'dela-consent-'));
   provideTestHostPorts({ paths: { userData: () => state.root }, database: getDatabase });
+  openDatabase([{ id: 'settings', schema: settingsSchema }]);
 });
 
 function rows() {

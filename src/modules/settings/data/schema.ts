@@ -1,7 +1,6 @@
 import type { Schema } from '../../../core/ports';
 
 export const settingsSchema: Schema = {
-  owner: 'settings',
   tables: [
     `CREATE TABLE IF NOT EXISTS consent_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

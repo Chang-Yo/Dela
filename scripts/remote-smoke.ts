@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/main/host-electron';
-import { closeDatabase, getDatabase } from '../src/app/main/database';
+import { openDatabase } from '../src/app/main/database';
 import { registerModuleIpc } from '../src/app/main/ipc';
 import { modules } from '../src/app/modules';
 import { registerAgentIpc } from '../src/app/main/agent-ipc';
@@ -37,8 +37,7 @@ app
   .whenReady()
   .then(async () => {
     provideHostPorts(electronPorts);
-    closeDatabase();
-    getDatabase();
+    openDatabase(modules);
 
     // 远端夹具：放在主目录下，这样向导从主目录点一层就能到。
     const home = (await probeRemote(target)).home;

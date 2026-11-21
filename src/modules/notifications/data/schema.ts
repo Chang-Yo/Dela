@@ -1,7 +1,6 @@
 import type { Schema } from '../../../core/ports';
 
 export const notificationsSchema: Schema = {
-  owner: 'notifications',
   tables: [
     `CREATE TABLE IF NOT EXISTS notifications (
       id TEXT PRIMARY KEY,

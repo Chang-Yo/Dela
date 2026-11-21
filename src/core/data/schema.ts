@@ -3,7 +3,6 @@ import type { Schema } from '../ports';
 // 会话索引：完整记录在 file 指向的 Pi JSONL 里；cwd 为 NULL 时按项目目录解析。
 // parent_id 非空的是子 Agent 会话：不进会话列表与搜索，随父会话归档、删除。
 export const coreSchema: Schema = {
-  owner: 'core',
   tables: [
     `CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,

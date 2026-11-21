@@ -10,6 +10,7 @@ import { registerSearchProvider } from '../../modules/search';
 import { registerSettingsSearch } from '../../modules/settings';
 import { registerTaskSource } from '../../modules/todo';
 import { canvasContract } from './contract';
+import { canvasSchema } from './data/schema';
 import {
   connectCanvas,
   disconnectCanvas,
@@ -44,6 +45,7 @@ function syncTrees() {
 
 export const canvasModule = defineModule({
   id: 'canvas',
+  schema: canvasSchema,
   ipc: implement(canvasContract, {
     state: getCanvasState,
     connect: connectCanvas,
