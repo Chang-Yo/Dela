@@ -25,5 +25,5 @@
 
 - 迁移把 `calendar_events` 里的自建事件转为时段类待办，跨天的转为全天，原时刻与地点写进备注，然后删除这张表。原有个人待办都是截止类，「写入日历」标记丢弃。
 - 待办里的 Canvas 状态与课程字段改为通用的状态、状态文字与分组，迁移按原状态换算。
-- 课表的月视图、自建事件、与待办的互相显示，以及 Agent 命令 `create_event`、`delete_event` 一并移除，Agent 改用 `save_todo`。Canvas 专用的 `query_assignments`、`refresh_todos` 移到 Canvas 模块。
+- 课表的月视图、自建事件、与待办的互相显示，以及 Agent 命令 `create_event`、`delete_event` 一并移除，Agent 改用 `save_todo`。Canvas 专用的 `query_assignments` 移到 Canvas 模块，`refresh_todos` 改为刷新所有来源，留在待办。
 - 以后需要「计划某天做、某天交」时，可以给时段类加截止日期，不必推翻本决定。
