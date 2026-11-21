@@ -11,42 +11,10 @@ import type { TodoItem } from '../contract';
 import { todoCompleted, todoStatusLabels } from '../contract';
 import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
-import { useRootFontSize } from '../../../ui/hooks/root-font-size';
-import { sanitizeHtml } from '../../mail/view';
-import { useFrameBodyHeight } from '../../../ui/hooks/use-frame-body-height';
+import { HtmlFrame } from '../../../ui/html-frame';
 import { cn } from '../../../ui/lib/cn';
 import { TodoSheet } from './TodoSheet';
 import { dateLabel } from './todo-format';
-
-/** 作业描述经清洗后放入沙箱 iframe；高度随内容自适应，滚动交给所在限高滚动区。 */
-function CanvasHtml({ html, onLink }: { html: string; onLink: (url: string) => void }) {
-  const rootSize = useRootFontSize();
-  const doc = sanitizeHtml(html, 'https://oc.sjtu.edu.cn', rootSize);
-  const [height, setBody] = useFrameBodyHeight();
-  return (
-    <Card>
-      <iframe
-        title="作业描述"
-        className="w-full border-0 bg-paper"
-        referrerPolicy="no-referrer"
-        sandbox="allow-same-origin"
-        srcDoc={doc}
-        style={{ height }}
-        onLoad={(event) => {
-          const frame = event.currentTarget;
-          setBody(frame.contentDocument?.body ?? null);
-          frame.contentDocument?.addEventListener('click', (e) => {
-            const target = (e.target as Element).closest?.('a[href]');
-            if (target) {
-              e.preventDefault();
-              onLink(target.getAttribute('href')!);
-            }
-          });
-        }}
-      />
-    </Card>
-  );
-}
 
 export function TodoDetail({
   item,
@@ -100,7 +68,15 @@ export function TodoDetail({
         )
       ) : (
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto border-t pt-3 [scrollbar-width:none]">
-          <CanvasHtml html={item.description ?? ''} onLink={onOpenLink} />
+          <Card>
+            <HtmlFrame
+              baseUrl="https://oc.sjtu.edu.cn"
+              className="bg-paper"
+              html={item.description ?? ''}
+              onLink={onOpenLink}
+              title="作业描述"
+            />
+          </Card>
         </div>
       )}
       {(personal || item.url) && (

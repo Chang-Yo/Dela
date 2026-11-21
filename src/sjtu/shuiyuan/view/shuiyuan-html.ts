@@ -1,172 +1,13 @@
-import { rootFontSize } from '../../../ui/hooks/root-font-size';
+import type { HtmlFrameDocumentOptions } from '../../../ui/lib/html-frame-document';
 import { SHUIYUAN_HOST } from '../contract';
 import { SHUIYUAN_ORIGIN } from './shuiyuan-format';
 
 const SNAPSHOT_IMAGE_PREFIX = 'dela-resource://shuiyuan-snapshot/';
 
-/**
- * 水源楼层 HTML（Discourse cooked，服务端已消毒）在本应用的二次消毒：
- * 相对链接/图片按水源域名补全，其余策略与邮件正文一致（剥主动内容、
- * 只留 http(s) 链接、no-referrer、CSP 限定图片与内联样式）。
- */
-export function sanitizeShuiyuanHtml(html: string): Document {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  doc
-    .querySelectorAll(
-      'script, iframe, frame, frameset, object, embed, base, meta, link, input, button, textarea, select, form',
-    )
-    .forEach((node) => node.remove());
-  // 站点给引用生成摘要时会把楼层里的图片等标签转义成文字并截断（如 `<a class="lightbox" href=…`），
-  // 网页上同样显示为乱码；截掉这段文字，换成指向被引楼层的链接。
-  for (const quote of doc.querySelectorAll('aside.quote')) {
-    const source = quote.querySelector('.title a[href]')?.getAttribute('href');
-    const walker = doc.createTreeWalker(
-      quote.querySelector('blockquote') ?? quote,
-      NodeFilter.SHOW_TEXT,
-    );
-    for (
-      let node = walker.nextNode() as Text | null;
-      node;
-      node = walker.nextNode() as Text | null
-    ) {
-      const start = node.data.search(/<[a-z][a-z0-9]*\s+[a-z-]+=/i);
-      if (start < 0) continue;
-      node.data = node.data.slice(0, start);
-      const link = doc.createElement('a');
-      link.textContent = '引用内容未完整显示，查看原楼层';
-      if (source) link.setAttribute('href', source);
-      node.after(link);
-      break;
-    }
-  }
-  for (const element of doc.querySelectorAll('*')) {
-    for (const attribute of Array.from(element.attributes)) {
-      if (
-        /^on/i.test(attribute.name) ||
-        [
-          'srcdoc',
-          'autofocus',
-          'ping',
-          'action',
-          'formaction',
-          'data-dela-image',
-          'data-dela-original',
-        ].includes(attribute.name)
-      )
-        element.removeAttribute(attribute.name);
-    }
-  }
-  const absolute = (value: string | null): string | null => {
-    if (!value) return null;
-    if (value.startsWith('#')) return value;
-    try {
-      const parsed = new URL(value, `${SHUIYUAN_ORIGIN}/`);
-      return ['https:', 'http:'].includes(parsed.protocol) ? parsed.href : null;
-    } catch {
-      return null;
-    }
-  };
-  // 同站媒体匿名加载会被水源登录墙拦下（403/302 到登录页），改写为主进程
-  // 代理协议由主进程带凭据取回；站外图维持直连。
-  const toMediaUrl = (value: string): string => {
-    const parsed = new URL(value);
-    if (parsed.hostname !== SHUIYUAN_HOST) return value;
-    return `dela-resource://shuiyuan${parsed.pathname}${parsed.search}`;
-  };
-  for (const anchor of doc.querySelectorAll('a, area')) {
-    const href = absolute(anchor.getAttribute('href'));
-    if (!href || (!href.startsWith('#') && !/^https?:\/\//i.test(href))) {
-      anchor.removeAttribute('href');
-      anchor.removeAttribute('target');
-      continue;
-    }
-    if (/^https?:\/\//i.test(href)) {
-      anchor.setAttribute('href', href);
-      anchor.setAttribute('target', '_blank');
-      anchor.setAttribute('rel', 'noopener noreferrer');
-    }
-  }
-  for (const img of doc.querySelectorAll('img')) {
-    img.referrerPolicy = 'no-referrer';
-    img.loading = 'lazy';
-    // srcset/sizes 里的候选不走代理改写，留着会覆盖已改写的 src 重新破图。
-    img.removeAttribute('srcset');
-    img.removeAttribute('sizes');
-    if (img.getAttribute('src')?.startsWith(SNAPSHOT_IMAGE_PREFIX)) {
-      const src = img.getAttribute('src')!;
-      img.setAttribute('data-dela-original', src);
-      img.setAttribute(
-        'data-dela-image',
-        /\.(jpg|png|webp|bmp)$/i.test(src) ? `${src}?thumbnail=1` : src,
-      );
-      img.removeAttribute('src');
-      const width = Number(img.getAttribute('width'));
-      const height = Number(img.getAttribute('height'));
-      if (width > 0 && height > 0) img.style.aspectRatio = `${width} / ${height}`;
-      else {
-        img.width = 690;
-        img.height = 518;
-        img.style.aspectRatio = '690 / 518';
-      }
-      img.decoding = 'async';
-      continue;
-    }
-    // 快照草稿里还没存到本地的图片不联网加载，按原尺寸占位，存好后刷新正文即显示。
-    if (img.hasAttribute('data-snapshot-pending')) {
-      img.closest('a.lightbox')?.removeAttribute('href');
-      if (img.classList.contains('emoji')) {
-        img.replaceWith(img.alt);
-        continue;
-      }
-      const placeholder = doc.createElement('span');
-      placeholder.className = 'img-pending';
-      placeholder.textContent = '图片保存中';
-      const width = Number(img.getAttribute('width'));
-      const height = Number(img.getAttribute('height'));
-      if (width > 0 && height > 0)
-        placeholder.style.cssText = `width: ${width}px; aspect-ratio: ${width} / ${height};`;
-      img.replaceWith(placeholder);
-      continue;
-    }
-    const src = absolute(
-      img.closest('a.lightbox')?.getAttribute('href') ?? img.getAttribute('src'),
-    );
-    if (src && /^https?:\/\//i.test(src)) {
-      img.setAttribute('src', toMediaUrl(src));
-    } else {
-      // 无可用地址（含 # 锚点等非 http(s) 值）的图片换成安静的文字占位，避免浏览器破图图标。
-      const fallback = doc.createElement('span');
-      fallback.className = 'img-fallback';
-      fallback.textContent = img.alt || '图片不可用';
-      img.replaceWith(fallback);
-    }
-  }
-  const policy = doc.createElement('meta');
-  policy.httpEquiv = 'Content-Security-Policy';
-  policy.content =
-    "default-src 'none'; style-src 'unsafe-inline'; img-src data: https: http: dela-resource:; font-src https:; form-action 'none'; base-uri 'none'";
-  const referrer = doc.createElement('meta');
-  referrer.name = 'referrer';
-  referrer.content = 'no-referrer';
-  doc.head.prepend(policy, referrer);
-  return doc;
-}
-
-/**
- * 楼层文档的阅读样式。iframe 取不到外层 CSS 变量，色值手动镜像 design token；
- * 尺寸一律 rem，rootSize 由调用方传入以随字号设置重渲染。
- */
-export function renderShuiyuanHtml(
-  doc: Document,
-  dark: boolean,
-  rootSize = rootFontSize(),
-): string {
-  doc.documentElement.classList.toggle('dark', dark);
-  const style = doc.createElement('style');
-  style.textContent = `
+/** 楼层的阅读样式。iframe 取不到外层 CSS 变量，色值手动镜像 design token；尺寸一律 rem。 */
+const SHUIYUAN_STYLESHEET = `
     :root {
       color-scheme: light;
-      font-size: ${rootSize}px;
       --fg: oklch(0.247 0.006 258.361);
       --fg-muted: oklch(0.695 0.009 264.505);
       --line: oklch(0.946 0.003 264.542);
@@ -190,8 +31,6 @@ export function renderShuiyuanHtml(
         'Segoe UI Symbol', 'Noto Color Emoji';
       overflow-wrap: break-word;
     }
-    /* 楼层 iframe 靠高度上报自适应增长，纵向滚动由外层话题区承担，内部滚动条禁止出现。 */
-    html { overflow-y: hidden; }
     ::selection { background: color-mix(in oklch, var(--link) 22%, transparent); }
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -288,6 +127,101 @@ export function renderShuiyuanHtml(
     .dela-post-head { color: var(--fg-muted); font-size: 0.8125rem; margin: 0 0 0.125rem; }
     .dela-post-head b { color: var(--fg); }
   `;
-  doc.head.append(style);
-  return doc.documentElement.outerHTML;
+
+// 同站媒体匿名加载会被水源登录墙拦下（403/302 到登录页），改写为主进程
+// 代理协议由主进程带凭据取回；站外图维持直连。
+const toMediaUrl = (value: string): string => {
+  const parsed = new URL(value);
+  if (parsed.hostname !== SHUIYUAN_HOST) return value;
+  return `dela-resource://shuiyuan${parsed.pathname}${parsed.search}`;
+};
+
+/** 水源楼层 HTML（Discourse cooked）在通用消毒之后的改写，主题随应用明暗。 */
+export function shuiyuanFrame(dark: boolean): HtmlFrameDocumentOptions {
+  return {
+    baseUrl: `${SHUIYUAN_ORIGIN}/`,
+    localImages: SNAPSHOT_IMAGE_PREFIX,
+    fitWidth: false,
+    stylesheet: SHUIYUAN_STYLESHEET,
+    transform: (doc) => {
+      doc.documentElement.classList.toggle('dark', dark);
+      // 站点给引用生成摘要时会把楼层里的图片等标签转义成文字并截断（如 `<a class="lightbox" href=…`），
+      // 网页上同样显示为乱码；截掉这段文字，换成指向被引楼层的链接。
+      for (const quote of doc.querySelectorAll('aside.quote')) {
+        const source = quote.querySelector('.title a[href]')?.getAttribute('href');
+        const walker = doc.createTreeWalker(
+          quote.querySelector('blockquote') ?? quote,
+          NodeFilter.SHOW_TEXT,
+        );
+        for (
+          let node = walker.nextNode() as Text | null;
+          node;
+          node = walker.nextNode() as Text | null
+        ) {
+          const start = node.data.search(/<[a-z][a-z0-9]*\s+[a-z-]+=/i);
+          if (start < 0) continue;
+          node.data = node.data.slice(0, start);
+          const link = doc.createElement('a');
+          link.textContent = '引用内容未完整显示，查看原楼层';
+          if (source) link.setAttribute('href', source);
+          node.after(link);
+          break;
+        }
+      }
+      for (const img of doc.querySelectorAll('img')) {
+        img.loading = 'lazy';
+        const lightbox = img.closest('a.lightbox');
+        // 本地快照图片进入视野才加载缩略图，点开看原图。
+        if (img.getAttribute('src')?.startsWith(SNAPSHOT_IMAGE_PREFIX)) {
+          const src = img.getAttribute('src')!;
+          if (lightbox) img.setAttribute('data-dela-zoom', src);
+          img.setAttribute(
+            'data-dela-lazy',
+            /\.(jpg|png|webp|bmp)$/i.test(src) ? `${src}?thumbnail=1` : src,
+          );
+          img.removeAttribute('src');
+          const width = Number(img.getAttribute('width'));
+          const height = Number(img.getAttribute('height'));
+          if (width > 0 && height > 0) img.style.aspectRatio = `${width} / ${height}`;
+          else {
+            img.width = 690;
+            img.height = 518;
+            img.style.aspectRatio = '690 / 518';
+          }
+          img.decoding = 'async';
+          continue;
+        }
+        // 快照草稿里还没存到本地的图片不联网加载，按原尺寸占位，存好后刷新正文即显示。
+        if (img.hasAttribute('data-snapshot-pending')) {
+          lightbox?.removeAttribute('href');
+          if (img.classList.contains('emoji')) {
+            img.replaceWith(img.alt);
+            continue;
+          }
+          const placeholder = doc.createElement('span');
+          placeholder.className = 'img-pending';
+          placeholder.textContent = '图片保存中';
+          const width = Number(img.getAttribute('width'));
+          const height = Number(img.getAttribute('height'));
+          if (width > 0 && height > 0)
+            placeholder.style.cssText = `width: ${width}px; aspect-ratio: ${width} / ${height};`;
+          img.replaceWith(placeholder);
+          continue;
+        }
+        // 灯箱链接指向原图，比 img 上的缩略图清晰。
+        const original = lightbox?.getAttribute('href');
+        const src = original?.startsWith('http') ? original : img.getAttribute('src');
+        if (src) {
+          img.setAttribute('src', toMediaUrl(src));
+          if (lightbox) img.setAttribute('data-dela-zoom', toMediaUrl(src));
+        } else {
+          // 无可用地址的图片换成安静的文字占位，避免浏览器破图图标。
+          const fallback = doc.createElement('span');
+          fallback.className = 'img-fallback';
+          fallback.textContent = img.alt || '图片不可用';
+          img.replaceWith(fallback);
+        }
+      }
+    },
+  };
 }

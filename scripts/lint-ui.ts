@@ -1,4 +1,4 @@
-// 守住 src/ui 的组件约定（src/ui/README.md）：文件名、size 与 tone 取值、写法。
+// 守住 src/ui 的组件约定（src/ui/README.md）：文件名、size 与 tone 取值、写法，外部网页只经 HtmlFrame。
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -106,6 +106,16 @@ const errors: string[] = [];
 for (const file of files)
   for (const { rule, message } of violations(file, readFileSync(join(uiDir, file), 'utf8')))
     errors.push(`  src/ui/${file} [${rule}] ${message}`);
+
+for (const file of readdirSync(join(root, 'src'), { recursive: true, encoding: 'utf8' }))
+  if (
+    /\.tsx$/.test(file) &&
+    file.replaceAll('\\', '/') !== 'ui/html-frame.tsx' &&
+    /\bsrcDoc\b/.test(readFileSync(join(root, 'src', file), 'utf8'))
+  )
+    errors.push(
+      `  src/${file.replaceAll('\\', '/')} [html-frame] 外部网页只能经 HtmlFrame 显示，不要自己写 iframe srcDoc。`,
+    );
 
 if (errors.length > 0) {
   console.log(

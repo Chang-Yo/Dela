@@ -3,8 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
-import { useRootFontSize } from '../../../ui/hooks/root-font-size';
-import { sanitizeHtml } from '../../mail/view';
+import { HtmlFrame } from '../../../ui/html-frame';
 import { showToast } from '../../../ui/toast';
 import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';
@@ -78,18 +77,6 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
   }, [watchesDisk]);
 
   const content = doc?.content;
-  /* HTML 消毒基址：本地/导入条目（watchesDisk）不补外域 base、相对地址剥除，
-     避免被补到 Canvas 域造成跨域请求泄露。 */
-  const rootSize = useRootFontSize();
-  const html =
-    content?.format === 'html' && !doc?.source
-      ? sanitizeHtml(
-          content.text,
-          doc?.watchesDisk ? '' : 'https://oc.sjtu.edu.cn',
-          rootSize,
-          'auto',
-        )
-      : '';
 
   if (!parsePreviewTabId(tabId))
     return (
@@ -141,28 +128,16 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {branch === 'html' && (
         <Card className="min-h-0 flex-1">
-          <iframe
+          {/* 本地/导入条目（watchesDisk）不补 Canvas 基址，相对地址剥除，免得补到外域泄露请求。 */}
+          <HtmlFrame
+            baseUrl={doc.watchesDisk ? undefined : 'https://oc.sjtu.edu.cn'}
+            className="bg-paper"
+            fill
+            html={content.text ?? ''}
+            initialScroll={initialScroll}
+            onLink={openLink}
+            onScroll={onScroll}
             title={content.title}
-            className="size-full border-0 bg-paper"
-            sandbox="allow-same-origin"
-            referrerPolicy="no-referrer"
-            srcDoc={html}
-            onLoad={(event) => {
-              const frame = event.currentTarget;
-              const frameDoc = frame.contentDocument;
-              if (!frameDoc) return;
-              frame.contentWindow?.scrollTo(0, initialScroll());
-              frameDoc.addEventListener('click', (e) => {
-                const target = (e.target as Element).closest?.('a[href]');
-                if (target) {
-                  e.preventDefault();
-                  openLink(target.getAttribute('href')!);
-                }
-              });
-              frame.contentWindow?.addEventListener('scroll', () =>
-                onScroll(frame.contentWindow?.scrollY ?? 0),
-              );
-            }}
           />
         </Card>
       )}
