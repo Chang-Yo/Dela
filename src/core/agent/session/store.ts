@@ -170,6 +170,14 @@ export function archiveProject(projectId: string | null): string[] {
   return ids.map(({ id }) => id);
 }
 
+/** 项目降为文件夹后，名下会话转为随聊。 */
+export function detachProjectSessions(projectId: string): void {
+  hostPorts()
+    .database()
+    .prepare('UPDATE sessions SET project_id=NULL WHERE project_id=?')
+    .run(projectId);
+}
+
 export const childSessionIds = (id: string) =>
   (
     hostPorts().database().prepare('SELECT id FROM sessions WHERE parent_id=?').all(id) as {

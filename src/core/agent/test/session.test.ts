@@ -169,7 +169,7 @@ beforeEach(() => {
       kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
       updated_at TEXT NOT NULL);
     CREATE TABLE sessions (id TEXT PRIMARY KEY,
-      project_id TEXT REFERENCES workspace_entries(id) ON DELETE SET NULL, file TEXT NOT NULL,
+      project_id TEXT, file TEXT NOT NULL,
       title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
       archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
       cwd TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,

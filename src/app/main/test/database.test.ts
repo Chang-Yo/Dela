@@ -8,7 +8,9 @@ import type { ModuleDefinition } from '../../module';
 vi.mock('electron', () => ({}));
 
 import { closeDatabase, getDatabase, openDatabase, SCHEMA_VERSION } from '../database';
+import { v17ToBaseline } from '../migrations/v17tobaseline';
 import { modules } from '../../modules';
+import { coreSchema } from '../../../core/data/schema';
 import { provideTestHostPorts } from '../../../core/test/host-mock';
 
 let root = '';
@@ -128,8 +130,47 @@ describe('module schemas', () => {
   it('清单里的模块都能建表，迁移名以日期开头', () => {
     freshRoot();
     expect(openDatabase(modules)).toBeTruthy();
-    for (const module of modules)
-      for (const name of Object.keys(module.schema?.migrations ?? {}))
+    for (const schema of [coreSchema, ...modules.map((module) => module.schema)])
+      for (const name of Object.keys(schema?.migrations ?? {}))
         expect(name).toMatch(/^\d{8}-[a-z0-9-]+$/);
+  });
+
+  it('3.0 的库补跑迁移：通知来源不再写死，会话不再外键指向项目，原有数据保留', () => {
+    freshRoot();
+    const old = new Database(join(root, 'dela.db'));
+    old.pragma('user_version = 17');
+    v17ToBaseline(old);
+    old.exec(`
+      INSERT INTO workspace_entries (id, name, kind, updated_at) VALUES ('p1', '课题', 'project', 'now');
+      INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES ('s1', 'p1', 'f', 'now', 'now');
+      INSERT INTO notifications (id, source, account_key, title, created_at, href)
+        VALUES ('n1', 'mail', 'a', '新邮件', 'now', 'x');
+      INSERT INTO notification_refreshes (source, account_key) VALUES ('jwc', 'a');
+    `);
+    old.close();
+
+    const db = openDatabase(modules);
+    expect(db.prepare("SELECT project_id FROM sessions WHERE id='s1'").pluck().get()).toBe('p1');
+    expect(db.prepare("SELECT title FROM notifications WHERE id='n1'").pluck().get()).toBe(
+      '新邮件',
+    );
+    expect(db.prepare('SELECT source FROM notification_refreshes').pluck().all()).toEqual(['jwc']);
+    expect(db.pragma('foreign_key_list(sessions)')).toEqual([]);
+    db.exec(`
+      INSERT INTO notifications (id, source, account_key, title, created_at, href)
+        VALUES ('n2', 'todo', 'a', '待办', 'now', 'x');
+      INSERT INTO notification_refreshes (source, account_key) VALUES ('todo', 'a');
+    `);
+    expect(
+      db
+        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%'")
+        .pluck()
+        .all(),
+    ).toEqual(
+      expect.arrayContaining([
+        'idx_sessions_visibility',
+        'idx_notifications_account_source_created',
+      ]),
+    );
   });
 });

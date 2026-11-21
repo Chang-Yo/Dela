@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { hostPorts, type Projects } from '../../../core/ports';
 import { remoteById, targetOf } from '../../remotes';
 import { locateRemote } from '../../../core/remote/operations';
+import { detachProjectSessions } from '../../../core/agent/session/store';
 import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from './sources';
 import { availablePath, diskName } from './disk-name';
 import { officeExportPreviewInfo, officeZipMime, readOfficeExportLink } from '../../preview';
@@ -663,6 +664,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
         .run(nextId);
     }
   } else if (parsed.kind === 'folder' && current.kind === 'project') {
+    detachProjectSessions(current.id);
     hostPorts().database().prepare('DELETE FROM workspace_entries WHERE id=?').run(current.id);
     void collectWorkspaceSources();
     nextId = to;
@@ -779,7 +781,7 @@ export function saveWorkspaceNote(id: string, text: string, revision: string): s
   return next;
 }
 
-/** 外键级联删不掉子项目的会话（会残留成随聊），所以先拒绝并点名。 */
+/** 级联删不掉子项目名下的会话，所以先拒绝并点名。 */
 function assertNoChildProjects(projectId: string): void {
   const children = hostPorts()
     .database()
