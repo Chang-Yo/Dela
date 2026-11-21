@@ -88,7 +88,7 @@ export const mailModule = defineModule({
     registerSettingsSearch({
       id: 'mail',
       section: 'connections',
-      title: '学校邮箱',
+      title: '邮箱',
       keywords: ['连接', '邮箱', '邮件', 'imap', 'smtp', 'mail'],
     });
     registerSettingsSearch({

@@ -10,7 +10,7 @@ export function MailCredential({ navigate }: { navigate: Navigate }) {
     <CredentialRow
       connected={Boolean(address)}
       icon={Mail}
-      name="学校邮箱"
+      name="邮箱"
       settingId="mail"
       status={address ? `已连接 · ${address}` : '未配置'}
     >
