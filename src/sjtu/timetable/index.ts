@@ -4,6 +4,7 @@ import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
 import { hostPorts } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
+import { registerSettingsSearch } from '../../modules/settings';
 import { timetableContract } from './contract';
 import { timetableDomain } from './main/agent';
 import {
@@ -32,6 +33,12 @@ export const timetableModule = defineModule({
     connect: () => openLoginWindow(hostPorts().workspaceClient() as WebContents),
   }),
   register() {
+    registerSettingsSearch({
+      id: 'timetable',
+      section: 'connections',
+      title: '教学信息服务网',
+      keywords: ['连接', '教务', '课表', 'timetable', '课程表', 'jaccount'],
+    });
     registerCommandDomain(timetableDomain);
   },
 });

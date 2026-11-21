@@ -6,6 +6,7 @@ import { registerResourceResolver } from '../../core/capabilities/resources';
 import { hostPorts, registerSecretLabel } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { registerNoticeSource } from '../../modules/notifications';
+import { registerSettingsSearch } from '../../modules/settings';
 import { registerPreviewHost, registerWorkspaceSource } from '../../modules/workspace';
 import { shuiyuanContract } from './contract';
 import { shuiyuanDomain } from './main/agent';
@@ -75,6 +76,12 @@ export const shuiyuanModule = defineModule({
     openInBrowser: (topicId) => shell.openExternal(shuiyuanTopicUrl(topicId)),
   }),
   register() {
+    registerSettingsSearch({
+      id: 'shuiyuan',
+      section: 'connections',
+      title: '水源社区',
+      keywords: ['连接', '水源', '社区', '论坛', 'shuiyuan'],
+    });
     registerSecretLabel('shuiyuan-key', '水源凭据');
     registerCommandDomain(shuiyuanDomain);
     registerNoticeSource(shuiyuanNoticeSource);

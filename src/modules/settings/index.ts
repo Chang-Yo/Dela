@@ -38,6 +38,7 @@ export {
   writeSetting,
 } from './main/prefs';
 export { applyTheme } from './main/system';
+export { registerSettingsSearch } from './main/search-index';
 export { settingsSearch } from './main/search';
 export { notifyRunFinished } from './main/task-notify';
 

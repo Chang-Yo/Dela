@@ -7,6 +7,7 @@ import { implement } from '../../core/protocol/contract';
 import { registerNoticeSource } from '../../modules/notifications';
 import { registerPreviewHost, registerWorkspaceSource } from '../../modules/workspace';
 import { registerSearchProvider } from '../../modules/search';
+import { registerSettingsSearch } from '../../modules/settings';
 import { registerTaskSource } from '../../modules/todo';
 import { canvasContract } from './contract';
 import {
@@ -56,6 +57,12 @@ export const canvasModule = defineModule({
     exportCourseFiles,
   }),
   register() {
+    registerSettingsSearch({
+      id: 'canvas',
+      section: 'connections',
+      title: 'Canvas',
+      keywords: ['连接', 'canvas', '令牌', 'token', '课程', '作业'],
+    });
     registerSecretLabel('canvas-token', 'Canvas 凭据');
     registerCommandDomain(canvasDomain);
     registerContextDirectory({ id: 'canvas', label: 'Canvas 课件', directory: coursesDirectory });
