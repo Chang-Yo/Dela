@@ -1,0 +1,8 @@
+/* 只属于 app 外壳与品牌的颜色和字体，不属于 Design System，ui 组件不得使用。 */
+
+@theme inline {
+  --color-window-close: #e81123;
+  --color-alipay: #1677ff;
+  --color-wechat: #07c160;
+  --font-script: Italianno, cursive;
+}

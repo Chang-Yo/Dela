@@ -116,7 +116,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 
 **尺寸一律由 rem 派生**（字号设置会整体缩放文字、间距、图标与圆角）：禁止写死像素字号与宽高，换算基准固定 16。字号用 token，圆角用 `src/ui` 的 `rounded-*`。保留 px 的只有三类——边框/描边/阴影、媒体与容器查询断点、第三方 dist 内改不到的固定值；拖拽调宽的容器尺寸也是 px，因为它是用户用鼠标量出的画布尺寸。沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层，由 `src/ui/hooks/root-font-size.ts` 把根字号注进内层。
 
-颜色、阴影、圆角、层级与时长只用 `src/ui/tokens.css` 的 token，按用途命名，改名要走 ADR 并一次性全局替换（[ADR 0023](adr/0023-design-token-naming.md)），缺少时新增而不是借用别的用途的 token。`pnpm lint` 会拦下 token 之外的写法和写了却不生成 CSS 的类名。
+颜色、阴影、圆角、层级与时长只用 `src/ui/tokens.css` 的 token（只属于 app 的颜色与字体放在 `src/app/renderer/styles/palette.css`，ui 不引用），按用途命名，改名要走 ADR 并一次性全局替换（[ADR 0023](adr/0023-design-token-naming.md)），缺少时新增而不是借用别的用途的 token。`pnpm lint` 会拦下 token 之外的写法和写了却不生成 CSS 的类名。
 
 ## 3. 会话与上下文
 
