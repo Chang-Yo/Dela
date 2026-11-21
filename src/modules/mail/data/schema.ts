@@ -50,4 +50,11 @@ export const mailSchema: Schema = {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_mail_messages_folder_date ON mail_messages(folder_id, date DESC)`,
   ],
+  migrations: {
+    // Agent 准备、待用户确认的邮件曾叫 email-draft:，和本地草稿 mail-draft: 容易混淆。
+    '20261121-rename-prepared-setting': (db) => {
+      db.exec(`UPDATE workspace_settings SET key = 'mail-prepared:' || substr(key, 13)
+        WHERE substr(key, 1, 12) = 'email-draft:'`);
+    },
+  },
 };

@@ -265,10 +265,10 @@ describe('按内容判定格式（无扩展名白名单）', () => {
 describe('移动中断后的恢复', () => {
   const pending = (from: string, to: string) =>
     db
-      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)")
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('workspace-pending-move', ?)")
       .run(JSON.stringify({ from, to, id: to, name: '新位置', parentId: null, kind: 'folder' }));
   const pendingMove = () =>
-    db.prepare("SELECT value FROM workspace_settings WHERE key='storage-move'").get();
+    db.prepare("SELECT value FROM workspace_settings WHERE key='workspace-pending-move'").get();
 
   it('磁盘已改名、数据库未提交：启动时补完移动并清除标记', () => {
     const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });

@@ -295,7 +295,7 @@ function finishMove(move: PendingMove) {
     db.prepare(
       'UPDATE workspace_entries SET name=?, parent_id=?, kind=?, updated_at=? WHERE id=?',
     ).run(move.name, move.parentId, move.kind, new Date().toISOString(), move.id);
-    db.prepare("DELETE FROM workspace_settings WHERE key='storage-move'").run();
+    db.prepare("DELETE FROM workspace_settings WHERE key='workspace-pending-move'").run();
   })();
 }
 
@@ -314,14 +314,14 @@ function ensureArchiveFolder() {
 
 export function prepareStorage() {
   ensureArchiveFolder();
-  const pending = setting('storage-move');
+  const pending = setting('workspace-pending-move');
   if (pending) {
     const move: PendingMove = JSON.parse(pending);
     if (!existsSync(move.from) && existsSync(move.to)) finishMove(move);
     else if (existsSync(move.from) && !existsSync(move.to))
       hostPorts()
         .database()
-        .prepare("DELETE FROM workspace_settings WHERE key='storage-move'")
+        .prepare("DELETE FROM workspace_settings WHERE key='workspace-pending-move'")
         .run();
     else throw new Error('文件移动尚未恢复，请检查原路径和目标路径，暂不继续修改文件。');
   }
@@ -641,7 +641,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     };
     hostPorts()
       .database()
-      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)")
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('workspace-pending-move', ?)")
       .run(JSON.stringify(move));
     try {
       const noteText =
@@ -653,7 +653,7 @@ export function updateWorkspaceEntry(id: string, input: unknown): WorkspaceEntry
     } catch (error) {
       hostPorts()
         .database()
-        .prepare("DELETE FROM workspace_settings WHERE key='storage-move'")
+        .prepare("DELETE FROM workspace_settings WHERE key='workspace-pending-move'")
         .run();
       throw error;
     }

@@ -188,7 +188,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 
 模型推理档位只按模型保存；搜索结果直接携带会话的 `projectId`，不再推导旧入口身份。
 
-只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，经 `defineModule` 的 `schema` 交给宿主；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。只有表的主人写自己表的 SQL，别人经主人 `index.ts` 导出的函数读写，`scripts/lint-tables.ts` 把关；`workspace_settings` 是谁都能用的共享键值表。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
+只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，经 `defineModule` 的 `schema` 交给宿主；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。只有表的主人写自己表的 SQL，别人经主人 `index.ts` 导出的函数读写，`scripts/lint-tables.ts` 把关；`workspace_settings` 是谁都能用的共享键值表，键名不限前缀，但同一个键只归一方，同样由它检查。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
 
 写模块的迁移时：
 

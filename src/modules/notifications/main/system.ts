@@ -7,8 +7,8 @@ import { notificationsContract, type NotificationTarget } from '../contract';
 let armed = false;
 
 export const NOTIFICATIONS_SNOOZE_KEY = 'notifications-snoozed-until';
-// '0' 关闭（只停桌面弹窗，应用内通知列表不受影响），缺省视为开启。键名沿用旧版。
-const MESSAGE_ALERTS_KEY = 'campus-notifications';
+// '0' 关闭（只停桌面弹窗，应用内通知列表不受影响），缺省视为开启。
+const MESSAGE_ALERTS_KEY = 'notifications-message-alerts';
 
 /** 启动首轮刷新完成后调用；此前收集到的存量通知作为基线，不弹系统通知。 */
 export function armSystemNotifications(): void {

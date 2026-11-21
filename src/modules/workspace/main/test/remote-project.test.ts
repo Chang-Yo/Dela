@@ -68,9 +68,6 @@ beforeEach(() => {
   provideTestHostPorts({ database: () => state.db!, projects: workspaceProjects });
   state.locate.mockReset();
   state.locate.mockResolvedValue({ path: '/root/proj', kind: 'directory', entries: [] });
-  state
-    .db!.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)")
-    .run(state.root);
 });
 
 describe('远端路径归属', () => {
