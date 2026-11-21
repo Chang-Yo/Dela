@@ -1,8 +1,9 @@
-import { todoTimeRange, type CalendarEventColor, type TodoItem, type TodoTime } from '../contract';
-import { addDays, colorFor, dateKey, dayMilliseconds, formatTime, mondayOf } from './calendar';
+import { todoTimeRange, type TodoItem, type TodoTime } from '../contract';
+import { colorFor, type CalendarColor } from '../../../ui/lib/calendar-colors';
+import { addDays, dateKey, dayMilliseconds, formatTime, mondayOf } from '../../../ui/lib/dates';
 
 /** 来源条目按分组配色，同一分组颜色固定；个人待办沿用自身颜色。 */
-export function todoCalendarColor(item: TodoItem): CalendarEventColor {
+export function todoCalendarColor(item: TodoItem): CalendarColor {
   if (item.source === 'personal') return item.color ?? 'slate';
   return colorFor(`${item.source}:${item.group?.id ?? ''}`);
 }

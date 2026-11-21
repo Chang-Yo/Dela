@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { TodoItem } from '../contract';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { cn } from '../../../ui/lib/cn';
-import { dateKey, eventColorStyle, formatMonthDay, weekDays } from './calendar';
+import { calendarColorStyle } from '../../../ui/lib/calendar-colors';
+import { dateKey, formatMonthDay, weekDays } from '../../../ui/lib/dates';
 import { groupTodosByDay, monthGridDays, todoCalendarColor, todoChipTime } from './todo-calendar';
 
 function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) => void }) {
@@ -19,7 +20,7 @@ function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) =
       )}
       onClick={() => onOpen(item)}
       onMouseDown={(event) => event.stopPropagation()}
-      style={eventColorStyle(todoCalendarColor(item))}
+      style={calendarColorStyle(todoCalendarColor(item))}
       title={`${group} · ${item.title}${time ? ` · ${time}` : ''}`}
     >
       {time ? (
@@ -66,7 +67,7 @@ function DayOverflow({
                     setOpen(false);
                     onOpen(item);
                   }}
-                  style={eventColorStyle(todoCalendarColor(item))}
+                  style={calendarColorStyle(todoCalendarColor(item))}
                 >
                   <span className="shrink-0 tabular-nums opacity-70">
                     {todoChipTime(item.time)}

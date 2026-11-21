@@ -1,6 +1,7 @@
 import { CalendarRange, Clock, GraduationCap, MapPin, User } from 'lucide-react';
 import { formatMinuteOfDay, periodBoundary } from './timetable-format';
-import { colorFor, formatMonthDay, weekdayName } from '../../../modules/todo/view';
+import { colorFor } from '../../../ui/lib/calendar-colors';
+import { formatMonthDay, weekdayName } from '../../../ui/lib/dates';
 import type { CalendarItemDetail } from './WeekCalendar';
 import {
   Dialog,

@@ -1,6 +1,6 @@
 import { classPeriods, type TimetableLesson } from '../contract';
 import type { CSSProperties } from 'react';
-import { addDays, dayMilliseconds, mondayOf } from '../../../modules/todo/view';
+import { addDays, dayMilliseconds, mondayOf } from '../../../ui/lib/dates';
 
 export const timelineStart = 8 * 60;
 export const timelineEnd = 24 * 60;

@@ -12,15 +12,8 @@ import {
   timelineStart,
   type DayColumnLayout,
 } from './timetable-format';
-import {
-  addDays,
-  colorFor,
-  dateKey,
-  dayMilliseconds,
-  eventColorStyle,
-  startOfDay,
-  weekDays,
-} from '../../../modules/todo/view';
+import { calendarColorStyle, colorFor } from '../../../ui/lib/calendar-colors';
+import { addDays, dateKey, dayMilliseconds, startOfDay, weekDays } from '../../../ui/lib/dates';
 import { cn } from '../../../ui/lib/cn';
 import { useNow } from '../../../ui/hooks/use-now';
 
@@ -202,7 +195,7 @@ function LessonBlock({
           }}
           role="button"
           style={{
-            ...eventColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
+            ...calendarColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
             ...eventStyle(start, end),
             left: `calc(${layout.left}% + 0.125rem)`,
             width: `calc(${layout.width}% - 0.25rem)`,
@@ -256,7 +249,7 @@ function MobileLesson({
         }
       }}
       role="button"
-      style={eventColorStyle(colorFor(lesson.courseCode || lesson.courseName))}
+      style={calendarColorStyle(colorFor(lesson.courseCode || lesson.courseName))}
       tabIndex={0}
     >
       <div className="border-r pr-3 text-xs tabular-nums opacity-75">
