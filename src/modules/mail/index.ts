@@ -1,4 +1,4 @@
-// 邮件：IMAP/SMTP 通用收发，交大邮箱只是一条服务器预设；收件箱未读注册为通知来源。
+// 邮件：IMAP/SMTP 通用收发，常用邮箱的服务器预设由其他模块登记；收件箱未读注册为通知来源。
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
 import { registerResourceResolver } from '../../core/capabilities/resources';

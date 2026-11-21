@@ -77,7 +77,7 @@ export interface MailState {
 export type MailResult =
   { readonly ok: true; readonly warning?: string } | { readonly ok: false; readonly error: string };
 
-/** 邮箱服务器参数：交大邮箱与第三方 IMAP 共用同一套字段，SSL/TLS 固定开启。 */
+/** 邮箱服务器参数，SSL/TLS 固定开启；常用邮箱的预设由其他模块在界面端登记。 */
 export interface MailServerConfig {
   readonly imapHost: string;
   readonly imapPort: number;
@@ -85,18 +85,10 @@ export interface MailServerConfig {
   readonly smtpPort: number;
 }
 
-/** 交大邮箱预设（学生与教工同一套服务器）；第三方账号由用户自填。 */
-export const SJTU_MAIL_SERVER: MailServerConfig = {
-  imapHost: 'mail.sjtu.edu.cn',
-  imapPort: 993,
-  smtpHost: 'mail.sjtu.edu.cn',
-  smtpPort: 465,
-};
-
 export interface MailConfigureInput {
   readonly address: string;
   readonly password: string;
-  readonly server?: MailServerConfig;
+  readonly server: MailServerConfig;
 }
 
 export type MailComposeFileKind = 'attachment' | 'inline';
@@ -160,9 +152,7 @@ export const mailContract = defineContract(
       input: z.object({
         address: z.string(),
         password: z.string(),
-        server: z
-          .object({ imapHost: host, imapPort: port, smtpHost: host, smtpPort: port })
-          .optional(),
+        server: z.object({ imapHost: host, imapPort: port, smtpHost: host, smtpPort: port }),
       }),
       output: result,
     },

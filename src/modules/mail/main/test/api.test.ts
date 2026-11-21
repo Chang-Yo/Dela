@@ -23,7 +23,6 @@ import { mailSyncStatus } from '../sync';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { loadMailCredentials } from '../credentials';
 import { storedMailServer } from '../server';
-import { SJTU_MAIL_SERVER } from '../../contract';
 
 vi.mock('electron', () => ({ ipcMain: {}, shell: {} }));
 vi.mock('../credentials', () => ({
@@ -182,8 +181,15 @@ function createMailDb(): Database.Database {
     CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `);
   db.prepare(
-    'INSERT INTO mail_accounts (address, imap_host, imap_port, created_at) VALUES (?, ?, ?, ?)',
-  ).run('reader@example.com', 'mail.sjtu.edu.cn', 993, '2026-09-13T00:00:00.000Z');
+    'INSERT INTO mail_accounts (address, imap_host, imap_port, smtp_host, smtp_port, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(
+    'reader@example.com',
+    'imap.example.com',
+    993,
+    'smtp.example.com',
+    465,
+    '2026-09-13T00:00:00.000Z',
+  );
   return db;
 }
 
@@ -489,12 +495,6 @@ describe('mail server settings', () => {
     imapHarness.options = [];
   });
 
-  it('falls back to the SJTU preset when the account has no SMTP columns filled', () => {
-    expect(storedMailServer()).toEqual(SJTU_MAIL_SERVER);
-    db.prepare('UPDATE mail_accounts SET smtp_host = NULL, smtp_port = NULL').run();
-    expect(storedMailServer()).toEqual(SJTU_MAIL_SERVER);
-  });
-
   it('connects a third-party account to its own servers and keeps them for sending', async () => {
     const server = {
       imapHost: 'imap.example.com',
@@ -505,7 +505,6 @@ describe('mail server settings', () => {
     expect(
       await configureMailAccount({ address: 'me@example.com', password: 'pw', server }),
     ).toEqual({ ok: true });
-    // 连接用的就是用户填的服务器，而不是交大预设。
     expect(imapHarness.options.at(-1)).toMatchObject({
       host: 'imap.example.com',
       port: 143,
@@ -517,22 +516,6 @@ describe('mail server settings', () => {
       address: 'me@example.com',
       smtp_host: 'smtp.example.com',
       smtp_port: 587,
-    });
-  });
-
-  it('keeps the campus-only guard for the preset path and accepts any address with explicit servers', async () => {
-    expect(await configureMailAccount({ address: 'me@example.com', password: 'pw' })).toEqual({
-      ok: false,
-      error: '交大邮箱地址需以 @sjtu.edu.cn 结尾，或改选第三方 IMAP',
-    });
-    expect(imapHarness.options).toHaveLength(0);
-    expect(await configureMailAccount({ address: 'Me@SJTU.edu.cn', password: 'pw' })).toEqual({
-      ok: true,
-    });
-    expect(imapHarness.options.at(-1)).toMatchObject({
-      host: SJTU_MAIL_SERVER.imapHost,
-      port: SJTU_MAIL_SERVER.imapPort,
-      auth: { user: 'me@sjtu.edu.cn' },
     });
   });
 });

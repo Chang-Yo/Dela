@@ -442,3 +442,23 @@ it('v12→v13：~/.dela/config.json 已写坏时不改它，旧的加密文件�
   expect(readFileSync(join(userData, '.dela', 'config.json'), 'utf8')).toBe('{ broken');
   expect(existsSync(configPath())).toBe(true);
 });
+
+it('v13→v14：没存 SMTP 参数的早期交大账号补上交大服务器，第三方账号不变', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL,
+    imap_host TEXT NOT NULL, imap_port INTEGER NOT NULL, smtp_host TEXT, smtp_port INTEGER);
+    INSERT INTO mail_accounts VALUES
+      (1, 'me@sjtu.edu.cn', 'mail.sjtu.edu.cn', 993, NULL, NULL),
+      (2, 'me@example.com', 'imap.example.com', 143, 'smtp.example.com', 587);`);
+  before.pragma('user_version = 13');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 14)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT smtp_host, smtp_port FROM mail_accounts ORDER BY id').all()).toEqual([
+    { smtp_host: 'mail.sjtu.edu.cn', smtp_port: 465 },
+    { smtp_host: 'smtp.example.com', smtp_port: 587 },
+  ]);
+  db.close();
+});

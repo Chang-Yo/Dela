@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { emit, hostPorts, type SqlDatabase } from '../../../core/ports';
 import {
   mailContract,
-  SJTU_MAIL_SERVER,
   type MailAddress,
   type MailConfigureInput,
   type MailResult,
@@ -324,11 +323,7 @@ export async function configureMailAccount(input: MailConfigureInput): Promise<M
   if (!z.email().safeParse(address).success || password.length === 0) {
     return { ok: false, error: '请输入完整的邮箱地址和密码' };
   }
-  // 不带 server 就是交大邮箱：只接受校内地址。第三方账号服务器自填，地址不限。
-  const server = input.server ?? SJTU_MAIL_SERVER;
-  if (!input.server && !address.endsWith('@sjtu.edu.cn')) {
-    return { ok: false, error: '交大邮箱地址需以 @sjtu.edu.cn 结尾，或改选第三方 IMAP' };
-  }
+  const { server } = input;
   const db = hostPorts().database();
   const client = connectImap(address, password, server);
   try {

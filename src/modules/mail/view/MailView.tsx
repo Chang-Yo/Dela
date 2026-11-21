@@ -587,7 +587,7 @@ function DesktopMailView({
         <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
           <ConnectCard
             className="m-auto"
-            description="交大邮箱用 jAccount 账号与密码；也可改用第三方 IMAP 服务器。凭据加密保存在本机。"
+            description="用邮箱地址与密码连接 IMAP/SMTP 服务器，凭据加密保存在本机。"
             title="连接邮箱"
           >
             <div className="w-full">
