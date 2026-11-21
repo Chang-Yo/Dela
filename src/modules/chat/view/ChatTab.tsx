@@ -4,6 +4,7 @@ import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 
 import type { ChatComment, ChatSessionSummary, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatClient } from './client';
 import { Button } from '../../../ui/button';
+import { SubagentBanner, type SubagentStatus } from '../../../ui/agent/subagent-banner';
 import { ChatComposer } from './ChatComposer';
 import { composerContext } from './composer-context';
 import { ChatSessions } from './ChatSessions';
@@ -30,6 +31,12 @@ function parseChatTabId(tabId: string): string | null {
   if (!tabId.startsWith('chat:')) return null;
   const sessionId = tabId.slice('chat:'.length);
   return sessionId || null;
+}
+
+function subagentStatus(chat: WorkspaceChat): SubagentStatus {
+  if (chat.running) return 'running';
+  const last = chat.messages.at(-1);
+  return last?.interrupted ? 'failed' : last?.stopped ? 'stopped' : 'completed';
 }
 
 /** 会话身份来自 tabId（chat:{sessionId}），项目归属来自会话快照。 */
@@ -284,6 +291,16 @@ function ChatSessionView({
           </Button>
         )}
       </div>
+      {subagent && (
+        <SubagentBanner
+          backLabel="父会话"
+          className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-1"
+          onBack={() => openSession(subagent.parentId)}
+          onStop={chatState.stop}
+          status={subagentStatus(chat)}
+          title={subagent.description}
+        />
+      )}
       {/* chat 在 IPC 返回前为 null，需等它就位再判定，否则已配置用户每次进会话都闪现 Key 表单。 */}
       {chat && !chat.configured && (
         <div className="flex items-center gap-2 px-3 text-xs text-ink-3">
@@ -318,16 +335,7 @@ function ChatSessionView({
           </div>
         </div>
       )}
-      {subagent ? (
-        <div className="mx-auto flex w-full max-w-3xl shrink-0 items-center gap-2 px-6 py-3 text-xs text-ink-3">
-          <span className="min-w-0 truncate">子 Agent · {subagent.description} · 只读</span>
-          <Button size="sm" variant="ghost" onClick={() => openSession(subagent.parentId)}>
-            回到父会话
-          </Button>
-        </div>
-      ) : (
-        conversation && composer(false)
-      )}
+      {conversation && !subagent && composer(false)}
       {sidechatOpen &&
         withReferences((files) => (
           <SidechatPanel
