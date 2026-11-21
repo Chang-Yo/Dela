@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarRange, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 import { MonthCalendar } from './MonthCalendar';
-import { SemesterStartDialog } from './SemesterStartDialog';
+import { SemesterStartPicker } from './SemesterStartPicker';
 import { TimetableConnectCard } from './TimetableConnectCard';
 import { connectAndSyncTimetable, timetableClient, useTimetableState } from './use-timetable';
 import { WeekCalendar, type CalendarItemDetail } from './WeekCalendar';
@@ -15,13 +15,12 @@ import { EventDetailDialog } from './EventDetailDialog';
 import {
   activeInWeek,
   formatSyncTime,
-  parseDate,
   semesterLabel,
   semesterOptions,
   weekForDate,
   weekStartFor,
 } from './timetable-format';
-import { addDays, formatMonthDay, mondayOf, startOfDay } from '../../../modules/todo/view';
+import { addDays, mondayOf, startOfDay } from '../../../modules/todo/view';
 import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { Alert } from '../../../ui/alert';
@@ -58,7 +57,7 @@ function DesktopTimetableView() {
   const [month, setMonth] = useState(() => startOfDay(new Date()));
   const [mode, setMode] = useState<CalendarMode>('week');
   const [busy, setBusy] = useState(false);
-  const [semesterDraft, setSemesterDraft] = useState(false);
+  const [semesterPickerOpen, setSemesterPickerOpen] = useState(false);
   const [detail, setDetail] = useState<CalendarItemDetail | null>(null);
 
   const currentWeek = weekForDate(state?.semesterStart ?? null, new Date());
@@ -233,16 +232,13 @@ function DesktopTimetableView() {
               </SelectContent>
             </Select>
           ) : null}
-          <button
-            className="inline-flex h-8 items-center gap-1.5 rounded-control bg-fill px-2.5 text-xs font-medium text-ink outline-none transition-colors hover:bg-hover-strong focus-visible:ring-3 focus-visible:ring-accent-tint"
-            onClick={() => setSemesterDraft(true)}
-            type="button"
-          >
-            <CalendarRange className="size-3.5 text-ink-3" />
-            {state.semesterStart
-              ? `开学 ${formatMonthDay(parseDate(state.semesterStart))}`
-              : '设置开学日期'}
-          </button>
+          <SemesterStartPicker
+            onOpenChange={setSemesterPickerOpen}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: ['timetable', 'state'] })}
+            open={semesterPickerOpen}
+            semester={semester}
+            semesterStart={state.semesterStart}
+          />
         </div>
       </header>
 
@@ -260,22 +256,10 @@ function DesktopTimetableView() {
         <MonthCalendar
           lessons={lessons}
           month={month}
-          onEditSemesterStart={() => setSemesterDraft(true)}
+          onEditSemesterStart={() => setSemesterPickerOpen(true)}
           semesterStart={state.semesterStart}
         />
       )}
-
-      {semesterDraft ? (
-        <SemesterStartDialog
-          onClose={() => setSemesterDraft(false)}
-          onSaved={() => {
-            setSemesterDraft(false);
-            void queryClient.invalidateQueries({ queryKey: ['timetable', 'state'] });
-          }}
-          semester={semester}
-          semesterStart={state.semesterStart}
-        />
-      ) : null}
 
       {detail ? <EventDetailDialog detail={detail} onClose={() => setDetail(null)} /> : null}
     </div>

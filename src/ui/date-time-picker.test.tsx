@@ -31,25 +31,20 @@ it('日期选择器换日期时保留原来的时分', async () => {
   await cleanup();
 });
 
-it('时间选择器接受直接输入，不合法的输入保持原值', async () => {
+it('时间选择器的列首尾相接，越过 23 点或 59 分不改日期', async () => {
   const onValueChange = vi.fn();
   const cleanup = await render(
     <TimePicker onValueChange={onValueChange} value={new Date(2026, 10, 21, 23, 59)} />,
   );
-  const input = document.querySelector<HTMLInputElement>('input[aria-label="输入时间"]')!;
-  const type = async (text: string) => {
-    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
-    await act(async () => {
-      setValue.call(input, text);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await act(async () =>
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })),
-    );
-  };
-  await type('2575');
-  expect(onValueChange).not.toHaveBeenCalled();
-  await type('0930');
-  expect(onValueChange).toHaveBeenCalledWith(new Date(2026, 10, 21, 9, 30));
+  const column = (label: string) =>
+    document.querySelector<HTMLElement>(`[role="spinbutton"][aria-label="${label}"]`)!;
+  await act(async () =>
+    column('小时').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })),
+  );
+  expect(onValueChange).toHaveBeenLastCalledWith(new Date(2026, 10, 21, 0, 59));
+  await act(async () =>
+    column('分钟').dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true })),
+  );
+  expect(onValueChange).toHaveBeenLastCalledWith(new Date(2026, 10, 21, 23, 0));
   await cleanup();
 });
