@@ -87,7 +87,7 @@ export async function flushCampusSession(): Promise<void> {
 export interface CampusRequestOptions {
   service: string;
   loginError: string;
-  /** 接口另用此状态码表示未登录（交大视频身份接口返回 500）。 */
+  /** 接口另用此状态码表示未登录（交大视频身份接口返回 500，教学信息服务网返回 901）。 */
   loginStatus?: number;
   method?: 'GET' | 'POST';
   headers?: Record<string, string>;
@@ -131,10 +131,6 @@ export function campusRequest(
     request.on('redirect', () => fail(new CampusAuthError(options.loginError)));
     request.on('response', (response) => {
       const status = response.statusCode;
-      if (!Number.isInteger(status) || status < 200 || status > 599) {
-        fail(new Error(`${options.service}返回了无效状态，请稍后重试或重新登录`));
-        return;
-      }
       if (
         status === 401 ||
         status === 403 ||
@@ -142,6 +138,10 @@ export function campusRequest(
         (status >= 300 && status < 400)
       ) {
         fail(new CampusAuthError(options.loginError));
+        return;
+      }
+      if (!Number.isInteger(status) || status < 200 || status > 599) {
+        fail(new Error(`${options.service}返回了无效状态，请稍后重试或重新登录`));
         return;
       }
       if (status !== 200) {
