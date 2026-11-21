@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { provideTestHostPorts } from '../../../core/test/host-mock';
+import { notificationsSchema } from '../data/schema';
 
 vi.mock('../../todo', () => ({
   getTodoState: () => ({ items: [], sources: [], syncing: false }),
@@ -59,11 +60,8 @@ registerNoticeSource(beta);
 beforeEach(() => {
   vi.clearAllMocks();
   const db = new Database(':memory:');
-  db.exec(`
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL, category TEXT, count INTEGER NOT NULL DEFAULT 1);
-    CREATE TABLE notification_refreshes (source TEXT NOT NULL, account_key TEXT NOT NULL, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));
-  `);
+  db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  for (const table of notificationsSchema.tables) db.exec(table);
   provideTestHostPorts({ database: () => db as never });
   alpha.account.mockReturnValue('students');
   beta.account.mockReturnValue('owner');

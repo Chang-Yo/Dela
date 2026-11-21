@@ -10,10 +10,11 @@ const home = mkdtempSync(join(tmpdir(), 'dela-skills-'));
 // 项目放在 home 之外：Pi 沿项目目录向上找 .agents/skills，不能撞上测试里的本机目录。
 const projects = mkdtempSync(join(tmpdir(), 'dela-skill-projects-'));
 let database: DatabaseSync;
+const localProjects: { id: string; name: string; path: string }[] = [];
+const projectPort = { find: () => null, local: () => localProjects, remoteOf: () => null };
 vi.mock('electron', () => ({ app: { getPath: () => home }, shell: {} }));
 
 import { provideTestHostPorts } from '../../test/host-mock';
-import { workspaceProjects } from '../../../modules/workspace';
 import { registerCommandDomain } from '../commands';
 import { registerDocumentReader } from '../documents';
 import {
@@ -59,11 +60,7 @@ function writeSkill(dir: string, name: string) {
 function addProject(id: string, name: string) {
   const path = join(projects, name);
   mkdirSync(path, { recursive: true });
-  database
-    .prepare(
-      "INSERT INTO workspace_entries (id, name, kind, local_path, remote_id) VALUES (?, ?, 'project', ?, NULL)",
-    )
-    .run(id, name, path);
+  localProjects.push({ id, name, path });
   return path;
 }
 
@@ -73,13 +70,11 @@ beforeEach(() => {
   provideTestHostPorts({
     paths: { userData: () => home, home: () => home },
     database: () => database as never,
-    projects: workspaceProjects,
+    projects: projectPort,
   });
   database = new DatabaseSync(':memory:');
-  database.exec(`
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, name TEXT, kind TEXT, local_path TEXT, remote_id TEXT);
-  `);
+  localProjects.length = 0;
+  database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
 });
 afterAll(() => {
   rmSync(home, { recursive: true, force: true });
@@ -135,7 +130,7 @@ it('restores user-edited builtin skills to the bundled version', async () => {
   provideAfterReset({
     paths: { userData: () => home, home: () => home },
     database: () => database as never,
-    projects: workspaceProjects,
+    projects: projectPort,
   });
   registerBuiltins((await import('../commands')).registerCommandDomain);
   (await import('../skills')).ensureBuiltinSkills();

@@ -29,28 +29,23 @@ import {
   updateWorkspaceEntry,
   workspaceProjects,
 } from '../api';
+import { coreSchema } from '../../../../core/data/schema';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import { remotesModule } from '../../../remotes';
+import { workspaceSchema } from '../../data/schema';
 
 const remoteId = '11111111-1111-4111-8111-111111111111';
 
 function createDb(): Database.Database {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
-  db.exec(`
-    CREATE TABLE workspace_entries (
-      id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
-      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL);
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE remotes (id TEXT PRIMARY KEY, label TEXT NOT NULL, host TEXT NOT NULL,
-      port INTEGER, key_path TEXT, created_at TEXT NOT NULL);
-    CREATE TABLE sessions (
-      id TEXT PRIMARY KEY, project_id TEXT,
-      file TEXT NOT NULL, title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
-      archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, cwd TEXT,
-      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-      provider_id TEXT, model TEXT, effort TEXT, parent_id TEXT);
-  `);
+  db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  for (const table of [
+    ...remotesModule.schema!.tables,
+    ...workspaceSchema.tables,
+    ...coreSchema.tables,
+  ])
+    db.exec(table);
   db.prepare('INSERT INTO remotes VALUES (?, ?, ?, ?, ?, ?)').run(
     remoteId,
     'gpu-box',

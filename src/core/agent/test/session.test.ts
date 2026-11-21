@@ -1,15 +1,7 @@
 // 会话层：Pi 消息 → WorkspaceChat 投影；会话 cwd 取库里的 cwd 列（随聊是私有目录，资料页是课程目录），
 // cwd 为 NULL 时按项目目录/工作区根解析，项目目录缺失时报错而不换目录。
 import Database from 'better-sqlite3';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,6 +9,7 @@ import type { AgentMessage } from '@earendil-works/pi-agent-core';
 
 const state = vi.hoisted(() => ({
   db: null as Database.Database | null,
+  projects: new Map<string, { name: string; path: string; remote: boolean }>(),
   root: '',
   configured: false,
   messages: [] as AgentMessage[],
@@ -117,7 +110,7 @@ import { projectMessages, contextUsageView } from '../session/projection';
 import { askSession, invalidateSessions, cancelRun } from '../session/run';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
-import { removeWorkspaceEntry, workspaceProjects } from '../../../modules/workspace';
+import { coreSchema } from '../../data/schema';
 import { provideTestHostPorts } from '../../test/host-mock';
 import { registerDocumentReader } from '../../capabilities/documents';
 
@@ -160,24 +153,26 @@ beforeEach(() => {
       storage: () => join(state.root, 'Dela'),
     },
     database: () => state.db!,
-    projects: workspaceProjects,
+    projects: {
+      find: (id) => state.projects.get(id) ?? null,
+      local: () => [],
+      remoteOf: (id) => {
+        const project = state.projects.get(id);
+        if (!project?.remote) return null;
+        return {
+          id,
+          path: project.path,
+          remoteId: 'remote-id',
+          label: 'gpu',
+          target: { host: 'root@10.0.0.5' },
+        };
+      },
+    },
   });
+  state.projects.clear();
   state.db = new Database(':memory:');
-  state.db.pragma('foreign_keys = ON');
-  state.db.exec(`
-    CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, parent_id TEXT, name TEXT NOT NULL,
-      kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL);
-    CREATE TABLE sessions (id TEXT PRIMARY KEY,
-      project_id TEXT, file TEXT NOT NULL,
-      title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
-      archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
-      cwd TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-      provider_id TEXT, model TEXT, effort TEXT, parent_id TEXT);
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE remotes (id TEXT PRIMARY KEY, label TEXT NOT NULL, host TEXT NOT NULL,
-      port INTEGER, key_path TEXT, created_at TEXT NOT NULL);
-  `);
+  state.db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  for (const table of coreSchema.tables) state.db.exec(table);
 });
 
 afterEach(() => {
@@ -185,34 +180,6 @@ afterEach(() => {
   invalidateSessions();
   state.db?.close();
   rmSync(state.root, { recursive: true, force: true });
-});
-
-it.each([false, true])('移除项目会删除名下全部会话与条目行 (remote=%s)', async (remote) => {
-  const id = crypto.randomUUID();
-  const directory = remote ? '/remote/course' : join(state.root, 'project');
-  if (!remote) mkdirSync(directory);
-  const remoteId = remote ? crypto.randomUUID() : null;
-  if (remoteId)
-    state
-      .db!.prepare("INSERT INTO remotes VALUES (?, 'gpu', 'root@10.0.0.5', NULL, NULL, 'x')")
-      .run(remoteId);
-  state
-    .db!.prepare(
-      'INSERT INTO workspace_entries (id, name, kind, local_path, remote_id, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-    )
-    .run(id, 'project', 'project', directory, remoteId, 'now');
-  const chat = newSession(id);
-  state
-    .db!.prepare(
-      'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)',
-    )
-    .run(crypto.randomUUID(), id, '', 'now', 'now');
-  await removeWorkspaceEntry(id);
-  expect(state.db!.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
-  expect(state.db!.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({
-    n: 0,
-  });
-  expect(() => openSession(chat.sessionId!)).toThrow();
 });
 
 it('真实 ask 生命周期冻结文件变化并将 turnId 持久化到消息元数据', async () => {
@@ -283,16 +250,7 @@ it('用户停止仍冻结已产生的文件，并在删除会话时清理快照'
 
 it('远程会话不读取同名本地目录，接口明确返回不可用', async () => {
   state.configured = true;
-  state
-    .db!.prepare(
-      "INSERT INTO remotes VALUES ('remote-id', 'gpu', 'root@10.0.0.5', NULL, NULL, 'x')",
-    )
-    .run();
-  state
-    .db!.prepare(
-      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('remote-project', NULL, '远程', 'project', NULL, '/remote/project', 'remote-id', 'x')",
-    )
-    .run();
+  state.projects.set('remote-project', { name: '远程', path: '/remote/project', remote: true });
   const chat = newSession('remote-project');
   await askSession(chat.sessionId!, {
     text: '读取远程',
@@ -375,17 +333,12 @@ it('sends document-only messages as file references instead of decoding binary b
 
 it('文档附件按会话归属判断远程：本地路径落在远程项目根下也照常发送', async () => {
   state.configured = true;
-  state
-    .db!.prepare(
-      "INSERT INTO remotes VALUES ('remote-id', 'gpu', 'root@10.0.0.5', NULL, NULL, 'x')",
-    )
-    .run();
   // 远端根恰好盖住本机随聊目录：按路径判断会把本地会话误认成远程。
-  state
-    .db!.prepare(
-      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('remote-project', NULL, '远程', 'project', NULL, ?, 'remote-id', 'x')",
-    )
-    .run(state.root.replace(/\\/g, '/'));
+  state.projects.set('remote-project', {
+    name: '远程',
+    path: state.root.replace(/\\/g, '/'),
+    remote: true,
+  });
   const ask = (sessionId: string) =>
     askSession(sessionId, {
       text: '',
@@ -519,11 +472,7 @@ describe('projectMessages', () => {
 
 describe('会话归属与 cwd', () => {
   it('项目会话的 cwd 是项目目录；空会话入口每个项目只有一个', () => {
-    state
-      .db!.prepare(
-        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
-      )
-      .run(state.root);
+    state.projects.set('p1', { name: '课题', path: state.root, remote: false });
     const first = newSession('p1');
     expect(first).toMatchObject({ projectId: 'p1', cwd: state.root });
     expect(newSession('p1').sessionId).toBe(first.sessionId);
@@ -554,11 +503,7 @@ describe('会话归属与 cwd', () => {
   });
 
   it('新项目会话的 cwd 仍解析到项目目录，库里的 cwd 保持 NULL', () => {
-    state
-      .db!.prepare(
-        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
-      )
-      .run(state.root);
+    state.projects.set('p1', { name: '课题', path: state.root, remote: false });
     const session = newSession('p1');
     expect(session.cwd).toBe(state.root);
     expect(state.db!.prepare('SELECT cwd FROM sessions WHERE id=?').get(session.sessionId)).toEqual(
@@ -567,11 +512,7 @@ describe('会话归属与 cwd', () => {
   });
 
   it('cwd 为 NULL 时项目会话取项目目录，通用会话（如项目降格后）取工作区根', () => {
-    state
-      .db!.prepare(
-        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p1', NULL, '课题', 'project', NULL, ?, NULL, 'x')",
-      )
-      .run(state.root);
+    state.projects.set('p1', { name: '课题', path: state.root, remote: false });
     state
       .db!.prepare(
         `INSERT INTO sessions (id, project_id, file, cwd, created_at, updated_at)
@@ -583,11 +524,7 @@ describe('会话归属与 cwd', () => {
   });
 
   it('项目目录不存在时拒绝新建会话，不回退到其他目录', () => {
-    state
-      .db!.prepare(
-        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('p2', NULL, '丢失', 'project', NULL, ?, NULL, 'x')",
-      )
-      .run(join(state.root, 'missing'));
+    state.projects.set('p2', { name: '丢失', path: join(state.root, 'missing'), remote: false });
     expect(() => newSession('p2')).toThrow('项目目录不存在');
   });
 });

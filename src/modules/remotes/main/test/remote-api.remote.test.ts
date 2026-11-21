@@ -25,7 +25,9 @@ import {
   remoteFileIndex,
   writeRemoteFile,
 } from '../../../../core/remote/operations';
-import { importRemoteProject, projectLocation } from '../../../workspace';
+import { coreSchema } from '../../../../core/data/schema';
+import { importRemoteProject, projectLocation, workspaceModule } from '../../../workspace';
+import { remotesSchema } from '../../data/schema';
 import { parentOf, targetOf } from '../api';
 
 const host = process.env.DELA_REMOTE_HOST!;
@@ -35,21 +37,13 @@ const testRoot = '/tmp/dela-api-test';
 function createDb(): Database.Database {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
-  db.exec(`
-    CREATE TABLE workspace_entries (
-      id TEXT PRIMARY KEY, parent_id TEXT REFERENCES workspace_entries(id) ON DELETE CASCADE,
-      name TEXT NOT NULL, kind TEXT NOT NULL, source_id TEXT, local_path TEXT, remote_id TEXT,
-      updated_at TEXT NOT NULL);
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE remotes (id TEXT PRIMARY KEY, label TEXT NOT NULL, host TEXT NOT NULL,
-      port INTEGER, key_path TEXT, created_at TEXT NOT NULL);
-    CREATE TABLE sessions (
-      id TEXT PRIMARY KEY, project_id TEXT,
-      file TEXT NOT NULL, title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
-      archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0, cwd TEXT,
-      created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-      provider_id TEXT, model TEXT, effort TEXT, parent_id TEXT);
-  `);
+  db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  for (const table of [
+    ...remotesSchema.tables,
+    ...workspaceModule.schema!.tables,
+    ...coreSchema.tables,
+  ])
+    db.exec(table);
   return db;
 }
 
