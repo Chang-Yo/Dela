@@ -289,6 +289,15 @@ describe('campusRequest', () => {
     expect(request.abort).toHaveBeenCalledOnce();
   });
 
+  it('接口自定的未登录状态码即使超出 HTTP 范围也按登录失效处理', async () => {
+    mockRequest(901);
+    let caught: unknown;
+    await campusRequest({} as Session, url, { ...options, loginStatus: 901 }).catch((error) => {
+      caught = error;
+    });
+    expect(caught).toBeInstanceOf(CampusAuthError);
+  });
+
   it('408/5xx 标记可重试，其余状态不标记', async () => {
     const unavailable = mockRequest(503);
     let caught: unknown;

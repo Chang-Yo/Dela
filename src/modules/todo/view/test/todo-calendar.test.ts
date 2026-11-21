@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TodoItem } from '../../contract';
-import { dateKey } from '../calendar';
+import { dateKey } from '../../../../ui/lib/dates';
 import { groupTodosByDay, monthGridDays } from '../todo-calendar';
 
 function todo(overrides: Partial<TodoItem> = {}): TodoItem {

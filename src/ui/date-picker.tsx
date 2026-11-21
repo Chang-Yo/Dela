@@ -4,14 +4,13 @@ import type * as React from 'react';
 import { Button } from './button';
 import { Calendar } from './calendar';
 import { cn } from './lib/cn';
+import { formatMonthDay, weekdayName } from './lib/dates';
 import { fieldTrigger } from './lib/menu-styles';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
-const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-
 function dateLabel(date: Date): string {
   const year = date.getFullYear() === new Date().getFullYear() ? '' : `${date.getFullYear()}年`;
-  return `${year}${date.getMonth() + 1}月${date.getDate()}日 周${weekdays[date.getDay()]}`;
+  return `${year}${formatMonthDay(date)} ${weekdayName(date)}`;
 }
 
 /** 选日期时保留原值的时分，同一个 Date 可以交给时间选择器继续改。 */

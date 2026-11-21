@@ -192,6 +192,7 @@ async function fetchTimetable(semester: string) {
   const text = await campusRequest(await getCampusSession(), TIMETABLE_URL, {
     service: '课表',
     loginError: '登录已失效，请重新登录',
+    loginStatus: 901,
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',

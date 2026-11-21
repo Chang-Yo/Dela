@@ -3,10 +3,8 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
-import { SegmentedControl } from '../../../ui/segmented-control';
 import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
-import { MonthCalendar } from './MonthCalendar';
 import { SemesterStartPicker } from './SemesterStartPicker';
 import { TimetableConnectCard } from './TimetableConnectCard';
 import { connectAndSyncTimetable, timetableClient, useTimetableState } from './use-timetable';
@@ -20,12 +18,10 @@ import {
   weekForDate,
   weekStartFor,
 } from './timetable-format';
-import { addDays, mondayOf, startOfDay } from '../../../modules/todo/view';
+import { addDays, formatMonthDay, mondayOf } from '../../../ui/lib/dates';
 import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { Alert } from '../../../ui/alert';
-
-type CalendarMode = 'week' | 'month';
 
 export function TimetableView() {
   if (!window.dela) {
@@ -54,10 +50,7 @@ function DesktopTimetableView() {
   const lessons = lessonsQuery.data ?? [];
   // 选中的教学周只在本学期有效：换学期后回到本周，同步或改开学日期不会把用户拉回本周。
   const [weekChoice, setWeekChoice] = useState<{ semester: string; week: number } | null>(null);
-  const [month, setMonth] = useState(() => startOfDay(new Date()));
-  const [mode, setMode] = useState<CalendarMode>('week');
   const [busy, setBusy] = useState(false);
-  const [semesterPickerOpen, setSemesterPickerOpen] = useState(false);
   const [detail, setDetail] = useState<CalendarItemDetail | null>(null);
 
   const currentWeek = weekForDate(state?.semesterStart ?? null, new Date());
@@ -130,24 +123,16 @@ function DesktopTimetableView() {
   const semester = state.semester;
 
   const weekEnd = addDays(visibleWeekStart, 6);
-  const headerTitle =
-    mode === 'week'
-      ? semesterWeekStart
-        ? `${visibleWeekStart.getMonth() + 1}月${visibleWeekStart.getDate()}日 – ${weekEnd.getMonth() + 1}月${weekEnd.getDate()}日`
-        : `第 ${selectedWeek} 教学周`
-      : `${month.getFullYear()}年 ${month.getMonth() + 1}月`;
+  const headerTitle = semesterWeekStart
+    ? `${formatMonthDay(visibleWeekStart)} – ${formatMonthDay(weekEnd)}`
+    : `第 ${selectedWeek} 教学周`;
 
   const step = (direction: -1 | 1) => {
-    if (mode === 'week') {
-      const next = selectedWeek + direction;
-      if (weeks.includes(next)) selectWeek(next);
-      return;
-    }
-    setMonth(new Date(month.getFullYear(), month.getMonth() + direction, 1));
+    const next = selectedWeek + direction;
+    if (weeks.includes(next)) selectWeek(next);
   };
 
   const goToday = () => {
-    if (mode === 'month') return setMonth(startOfDay(new Date()));
     const current = weekForDate(state.semesterStart, new Date());
     selectWeek(current && weeks.includes(current) ? current : (weeks[0] ?? 1));
   };
@@ -171,7 +156,7 @@ function DesktopTimetableView() {
               <ChevronLeft />
             </Button>
             <Button className="rounded-none border-x" onClick={goToday} size="sm" variant="ghost">
-              {mode === 'week' ? '本周' : '本月'}
+              本周
             </Button>
             <Button
               aria-label="下一段时间"
@@ -194,12 +179,6 @@ function DesktopTimetableView() {
             >
               <RefreshCw className={cn('size-3.5', busy && 'animate-spin')} />
             </Button>
-            <SegmentedControl
-              labels={{ week: '周', month: '月' }}
-              onValueChange={setMode}
-              options={['week', 'month']}
-              value={mode}
-            />
           </div>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -215,27 +194,20 @@ function DesktopTimetableView() {
               ))}
             </SelectContent>
           </Select>
-          {mode === 'week' ? (
-            <Select
-              onValueChange={(value) => selectWeek(Number(value))}
-              value={String(selectedWeek)}
-            >
-              <SelectTrigger aria-label="教学周">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {weeks.map((week) => (
-                  <SelectItem key={week} value={String(week)}>
-                    第 {week} 周
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
+          <Select onValueChange={(value) => selectWeek(Number(value))} value={String(selectedWeek)}>
+            <SelectTrigger aria-label="教学周">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {weeks.map((week) => (
+                <SelectItem key={week} value={String(week)}>
+                  第 {week} 周
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <SemesterStartPicker
-            onOpenChange={setSemesterPickerOpen}
             onSaved={() => queryClient.invalidateQueries({ queryKey: ['timetable', 'state'] })}
-            open={semesterPickerOpen}
             semester={semester}
             semesterStart={state.semesterStart}
           />
@@ -250,15 +222,8 @@ function DesktopTimetableView() {
 
       {!state.lastSyncedAt ? (
         <TimetableConnectCard semester={semester} />
-      ) : mode === 'week' ? (
-        <WeekCalendar lessons={weekLessons} onOpen={setDetail} weekStart={semesterWeekStart} />
       ) : (
-        <MonthCalendar
-          lessons={lessons}
-          month={month}
-          onEditSemesterStart={() => setSemesterPickerOpen(true)}
-          semesterStart={state.semesterStart}
-        />
+        <WeekCalendar lessons={weekLessons} onOpen={setDetail} weekStart={semesterWeekStart} />
       )}
 
       {detail ? <EventDetailDialog detail={detail} onClose={() => setDetail(null)} /> : null}

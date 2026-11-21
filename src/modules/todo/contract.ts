@@ -1,19 +1,6 @@
 import { z } from 'zod';
 import { defineContract } from '../../core/protocol/contract';
-
-// 日历事件候选色 key，与 --cal-* 设计 token 一一对应；课表的个人事件共用这组颜色。
-export const calendarEventColors = [
-  'rose',
-  'peach',
-  'sand',
-  'sage',
-  'teal',
-  'blue',
-  'lilac',
-  'slate',
-] as const;
-
-export type CalendarEventColor = (typeof calendarEventColors)[number];
+import { calendarColors, type CalendarColor } from '../../ui/lib/calendar-colors';
 
 // 待办只认三种状态（对应 iCalendar 的 NEEDS-ACTION、COMPLETED 与不写），来源的说法放进 statusLabel。
 export type TodoStatus = 'open' | 'done' | 'unknown';
@@ -92,7 +79,7 @@ export interface TodoItem {
   completedAt: string | null;
   readAt: string | null;
   createdAt: string;
-  color?: CalendarEventColor;
+  color?: CalendarColor;
   group?: TodoGroup;
   url?: string;
   bodyHtml?: string;
@@ -119,7 +106,7 @@ export const todoSaveSchema = z
     notes: z.string().max(10000).optional(),
     time: todoTimeSchema.nullable().optional(),
     completed: z.boolean().optional(),
-    color: z.enum(calendarEventColors).optional(),
+    color: z.enum(calendarColors).optional(),
   })
   .strict();
 export type TodoSaveInput = z.input<typeof todoSaveSchema>;

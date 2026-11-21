@@ -1,6 +1,9 @@
-import type { CalendarEventColor } from '../contract';
 import { cn } from '../../../ui/lib/cn';
-import { eventPalette } from './calendar';
+import {
+  calendarColorLabels,
+  calendarColors,
+  type CalendarColor,
+} from '../../../ui/lib/calendar-colors';
 
 export function EventColorRow({
   className,
@@ -8,16 +11,16 @@ export function EventColorRow({
   value,
 }: {
   className?: string;
-  onColorChange: (value: CalendarEventColor) => void;
-  value: CalendarEventColor;
+  onColorChange: (value: CalendarColor) => void;
+  value: CalendarColor;
 }) {
   return (
     <div className={cn('flex h-11 items-center gap-2 px-3', className)}>
       <span className="w-8 shrink-0 text-xs text-ink-3">颜色</span>
       <div className="flex flex-1 items-center gap-1.5">
-        {eventPalette.map(({ key, label }) => (
+        {calendarColors.map((key) => (
           <button
-            aria-label={label}
+            aria-label={calendarColorLabels[key]}
             aria-pressed={value === key}
             className={cn(
               'size-5 rounded-full outline-offset-2 transition-transform hover:scale-110',
@@ -26,7 +29,7 @@ export function EventColorRow({
             key={key}
             onClick={() => onColorChange(key)}
             style={{ backgroundColor: `var(--cal-${key}-bg)` }}
-            title={label}
+            title={calendarColorLabels[key]}
             type="button"
           />
         ))}

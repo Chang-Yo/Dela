@@ -23,7 +23,6 @@ import {
   todoSyncError,
   todoTimeLabel,
   todoTimeSchema,
-  type CalendarEventColor,
   type TodoItem,
   type TodoSaveInput,
   type TodoState,
@@ -42,7 +41,8 @@ import { TimePicker } from '../../../ui/time-picker';
 import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { EventColorRow } from './EventColorRow';
-import { dateKey, formatTime, roundToMinute, startOfDay } from './calendar';
+import type { CalendarColor } from '../../../ui/lib/calendar-colors';
+import { dateKey, formatTime, roundToMinute, startOfDay } from '../../../ui/lib/dates';
 import { TodoCalendar } from './TodoCalendar';
 import { monthLabel } from './todo-calendar';
 import { TodoDetail } from './TodoDetail';
@@ -155,7 +155,7 @@ function TodoComposer({
   const [title, setTitle] = useState(item?.title ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
   const [{ kind, start, end }, setTime] = useState(() => initialTime(item, draft));
-  const [color, setColor] = useState<CalendarEventColor>(item?.color ?? 'slate');
+  const [color, setColor] = useState<CalendarColor>(item?.color ?? 'slate');
   // 改开始时结束跟着平移，保持原有时长。
   const moveStart = (next: Date) =>
     setTime({ kind, start: next, end: new Date(end.getTime() + next.getTime() - start.getTime()) });
