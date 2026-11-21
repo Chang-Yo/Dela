@@ -139,10 +139,13 @@ app
     assert.equal((await syncCanvasCourses()).courses.length, 2);
     const synced = await syncCanvasCourse(1);
     assert.equal(synced.items.find((item) => item.name === '课件.pdf')?.parentId, 'folder:11');
-    assert.equal(synced.items.find((item) => item.id === 'module-item:21')?.sourceId, 'file:3');
     assert.equal(
-      synced.items.find((item) => item.id === 'module-item:22')?.sourceId,
-      'assignment:4',
+      synced.items.find((item) => item.id === 'canvas-module-item:21')?.sourceId,
+      'canvas-file:3',
+    );
+    assert.equal(
+      synced.items.find((item) => item.id === 'canvas-module-item:22')?.sourceId,
+      'canvas-assignment:4',
     );
     assert.throws(() => canvasNextPage('<https://example.com/steal>; rel="next"'), /分页地址无效/);
     failFiles = true;
@@ -150,12 +153,12 @@ app
     assert(partial.courses.find((course) => course.id === 1)?.error?.includes('401'));
     assert(partial.items.some((item) => item.name === '课件.pdf'));
     const [first, second] = await Promise.all([
-      readCanvasSource('file:3'),
-      readCanvasSource('file:3'),
+      readCanvasSource('canvas-file:3'),
+      readCanvasSource('canvas-file:3'),
     ]);
     assert.equal(first.format, 'pdf');
     assert.equal(first.bytes, undefined);
-    assert.match(second.previewUrl ?? '', /^dela-resource:\/\/canvas\/file%3A3/);
+    assert.match(second.previewUrl ?? '', /^dela-resource:\/\/canvas\/canvas-file%3A3/);
     assert.equal(storageGets, 1);
     const canvasKey = createHash('sha256').update('3:2026-09-01').digest('hex');
     const cachedPath = (
@@ -197,7 +200,7 @@ app
       `canvas-file:${canvasKey}`,
       oldCanvasPath,
     );
-    await readCanvasSource('file:3');
+    await readCanvasSource('canvas-file:3');
     assert.equal(
       (
         db
@@ -252,7 +255,7 @@ app
         }),
       );
     }
-    assert.equal((await readCanvasSource('assignment:4')).format, 'html');
+    assert.equal((await readCanvasSource('canvas-assignment:4')).format, 'html');
 
     const folder = createWorkspaceEntry({ name: '主题资料', kind: 'folder', parentId: null });
     const child = createWorkspaceEntry({ name: '参考', kind: 'folder', parentId: folder.id });
@@ -281,20 +284,20 @@ app
     const ref1 = createWorkspaceEntry({
       name: '实验要求',
       kind: 'source',
-      sourceId: 'assignment:4',
+      sourceId: 'canvas-assignment:4',
       parentId: child.id,
     });
     const ref2 = createWorkspaceEntry({
       name: '实验要求',
       kind: 'source',
-      sourceId: 'assignment:4',
+      sourceId: 'canvas-assignment:4',
       parentId: other.id,
     });
     assert.equal(
       createWorkspaceEntry({
         name: '实验要求',
         kind: 'source',
-        sourceId: 'assignment:4',
+        sourceId: 'canvas-assignment:4',
         parentId: child.id,
       }).id,
       ref1.id,
