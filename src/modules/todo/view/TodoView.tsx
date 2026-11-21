@@ -34,14 +34,15 @@ import { useNow } from '../../../ui/hooks/use-now';
 import { Badge } from '../../../ui/badge';
 import { EmptyState } from '../../../ui/empty-state';
 import { Card } from '../../../ui/card';
+import { DatePicker } from '../../../ui/date-picker';
 import { Input } from '../../../ui/input';
 import { SegmentedControl } from '../../../ui/segmented-control';
 import { Switch } from '../../../ui/switch';
+import { TimePicker } from '../../../ui/time-picker';
 import { cn } from '../../../ui/lib/cn';
 import { showToast } from '../../../ui/toast';
 import { EventColorRow } from './EventColorRow';
 import { dateKey, formatTime, roundToMinute, startOfDay } from './calendar';
-import { DateTimeStepper } from './DateTimeStepper';
 import { TodoCalendar } from './TodoCalendar';
 import { monthLabel } from './todo-calendar';
 import { TodoDetail } from './TodoDetail';
@@ -129,9 +130,9 @@ function initialTime(item: TodoItem | undefined, draft: TodoDraft | null): Compo
 
 function ComposerRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-11 items-center gap-2 px-3">
+    <div className="flex min-h-11 items-center gap-2 px-3 py-1.5">
       <span className="w-8 shrink-0 text-xs text-ink-3">{label}</span>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -199,43 +200,32 @@ function TodoComposer({
           </div>
           {kind === 'due' && (
             <ComposerRow label="截止">
-              <DateTimeStepper onChange={moveStart} value={start} />
+              <DatePicker aria-label="截止日期" onValueChange={moveStart} value={start} />
+              <TimePicker aria-label="截止时刻" onValueChange={moveStart} value={start} />
             </ComposerRow>
           )}
           {kind === 'span' && (
-            <>
-              <ComposerRow label="开始">
-                <DateTimeStepper label="开始时间" onChange={moveStart} value={start} />
-              </ComposerRow>
-              <ComposerRow label="结束">
-                <DateTimeStepper
-                  fields="time"
-                  label="结束时间"
-                  onChange={(next) => setTime({ kind, start, end: next })}
-                  value={end}
-                />
-              </ComposerRow>
-            </>
+            <ComposerRow label="时段">
+              <DatePicker aria-label="日期" onValueChange={moveStart} value={start} />
+              <TimePicker aria-label="开始时刻" onValueChange={moveStart} value={start} />
+              <span className="text-ink-3">–</span>
+              <TimePicker
+                aria-label="结束时刻"
+                onValueChange={(next) => setTime({ kind, start, end: next })}
+                value={end}
+              />
+            </ComposerRow>
           )}
           {kind === 'allDay' && (
-            <>
-              <ComposerRow label="开始">
-                <DateTimeStepper
-                  fields="date"
-                  label="开始日期"
-                  onChange={moveStart}
-                  value={start}
-                />
-              </ComposerRow>
-              <ComposerRow label="结束">
-                <DateTimeStepper
-                  fields="date"
-                  label="结束日期"
-                  onChange={(next) => setTime({ kind, start, end: next })}
-                  value={end}
-                />
-              </ComposerRow>
-            </>
+            <ComposerRow label="日期">
+              <DatePicker aria-label="开始日期" onValueChange={moveStart} value={start} />
+              <span className="text-ink-3">–</span>
+              <DatePicker
+                aria-label="结束日期"
+                onValueChange={(next) => setTime({ kind, start, end: next })}
+                value={end}
+              />
+            </ComposerRow>
           )}
           <EventColorRow onColorChange={setColor} value={color} />
         </Card>

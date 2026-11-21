@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../../../ui/button';
+import { DatePicker } from '../../../ui/date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../ui/dialog';
-import { weekStartFor } from './timetable-format';
-import { formatMonthDay, dayMilliseconds } from '../../../modules/todo/view';
+import { parseDate, weekStartFor } from './timetable-format';
+import { dateKey, formatMonthDay, dayMilliseconds } from '../../../modules/todo/view';
 import { errorMessage } from '../../../core/protocol/contract';
 import { timetableClient } from './use-timetable';
 import { ErrorText } from '../../../ui/error-text';
@@ -55,16 +56,14 @@ export function SemesterStartDialog({
             </Button>
           </DialogHeader>
           <div className="grid gap-2">
-            <div className="flex h-8 w-full items-center rounded-control bg-field px-2.5 text-sm text-ink shadow-hairline transition-[background-color,box-shadow] duration-base focus-within:bg-surface focus-within:shadow-focus">
-              <input
-                aria-label="开学日期"
-                autoFocus
-                className="w-full bg-transparent text-sm tabular-nums outline-none"
-                onChange={(event) => setValue(event.target.value)}
-                type="date"
-                value={value}
-              />
-            </div>
+            <DatePicker
+              aria-label="开学日期"
+              autoFocus
+              className="w-full"
+              onValueChange={(date) => setValue(dateKey(date))}
+              placeholder="选择开学第一天"
+              value={value ? parseDate(value) : null}
+            />
             {firstWeek ? (
               <p className="text-xs text-ink-3">
                 第 1 教学周：{formatMonthDay(firstWeek)} –{' '}
