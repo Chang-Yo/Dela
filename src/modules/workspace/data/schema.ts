@@ -17,4 +17,11 @@ export const workspaceSchema: Schema = {
     `INSERT OR IGNORE INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, updated_at)
       VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, '2026-10-07T00:00:00.000Z')`,
   ],
+  migrations: {
+    '20261121-rename-pending-move': (db) => {
+      db.exec(
+        "UPDATE workspace_settings SET key='workspace-pending-move' WHERE key='storage-move'",
+      );
+    },
+  },
 };

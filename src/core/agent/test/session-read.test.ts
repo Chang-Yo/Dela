@@ -17,6 +17,7 @@ vi.mock('../environment', () => ({ agentEnvironment: () => ({}) }));
 import { loadPi } from '../pi';
 import { preloadPi } from '../session/store';
 import { pageTurns, sessionTools, sessionTurns, type SessionTurn } from '../session-read';
+import { coreSchema } from '../../data/schema';
 import { provideTestHostPorts } from '../../test/host-mock';
 
 provideTestHostPorts({ database: () => state.db! });
@@ -220,13 +221,7 @@ describe('session_search / session_read', () => {
 
   beforeAll(() => {
     state.db = new Database(':memory:');
-    state.db.exec(`
-      CREATE TABLE sessions (id TEXT PRIMARY KEY, project_id TEXT, cwd TEXT, file TEXT NOT NULL,
-        title TEXT NOT NULL DEFAULT '新对话', message_count INTEGER NOT NULL DEFAULT 0,
-        archived INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-        provider_id TEXT, model TEXT, effort TEXT, parent_id TEXT);
-    `);
+    for (const table of coreSchema.tables) state.db.exec(table);
     const manager = SessionManager.create(root, join(root, 'sessions'));
     manager.appendMessage(user('复习哪些章节', 't1'));
     manager.appendMessage(assistant('第三到第五章'));

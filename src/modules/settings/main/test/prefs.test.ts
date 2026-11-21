@@ -12,7 +12,6 @@ import {
   getTaskNotificationPrefs,
   normalizeFontSize,
   savedFontSize,
-  savedPendingInstall,
 } from '../prefs';
 
 provideTestHostPorts({ database: () => database as never });
@@ -87,12 +86,5 @@ describe('agent instruction', () => {
   it('falls back to empty on corrupted or over-long stored values', () => {
     insert("INSERT INTO workspace_settings VALUES ('agent-instruction', ?)", 'y'.repeat(2001));
     expect(getAgentInstruction()).toBe('');
-  });
-});
-
-describe('pending update install', () => {
-  it('treats a corrupted value as nothing pending rather than trying to install', () => {
-    insert("INSERT INTO workspace_settings VALUES ('pending-install', 'yes')");
-    expect(savedPendingInstall()).toBe(false);
   });
 });

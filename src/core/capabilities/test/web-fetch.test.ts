@@ -1,31 +1,34 @@
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
-import { readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fetchWebPage } from '../web-fetch';
-import {
-  prepareDocumentFile,
-  releaseDocumentResource,
-} from '../../../modules/workspace/main/resources';
 import { provideTestHostPorts } from '../../test/host-mock';
 import { registerDocumentReader } from '../documents';
 
 const profile = vi.hoisted(() => ({ root: '' }));
 profile.root = mkdtempSync(join(tmpdir(), 'dela-web-document-'));
-vi.mock('../../../modules/preview', () => ({
-  DOCUMENT_SKILL: 'document-reading',
-  assertDocumentDependency: vi.fn(),
-  documentPython: () => 'component/python.exe',
-}));
-
 provideTestHostPorts({ paths: { userData: () => profile.root, temp: () => profile.root } });
 registerDocumentReader({
   skill: 'document-reading',
   dependency: () => ({ status: 'ready' }),
   verify: async () => {},
-  prepare: prepareDocumentFile,
+  prepare: async (writeInput) => {
+    const job = await mkdtemp(join(profile.root, 'job-'));
+    const input = join(job, 'input');
+    await writeInput(input);
+    return {
+      jobId: basename(job),
+      python: 'component/python.exe',
+      script: 'read.py',
+      input,
+      output: join(job, 'output'),
+    };
+  },
 });
+const releaseJob = (document: { input: string }) =>
+  rm(dirname(document.input), { recursive: true, force: true });
 afterEach(() => vi.unstubAllGlobals());
 afterAll(() => rm(profile.root, { recursive: true, force: true }));
 
@@ -100,7 +103,7 @@ describe('web_fetch', () => {
       document: { python: 'component/python.exe', jobId: expect.stringMatching(/^job-/) },
     });
     expect(await readFile(pdf.document!.input, 'utf8')).toBe('%PDF-');
-    await releaseDocumentResource(pdf.document!.jobId);
+    await releaseJob(pdf.document!);
   });
 
   it('识别分块响应中的 PDF 文件头，并保留超过网页 2 MiB 上限的完整文件', async () => {
@@ -128,7 +131,7 @@ describe('web_fetch', () => {
     expect(pdf.readable).toBe(false);
     expect(pdf.truncated).toBe(false);
     expect((await readFile(pdf.document!.input)).equals(contents)).toBe(true);
-    await releaseDocumentResource(pdf.document!.jobId);
+    await releaseJob(pdf.document!);
   });
 
   it('PDF 重定向只下载一次，任务记录最终来源地址', async () => {
@@ -144,10 +147,10 @@ describe('web_fetch', () => {
     const pdf = await fetchWebPage('https://example.com/start');
     expect(pdf.source.url).toBe('https://example.com/download');
     expect(fetch).toHaveBeenCalledTimes(2);
-    await releaseDocumentResource(pdf.document!.jobId);
+    await releaseJob(pdf.document!);
   });
 
-  it('下载中断时清理未完成任务', async () => {
+  it('下载中断时抛出原始错误', async () => {
     let pulls = 0;
     vi.stubGlobal(
       'fetch',
@@ -164,10 +167,9 @@ describe('web_fetch', () => {
       ),
     );
     await expect(fetchWebPage('https://example.com/file')).rejects.toThrow('download interrupted');
-    expect(await readdir(join(profile.root, 'dela-document-reading'))).toEqual([]);
   });
 
-  it('PDF 超过下载上限时明确失败，不留下截断文件', async () => {
+  it('PDF 超过下载上限时明确失败', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -180,7 +182,6 @@ describe('web_fetch', () => {
       ),
     );
     await expect(fetchWebPage('https://example.com/large')).rejects.toThrow('128 MiB');
-    expect(await readdir(join(profile.root, 'dela-document-reading'))).toEqual([]);
   });
 
   it('普通网页仍按 2 MiB 截断并说明内容不完整', async () => {

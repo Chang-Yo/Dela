@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TodoStatus } from '../contract';
+import { todoSchema } from '../data/schema';
 
 const database = vi.hoisted(() => vi.fn());
 vi.mock('../../../core/ports', () => ({ emit: vi.fn(), hostPorts: () => ({ database }) }));
@@ -49,9 +50,8 @@ beforeEach(() => {
   other.owner.mockReturnValue(null);
   tasks = [task(1)];
   db = new DatabaseSync(':memory:');
-  db.exec(
-    'CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT NOT NULL, data TEXT NOT NULL, read_at TEXT, notice_at TEXT); CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);',
-  );
+  db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  for (const table of todoSchema.tables) db.exec(table);
   database.mockReturnValue(db);
 });
 afterEach(() => db.close());

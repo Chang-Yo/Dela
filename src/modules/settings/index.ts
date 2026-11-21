@@ -27,15 +27,7 @@ import { openAtLogin, setOpenAtLogin, setTheme, setZoom } from './main/system';
 export { excludeFromBackup } from './main/backup';
 export { registerCacheDirectory } from './main/cache';
 export { hasConsented } from './main/consent';
-export {
-  readSetting,
-  savedIcon,
-  savedPendingInstall,
-  savedTheme,
-  savedZoom,
-  setPendingInstall,
-  writeSetting,
-} from './main/prefs';
+export { readSetting, savedIcon, savedTheme, savedZoom, writeSetting } from './main/prefs';
 export { applyTheme } from './main/system';
 export { registerSettingsSearch } from './main/search-index';
 export { settingsSearch } from './main/search';

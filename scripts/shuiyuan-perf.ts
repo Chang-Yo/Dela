@@ -21,6 +21,8 @@ import { queueShuiyuanSnapshot } from '../src/sjtu/shuiyuan/main/snapshot';
 import { openDatabase } from '../src/app/main/database';
 import { shuiyuanSchema } from '../src/sjtu/shuiyuan/data/schema';
 import { saveShuiyuanCredential } from '../src/sjtu/shuiyuan/main/credentials';
+import { provideHostPorts } from '../src/core/ports';
+import { electronPorts } from '../src/app/main/host-electron';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-shuiyuan-perf-'));
 app.setPath('userData', profile);
@@ -59,6 +61,7 @@ process.on('unhandledRejection', (error) => {
 app
   .whenReady()
   .then(async () => {
+    provideHostPorts(electronPorts);
     await mkdir(out, { recursive: true });
     const dir = join(profile, 'shuiyuan-snapshots', pending || active ? '42.partial' : '42');
     await mkdir(dir, { recursive: true });
