@@ -154,10 +154,9 @@ export function projectMessages(
         reply = null;
       }
     } else if (message.role === 'compactionSummary') {
-      // 压缩点之前的历史仍在 JSONL；投影只保留摘要后的上下文，开头标注一条。
       out.push({
         role: 'assistant',
-        content: '（较早的对话已压缩为摘要）',
+        content: '（此前的对话已压缩为摘要）',
         parts: [],
         compacted: true,
       });
@@ -181,20 +180,37 @@ export function projectMessages(
   return out;
 }
 
-function storedMessages(manager: Pick<SessionManager, 'buildSessionProjection'>): ChatMessage[] {
-  const projected = manager
-    .buildSessionProjection()
-    .entries.flatMap(({ sourceEntry, messages }) =>
-      messages.map((message) => ({ sourceEntry, message })),
-    );
+// 界面显示整条分支，而不是 Pi 给模型的上下文（从摘要开始）：
+// 压缩前的历史照常可见，压缩标记落在压缩发生的位置。
+function branchMessages(manager: Pick<SessionManager, 'getBranch'>) {
+  const { sessionEntryToContextMessages } = requirePiSync();
+  return manager.getBranch().flatMap((entry) =>
+    sessionEntryToContextMessages(entry).map((message) => ({
+      message,
+      entryId: entry.type === 'message' ? entry.id : undefined,
+    })),
+  );
+}
+
+function storedMessages(manager: Pick<SessionManager, 'getBranch'>): ChatMessage[] {
+  const branch = branchMessages(manager);
   return projectMessages(
-    projected.map(({ message }) => message),
+    branch.map(({ message }) => message),
     undefined,
     false,
-    projected.map(({ sourceEntry }) =>
-      sourceEntry.type === 'message' ? sourceEntry.id : undefined,
-    ),
+    branch.map(({ entryId }) => entryId),
   );
+}
+
+/** 运行中的分支：Pi 先通知再落盘，上下文比已落盘的上下文多出的尾部就是还没写入的消息。 */
+export function liveMessages(session: AgentSession, streaming?: AgentMessage): AgentMessage[] {
+  const manager = session.sessionManager;
+  const unsaved = session.messages.slice(manager.buildSessionProjection().messages.length);
+  return [
+    ...branchMessages(manager).map(({ message }) => message),
+    ...unsaved,
+    ...(streaming ? [streaming] : []),
+  ];
 }
 
 function readMessages(id: string): ChatMessage[] {
@@ -313,7 +329,7 @@ export function snapshot(id: string): WorkspaceChat {
     contextUsage: usageOf(entry),
     messages: entry
       ? entry.run
-        ? projectMessages(entry.session.messages, liveSteps.get(id), true)
+        ? projectMessages(liveMessages(entry.session), liveSteps.get(id), true)
         : storedMessages(entry.session.sessionManager)
       : readMessages(id),
     running: Boolean(entry?.run),

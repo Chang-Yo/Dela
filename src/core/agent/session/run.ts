@@ -21,6 +21,7 @@ import { backgroundTools, stopAllTasks, type TaskNotice, type TaskParent } from 
 import { live, liveSteps, type Live, type Run } from './live';
 import {
   encodeMeta,
+  liveMessages,
   projectMessages,
   publish,
   queuedTexts,
@@ -186,9 +187,8 @@ function stream(id: string, entry: Live) {
   const now = Date.now();
   if (now - (streamTimers.get(id) ?? 0) < 100) return;
   streamTimers.set(id, now);
-  const streaming = entry.session.state.streamingMessage;
   const messages = projectMessages(
-    streaming ? [...entry.session.messages, streaming] : entry.session.messages,
+    liveMessages(entry.session, entry.session.state.streamingMessage),
     liveSteps.get(id),
     true,
   );
