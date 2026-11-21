@@ -26,9 +26,9 @@ function snoozeUntil(kind: '30m' | '1h' | 'tomorrow'): string {
 export function SystemNotifications() {
   const queryClient = useQueryClient();
   // 未读到当前状态（data 为 undefined）时开关保持禁用，避免闪烁出错误的默认值。
-  const campusQuery = useQuery({
-    queryKey: ['settings', 'campusNotifications'],
-    queryFn: () => settingsClient.campusNotifications(),
+  const messageAlertsQuery = useQuery({
+    queryKey: ['notifications', 'messageAlerts'],
+    queryFn: () => notificationsClient.messageAlerts(),
     enabled: Boolean(window.dela),
   });
   const taskQuery = useQuery({
@@ -36,28 +36,28 @@ export function SystemNotifications() {
     queryFn: () => settingsClient.taskNotifications(),
     enabled: Boolean(window.dela),
   });
-  const campus = campusQuery.data;
+  const messageAlerts = messageAlertsQuery.data;
   const task = taskQuery.data;
-  const loadError = campusQuery.error ?? taskQuery.error;
+  const loadError = messageAlertsQuery.error ?? taskQuery.error;
   const snoozedUntil = useNotificationState().data?.snoozedUntil ?? null;
   const [busy, setBusy] = useState(false);
 
   // 浏览器预览没有 preload，只维护选择态；桌面端经主进程持久化。
-  const toggleCampus = async (next: boolean) => {
+  const toggleMessageAlerts = async (next: boolean) => {
     if (busy) return;
     setBusy(true);
-    const previous = campus;
-    queryClient.setQueryData(['settings', 'campusNotifications'], next);
+    const previous = messageAlerts;
+    queryClient.setQueryData(['notifications', 'messageAlerts'], next);
     const save = async () => {
       queryClient.setQueryData(
-        ['settings', 'campusNotifications'],
-        window.dela ? await settingsClient.setCampusNotifications(next) : next,
+        ['notifications', 'messageAlerts'],
+        window.dela ? await notificationsClient.setMessageAlerts(next) : next,
       );
     };
     try {
       await save();
     } catch (cause) {
-      queryClient.setQueryData(['settings', 'campusNotifications'], previous);
+      queryClient.setQueryData(['notifications', 'messageAlerts'], previous);
       showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
     }
     setBusy(false);
@@ -108,12 +108,12 @@ export function SystemNotifications() {
         settingId="system-notifications"
         title="系统通知"
       >
-        <SettingRow settingId="campus-notifications" title="校园消息提醒">
+        <SettingRow settingId="message-alerts" title="新消息提醒">
           <Switch
-            checked={campus ?? true}
-            disabled={campus === undefined || busy}
-            aria-label="校园消息提醒"
-            onCheckedChange={(next) => void toggleCampus(next)}
+            checked={messageAlerts ?? true}
+            disabled={messageAlerts === undefined || busy}
+            aria-label="新消息提醒"
+            onCheckedChange={(next) => void toggleMessageAlerts(next)}
           />
         </SettingRow>
         <SettingRow settingId="notify-run-failed" title="任务失败时提醒">

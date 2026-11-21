@@ -17,22 +17,15 @@ const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['通用', '侧栏', '导航', '入口', '隐藏', '显示', 'sidebar', 'nav'],
   },
   {
-    id: 'video-download-directory',
-    section: 'storage',
-    title: '视频默认下载目录',
-    keywords: ['课堂', '录像', '下载', '目录', '交大视频', 'vsjtu', 'classroom', 'download'],
-  },
-  {
     id: 'open-at-login',
     section: 'general',
     title: '开机自启动',
     keywords: ['通用', '自启动', '开机', '启动', 'login', 'auto'],
   },
   {
-    id: 'campus-notifications',
+    id: 'message-alerts',
     section: 'notifications',
-    title: '校园消息系统提醒',
-    // 不含「邮件/水源」：这两个词的首要意图是凭据页的邮箱/水源。
+    title: '新消息提醒',
     keywords: ['通知', '提醒', '消息', '弹窗', '桌面通知', 'notify'],
   },
   {
@@ -114,30 +107,6 @@ const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['归档', '恢复', '对话', '永久删除', '全部删除', 'archive'],
   },
   {
-    id: 'canvas',
-    section: 'connections',
-    title: 'Canvas',
-    keywords: ['连接', 'canvas', '令牌', 'token', '课程', '作业'],
-  },
-  {
-    id: 'mail',
-    section: 'connections',
-    title: '学校邮箱',
-    keywords: ['连接', '邮箱', '邮件', 'imap', 'jaccount', 'mail'],
-  },
-  {
-    id: 'timetable',
-    section: 'connections',
-    title: '教学信息服务网',
-    keywords: ['连接', '教务', '课表', 'timetable', '课程表'],
-  },
-  {
-    id: 'shuiyuan',
-    section: 'connections',
-    title: '水源社区',
-    keywords: ['连接', '水源', '社区', '论坛', 'shuiyuan'],
-  },
-  {
     id: 'providers',
     section: 'providers',
     title: '模型服务',
@@ -195,13 +164,17 @@ const settingsSearchItems: SettingsSearchItem[] = [
   },
 ];
 
+export function registerSettingsSearch(item: SettingsSearchItem): void {
+  settingsSearchItems.push(item);
+}
+
 export const settingsSectionSummaries: Record<SettingsSectionId, string> = {
   general: '开机自启动、导航入口与软件更新',
   appearance: '主题、缩放、字号与图标',
   shortcuts: '查看与修改快捷键',
-  notifications: '系统通知、校园消息与任务提醒',
-  storage: '缓存、视频下载目录与已删除邮件保留',
-  connections: 'Canvas、邮箱、教学信息服务网与水源',
+  notifications: '系统通知、新消息与任务提醒',
+  storage: '缓存与本机数据',
+  connections: '外部服务的账号连接',
   providers: 'AI 模型与 API 提供商',
   capabilities: '内置 Agent 能力开关',
   commands: '全局指令与快捷指令模板',

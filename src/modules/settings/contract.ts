@@ -99,9 +99,6 @@ export const settingsContract = defineContract('settings', {
   setFontSize: { input: z.number(), output: z.number() },
   openAtLogin: { input: z.undefined(), output: z.boolean() },
   setOpenAtLogin: { input: z.boolean(), output: z.boolean() },
-  /** 校园消息的系统提醒开关；关闭只停桌面通知，应用内列表不受影响。 */
-  campusNotifications: { input: z.undefined(), output: z.boolean() },
-  setCampusNotifications: { input: z.boolean(), output: z.boolean() },
   taskNotifications: { input: z.undefined(), output: z.custom<TaskNotificationPrefs>() },
   setTaskNotifications: {
     input: taskNotificationsSchema,

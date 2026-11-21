@@ -21,10 +21,17 @@ export const cacheDirectoryNames = new Set([
   'logs',
 ]);
 
+const registeredCachePatterns: RegExp[] = [];
+
+/** 模块登记自己的可再生目录：pattern 匹配相对 userData、以 '/' 分隔的路径。 */
+export function registerCacheDirectory(pattern: RegExp): void {
+  registeredCachePatterns.push(pattern);
+}
+
 function isCacheDirectory(path: string): boolean {
   if (cacheDirectoryNames.has(basename(path))) return true;
   const localPath = relative(app.getPath('userData'), path).replaceAll('\\', '/');
-  return /^shuiyuan-snapshots\/\d+(?:\.partial)?\/thumbnails$/.test(localPath);
+  return registeredCachePatterns.some((pattern) => pattern.test(localPath));
 }
 
 async function treeBytes(directory: string): Promise<number> {

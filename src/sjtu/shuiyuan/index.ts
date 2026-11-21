@@ -6,6 +6,11 @@ import { registerResourceResolver } from '../../core/capabilities/resources';
 import { hostPorts, registerSecretLabel } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { registerNoticeSource } from '../../modules/notifications';
+import {
+  excludeFromBackup,
+  registerCacheDirectory,
+  registerSettingsSearch,
+} from '../../modules/settings';
 import { registerPreviewHost, registerWorkspaceSource } from '../../modules/workspace';
 import { shuiyuanContract } from './contract';
 import { shuiyuanDomain } from './main/agent';
@@ -35,7 +40,7 @@ import { handleShuiyuanMediaRequest } from './main/media';
 import { shuiyuanNoticeSource } from './main/notice-source';
 import { shuiyuanOnlineResourceResolver, shuiyuanWorkspaceSource } from './main/resources';
 import { refreshShuiyuanSnapshot, resumeShuiyuanSnapshots } from './main/snapshot';
-import { handleShuiyuanSnapshotRequest } from './main/snapshot-files';
+import { handleShuiyuanSnapshotRequest, snapshotDirectoryName } from './main/snapshot-files';
 import {
   addShuiyuanSourceRef,
   getShuiyuanSourceRef,
@@ -75,6 +80,12 @@ export const shuiyuanModule = defineModule({
     openInBrowser: (topicId) => shell.openExternal(shuiyuanTopicUrl(topicId)),
   }),
   register() {
+    registerSettingsSearch({
+      id: 'shuiyuan',
+      section: 'connections',
+      title: '水源社区',
+      keywords: ['连接', '水源', '社区', '论坛', 'shuiyuan'],
+    });
     registerSecretLabel('shuiyuan-key', '水源凭据');
     registerCommandDomain(shuiyuanDomain);
     registerNoticeSource(shuiyuanNoticeSource);
@@ -82,6 +93,9 @@ export const shuiyuanModule = defineModule({
     registerResourceResolver('shuiyuan-online', shuiyuanOnlineResourceResolver);
     registerPreviewHost('shuiyuan', handleShuiyuanMediaRequest);
     registerPreviewHost('shuiyuan-snapshot', (_request, url) => handleShuiyuanSnapshotRequest(url));
+    // 备份只保留水源引用；快照和本机密钥不导出，恢复后尝试重新保存。
+    excludeFromBackup(snapshotDirectoryName);
+    registerCacheDirectory(new RegExp(`^${snapshotDirectoryName}/\\d+(?:\\.partial)?/thumbnails$`));
   },
   start() {
     void resumeShuiyuanSnapshots().catch((error: unknown) =>

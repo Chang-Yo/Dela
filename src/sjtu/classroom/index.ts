@@ -5,7 +5,7 @@ import { registerCommandDomain } from '../../core/capabilities/commands';
 import { hostPorts } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { registerPreviewHost } from '../../modules/workspace';
-import { savedVideoDownloadDirectory } from '../../modules/settings';
+import { registerSettingsSearch } from '../../modules/settings';
 import { classroomContract } from './contract';
 import { classroomDomain } from './main/agent';
 import { connectClassroom, getTranscript, listCourses, listVideos } from './main/api';
@@ -16,6 +16,7 @@ import {
   exportTranscript,
   listDownloads,
   revealDownload,
+  savedVideoDownloadDirectory,
 } from './main/downloads';
 import { handleVsjtuMediaRequest, issuePlayback } from './main/playback';
 
@@ -36,6 +37,12 @@ export const classroomModule = defineModule({
     chooseDownloadDirectory,
   }),
   register() {
+    registerSettingsSearch({
+      id: 'video-download-directory',
+      section: 'storage',
+      title: '视频默认下载目录',
+      keywords: ['课堂', '录像', '下载', '目录', '交大视频', 'vsjtu', 'classroom', 'download'],
+    });
     registerCommandDomain(classroomDomain);
     registerPreviewHost('vsjtu', handleVsjtuMediaRequest);
   },

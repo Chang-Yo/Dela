@@ -11,8 +11,12 @@ import { cacheDirectoryNames } from './cache';
 
 // 数据库走 VACUUM INTO 取一致快照；-wal/-shm 属于当前连接，跟着复制只会得到不自洽的副本。
 const databaseFiles = new Set(['dela.db', 'dela.db-wal', 'dela.db-shm', 'dela.db-journal']);
-// 备份只保留水源引用；快照和本机密钥不导出，恢复后尝试重新保存。
-const skippedDataEntries = new Set([...databaseFiles, 'shuiyuan-snapshots']);
+const skippedDataEntries = new Set(databaseFiles);
+
+/** 模块登记不随备份导出的 userData 顶层条目名。 */
+export function excludeFromBackup(name: string): void {
+  skippedDataEntries.add(name);
+}
 
 function backupFolderName(now: Date) {
   const pad = (value: number) => String(value).padStart(2, '0');

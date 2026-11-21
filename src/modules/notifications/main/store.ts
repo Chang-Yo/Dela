@@ -7,7 +7,7 @@ import {
   type NotificationState,
   type NotificationTarget,
 } from '../contract';
-import { armSystemNotifications, NOTIFICATIONS_SNOOZE_KEY, showCampusNotice } from './system';
+import { armSystemNotifications, NOTIFICATIONS_SNOOZE_KEY, showMessageNotice } from './system';
 
 /** 通知来源（邮件及各模块登记的服务）。待办内置；未注册的来源不刷新，其旧通知也不显示。 */
 export interface NoticeSource {
@@ -96,7 +96,7 @@ function linkOf(source: string, href: object, id: string): NoticeLink | null {
 /** 新到达通知的系统提醒；body 用于合并后的摘要，缺省不显示正文。 */
 export function systemNotifyItem(notice: StoredNotice, body = ''): void {
   const link = linkOf(notice.source, notice.href, notice.id);
-  if (link) showCampusNotice(notice.id, notice.title, body, link.target);
+  if (link) showMessageNotice(notice.id, notice.title, body, link.target);
 }
 
 export function notificationState(sources?: readonly string[]): NotificationState {

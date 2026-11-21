@@ -13,31 +13,30 @@ import {
   getTaskNotificationPrefs,
   normalizeFontSize,
   resetKeybindingOverrides,
-  savedCampusNotifications,
   savedFontSize,
   savedIcon,
   savedTheme,
   savedZoom,
-  setCampusNotifications,
   setKeybindingOverrides,
   setTaskNotificationPrefs,
   writeSetting,
 } from './main/prefs';
 import { openAtLogin, setOpenAtLogin, setTheme, setZoom } from './main/system';
 
+export { excludeFromBackup } from './main/backup';
+export { registerCacheDirectory } from './main/cache';
 export { hasConsented } from './main/consent';
 export {
   readSetting,
   savedIcon,
   savedPendingInstall,
   savedTheme,
-  savedVideoDownloadDirectory,
   savedZoom,
   setPendingInstall,
-  setVideoDownloadDirectory,
   writeSetting,
 } from './main/prefs';
 export { applyTheme } from './main/system';
+export { registerSettingsSearch } from './main/search-index';
 export { settingsSearch } from './main/search';
 export { notifyRunFinished } from './main/task-notify';
 
@@ -61,8 +60,6 @@ export const settingsModule = defineModule({
     },
     openAtLogin,
     setOpenAtLogin,
-    campusNotifications: savedCampusNotifications,
-    setCampusNotifications,
     taskNotifications: getTaskNotificationPrefs,
     setTaskNotifications: setTaskNotificationPrefs,
     keybindings: getKeybindingOverrides,

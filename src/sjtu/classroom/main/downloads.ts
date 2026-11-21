@@ -11,11 +11,21 @@ import {
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { emit, hostPorts } from '../../../core/ports';
-import { savedVideoDownloadDirectory, setVideoDownloadDirectory } from '../../../modules/settings';
+import { readSetting, writeSetting } from '../../../modules/settings';
 import { getCampusSession } from '../../campus';
 import { classroomContract, type VideoDownload } from '../contract';
 import { getStreams, getTranscript, formatTranscript } from './api';
 import { safeFileName } from './transcript';
+
+// 空串 = 没设过；值只来自主进程的目录选择器，不做校验。
+export function savedVideoDownloadDirectory(): string {
+  return readSetting('video-download-directory') ?? '';
+}
+
+function setVideoDownloadDirectory(value: string): string {
+  writeSetting('video-download-directory', value);
+  return value;
+}
 
 const downloads = new Map<string, { info: VideoDownload; item: DownloadItem; path: string }>();
 const pending = new Set<string>();

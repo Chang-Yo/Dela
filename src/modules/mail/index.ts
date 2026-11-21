@@ -5,6 +5,7 @@ import { registerResourceResolver } from '../../core/capabilities/resources';
 import { registerSecretLabel } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
 import { registerSearchProvider } from '../search';
+import { registerSettingsSearch } from '../settings';
 import { mailContract } from './contract';
 import {
   confirmDraftClose,
@@ -84,6 +85,18 @@ export const mailModule = defineModule({
     sync: startMailSync,
   }),
   register() {
+    registerSettingsSearch({
+      id: 'mail',
+      section: 'connections',
+      title: '邮箱',
+      keywords: ['连接', '邮箱', '邮件', 'imap', 'smtp', 'mail'],
+    });
+    registerSettingsSearch({
+      id: 'mail-trash-retention',
+      section: 'storage',
+      title: '已删除邮件保留',
+      keywords: ['邮件', '邮箱', '删除', '回收站', '保留', 'trash'],
+    });
     registerSecretLabel('mail-credentials', '邮箱凭据');
     registerCommandDomain(mailDomain);
     registerResourceResolver('mail', mailResourceResolver);

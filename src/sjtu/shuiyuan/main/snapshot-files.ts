@@ -31,7 +31,8 @@ export interface ShuiyuanSnapshotPost {
   cooked: string;
 }
 
-export const snapshotRoot = () => join(app.getPath('userData'), 'shuiyuan-snapshots');
+export const snapshotDirectoryName = 'shuiyuan-snapshots';
+export const snapshotRoot = () => join(app.getPath('userData'), snapshotDirectoryName);
 export const snapshotDir = (topicId: number) => join(snapshotRoot(), String(topicId));
 export const partialDir = (topicId: number) => join(snapshotRoot(), `${topicId}.partial`);
 
