@@ -6,7 +6,7 @@ import { Chip } from './chip';
 function MessageChips({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
-      className={cn('mt-1.5 flex max-w-[85%] flex-wrap justify-end gap-1.5', className)}
+      className={cn('mt-1.5 flex max-w-message flex-wrap justify-end gap-1.5', className)}
       data-slot="message-chips"
       {...props}
     />
@@ -15,14 +15,13 @@ function MessageChips({ className, ...props }: ComponentProps<'div'>) {
 
 function MessageChip({
   icon,
-  title,
   onClick,
   children,
-}: {
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Chip>, 'asChild' | 'onClick'> & {
   icon?: ReactNode;
-  title?: string;
   onClick?: () => void;
-  children: ReactNode;
 }) {
   const content = (
     <>
@@ -33,16 +32,19 @@ function MessageChip({
   return onClick ? (
     <Chip
       asChild
-      className="gap-1.5 px-2 transition-colors hover:bg-hover-strong hover:text-ink"
+      className={cn(
+        'gap-1.5 px-2 transition-colors hover:bg-hover-strong hover:text-ink',
+        className,
+      )}
       data-slot="message-chip"
-      title={title}
+      {...props}
     >
       <button onClick={onClick} type="button">
         {content}
       </button>
     </Chip>
   ) : (
-    <Chip className="gap-1.5 px-2" data-slot="message-chip" title={title}>
+    <Chip className={cn('gap-1.5 px-2', className)} data-slot="message-chip" {...props}>
       {content}
     </Chip>
   );

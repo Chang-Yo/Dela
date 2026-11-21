@@ -44,7 +44,7 @@ function ChangedFile({
       {...props}
     >
       <FileIcon path={path} />
-      <span className="shrink-0 truncate text-sm" title={path}>
+      <span className="min-w-0 truncate text-sm" title={path}>
         {name}
       </span>
       <span className="min-w-0 flex-1 truncate text-xs text-ink-3" title={path}>

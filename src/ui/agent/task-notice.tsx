@@ -28,27 +28,25 @@ function TaskNotice({
   return (
     <Card className={cn('my-3', className)} data-slot="task-notice" variant="inset" {...props}>
       <div className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
-        <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={1.8} />
-        <span className={cn('shrink-0 font-medium', failed && 'text-danger')}>{title}</span>
-        <span className="min-w-0 flex-1 truncate" title={label}>
-          {label}
-        </span>
-        <span className="shrink-0 tabular-nums">{duration}</span>
+        <button
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+          onClick={() => setOpen((value) => !value)}
+          type="button"
+        >
+          <Icon aria-hidden className="size-3.5 shrink-0" strokeWidth={1.8} />
+          <span className={cn('shrink-0 font-medium', failed && 'text-danger')}>{title}</span>
+          <span className="min-w-0 flex-1 truncate" title={label}>
+            {label}
+          </span>
+          <span className="shrink-0 tabular-nums">{duration}</span>
+          <CollapsibleChevron open={open} />
+        </button>
         {onOpenSession && (
           <Button size="sm" variant="ghost" onClick={onOpenSession}>
             打开子会话
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-expanded={open}
-          aria-label={open ? '收起通知' : '展开通知'}
-          className="size-6"
-          onClick={() => setOpen((value) => !value)}
-        >
-          <CollapsibleChevron open={open} />
-        </Button>
       </div>
       <Collapsible open={open}>{children}</Collapsible>
     </Card>

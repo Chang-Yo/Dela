@@ -101,6 +101,7 @@ export function TurnChangesCard({
     <ChangesCard
       counts={reviewEnabled ? total : undefined}
       fileCount={record.files.length}
+      title="本轮改动"
       warning={
         record.state === 'partial' && record.warnings.length > 0
           ? `部分内容未能记录：${record.warnings[0]}${

@@ -54,15 +54,11 @@ function MessageImage({ id, name }: { id: string; name: string }) {
       title={name || undefined}
       type="button"
     >
-      <img
-        alt={name}
-        className="size-20 rounded-card border border-line border-line/60 object-cover"
-        src={url}
-      />
+      <img alt={name} className="size-20 rounded-card border border-line object-cover" src={url} />
     </button>
   ) : (
     <span
-      className="grid size-20 place-items-center rounded-card border border-line border-line/60 bg-inset text-xs text-ink-3"
+      className="grid size-20 place-items-center rounded-card border border-line bg-inset text-xs text-ink-3"
       title={name || undefined}
     >
       图片
@@ -277,7 +273,7 @@ function AssistantMessage({
           </ChatMarkdown>
         )}
       />
-      {reason && <ErrorCard onRetry={onRetry} reason={reason} />}
+      {reason && <ErrorCard announce={Boolean(onRetry)} onRetry={onRetry} reason={reason} />}
       {message.stopped && !live && <p className="my-2 text-sm text-ink-3">已停止</p>}
       {onOpenDraft &&
         draftIds.map((draftId) => (
@@ -506,7 +502,7 @@ export function ChatThread({
               />
             ) : message.extension ? (
               <ExtensionMessage
-                customType={message.extension.customType}
+                label={`扩展 · ${message.extension.customType}`}
                 key={`${chat.sessionId}:${index}`}
               >
                 <ChatMarkdown className="text-sm" mode="static">

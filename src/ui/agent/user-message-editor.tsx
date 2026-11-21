@@ -29,7 +29,7 @@ function UserMessageEditor({
     >
       <textarea
         autoFocus
-        className="max-h-64 w-[85%] resize-none rounded-card border border-line border-line-strong bg-surface px-3.5 py-2 text-sm leading-relaxed text-ink shadow-card outline-none field-sizing-content"
+        className="max-h-64 w-message resize-none rounded-card bg-surface px-3.5 py-2 text-sm leading-relaxed text-ink shadow-card ring-1 ring-line-strong outline-none field-sizing-content"
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.nativeEvent.isComposing) return;

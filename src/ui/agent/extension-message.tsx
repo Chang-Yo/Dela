@@ -5,11 +5,11 @@ import { cn } from '../lib/cn';
 
 /** 扩展注入的消息：标明来源类型，正文由 children 渲染。 */
 function ExtensionMessage({
-  customType,
+  label,
   children,
   className,
   ...props
-}: ComponentProps<'div'> & { customType: string }) {
+}: ComponentProps<'div'> & { label: string }) {
   return (
     <Card
       className={cn('my-3 grid gap-1.5', className)}
@@ -19,7 +19,7 @@ function ExtensionMessage({
     >
       <span className="flex items-center gap-1.5 text-xs font-medium text-ink-3">
         <Package aria-hidden className="size-3" strokeWidth={1.8} />
-        扩展 · {customType}
+        {label}
       </span>
       {children}
     </Card>

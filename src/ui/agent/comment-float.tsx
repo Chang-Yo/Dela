@@ -10,7 +10,7 @@ function CommentFloat({
     <div
       className={cn(
         'absolute z-20 rounded-card bg-surface shadow-raised animate-pop-in',
-        editing ? 'w-80 max-w-[calc(100%-1rem)] p-1' : 'w-max p-0.5',
+        editing ? 'w-80 max-w-float p-1' : 'w-max p-0.5',
         className,
       )}
       data-slot="comment-float"

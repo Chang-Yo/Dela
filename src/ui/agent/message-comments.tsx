@@ -10,7 +10,7 @@ function MessageComments({
 }: ComponentProps<'div'> & { comments: { quote: string; comment?: string }[] }) {
   return (
     <div
-      className={cn('mb-1.5 grid max-w-[85%] justify-items-end gap-1', className)}
+      className={cn('mb-1.5 grid max-w-message justify-items-end gap-1', className)}
       data-slot="message-comments"
       {...props}
     >

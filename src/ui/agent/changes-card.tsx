@@ -6,8 +6,9 @@ import { cn } from '../lib/cn';
 import { Collapsible, CollapsibleChevron } from '../collapsible';
 import { DiffStat, type DiffCounts } from './diff-stat';
 
-/** 回答末尾的「本轮改动」卡片：默认折叠，防止大轮次刷屏；children 是 ChangedFile 列表。 */
+/** 回答末尾的改动卡片：默认折叠，防止大轮次刷屏；children 是 ChangedFile 列表。 */
 function ChangesCard({
+  title,
   fileCount,
   counts,
   warning,
@@ -15,6 +16,7 @@ function ChangesCard({
   className,
   ...props
 }: ComponentProps<'section'> & {
+  title: string;
   fileCount: number;
   counts?: DiffCounts;
   warning?: string;
@@ -23,7 +25,7 @@ function ChangesCard({
   return (
     <Card asChild>
       <section
-        aria-label="本轮改动"
+        aria-label={title}
         className={cn('mt-3 text-sm', className)}
         data-slot="changes-card"
         {...props}
@@ -35,7 +37,9 @@ function ChangesCard({
           type="button"
         >
           <CollapsibleChevron className="text-ink-3" open={open} />
-          <span className="shrink-0 text-xs text-ink-3">本轮改动 · {fileCount} 个文件</span>
+          <span className="shrink-0 text-xs text-ink-3">
+            {title} · {fileCount} 个文件
+          </span>
           {counts && <DiffStat className="min-w-0" counts={counts} hideZero />}
         </button>
         <Collapsible open={open}>

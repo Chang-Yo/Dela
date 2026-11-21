@@ -20,8 +20,7 @@ function PromptInput({
   return (
     <div
       className={cn(
-        '@container relative rounded-window border border-line bg-surface shadow-card transition-colors duration-base focus-within:border-line-strong',
-        dragging && 'border-transparent',
+        '@container relative rounded-window bg-surface shadow-card transition-shadow duration-base focus-within:ring-1 focus-within:ring-line-strong',
         className,
       )}
       data-slot="prompt-input"
@@ -65,11 +64,10 @@ function PromptInputChip({
   return (
     <Chip
       className={cn(
-        'gap-1.5 pr-0.5 pl-2 [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-ink-3',
+        'animate-pop-in gap-1.5 pr-0.5 pl-2 [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-ink-3',
         className,
       )}
       data-slot="prompt-input-chip"
-      style={{ animation: 'pop-in 200ms var(--ease-out-strong) both' }}
       title={label}
       {...props}
     >
@@ -116,7 +114,9 @@ function PromptInputSubmit({
   sendTitle,
   onSend,
   onStop,
-}: {
+  className,
+  ...props
+}: Omit<ComponentProps<'button'>, 'onClick' | 'title' | 'disabled' | 'children'> & {
   stoppable: boolean;
   sendable: boolean;
   sendTitle: string;
@@ -127,10 +127,12 @@ function PromptInputSubmit({
     return (
       <Button
         aria-label="停止执行"
+        className={className}
         data-slot="prompt-input-submit"
         onClick={onStop}
         size="icon-sm"
         title="停止执行"
+        {...props}
       >
         <Square className="size-3 fill-current" />
       </Button>
@@ -141,12 +143,14 @@ function PromptInputSubmit({
       className={cn(
         'flex size-7 shrink-0 items-center justify-center rounded-control transition-[background-color,color,transform] duration-slow enabled:active:scale-94',
         sendable ? 'bg-ink text-surface' : 'bg-line-strong text-ink-2',
+        className,
       )}
       data-slot="prompt-input-submit"
       disabled={!sendable}
       onClick={onSend}
       title={sendTitle}
       type="button"
+      {...props}
     >
       <ArrowUp className="size-4" strokeWidth={2.4} />
     </button>
@@ -237,28 +241,35 @@ function PromptInputNotice({
   return (
     <div
       className={cn(
-        'absolute inset-x-0 bottom-full z-10 mb-2 flex items-start gap-2 rounded-card bg-surface bg-[linear-gradient(var(--danger-tint),var(--danger-tint))] px-3 py-1.5 text-sm leading-6 text-ink shadow-hairline',
+        'absolute inset-x-0 bottom-full z-10 mb-2 animate-pop-in rounded-card bg-surface shadow-hairline',
         className,
       )}
       data-slot="prompt-input-notice"
       role="alert"
-      style={{ animation: 'pop-in 180ms var(--ease-out-strong) both' }}
       {...props}
     >
-      <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-danger" />
-      <p className="min-w-0 flex-1 break-words">{message}</p>
-      {onDismiss && (
-        <Button
-          aria-label="关闭提示"
-          className="-mr-1 hover:bg-surface"
-          onClick={onDismiss}
-          size="icon-xs"
-          variant="ghost"
-        >
-          <X className="size-3" strokeWidth={2.2} />
-        </Button>
-      )}
+      <div className="flex items-start gap-2 rounded-card bg-danger-tint px-3 py-1.5 text-sm leading-6 text-ink">
+        <CircleAlert aria-hidden className="mt-1 size-3.5 shrink-0 text-danger" />
+        <p className="min-w-0 flex-1 break-words">{message}</p>
+        {onDismiss && (
+          <Button
+            aria-label="关闭提示"
+            className="-mr-1 hover:bg-surface"
+            onClick={onDismiss}
+            size="icon-xs"
+            variant="ghost"
+          >
+            <X className="size-3" strokeWidth={2.2} />
+          </Button>
+        )}
+      </div>
     </div>
+  );
+}
+
+function PromptInputOptionList({ className, ...props }: ComponentProps<'ul'>) {
+  return (
+    <ul className={className} data-slot="prompt-input-option-list" role="radiogroup" {...props} />
   );
 }
 
@@ -268,16 +279,20 @@ function PromptInputOption({
   ...props
 }: ComponentProps<'button'> & { active: boolean }) {
   return (
-    <button
-      className={cn(
-        'flex h-7.5 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
-        active ? 'bg-hover font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
-        className,
-      )}
-      data-slot="prompt-input-option"
-      type="button"
-      {...props}
-    />
+    <li role="none">
+      <button
+        aria-checked={active}
+        className={cn(
+          'flex h-8 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
+          active ? 'bg-hover font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
+          className,
+        )}
+        data-slot="prompt-input-option"
+        role="radio"
+        type="button"
+        {...props}
+      />
+    </li>
   );
 }
 
@@ -332,6 +347,7 @@ export {
   PromptInputNotice,
   PromptInputOption,
   PromptInputOptionCheck,
+  PromptInputOptionList,
   PromptInputSetup,
   PromptInputSubmit,
   PromptInputToolbar,

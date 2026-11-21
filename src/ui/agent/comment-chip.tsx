@@ -28,12 +28,7 @@ function CommentChip({
       <HoverCard closeDelay={100} onOpenChange={setPeek} open={peek && !editing} openDelay={300}>
         <PopoverAnchor asChild>
           <HoverCardTrigger asChild>
-            <Chip
-              className="max-w-64 pr-0.5"
-              data-slot="comment-chip"
-              style={{ animation: 'pop-in 200ms var(--ease-out-strong) both' }}
-              {...props}
-            >
+            <Chip className="max-w-64 animate-pop-in pr-0.5" data-slot="comment-chip" {...props}>
               <button
                 aria-label="编辑评论"
                 className="flex h-full min-w-0 flex-1 items-center gap-1.5 pr-1 pl-2 text-left"

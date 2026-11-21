@@ -17,12 +17,11 @@ function QueuedMessages({
     <div
       aria-label="待送达的消息"
       className={cn(
-        'mb-2 flex items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-sm leading-6 shadow-hairline',
+        'mb-2 flex animate-pop-in items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-sm leading-6 shadow-hairline',
         className,
       )}
       data-slot="queued-messages"
       role="status"
-      style={{ animation: 'pop-in 180ms var(--ease-out-strong) both' }}
       {...props}
     >
       <ol className="min-w-0 flex-1">

@@ -6,12 +6,18 @@ import { cn } from '../lib/cn';
 function ErrorCard({
   reason,
   onRetry,
+  announce = true,
   className,
   ...props
-}: ComponentProps<'div'> & { reason: string; onRetry?: () => void }) {
+}: ComponentProps<'div'> & {
+  reason: string;
+  onRetry?: () => void;
+  /** 只有刚发生的错误才播报；历史消息里的失败不应在切换会话时被读出。 */
+  announce?: boolean;
+}) {
   return (
     <div
-      role="alert"
+      role={announce ? 'alert' : undefined}
       className={cn(
         'my-3 flex items-start gap-2 rounded-card bg-danger-tint px-3 py-2 text-sm leading-6 text-ink',
         className,

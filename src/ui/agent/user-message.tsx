@@ -16,7 +16,7 @@ function UserMessageBubble({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       className={cn(
-        'max-w-[85%] rounded-card bg-field px-3.5 py-2 text-sm leading-relaxed text-ink shadow-hairline wrap-anywhere',
+        'max-w-message rounded-card bg-field px-3.5 py-2 text-sm leading-relaxed text-ink shadow-hairline wrap-anywhere',
         className,
       )}
       data-slot="user-message-bubble"
