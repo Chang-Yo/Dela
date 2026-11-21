@@ -3,6 +3,8 @@ import { defineContract } from '../../core/protocol/contract';
 
 export const SHUIYUAN_HOST = 'shuiyuan.sjtu.edu.cn';
 
+export const SHUIYUAN_SOURCE_PREFIX = 'shuiyuan-topic:';
+
 export interface ShuiyuanTopicLink {
   readonly topicId: number;
   readonly postNumber?: number;

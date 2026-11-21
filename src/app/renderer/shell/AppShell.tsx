@@ -54,7 +54,7 @@ import { drawerFromLeft, fadeIn, overlayFade } from '../../../ui/lib/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../../../modules/update/view';
 import { navEntries, useVisibleNavEntries } from '../navigation/entries';
-import { pageHasDrawer } from '../../views';
+import { pages } from '../../views';
 import { Button } from '../../../ui/button';
 import { Kbd } from '../../../ui/kbd';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
@@ -259,7 +259,9 @@ export function AppShell({
   const navigate = (next: ShellView | NavTarget) => {
     onNavigate(next);
     if (narrow)
-      onMobileDrawerChange?.(typeof next !== 'string' && pageHasDrawer(next.page) ? 'page' : null);
+      onMobileDrawerChange?.(
+        typeof next !== 'string' && pages.of(next.page)?.drawer ? 'page' : null,
+      );
   };
 
   const stepZoom = (direction: 1 | -1 | 0) => {
@@ -347,7 +349,7 @@ export function AppShell({
             onClick={() =>
               narrow
                 ? onMobileDrawerChange?.(
-                    navDrawerOpen ? null : pageHasDrawer(view) ? 'page' : 'nav',
+                    navDrawerOpen ? null : pages.of(view)?.drawer ? 'page' : 'nav',
                   )
                 : setPreference('shellSidebarCollapsed', !sidebarCollapsed)
             }

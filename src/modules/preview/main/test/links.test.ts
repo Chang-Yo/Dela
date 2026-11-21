@@ -38,21 +38,21 @@ beforeEach(() => {
 
 describe('office export links', () => {
   it('round-trips links per source kind and id', () => {
-    expect(readOfficeExportLink('canvas', 'file:1')).toBeNull();
-    writeOfficeExportLink('canvas', 'file:1', link);
-    expect(readOfficeExportLink('canvas', 'file:1')).toEqual(link);
+    expect(readOfficeExportLink('source', 'canvas-file:1')).toBeNull();
+    writeOfficeExportLink('source', 'canvas-file:1', link);
+    expect(readOfficeExportLink('source', 'canvas-file:1')).toEqual(link);
     // 键按来源隔离：workspace 同名 id 不受影响。
-    expect(readOfficeExportLink('workspace', 'file:1')).toBeNull();
-    writeOfficeExportLink('workspace', 'file:1', { ...link, version: 'v2' });
-    expect(readOfficeExportLink('canvas', 'file:1')?.version).toBe('v1');
-    expect(readOfficeExportLink('workspace', 'file:1')?.version).toBe('v2');
+    expect(readOfficeExportLink('workspace', 'canvas-file:1')).toBeNull();
+    writeOfficeExportLink('workspace', 'canvas-file:1', { ...link, version: 'v2' });
+    expect(readOfficeExportLink('source', 'canvas-file:1')?.version).toBe('v1');
+    expect(readOfficeExportLink('workspace', 'canvas-file:1')?.version).toBe('v2');
   });
 
   it('treats corrupt stored values as absent', () => {
     db.prepare(
-      "INSERT INTO workspace_settings VALUES ('preview-export:canvas:file:2', '{oops')",
+      "INSERT INTO workspace_settings VALUES ('preview-export:source:canvas-file:2', '{oops')",
     ).run();
-    expect(readOfficeExportLink('canvas', 'file:2')).toBeNull();
+    expect(readOfficeExportLink('source', 'canvas-file:2')).toBeNull();
   });
 
   it('builds preview info with stale flag from source version', async () => {

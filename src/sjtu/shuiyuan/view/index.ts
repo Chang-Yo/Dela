@@ -1,14 +1,14 @@
 import { defineView } from '../../../app/module';
 import { subscribe } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
-import { shuiyuanContract, shuiyuanTopicFromUrl } from '../contract';
+import { SHUIYUAN_SOURCE_PREFIX, shuiyuanContract, shuiyuanTopicFromUrl } from '../contract';
 import { ShuiyuanCredential } from './ShuiyuanCredential';
 import { ShuiyuanIcon } from './shuiyuan-icon';
 import { ShuiyuanOnboardingStep } from './ShuiyuanOnboardingStep';
 import { ShuiyuanView } from './ShuiyuanView';
 import { ShuiyuanSourceDoc, SnapshotBadge } from './SourceRefCard';
 import { openTopic } from './store';
-import { openPost, SOURCE_PREFIX } from './use-shuiyuan';
+import { openPost } from './use-shuiyuan';
 
 export const shuiyuanView = defineView({
   pages: {
@@ -25,7 +25,7 @@ export const shuiyuanView = defineView({
   settings: { credentials: ShuiyuanCredential },
   onboarding: ShuiyuanOnboardingStep,
   sources: {
-    prefix: SOURCE_PREFIX,
+    prefix: SHUIYUAN_SOURCE_PREFIX,
     icon: ShuiyuanIcon,
     badge: SnapshotBadge,
     document: ShuiyuanSourceDoc,

@@ -129,7 +129,7 @@ describe('search_canvas_sources', () => {
   it('deduplicates by sourceId and returns readable refs with unified coverage', async () => {
     const source = {
       id: 'node1',
-      sourceId: 'file:1',
+      sourceId: 'canvas-file:1',
       parentId: null,
       courseId: 1,
       name: 'slides',
@@ -146,7 +146,7 @@ describe('search_canvas_sources', () => {
     };
     expect(result.items).toEqual([
       {
-        ref: { type: 'source', id: 'file:1' },
+        ref: { type: 'source', id: 'canvas-file:1' },
         title: 'slides',
         courseId: 1,
         kind: 'file',
@@ -231,19 +231,19 @@ describe('link_canvas_source', () => {
       parentId: null,
       name: 'slides',
       kind: 'source',
-      sourceId: 'file:1',
+      sourceId: 'canvas-file:1',
       updatedAt: '2026-01-01T00:00:00Z',
     });
     await expect(
       canvasDomain.commands.link_canvas_source.execute({
         parentId: id,
-        sourceId: 'file:1',
+        sourceId: 'canvas-file:1',
         name: 'slides',
       }),
     ).resolves.toMatchObject({ ref: { type: 'workspace', id } });
     expect(createWorkspaceEntry).toHaveBeenCalledWith({
       parentId: id,
-      sourceId: 'file:1',
+      sourceId: 'canvas-file:1',
       name: 'slides',
       kind: 'source',
     });

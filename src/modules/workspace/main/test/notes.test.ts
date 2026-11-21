@@ -367,7 +367,7 @@ describe('createWorkspaceEntry', () => {
 
 describe('资料来源条目', () => {
   const fake = {
-    owns: (sourceId: string) => sourceId.startsWith('fake:'),
+    prefix: 'fake:',
     validate: vi.fn((sourceId: string) => {
       if (sourceId === 'fake:missing') throw new Error('资料不存在');
     }),

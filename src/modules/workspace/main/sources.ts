@@ -3,7 +3,8 @@ import type { DocumentContent } from '../contract';
 import type { ResourceContent } from './resources';
 
 export interface WorkspaceSource {
-  owns(sourceId: string): boolean;
+  /** sourceId 以它开头的都归本模块；与界面侧登记的前缀相同。 */
+  prefix: string;
   validate(sourceId: string): void;
   added?(sourceId: string): void;
   collect?(): Promise<void>;
@@ -15,11 +16,18 @@ export interface WorkspaceSource {
 const sources: WorkspaceSource[] = [];
 
 export function registerWorkspaceSource(source: WorkspaceSource): void {
+  const overlapping = sources.find(
+    (item) => item.prefix.startsWith(source.prefix) || source.prefix.startsWith(item.prefix),
+  );
+  if (overlapping)
+    throw new Error(
+      `资料前缀 ${source.prefix} 与 ${overlapping.prefix} 重叠，sourceId 无法确定归属`,
+    );
   sources.push(source);
 }
 
 export function workspaceSource(sourceId: string): WorkspaceSource {
-  const source = sources.find((item) => item.owns(sourceId));
+  const source = sources.find((item) => sourceId.startsWith(item.prefix));
   if (!source) throw new Error('该资料暂不可用：对应的功能未启用');
   return source;
 }

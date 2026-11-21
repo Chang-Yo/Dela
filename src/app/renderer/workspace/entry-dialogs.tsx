@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { Cloud, FolderOpen } from 'lucide-react';
-import { sourceTitle } from '../../views';
+import { sources } from '../../views';
 import { Button } from '../../../ui/button';
 import { Input } from '../../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
@@ -46,7 +46,7 @@ export function titleOf(key: string, client: QueryClient): string {
   if (remote) return remote.path.slice(remote.path.lastIndexOf('/') + 1);
   return (
     workspace.entries.find((e) => e.id === key)?.name ??
-    (key.startsWith('source:') ? sourceTitle(key.slice(7), client) : undefined) ??
+    (key.startsWith('source:') ? sources.title(key.slice(7), client) : undefined) ??
     useNoteDrafts.getState().drafts[key]?.content.title ??
     // 纯磁盘路径标签（Agent 刚产出的文件可能晚于镜像刷新）：镜像没有就直接取路径末段。
     (/[\\/]/.test(key)

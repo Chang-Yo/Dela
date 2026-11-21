@@ -12,7 +12,7 @@ import { formatByName, opensInEditor } from '../../../core/protocol/files';
 import { parseRemoteNodeId } from '../../../modules/remotes/contract';
 import { showToast } from '../../../ui/toast';
 import type { NavTarget, NavTargets } from '../../module';
-import { pageOf, views } from '../../views';
+import { pages, views } from '../../views';
 import { errorMessage } from '../../../core/protocol/contract';
 
 export type ShellView = 'home' | 'workbench' | 'settings';
@@ -118,7 +118,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => {
       }
       const view = typeof next === 'string' ? next : next.page;
       const target = typeof next === 'string' ? null : next;
-      const page = target && pageOf(target.page);
+      const page = target && pages.of(target.page);
       if (target && !page) {
         showToast({ variant: 'error', title: '该功能在当前版本中未启用' });
         return false;

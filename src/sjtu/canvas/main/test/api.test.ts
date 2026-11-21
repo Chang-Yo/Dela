@@ -75,17 +75,17 @@ describe('syncCanvasCourse discussions', () => {
       synced.items.filter((item) => item.courseId === 1 && item.kind === 'discussion'),
     ).toEqual([
       {
-        id: 'discussion:1:900',
+        id: 'canvas-discussion:1:900',
         parentId: '1:discussions',
         courseId: 1,
         name: '期中考试安排',
         kind: 'discussion',
-        sourceId: 'discussion:1:900',
+        sourceId: 'canvas-discussion:1:900',
       },
     ]);
     const stored = getDatabase()
       .prepare('SELECT data FROM canvas_sources WHERE id=?')
-      .get('discussion:1:900') as { data: string };
+      .get('canvas-discussion:1:900') as { data: string };
     expect(JSON.parse(stored.data)).toMatchObject({ title: '期中考试安排', courseId: 1 });
   });
 });

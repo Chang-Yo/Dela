@@ -50,7 +50,7 @@ describe('Canvas notice source', () => {
       { id: 1, name: '操作系统', code: 'CS260' },
     ]);
     const announcement = (id: number, read: boolean) => ({
-      sourceId: `discussion:1:${id}`,
+      sourceId: `canvas-discussion:1:${id}`,
       title: `公告 ${id}`,
       postedAt: `2026-09-1${id}T00:00:00.000Z`,
       read,
@@ -73,10 +73,10 @@ describe('Canvas notice source', () => {
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
     expect(vi.mocked(systemNotifyItem).mock.calls[0]).toEqual([
       {
-        id: 'canvas:owner:discussion:1:3',
+        id: 'canvas:owner:canvas-discussion:1:3',
         source: 'canvas',
         title: '公告 3',
-        href: { kind: 'canvas', sourceId: 'discussion:1:3' },
+        href: { kind: 'canvas', sourceId: 'canvas-discussion:1:3' },
       },
       '操作系统',
     ]);
@@ -85,7 +85,7 @@ describe('Canvas notice source', () => {
   it('baselines courses one by one and keeps syncing past a failing course', async () => {
     const course = (id: number) => ({ id, name: `课程 ${id}`, code: '' });
     const announcement = (courseId: number, id: number) => ({
-      sourceId: `discussion:${courseId}:${id}`,
+      sourceId: `canvas-discussion:${courseId}:${id}`,
       title: `公告 ${id}`,
       postedAt: '2026-09-10T00:00:00.000Z',
       read: false,
@@ -103,7 +103,7 @@ describe('Canvas notice source', () => {
     await refreshNotifications();
 
     expect(vi.mocked(systemNotifyItem).mock.calls.map(([item]) => item.id)).toEqual([
-      'canvas:owner:discussion:1:2',
+      'canvas:owner:canvas-discussion:1:2',
     ]);
     expect(getNotificationState(['canvas'])).toMatchObject({
       totalCount: 3,

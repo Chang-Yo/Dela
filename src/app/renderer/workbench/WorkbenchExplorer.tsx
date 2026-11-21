@@ -31,7 +31,7 @@ import type { ExplorerPending } from '../../../modules/workspace/view';
 import { useRemoteActivity } from '../navigation/remote-activity';
 import { RemoteConnectionTip } from '../navigation/remote-connection-tip';
 import { useRemoteConnections } from '../navigation/remote-connections';
-import { libraries } from '../../views';
+import { sources } from '../../views';
 import { ancestorChainOf, useTreeState } from '../navigation/store';
 import { useNavigationStore as useAppNavigation } from '../navigation/view';
 import {
@@ -444,10 +444,10 @@ export function WorkbenchExplorer({
                 if (drag) move(drag, null);
               }}
             >
-              {projectId === null && libraries.length > 0 && (
+              {projectId === null && sources.libraries.length > 0 && (
                 <>
                   <div className={eyebrowClass}>同步</div>
-                  {libraries.map((Library, index) => (
+                  {sources.libraries.map((Library, index) => (
                     <Library archived={false} key={index} {...libraryProps} />
                   ))}
                 </>
@@ -492,7 +492,7 @@ export function WorkbenchExplorer({
               {(archiveOpen || query.trim()) && (
                 <div className="max-h-56 overflow-y-auto pb-1">
                   {projectId === null &&
-                    libraries.map((Library, index) => (
+                    sources.libraries.map((Library, index) => (
                       <Library archived key={index} {...libraryProps} />
                     ))}
                   {visible && (

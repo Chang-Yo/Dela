@@ -45,48 +45,35 @@ interface AnyPage {
   open?(target: NavTarget): void;
 }
 
-const pages = new Map(
-  views.flatMap((view) => Object.entries(view.pages) as Array<[string, AnyPage]>),
+const pageEntries = views.flatMap(
+  (view) =>
+    Object.entries(view.pages) as Array<[keyof NavTargets, PageDefinition<keyof NavTargets>]>,
 );
+const pageById = new Map(pageEntries as Array<[string, AnyPage]>);
 
-export const navPages = views.flatMap((view) =>
-  (Object.entries(view.pages) as Array<[keyof NavTargets, PageDefinition<keyof NavTargets>]>)
-    .filter(([, page]) => page.nav)
-    .map(([id, page]) => ({ id, ...page.nav! })),
-);
+export const pages = {
+  of: (page: string) => pageById.get(page),
+  nav: pageEntries.flatMap(([id, page]) => (page.nav ? [{ id, ...page.nav }] : [])),
+};
 
-export function pageOf(page: string): AnyPage | undefined {
-  return pages.get(page);
+const sourceList = views.flatMap((view) => view.sources ?? []);
+for (const a of sourceList) {
+  const overlapping = sourceList.find((b) => a !== b && a.prefix.startsWith(b.prefix));
+  if (overlapping)
+    throw new Error(`资料前缀 ${a.prefix} 与 ${overlapping.prefix} 重叠，sourceId 无法确定归属`);
 }
 
-export function pageHasDrawer(page: string): boolean {
-  return pages.get(page)?.drawer === true;
-}
-
-export function sourceOf(sourceId: string): SourceDefinition | undefined {
-  return views.find((view) => view.sources && sourceId.startsWith(view.sources.prefix))?.sources;
-}
+export const sources = {
+  of: (sourceId: string): SourceDefinition | undefined =>
+    sourceList.find((source) => sourceId.startsWith(source.prefix)),
+  title: (sourceId: string, client: QueryClient) => sources.of(sourceId)?.title?.(sourceId, client),
+  /** 预览正文里指向已同步资料的链接，换成它的 sourceId。 */
+  fromLink: (url: string, client: QueryClient) =>
+    sourceList.map((source) => source.fromLink?.(url, client)).find((id) => id !== undefined),
+  libraries: sourceList.flatMap((source) => source.library ?? []),
+  references: sourceList.flatMap((source) => source.references ?? []),
+};
 
 export function opensInApp(url: string): boolean {
   return views.some((view) => view.opensLink?.(url));
-}
-
-export const libraries = views.flatMap((view) => (view.library ? [view.library] : []));
-
-export const referenceQueries = views.flatMap((view) => (view.references ? [view.references] : []));
-
-export function sourceTitle(sourceId: string, client: QueryClient): string | undefined {
-  for (const view of views) {
-    const title = view.sourceTitle?.(sourceId, client);
-    if (title !== undefined) return title;
-  }
-  return undefined;
-}
-
-export function sourceOfLink(url: string, client: QueryClient): string | undefined {
-  for (const view of views) {
-    const sourceId = view.sourceOfLink?.(url, client);
-    if (sourceId !== undefined) return sourceId;
-  }
-  return undefined;
 }

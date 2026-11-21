@@ -463,32 +463,90 @@ it('v13→v14：没存 SMTP 参数的早期交大账号补上交大服务器，�
   db.close();
 });
 
-it('v14→v15：canvas 地址改为 source，PDF 导出关联与写信草稿的附件跟着改', () => {
-  const draft = (type: string) =>
+it('v14→v15：Canvas 资料 id 加上 canvas- 前缀，存着它的地方一起改，其他模块的 id 不动', () => {
+  const draft = (address: object) =>
     JSON.stringify({
       to: ['a@example.com'],
-      subject: '"type":"canvas"',
+      subject: '',
       text: '',
-      attachments: [
-        { type, id: 'file:1' },
-        { type: 'workspace', id: '/tmp/a.pdf' },
-      ],
+      attachments: [address, { type: 'workspace', id: '/tmp/a.pdf' }],
     });
+  const layout = (id: string) => JSON.stringify({ root: { tabs: [`preview:source:${id}`] } });
   const before = new Database(dbPath());
-  before.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE canvas_courses (id INTEGER PRIMARY KEY, data TEXT NOT NULL, items TEXT NOT NULL DEFAULT '[]');
+    CREATE TABLE canvas_sources (id TEXT PRIMARY KEY, course_id INTEGER NOT NULL, data TEXT NOT NULL);
+    CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, kind TEXT NOT NULL, source_id TEXT);
+    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, href TEXT NOT NULL);
+    INSERT INTO canvas_sources VALUES ('assignment:4', 12, '{"id":"assignment:4","kind":"assignment"}');
+    INSERT INTO workspace_entries VALUES ('e1', 'source', 'discussion:12:7'),
+      ('e2', 'source', 'shuiyuan-topic:9'), ('e3', 'folder', NULL);
+    INSERT INTO notifications VALUES ('canvas:owner:discussion:12:7', 'canvas', '{"kind":"canvas","sourceId":"discussion:12:7"}'),
+      ('mail:1', 'mail', '{"kind":"mail","messageId":1}');`);
+  before.prepare("INSERT INTO canvas_courses VALUES (12, '{}', ?)").run(
+    JSON.stringify([
+      { id: '12:files', parentId: null, sourceId: null, name: 'file: 课件' },
+      { id: '12:files/file:3', parentId: '12:files', sourceId: 'file:3', name: 'a.pdf' },
+      { id: 'assignment:4:submission', parentId: 'assignment:4', sourceId: null, name: '提交' },
+      { id: 'module-item:8', parentId: 'module:2', sourceId: 'page:12:intro', name: '介绍' },
+    ]),
+  );
   const insert = before.prepare('INSERT INTO workspace_settings VALUES (?, ?)');
   insert.run('preview-export:canvas:file:1', '{"path":"a.pdf"}');
   insert.run('preview-export:workspace:abc', '{"path":"b.pdf"}');
-  insert.run('email-draft:1', draft('canvas'));
+  insert.run('email-draft:1', draft({ type: 'canvas', id: 'file:1' }));
+  insert.run('layout:_general', layout('file:1'));
+  insert.run('layout:p1', layout('shuiyuan-topic:9'));
   before.pragma('user_version = 14');
   before.close();
 
   expect(runMigrations({ userData, home: userData, seal }, 15)).toBe(1);
 
   const db = new Database(dbPath());
+  expect(db.prepare('SELECT id, data FROM canvas_sources').get()).toEqual({
+    id: 'canvas-assignment:4',
+    data: '{"id":"canvas-assignment:4","kind":"assignment"}',
+  });
+  expect(
+    JSON.parse(db.prepare('SELECT items FROM canvas_courses').pluck().get() as string),
+  ).toEqual([
+    { id: '12:files', parentId: null, sourceId: null, name: 'file: 课件' },
+    {
+      id: '12:files/canvas-file:3',
+      parentId: '12:files',
+      sourceId: 'canvas-file:3',
+      name: 'a.pdf',
+    },
+    {
+      id: 'canvas-assignment:4:submission',
+      parentId: 'canvas-assignment:4',
+      sourceId: null,
+      name: '提交',
+    },
+    {
+      id: 'canvas-module-item:8',
+      parentId: 'module:2',
+      sourceId: 'canvas-page:12:intro',
+      name: '介绍',
+    },
+  ]);
+  expect(db.prepare('SELECT source_id FROM workspace_entries ORDER BY id').pluck().all()).toEqual([
+    'canvas-discussion:12:7',
+    'shuiyuan-topic:9',
+    null,
+  ]);
+  expect(db.prepare('SELECT id, href FROM notifications ORDER BY id').all()).toEqual([
+    {
+      id: 'canvas:owner:canvas-discussion:12:7',
+      href: '{"kind":"canvas","sourceId":"canvas-discussion:12:7"}',
+    },
+    { id: 'mail:1', href: '{"kind":"mail","messageId":1}' },
+  ]);
   expect(db.prepare('SELECT key, value FROM workspace_settings ORDER BY key').all()).toEqual([
-    { key: 'email-draft:1', value: draft('source') },
-    { key: 'preview-export:source:file:1', value: '{"path":"a.pdf"}' },
+    { key: 'email-draft:1', value: draft({ type: 'source', id: 'canvas-file:1' }) },
+    { key: 'layout:_general', value: layout('canvas-file:1') },
+    { key: 'layout:p1', value: layout('shuiyuan-topic:9') },
+    { key: 'preview-export:source:canvas-file:1', value: '{"path":"a.pdf"}' },
     { key: 'preview-export:workspace:abc', value: '{"path":"b.pdf"}' },
   ]);
   db.close();

@@ -3,6 +3,7 @@ import { hostPorts } from '../../../core/ports';
 import { freshness } from '../../../core/capabilities/domain-tools';
 import type { WorkspaceSource } from '../../../modules/workspace';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
+import { SHUIYUAN_SOURCE_PREFIX } from '../contract';
 import { getShuiyuanTopic } from './api';
 import { requireShuiyuanBound, withShuiyuanErrors } from './agent/helpers';
 import { collectShuiyuanSnapshots, ensureShuiyuanSnapshot } from './snapshot';
@@ -13,11 +14,11 @@ import {
   shuiyuanTopicUrl,
 } from './sources';
 
-const topicOf = (sourceId: string) => Number(sourceId.slice('shuiyuan-topic:'.length));
+const topicOf = (sourceId: string) => Number(sourceId.slice(SHUIYUAN_SOURCE_PREFIX.length));
 
-// 帖子来源是引用条目，快照不对外暴露为文件路径，因此没有 filePath。
+// 快照不对外暴露为文件路径，因此没有 filePath。
 export const shuiyuanWorkspaceSource: WorkspaceSource = {
-  owns: (sourceId) => sourceId.startsWith('shuiyuan-topic:'),
+  prefix: SHUIYUAN_SOURCE_PREFIX,
   validate(sourceId) {
     const topicId = topicOf(sourceId);
     if (

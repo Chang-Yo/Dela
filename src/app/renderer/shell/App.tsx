@@ -15,7 +15,7 @@ import { GlobalSearchDialog } from '../../../modules/search/view';
 import type { ChatSessionSummary } from '../../../core/protocol/agent';
 import type { SearchHit } from '../../../modules/search/contract';
 import type { NavTarget, PageDrawer } from '../../module';
-import { pageOf, views } from '../../views';
+import { pages, views } from '../../views';
 import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
 import { useRuns, useSessions, updateSession, onAgentEvent } from '../../../modules/chat/view';
 import { closeTabEverywhere, useWorkbenchLayout } from '../workbench/layout-store';
@@ -63,7 +63,7 @@ function useSessionNavData(): { sessionsByProject: Record<string, NavSessionSumm
 }
 
 function ModulePage({ target, drawer }: { target: NavTarget; drawer: PageDrawer | null }) {
-  const Page = pageOf(target.page)!.component;
+  const Page = pages.of(target.page)!.component;
   const navigate = useNavigationStore((state) => state.navigate);
   return <Page drawer={drawer} navigate={navigate} target={target} />;
 }

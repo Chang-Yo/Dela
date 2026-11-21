@@ -47,7 +47,7 @@ import { MailDraftDialog } from '../../../modules/mail/view';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../../ui/error-text';
-import { opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../views';
+import { opensInApp, sources } from '../../views';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
@@ -78,7 +78,7 @@ function useReferenceEntries(projectId: string | null, cwd: string | null) {
       : null;
   const workspaceFiles = useLocalReferences(workspaceRoot);
   const courseFiles = useQueries({
-    queries: referenceQueries.map((query) => ({
+    queries: sources.references.map((query) => ({
       ...query,
       enabled: projectId === null && !remote,
       staleTime: 30_000,
@@ -252,7 +252,7 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
       const content: DocumentContent = sourceId
         ? await workspaceClient.readSource(sourceId)
         : await workspaceClient.read(entryId!);
-      const document = sourceId ? sourceOf(sourceId)?.document : undefined;
+      const document = sourceId ? sources.of(sourceId)?.document : undefined;
       const officeAddress: ResourceAddress | undefined =
         content.format === 'pptx'
           ? sourceId && !document
@@ -269,7 +269,7 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
       };
     },
     openLink: (url) => {
-      const sourceId = sourceOfLink(url, queryClient);
+      const sourceId = sources.fromLink(url, queryClient);
       if (sourceId) void useNavigationStore.getState().openDocument(`source:${sourceId}`);
       else window.open(url);
     },

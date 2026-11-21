@@ -59,7 +59,7 @@ describe('资源地址', () => {
   it('source 地址交给认领该 id 的模块，未登记的种类在读取前拒绝', async () => {
     const filePath = vi.fn(async () => 'cache/slides.pptx');
     registerWorkspaceSource({
-      owns: (id) => id.startsWith('demo:'),
+      prefix: 'demo:',
       validate: vi.fn(),
       filePath,
       preview: vi.fn(),

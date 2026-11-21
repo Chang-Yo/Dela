@@ -197,7 +197,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
   const file = (f: Row, parentId: string) => {
     const fileId = num(f.id);
     if (!fileId) return;
-    const sourceId = `file:${fileId}`;
+    const sourceId = `canvas-file:${fileId}`;
     const name = str(f.display_name) || str(f.filename) || `文件 ${fileId}`;
     sources.set(sourceId, {
       id: sourceId,
@@ -275,7 +275,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
     if (!rows.length) return;
     const rootId = group('assignments', '作业');
     for (const a of rows) {
-      const sourceId = `assignment:${num(a.id)}`;
+      const sourceId = `canvas-assignment:${num(a.id)}`;
       const title = str(a.name);
       const dueAt = str(a.due_at) || null;
       sources.set(sourceId, {
@@ -322,7 +322,7 @@ async function syncCourse(id: number): Promise<CanvasState> {
     if (!rows.length) return;
     const rootId = group('discussions', '通知与讨论');
     for (const d of rows) {
-      const sourceId = `discussion:${id}:${num(d.id)}`;
+      const sourceId = `canvas-discussion:${id}:${num(d.id)}`;
       sources.set(sourceId, {
         id: sourceId,
         courseId: id,
@@ -357,17 +357,17 @@ async function syncCourse(id: number): Promise<CanvasState> {
         sourceId: null,
       });
       for (const i of await list(`courses/${id}/modules/${num(m.id)}/items?per_page=50`)) {
-        const nodeId = `module-item:${num(i.id)}`;
+        const nodeId = `canvas-module-item:${num(i.id)}`;
         const type = str(i.type);
         let sourceId: string | null =
           type === 'File'
-            ? `file:${num(i.content_id)}`
+            ? `canvas-file:${num(i.content_id)}`
             : type === 'Assignment'
-              ? `assignment:${num(i.content_id)}`
+              ? `canvas-assignment:${num(i.content_id)}`
               : type === 'Discussion'
-                ? `discussion:${id}:${num(i.content_id)}`
+                ? `canvas-discussion:${id}:${num(i.content_id)}`
                 : type === 'Page'
-                  ? `page:${id}:${str(i.page_url)}`
+                  ? `canvas-page:${id}:${str(i.page_url)}`
                   : type === 'SubHeader'
                     ? null
                     : nodeId;
@@ -488,7 +488,7 @@ function sourceDirectory(source: StoredSource): string {
   const items = state.items.filter((item) => item.courseId === source.courseId);
   // Prefer the original file tree over module references to the same source.
   const original = items.find(
-    (item) => item.sourceId === source.id && !item.id.startsWith('module-item:'),
+    (item) => item.sourceId === source.id && !item.id.startsWith('canvas-module-item:'),
   );
   const folders: string[] = [];
   const seen = new Set<string>();
@@ -501,8 +501,8 @@ function sourceDirectory(source: StoredSource): string {
     if (parent.id === `${source.courseId}:files`) folders.unshift('files');
     else if (parent.id === `${source.courseId}:assignments`) folders.unshift('assignments');
     else if (parent.id === `${source.id}:submission`) folders.unshift('submission');
-    else if (parent.id.startsWith('assignment:'))
-      folders.unshift(`assignment-${parent.id.slice(11)}`);
+    else if (parent.id.startsWith('canvas-assignment:'))
+      folders.unshift(`assignment-${parent.id.slice('canvas-assignment:'.length)}`);
     else if (parent.id.startsWith('folder:')) folders.unshift(`folder-${parent.id.slice(7)}`);
     else
       folders.unshift(
@@ -620,7 +620,7 @@ export async function linkedCanvasFile(url: URL): Promise<StoredSource | null> {
   const fileId = Number(match[2]);
   const metadata = row(await (await request(`files/${fileId}`)).json());
   return {
-    id: `file:${fileId}`,
+    id: `canvas-file:${fileId}`,
     courseId: Number(match[1]),
     title: str(metadata.display_name) || str(metadata.filename) || `文件 ${fileId}`,
     kind: 'file',
@@ -728,7 +728,7 @@ export async function listCanvasAnnouncements(courseId: number) {
     .prepare('INSERT OR REPLACE INTO canvas_sources VALUES (?, ?, ?)');
   return rows.map((d) => {
     const source: StoredSource = {
-      id: `discussion:${courseId}:${num(d.id)}`,
+      id: `canvas-discussion:${courseId}:${num(d.id)}`,
       courseId,
       title: str(d.title),
       kind: 'discussion',

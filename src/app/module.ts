@@ -80,23 +80,12 @@ export interface ViewDefinition {
   };
   /** 首启向导中本模块的一步，完成或跳过后调用 onDone。 */
   onboarding?: ComponentType<{ onDone: () => void }>;
-  /** 本模块放进项目的快捷方式。 */
+  /** 本模块的资料。 */
   sources?: SourceDefinition;
   /** 每次跳转前调用；要先确认（例如写信未保存）时返回 false，确认后由本模块调用 proceed 重试。 */
   leaveGuard?(proceed: () => void): boolean;
   /** 本模块会在应用内打开的链接，聊天里点击时免去外链确认。 */
   opensLink?(url: string): boolean;
-  /** 资料页（通用工作台）里本模块的一组资料；归档区以 archived 再渲染一次。 */
-  library?: ComponentType<LibraryProps>;
-  /** 标签页与「添加到项目」用的资料名；不认识的 sourceId 返回 undefined。 */
-  sourceTitle?(sourceId: string, client: QueryClient): string | undefined;
-  /** 预览正文里的链接若指向已同步的资料，返回它的 sourceId，改在标签页打开。 */
-  sourceOfLink?(url: string, client: QueryClient): string | undefined;
-  /** 通用池会话的 @ 引用候选：path 为本地绝对路径，title 为展示路径。 */
-  references?: {
-    queryKey: readonly unknown[];
-    queryFn: () => Promise<Array<{ path: string; title: string }>>;
-  };
 }
 
 export interface LibraryProps {
@@ -113,12 +102,25 @@ export interface LibraryProps {
   onArchive(): void;
 }
 
-/** sourceId 以 prefix 开头的来源：文件树里的图标与角标，预览标签里的正文。 */
+/** sourceId 以 prefix 开头的资料都归本模块；前缀与主进程登记的相同，不同模块之间不能重叠。 */
 export interface SourceDefinition {
   prefix: string;
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** 项目快捷方式在文件树里的图标与角标。 */
+  icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
   badge?: ComponentType<{ sourceId: string }>;
+  /** 预览标签里的正文；不提供时按内容格式通用预览。 */
   document?: ComponentType<SourceDocumentProps>;
+  /** 标签页与「添加到项目」用的资料名；资料尚未同步时返回 undefined。 */
+  title?(sourceId: string, client: QueryClient): string | undefined;
+  /** 预览正文里的链接若指向已同步的资料，返回它的 sourceId，改在标签页打开。 */
+  fromLink?(url: string, client: QueryClient): string | undefined;
+  /** 资料页（通用工作台）里本模块的一组资料；归档区以 archived 再渲染一次。 */
+  library?: ComponentType<LibraryProps>;
+  /** 通用池会话的 @ 引用候选：path 为本地绝对路径，title 为展示路径。 */
+  references?: {
+    queryKey: readonly unknown[];
+    queryFn: () => Promise<Array<{ path: string; title: string }>>;
+  };
 }
 
 export interface SourceDocumentProps {

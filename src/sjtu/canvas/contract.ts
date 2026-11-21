@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { defineContract } from '../../core/protocol/contract';
 
+/** Canvas 资料 id 的共同前缀，例如 canvas-file:123、canvas-discussion:<课程>:<讨论>。 */
+export const CANVAS_SOURCE_PREFIX = 'canvas-';
+
 export interface CanvasCourse {
   id: number;
   name: string;
