@@ -3,7 +3,8 @@ import { useState, type ComponentProps, type ReactNode } from 'react';
 import { cn } from './lib/cn';
 import { useMediaQuery } from './hooks/use-media-query';
 
-/** 收起动画结束后卸载内容：隐藏区域里的必填项不会拦住表单提交，也不会被 Tab 聚焦。 */
+/** 收起动画结束后卸载内容：隐藏区域里的必填项不会拦住表单提交，也不会被 Tab 聚焦。
+ *  只在动画中裁剪：展开后内容的描边、阴影与焦点环可以越出边界。 */
 function Collapsible({
   open,
   className,
@@ -14,11 +15,11 @@ function Collapsible({
   children: ReactNode;
 }) {
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
-  const [closing, setClosing] = useState(false);
+  const [animating, setAnimating] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   if (wasOpen !== open) {
     setWasOpen(open);
-    setClosing(!open && !reducedMotion);
+    setAnimating(!reducedMotion);
   }
   return (
     <div
@@ -31,11 +32,11 @@ function Collapsible({
       inert={!open}
       onTransitionEnd={(event) => {
         if (event.target === event.currentTarget && event.propertyName === 'grid-template-rows')
-          setClosing(false);
+          setAnimating(false);
       }}
     >
-      <div className={cn('min-h-0 overflow-hidden', className)}>
-        {(open || closing) && children}
+      <div className={cn('min-h-0', (animating || !open) && 'overflow-hidden', className)}>
+        {(open || animating) && children}
       </div>
     </div>
   );
