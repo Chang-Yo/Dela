@@ -13,21 +13,18 @@ import {
   TextSearch,
   Wrench,
 } from 'lucide-react';
-import type { AgentToolResult, SubagentDetails } from '../../../core/protocol/agent';
+import type { AgentToolResult } from '../../../core/protocol/agent';
 import { DiffStat } from '../../../ui/agent/diff-stat';
 import { PlainLines } from '../../../ui/agent/plain-lines';
 import { SourceList } from '../../../ui/agent/source-list';
 import { SourceStack } from '../../../ui/agent/source-stack';
-import { SubagentCard } from '../../../ui/agent/subagent-card';
 import type { ToolStepStatus } from '../../../ui/agent/tool-step';
 import { ToolCard } from '../../../ui/agent/tool-card';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';
 import { agentClient } from './client';
 import type { Navigate } from '../../../app/module';
-import { useChatTabSource } from './chat-source';
 import { useSessions } from './sessions';
-import { ChatMarkdown } from './markdown';
 import { formatDuration } from './format-duration';
 import {
   bashExitCode,
@@ -222,24 +219,6 @@ export async function openSubagent(taskId: string, navigate: Navigate) {
   const chat = await agentClient['open-session']({ sessionId: taskId });
   useSessions.getState().putChat(taskId, chat);
   navigate({ page: 'chat', projectId: chat.projectId, sessionId: taskId });
-}
-
-function SubagentView({ result }: { result: AgentToolResult }) {
-  const { navigate } = useChatTabSource();
-  const details = result.output?.details as SubagentDetails | undefined;
-  return (
-    <SubagentCard
-      footer={
-        details && {
-          text: details.background ? '后台运行，结束时通知' : `共 ${details.steps} 步`,
-          openLabel: '打开子会话',
-          onOpen: () => void openSubagent(details.taskId, navigate),
-        }
-      }
-      prompt={inputText(result, 'prompt')}
-      reply={details?.reply && <ChatMarkdown animated={false}>{details.reply}</ChatMarkdown>}
-    />
-  );
 }
 
 function WebSearchView({
@@ -496,36 +475,19 @@ const toolEntries: Record<string, ToolEntry> = {
     meta: () => undefined,
     body: genericBody,
   },
+  // 状态与展开内容由 subagent-step.tsx 呈现，这里只给名称与对象。
   task: {
     icon: <Bot />,
     doing: '子 Agent 正在处理',
     done: '子 Agent',
     noun: '个任务',
-    reasonOutside: true,
     target: (result) => ({
       text: inputText(result, 'description'),
       title: inputText(result, 'prompt'),
       key: 'description',
     }),
-    meta: (result, status) => {
-      const details = result.output?.details as SubagentDetails | undefined;
-      if (details?.background) return '后台运行';
-      if (status === 'running') {
-        const { tool } = details ?? {};
-        return (
-          tool && (
-            <span className="max-w-64 truncate" title={tool.target}>
-              {toolEntry(tool.name).doing} {tool.target}
-            </span>
-          )
-        );
-      }
-      return details && `共 ${details.steps} 步`;
-    },
-    body: (result) =>
-      inputText(result, 'prompt') || result.output?.details ? (
-        <SubagentView result={result} />
-      ) : null,
+    meta: () => undefined,
+    body: () => null,
   },
 };
 

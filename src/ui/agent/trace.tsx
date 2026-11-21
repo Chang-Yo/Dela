@@ -42,16 +42,21 @@ function TraceToggle({ open, className, ...props }: ComponentProps<'button'> & {
   );
 }
 
-/** 一行步骤：图标、内容，可展开时行尾带箭头（悬停、聚焦或展开时出现）。没有 children 时只是一行。 */
+/**
+ * 一行步骤：图标、内容，可展开时内容后带箭头（悬停、聚焦或展开时出现）。没有 children 时只是一行。
+ * action 放在行尾、展开按钮之外，避免按钮嵌套。
+ */
 function TraceDisclosure({
   icon,
   head,
+  action,
   children,
   className,
   ...props
 }: Omit<ComponentProps<'div'>, 'children'> & {
   icon: ReactNode;
   head: ReactNode;
+  action?: ReactNode;
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -61,26 +66,34 @@ function TraceDisclosure({
       <span className="flex min-w-0 items-center gap-1.5">{head}</span>
     </>
   );
+  const row = children ? (
+    <TraceToggle onClick={() => setOpen(!open)} open={open}>
+      {content}
+      <CollapsibleChevron
+        className={cn(
+          'size-3.5 opacity-0 group-hover/row:opacity-60 group-focus-visible/row:opacity-60',
+          open && 'opacity-60',
+        )}
+        open={open}
+      />
+    </TraceToggle>
+  ) : (
+    <div className={rowClass}>{content}</div>
+  );
   return (
     <div className={cn('min-w-0', className)} data-slot="trace-disclosure" {...props}>
-      {children ? (
-        <>
-          <TraceToggle onClick={() => setOpen(!open)} open={open}>
-            {content}
-            <CollapsibleChevron
-              className={cn(
-                'opacity-0 group-hover/row:opacity-60 group-focus-visible/row:opacity-60',
-                open && 'opacity-60',
-              )}
-              open={open}
-            />
-          </TraceToggle>
-          <Collapsible open={open}>
-            <div className={cn(guide, 'min-w-0 pt-0.5 pb-2')}>{children}</div>
-          </Collapsible>
-        </>
+      {action ? (
+        <div className="flex min-w-0 items-center gap-2">
+          {row}
+          {action}
+        </div>
       ) : (
-        <div className={rowClass}>{content}</div>
+        row
+      )}
+      {children && (
+        <Collapsible open={open}>
+          <div className={cn(guide, 'min-w-0 pt-0.5 pb-2')}>{children}</div>
+        </Collapsible>
       )}
     </div>
   );

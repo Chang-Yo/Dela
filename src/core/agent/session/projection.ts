@@ -134,12 +134,20 @@ export function projectMessages(
       if (entryId && reply) reply.entryId = entryId;
     } else if (message.role === 'custom' && message.customType === TASK_NOTICE) {
       // 唤醒父会话的通知开启新的一轮：随后的回复从通知算起，审阅对应这一轮。
-      const details = message.details as TaskNoticeDetails;
+      // 界面只显示正文；早期的通知没有 bodyStart，整段显示。
+      const { bodyStart = 0, ...details } = message.details as TaskNoticeDetails & {
+        bodyStart?: number;
+      };
       if (details.turnId) {
         lastUserAt = message.timestamp;
         lastTurnId = details.turnId;
       }
-      out.push({ role: 'assistant', content: textOf(message.content), parts: [], task: details });
+      out.push({
+        role: 'assistant',
+        content: textOf(message.content).slice(bodyStart),
+        parts: [],
+        task: details,
+      });
       reply = null;
     } else if (message.role === 'custom') {
       // 扩展的可见消息自成一条，不并进前后的模型回复；display=false 的只给模型看。

@@ -21,7 +21,8 @@ import { hostPorts } from '../ports';
 
 export interface TaskNotice {
   text: string;
-  details: TaskNoticeDetails;
+  /** bodyStart：正文（回复或输出末尾）在 text 中的起点，界面只显示正文。 */
+  details: TaskNoticeDetails & { bodyStart: number };
 }
 
 /** 任务所属的父会话：由会话运行层注入，任务层因此不依赖会话。 */
@@ -145,7 +146,7 @@ function notice(task: BackgroundTask): TaskNotice {
   const outcome = task.outcome!;
   const durationMs = task.finishedAt! - task.startedAt;
   const tail = task.tail.split('\n').slice(-NOTICE_LINES).join('\n').trimEnd();
-  const lines = [
+  const header = [
     `后台任务结束（taskId: ${task.id}）`,
     task.kind === 'bash'
       ? `来源：bash\n命令：${task.label}`
@@ -153,17 +154,19 @@ function notice(task: BackgroundTask): TaskNotice {
     `状态：${statusText(outcome)}`,
     `用时：${(durationMs / 1000).toFixed(1)} 秒`,
     ...(task.stoppedBy === 'user' ? ['用户在后台任务面板上手动停止了它。'] : []),
+    ...(task.kind === 'bash' ? (tail ? ['输出末尾：'] : []) : outcome.reply ? ['最终回复：'] : []),
+    '',
+  ].join('\n');
+  const body =
     task.kind === 'bash'
       ? tail
-        ? `输出末尾：\n\`\`\`\n${tail}\n\`\`\``
+        ? `\`\`\`\n${tail}\n\`\`\``
         : '没有输出'
-      : outcome.reply
-        ? `最终回复：\n${outcome.reply}`
-        : '没有最终回复',
-  ];
+      : outcome.reply || '没有最终回复';
   return {
-    text: lines.join('\n'),
+    text: header + body,
     details: {
+      bodyStart: header.length,
       taskId: task.id,
       kind: task.kind,
       label: task.label,

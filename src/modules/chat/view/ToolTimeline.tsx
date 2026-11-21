@@ -7,6 +7,7 @@ import { ToolStep, type ToolStepStatus } from '../../../ui/agent/tool-step';
 import { Trace } from '../../../ui/agent/trace';
 import { formatDuration } from './format-duration';
 import { ChatMarkdown } from './markdown';
+import { SubagentStep } from './subagent-step';
 import { stepMeta, toolBody, toolEntry } from './tool-views';
 
 // 回复的行内轨迹：思考与工具步骤按发生顺序夹在正文之间，每步一行，展开看输入输出。
@@ -16,6 +17,7 @@ type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 type Part = ChatParts[number];
 
 function ChatToolStep({ result, live }: { result: AgentToolResult; live: boolean }) {
+  if (result.name === 'task') return <SubagentStep live={live} result={result} />;
   const failed = Boolean(result.output?.isError);
   const status: ToolStepStatus =
     live && result.finishedAt === undefined
@@ -52,8 +54,17 @@ function summarize(results: AgentToolResult[]): string {
 // 步骤少时折叠省不了几行，却多一次点击；子 Agent 单独成块，不折叠。
 const FOLD_MIN_STEPS = 4;
 
-function ChatToolGroup({ results, live }: { results: AgentToolResult[]; live: boolean }) {
-  const fold = !live && results.length >= FOLD_MIN_STEPS && results[0]!.name !== 'task';
+/** live 是整条回复是否在运行：并行调用里子 Agent 单独成块，不在最后一块时也可能还在跑。 */
+function ChatToolGroup({
+  results,
+  live,
+  last,
+}: {
+  results: AgentToolResult[];
+  live: boolean;
+  last: boolean;
+}) {
+  const fold = !(live && last) && results.length >= FOLD_MIN_STEPS && results[0]!.name !== 'task';
   const failed = results.some((result) => result.output?.isError);
   return (
     <ToolGroup
@@ -133,7 +144,7 @@ export function ReplyTrace({
           {part.text}
         </Reasoning>
       );
-    return <ChatToolGroup live={blockLive} results={part.results} />;
+    return <ChatToolGroup last={index === lastIndex} live={live} results={part.results} />;
   };
   // 整轮结束且以正文收尾：之前的说明、思考与工具自动折进一行，只留最终回复。
   const foldable = !live && blocks.length > 1 && blocks[lastIndex]!.part.type === 'text';

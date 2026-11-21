@@ -13,15 +13,27 @@ type ToolStepProps = Omit<ComponentProps<'div'>, 'children'> & {
   target?: { text: string; title?: string; mono?: boolean };
   /** 折叠时的一句结果：数量、行号、退出码、增删行数、来源头像等，由调用方按工具给出。 */
   meta?: ReactNode;
+  /** 行尾的操作，例如打开子会话。 */
+  action?: ReactNode;
   /** 展开后的输入输出；不给时整行不可展开。 */
   children?: ReactNode;
 };
 
 /** 一步工具调用：一行「图标 + 动词 + 对象 + 结果」，展开后是工具的输入输出。 */
-function ToolStep({ status, icon, label, target, meta, children, ...props }: ToolStepProps) {
+function ToolStep({
+  status,
+  icon,
+  label,
+  target,
+  meta,
+  action,
+  children,
+  ...props
+}: ToolStepProps) {
   const failed = status === 'error';
   return (
     <TraceDisclosure
+      action={action}
       data-slot="tool-step"
       data-status={status}
       head={
