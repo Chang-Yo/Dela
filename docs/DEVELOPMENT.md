@@ -188,7 +188,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 
 模型推理档位只按模型保存；搜索结果直接携带会话的 `projectId`，不再推导旧入口身份。
 
-只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，经 `defineModule` 的 `schema` 交给宿主；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
+只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，经 `defineModule` 的 `schema` 交给宿主；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。只有表的主人写自己表的 SQL，别人经主人 `index.ts` 导出的函数读写，`scripts/lint-tables.ts` 把关；`workspace_settings` 是谁都能用的共享键值表。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
 
 写模块的迁移时：
 
@@ -280,26 +280,26 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 
 ## 12. 常用命令
 
-| 命令                                | 用途                                                           |
-| ----------------------------------- | -------------------------------------------------------------- |
-| `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                   |
-| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）    |
-| `pnpm build`                        | 类型检查 + 三个入口生产构建                                    |
-| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用             |
-| `pnpm lint`                         | oxlint（含依赖边界）+ `scripts/lint-styles.ts` 样式 token 检查 |
-| `pnpm check`                        | `format:check` + `lint` + `build` + `test`                     |
-| `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                            |
-| `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行         |
-| `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离  |
-| `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位    |
-| `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                      |
-| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）            |
-| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）     |
-| `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                   |
-| `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`  |
-| `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                 |
-| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）      |
-| `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                          |
+| 命令                                | 用途                                                          |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `pnpm dev`                          | 开发服务器 + 窗口，监听主进程 / preload 变更                  |
+| `pnpm typecheck`                    | 五组 tsconfig（core / main / preload / renderer / scripts）   |
+| `pnpm build`                        | 类型检查 + 三个入口生产构建                                   |
+| `pnpm build:bundle`                 | 仅三个入口生产构建，供已单独检查类型的 CI 任务使用            |
+| `pnpm lint`                         | oxlint（含依赖边界）+ 样式 token、ui 组件与表归属检查         |
+| `pnpm check`                        | `format:check` + `lint` + `build` + `test`                    |
+| `pnpm test`                         | Vitest 单元测试（不含真机远程套件）                           |
+| `pnpm test:remote`                  | 真机远程回归：需 `DELA_REMOTE_HOST`，CI 不跑，必须串行        |
+| `pnpm smoke`                        | Electron 冒烟：SQLite、React 渲染、Pi runtime 与 preload 隔离 |
+| `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位   |
+| `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                     |
+| `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）           |
+| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）    |
+| `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                  |
+| `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
+| `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                |
+| `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）     |
+| `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                         |
 
 `pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`smoke:documents`）外不发送真实请求。
 
