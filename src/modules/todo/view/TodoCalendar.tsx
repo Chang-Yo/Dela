@@ -1,26 +1,25 @@
 import { useState } from 'react';
 import type { TodoItem } from '../contract';
-import { todoCompleted } from '../contract';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { cn } from '../../../ui/lib/cn';
 import { dateKey, eventColorStyle, formatMonthDay, formatTime, weekDays } from './calendar';
 import { groupTodosByDay, monthGridDays, todoCalendarColor } from './todo-calendar';
 
 function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) => void }) {
-  const done = todoCompleted(item.status);
+  const done = item.status === 'done';
   const time = item.dueAt ? formatTime(new Date(item.dueAt)) : '';
-  const course = item.courseName ?? '个人待办';
+  const group = item.group?.label ?? '个人待办';
   return (
     <button
       type="button"
-      aria-label={`打开 ${item.title}，${course}${time ? `，${time}` : ''}${done ? '，已完成' : ''}`}
+      aria-label={`打开 ${item.title}，${group}${time ? `，${time}` : ''}${done ? '，已完成' : ''}`}
       className={cn(
         'flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-left text-xs transition-opacity duration-fast hover:opacity-80 @max-[320px]:h-2 @max-[320px]:w-2 @max-[320px]:rounded-full @max-[320px]:overflow-hidden @max-[320px]:p-0',
         done && 'opacity-60',
       )}
       onClick={() => onOpen(item)}
       style={eventColorStyle(todoCalendarColor(item))}
-      title={`${course} · ${item.title}${time ? ` · ${time}` : ''}`}
+      title={`${group} · ${item.title}${time ? ` · ${time}` : ''}`}
     >
       {time ? (
         <span className="shrink-0 tabular-nums opacity-70 @max-[520px]:hidden">{time}</span>
@@ -50,7 +49,7 @@ function DayOverflow({
         <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-ink-3">{formatMonthDay(date)}</p>
         <ul className="grid gap-0.5 p-1">
           {items.map((item) => {
-            const done = todoCompleted(item.status);
+            const done = item.status === 'done';
             return (
               <li key={item.id}>
                 <button
@@ -76,7 +75,7 @@ function DayOverflow({
                       {item.title}
                     </span>
                     <span className="mt-0.5 block truncate text-xs opacity-70">
-                      {item.courseName ?? '个人待办'}
+                      {item.group?.label ?? '个人待办'}
                     </span>
                   </span>
                 </button>

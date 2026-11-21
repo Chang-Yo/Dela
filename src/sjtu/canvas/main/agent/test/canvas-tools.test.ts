@@ -8,10 +8,12 @@ vi.mock('../../api', () => ({
   syncCanvasCourse: vi.fn(),
 }));
 vi.mock('../../../../../modules/workspace', () => ({ createWorkspaceEntry: vi.fn() }));
+vi.mock('../../../../../modules/todo', () => ({ getTodoState: vi.fn() }));
 vi.mock('../../actions', () => ({ publishCanvasState: vi.fn() }));
 
 import { getCanvasState, syncCanvasCourse, syncCanvasCourses } from '../../api';
 import { createWorkspaceEntry } from '../../../../../modules/workspace';
+import { getTodoState } from '../../../../../modules/todo';
 
 const state = vi.mocked(getCanvasState);
 const syncCourses = vi.mocked(syncCanvasCourses);
@@ -156,6 +158,51 @@ describe('search_canvas_sources', () => {
     expect(result.total).toBe(1);
     expect(result.coverage).toEqual({ scope: 'cached_titles', complete: true });
     expect(result.freshness).toEqual({ kind: 'cached', syncedAt: '2026-09-01T00:00:00.000Z' });
+  });
+});
+
+describe('query_assignments', () => {
+  it('filters cached assignments by course and due range without the HTML body', () => {
+    const assignment = {
+      id: 'canvas:owner:1:2',
+      source: 'canvas',
+      title: '作业一',
+      notes: '',
+      group: { id: '1', label: '操作系统' },
+      dueAt: '2026-10-01T16:00:00.000Z',
+      status: 'done' as const,
+      statusLabel: '已提交',
+      completedAt: null,
+      bodyHtml: '<p>作业描述</p>',
+      readAt: null,
+      createdAt: '2026-09-01T00:00:00.000Z',
+    };
+    vi.mocked(getTodoState).mockReturnValue({
+      items: [assignment, { ...assignment, id: 'p', source: 'personal', group: undefined }],
+      sources: [
+        {
+          id: 'canvas',
+          label: 'Canvas 作业',
+          connected: true,
+          syncedAt: '2026-09-28T00:00:00.000Z',
+          error: null,
+        },
+      ],
+      syncing: false,
+    });
+    const result = canvasDomain.commands.query_assignments.execute({
+      courseId: 1,
+      startAt: '2026-10-01T00:00:00.000Z',
+      endAt: '2026-10-02T00:00:00.000Z',
+    }) as { items: { id: string; bodyHtml?: string }[]; coverage: unknown };
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({ id: 'canvas:owner:1:2', statusLabel: '已提交' });
+    expect(result.items[0]!.bodyHtml).toBeUndefined();
+    expect(result.coverage).toEqual({ scope: 'cached_assignments', complete: true });
+    const other = canvasDomain.commands.query_assignments.execute({ courseId: 2 }) as {
+      total: number;
+    };
+    expect(other.total).toBe(0);
   });
 });
 

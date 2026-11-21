@@ -23,36 +23,40 @@ function todoItem(overrides: Partial<TodoItem>): TodoItem {
     title: '写周报',
     notes: '',
     dueAt: null,
-    status: 'pending',
+    status: 'open',
+    completedAt: null,
     readAt: null,
     createdAt: '2026-09-01T00:00:00.000Z',
     ...overrides,
   };
 }
 
+const source = {
+  id: 'canvas',
+  label: 'Canvas 作业',
+  connected: true,
+  syncedAt: '2026-09-28T00:00:00.000Z',
+  error: null,
+};
+
 function todoState(overrides: Partial<TodoState> = {}): TodoState {
   return {
     items: [
-      todoItem({
-        id: '0d7d21f5-8d5a-4f97-9c7f-2f5dfc1a1b2a',
-        title: '写周报',
-        status: 'pending',
-      }),
+      todoItem({}),
       todoItem({
         id: 'canvas:owner:1:2',
         source: 'canvas',
         title: '作业一',
-        courseId: 1,
-        courseName: '操作系统',
+        group: { id: '1', label: '操作系统' },
         dueAt: '2026-10-01T16:00:00.000Z',
-        status: 'submitted',
-        description: '<p>作业描述 HTML</p>',
+        status: 'done',
+        statusLabel: '已提交',
+        bodyHtml: '<p>作业描述 HTML</p>',
       }),
+      todoItem({ id: 'canvas:owner:1:3', source: 'canvas', title: '线下作业', status: 'unknown' }),
     ],
-    connected: true,
+    sources: [source],
     syncing: false,
-    syncedAt: '2026-09-28T00:00:00.000Z',
-    error: null,
     ...overrides,
   };
 }
@@ -63,68 +67,50 @@ beforeEach(() => {
 });
 
 describe('query_todos', () => {
-  it('returns the unified list without assignment descriptions', () => {
+  it('returns the unified list without source HTML bodies', () => {
     const result = todoDomain.commands.query_todos.execute({}) as {
-      items: { id: string; description?: unknown }[];
+      items: { id: string; bodyHtml?: unknown }[];
       total: number;
       freshness: unknown;
       coverage: unknown;
     };
-    expect(result.total).toBe(2);
-    expect(result.items.every((item) => item.description === undefined)).toBe(true);
+    expect(result.total).toBe(3);
+    expect(result.items.every((item) => item.bodyHtml === undefined)).toBe(true);
     expect(result.freshness).toEqual({ kind: 'cached', syncedAt: '2026-09-28T00:00:00.000Z' });
-    expect(result.coverage).toEqual({
-      scope: 'personal_todos_and_cached_assignments',
-      complete: true,
-    });
+    expect(result.coverage).toEqual({ scope: 'todos_and_cached_sources', complete: true });
   });
 
-  it('filters by keyword and completion status across both sources', () => {
-    const result = todoDomain.commands.query_todos.execute({ query: '作业' }) as { total: number };
-    expect(result.total).toBe(1);
-    const completed = todoDomain.commands.query_todos.execute({ query: '', completed: true }) as {
+  it('filters by keyword, group and completion; unknown counts as neither', () => {
+    const byGroup = todoDomain.commands.query_todos.execute({ query: '操作系统' }) as {
       total: number;
     };
-    expect(completed.total).toBe(1); // submitted 算已完成
+    expect(byGroup.total).toBe(1);
+    const done = todoDomain.commands.query_todos.execute({ query: '', completed: true }) as {
+      total: number;
+    };
+    expect(done.total).toBe(1);
     const open = todoDomain.commands.query_todos.execute({ query: '', completed: false }) as {
       total: number;
     };
-    expect(open.total).toBe(1); // pending；unknown/offline 两不算
+    expect(open.total).toBe(1);
   });
 
-  it('keeps personal todos visible with a coverage warning when Canvas is not connected', () => {
-    state.mockReturnValue(todoState({ connected: false, items: [todoState().items[0]!] }));
+  it('warns about sources that are not connected', () => {
+    state.mockReturnValue(
+      todoState({ sources: [{ ...source, connected: false, syncedAt: null }] }),
+    );
     const result = todoDomain.commands.query_todos.execute({}) as {
-      items: unknown[];
       coverage: { complete: boolean; warnings: string[] };
     };
-    expect(result.items).toHaveLength(1);
     expect(result.coverage.complete).toBe(false);
-    expect(result.coverage.warnings[0]).toContain('Canvas 未连接');
-  });
-});
-
-describe('query_assignments', () => {
-  it('filters canvas assignments by course and due range', () => {
-    const result = todoDomain.commands.query_assignments.execute({
-      courseId: 1,
-      startAt: '2026-10-01T00:00:00.000Z',
-      endAt: '2026-10-02T00:00:00.000Z',
-    }) as { items: { id: string }[]; coverage: unknown; freshness: unknown };
-    expect(result.items.map((item) => item.id)).toEqual(['canvas:owner:1:2']);
-    expect(result.coverage).toEqual({ scope: 'cached_assignments', complete: true });
-    const missed = todoDomain.commands.query_assignments.execute({
-      startAt: '2026-11-01T00:00:00.000Z',
-      endAt: '2026-11-02T00:00:00.000Z',
-    }) as { total: number };
-    expect(missed.total).toBe(0);
+    expect(result.coverage.warnings[0]).toContain('Canvas 作业未连接');
   });
 });
 
 describe('save_todo', () => {
   it('maps a missing target id to NOT_FOUND', () => {
     save.mockImplementation(() => {
-      throw new Error('待办不存在，Canvas 作业的完成状态只能通过同步更新');
+      throw new Error('待办不存在，外部来源的条目只能通过同步更新');
     });
     let caught: unknown;
     try {
@@ -140,7 +126,7 @@ describe('save_todo', () => {
 });
 
 describe('remove_todo', () => {
-  it('refuses canvas assignments and unknown ids', () => {
+  it('refuses source items and unknown ids', () => {
     let caught: unknown;
     try {
       todoDomain.commands.remove_todo.execute({ id: 'canvas:owner:1:2' });
@@ -162,8 +148,8 @@ describe('remove_todo', () => {
 });
 
 describe('refresh_todos', () => {
-  it('reports NOT_CONFIGURED without a canvas connection', async () => {
-    state.mockReturnValue(todoState({ connected: false }));
+  it('reports NOT_CONFIGURED when no source is connected', async () => {
+    state.mockReturnValue(todoState({ sources: [{ ...source, connected: false }] }));
     await expect(todoDomain.commands.refresh_todos.execute({})).rejects.toMatchObject({
       code: 'NOT_CONFIGURED',
     });

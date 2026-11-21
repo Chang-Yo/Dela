@@ -3,24 +3,29 @@ import { emit, hostPorts } from '../../../core/ports';
 import {
   todoContract,
   todoSaveSchema,
+  type TodoGroup,
   type TodoItem,
   type TodoSaveInput,
   type TodoState,
 } from '../contract';
 
-export interface TaskCourse {
-  id: number;
-  name: string;
-  code?: string;
-}
+/** 来源提供的条目：只含来源知道的内容，条目 id 由待办拼上来源与账号生成。 */
+export type SourceTask = Pick<
+  TodoItem,
+  'title' | 'dueAt' | 'status' | 'statusLabel' | 'completedAt' | 'url' | 'bodyHtml' | 'createdAt'
+> & { externalId: string };
 
-/** 外部作业来源（如 Canvas）。待办只认这组接口，来源按课程分批同步，单门课失败不影响其他课。 */
+/** 外部来源（如 Canvas 作业）。按分组逐个同步，一组失败不影响其他组。 */
 export interface TaskSource {
-  /** 当前账号的指纹，未登录时为 null；换账号后旧账号的待办不再显示。 */
+  id: string;
+  /** 筛选标签与通知里的名字，例如「Canvas 作业」。 */
+  label: string;
+  /** 打开条目原页面的按钮文字，例如「在 Canvas 中打开」。 */
+  openLabel?: string;
+  /** 当前账号的指纹，未登录时为 null；换账号后旧账号的条目不再显示。 */
   owner(): string | null;
-  courses(): Promise<TaskCourse[]>;
-  /** 一门课的作业；id 需带上 owner，保证不同账号互不覆盖。 */
-  tasks(owner: string, course: TaskCourse): Promise<TodoItem[]>;
+  groups(): Promise<TodoGroup[]>;
+  tasks(group: TodoGroup): Promise<SourceTask[]>;
 }
 
 type TodoRow = {
@@ -30,7 +35,7 @@ type TodoRow = {
   read_at: string | null;
   notice_at: string | null;
 };
-type SyncState = { syncedAt: string | null; error: string | null; courses: number[] };
+type SyncState = { syncedAt: string | null; error: string | null; groups: string[] };
 export interface TaskNotice {
   todoId: string;
   title: string;
@@ -39,13 +44,13 @@ export interface TaskNotice {
   readAt: string | null;
 }
 
-let source: TaskSource | null = null;
+const sources = new Map<string, TaskSource>();
 let noticeListener: ((notice: TaskNotice) => void) | null = null;
 let changeListener: (() => void) | null = null;
 let activeRefresh: Promise<TodoState> | null = null;
 
 export function registerTaskSource(next: TaskSource): void {
-  source = next;
+  sources.set(next.id, next);
 }
 
 export function onTaskNotice(listener: (notice: TaskNotice) => void): void {
@@ -56,38 +61,52 @@ export function onTodoChange(listener: () => void): void {
   changeListener = listener;
 }
 
-function sourceOwner(): string | null {
-  return source?.owner() ?? null;
+function syncKey(source: TaskSource, owner: string) {
+  return `todo-sync:${source.id}:${owner}`;
 }
 
-function syncState(owner: string | null): SyncState {
+function syncState(source: TaskSource, owner: string): SyncState {
   const row = hostPorts()
     .database()
     .prepare('SELECT value FROM workspace_settings WHERE key=?')
-    .get(`todo-sync:${owner}`) as { value: string } | undefined;
-  return row ? JSON.parse(row.value) : { syncedAt: null, error: null, courses: [] };
+    .get(syncKey(source, owner)) as { value: string } | undefined;
+  return row ? JSON.parse(row.value) : { syncedAt: null, error: null, groups: [] };
 }
 
+function owners(): string[] {
+  return ['local', ...[...sources.values()].flatMap((source) => source.owner() ?? [])];
+}
+
+const ownerIn = (list: string[]) => `owner IN (${list.map(() => '?').join(',')})`;
+
 function rows(): TodoRow[] {
+  const list = owners();
   return hostPorts()
     .database()
-    .prepare('SELECT * FROM todo_items WHERE owner=? OR owner=?')
-    .all('local', sourceOwner() ?? '') as TodoRow[];
+    .prepare(`SELECT * FROM todo_items WHERE ${ownerIn(list)}`)
+    .all(...list) as TodoRow[];
 }
 
 export function getTodoState(): TodoState {
-  const owner = sourceOwner();
-  const sync = syncState(owner);
   return {
     items: rows()
       .map((row) => ({ ...JSON.parse(row.data), readAt: row.read_at }) as TodoItem)
       .sort(
         (a, b) => (a.dueAt ?? 'z').localeCompare(b.dueAt ?? 'z') || a.title.localeCompare(b.title),
       ),
-    connected: owner !== null,
+    sources: [...sources.values()].map((source) => {
+      const owner = source.owner();
+      const sync = owner ? syncState(source, owner) : null;
+      return {
+        id: source.id,
+        label: source.label,
+        openLabel: source.openLabel,
+        connected: owner !== null,
+        syncedAt: sync?.syncedAt ?? null,
+        error: sync?.error ?? null,
+      };
+    }),
     syncing: activeRefresh !== null,
-    syncedAt: sync.syncedAt,
-    error: sync.error,
   };
 }
 
@@ -103,21 +122,19 @@ export function saveTodo(input: TodoSaveInput): TodoState {
   const existing = value.id
     ? rows().find((row) => row.id === value.id && row.owner === 'local')
     : undefined;
-  if (value.id && !existing) throw new Error('待办不存在，Canvas 作业的完成状态只能通过同步更新');
+  if (value.id && !existing) throw new Error('待办不存在，外部来源的条目只能通过同步更新');
   const old = existing ? (JSON.parse(existing.data) as TodoItem) : undefined;
   const now = new Date().toISOString();
+  const status =
+    value.completed === undefined ? (old?.status ?? 'open') : value.completed ? 'done' : 'open';
   const item: TodoItem = {
     id: value.id ?? randomUUID(),
     source: 'personal',
     title: value.title,
     notes: value.notes ?? old?.notes ?? '',
     dueAt: value.dueAt === undefined ? (old?.dueAt ?? null) : value.dueAt,
-    status:
-      value.completed === undefined
-        ? (old?.status ?? 'pending')
-        : value.completed
-          ? 'completed'
-          : 'pending',
+    status,
+    completedAt: status === 'done' ? (old?.completedAt ?? now) : null,
     calendar: value.calendar ?? old?.calendar ?? false,
     color: value.color ?? old?.color,
     createdAt: old?.createdAt ?? now,
@@ -138,37 +155,40 @@ export function removeTodo(id: string): TodoState {
 }
 
 export function markTodoRead(id: string | null): TodoState {
+  const list = owners();
   hostPorts()
     .database()
     .prepare(
-      'UPDATE todo_items SET read_at=COALESCE(read_at, ?) WHERE (owner=? OR owner=?) AND (? IS NULL OR id=?)',
+      `UPDATE todo_items SET read_at=COALESCE(read_at, ?) WHERE ${ownerIn(list)} AND (? IS NULL OR id=?)`,
     )
-    .run(new Date().toISOString(), 'local', sourceOwner() ?? '', id, id);
+    .run(new Date().toISOString(), ...list, id, id);
   return publishTodoState();
 }
 
 export function todoNotifications(): TaskNotice[] {
-  return rows()
-    .filter((row) => row.notice_at !== null)
-    .map((row) => {
-      const item = JSON.parse(row.data) as TodoItem;
-      return newTaskNotice(item.id, item.title, item.courseName, row.notice_at!, row.read_at);
-    });
+  return rows().flatMap((row) => {
+    const item = JSON.parse(row.data) as TodoItem;
+    const source = sources.get(item.source);
+    if (row.notice_at === null || !source) return [];
+    return [newTaskNotice(item, source, row.notice_at, row.read_at)];
+  });
 }
 
 function newTaskNotice(
-  id: string,
-  title: string,
-  courseName: string | undefined,
+  item: TodoItem,
+  source: TaskSource,
   createdAt: string,
   readAt: string | null,
 ): TaskNotice {
-  return { todoId: id, title, body: `${courseName ?? 'Canvas'} · 新作业`, createdAt, readAt };
+  const body = item.group ? `${source.label} · ${item.group.label}` : source.label;
+  return { todoId: item.id, title: item.title, body, createdAt, readAt };
 }
 
 export function refreshTodos(): Promise<TodoState> {
   if (activeRefresh) return activeRefresh;
-  activeRefresh = syncTasks().then(
+  activeRefresh = (async () => {
+    for (const source of sources.values()) await syncSource(source);
+  })().then(
     () => {
       activeRefresh = null;
       return publishTodoState();
@@ -183,80 +203,73 @@ export function refreshTodos(): Promise<TodoState> {
   return activeRefresh;
 }
 
-async function syncTasks(): Promise<TodoState> {
-  const owner = sourceOwner();
-  if (!source || !owner) return getTodoState();
+async function syncSource(source: TaskSource): Promise<void> {
+  const owner = source.owner();
+  if (!owner) return;
   const db = hostPorts().database();
-  const previous = syncState(owner);
-  const successful = new Set(previous.courses);
+  const previous = syncState(source, owner);
+  const successful = new Set(previous.groups);
   const errors: string[] = [];
+  const groupIds = db.prepare(
+    "SELECT id FROM todo_items WHERE owner=? AND json_extract(data, '$.source')=? AND json_extract(data, '$.group.id')=?",
+  );
   try {
-    const courses = await source.courses();
-    for (const course of courses) {
-      if (sourceOwner() !== owner) return getTodoState();
+    for (const group of await source.groups()) {
+      if (source.owner() !== owner) return;
       try {
-        const tasks = await source.tasks(owner, course);
-        if (sourceOwner() !== owner) return getTodoState();
+        const tasks = await source.tasks(group);
+        if (source.owner() !== owner) return;
         const now = new Date().toISOString();
-        const ids = new Set<string>();
-        // 已同步过的课程新增作业（INSERT 且 notice_at=now）是通知产生时刻，弹系统桌面通知。
+        const synced = successful.has(group.id);
         const existingIds = new Set(
-          (
-            db
-              .prepare(
-                "SELECT id FROM todo_items WHERE owner=? AND json_extract(data, '$.courseId')=?",
-              )
-              .all(owner, course.id) as { id: string }[]
-          ).map((row) => row.id),
+          (groupIds.all(owner, source.id, group.id) as { id: string }[]).map((row) => row.id),
         );
+        const ids = new Set<string>();
+        // 已同步过的分组出现新条目（INSERT 且 notice_at=now）是通知产生时刻，弹系统桌面通知。
         const freshNotices: TodoItem[] = [];
         db.prepare('BEGIN').run();
         try {
-          for (const item of tasks) {
+          for (const { externalId, ...task } of tasks) {
+            const item: TodoItem = {
+              ...task,
+              id: `${source.id}:${owner}:${externalId}`,
+              source: source.id,
+              notes: '',
+              group,
+              readAt: null,
+              syncedAt: now,
+            };
             ids.add(item.id);
             // 已读与完成独立；更新状态时绝不重置 read_at 或生成第二条通知。
             db.prepare(
               'INSERT INTO todo_items(id, owner, data, read_at, notice_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',
-            ).run(
-              item.id,
-              owner,
-              JSON.stringify(item),
-              successful.has(course.id) ? null : now,
-              successful.has(course.id) ? now : null,
-            );
-            if (successful.has(course.id) && !existingIds.has(item.id)) freshNotices.push(item);
+            ).run(item.id, owner, JSON.stringify(item), synced ? null : now, synced ? now : null);
+            if (synced && !existingIds.has(item.id)) freshNotices.push(item);
           }
-          const old = db
-            .prepare(
-              "SELECT id FROM todo_items WHERE owner=? AND json_extract(data, '$.courseId')=?",
-            )
-            .all(owner, course.id) as { id: string }[];
-          for (const item of old)
-            if (!ids.has(item.id)) db.prepare('DELETE FROM todo_items WHERE id=?').run(item.id);
+          for (const id of existingIds)
+            if (!ids.has(id)) db.prepare('DELETE FROM todo_items WHERE id=?').run(id);
           db.prepare('COMMIT').run();
         } catch (error) {
           db.prepare('ROLLBACK').run();
           throw error;
         }
-        for (const item of freshNotices)
-          noticeListener?.(newTaskNotice(item.id, item.title, course.name, now, null));
-        successful.add(course.id);
+        for (const item of freshNotices) noticeListener?.(newTaskNotice(item, source, now, null));
+        successful.add(group.id);
       } catch (error) {
-        errors.push(`${course.name}：${error instanceof Error ? error.message : String(error)}`);
+        errors.push(`${group.label}：${error instanceof Error ? error.message : String(error)}`);
       }
     }
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
-  if (sourceOwner() === owner) {
+  if (source.owner() === owner) {
     db.prepare('INSERT OR REPLACE INTO workspace_settings(key, value) VALUES (?, ?)').run(
-      `todo-sync:${owner}`,
+      syncKey(source, owner),
       JSON.stringify({
         syncedAt: errors.length ? previous.syncedAt : new Date().toISOString(),
         error: errors.join('\n') || null,
-        courses: [...successful],
+        groups: [...successful],
       } satisfies SyncState),
     );
   }
-  return getTodoState();
 }

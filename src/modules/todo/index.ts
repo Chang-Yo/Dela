@@ -19,10 +19,11 @@ export {
   removeTodo,
   saveTodo,
   todoNotifications,
-  type TaskCourse,
+  type SourceTask,
   type TaskNotice,
   type TaskSource,
 } from './main/store';
+export { todoSyncedAt, todoSyncError } from './contract';
 
 const REFRESH_MS = 15 * 60_000;
 

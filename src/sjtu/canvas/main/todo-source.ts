@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { TodoItem, TodoStatus } from '../../../modules/todo/contract';
-import type { TaskSource } from '../../../modules/todo';
+import type { TodoStatus } from '../../../modules/todo/contract';
+import type { SourceTask, TaskSource } from '../../../modules/todo';
 import { loadCanvasToken } from './credentials';
 import { listTodoCanvasAssignments, listTodoCanvasCourses } from './api';
 
@@ -10,18 +10,20 @@ export function canvasOwner(): string | null {
   return token ? createHash('sha256').update(token).digest('hex') : null;
 }
 
+const progress = (status: TodoStatus, statusLabel: string) => ({ status, statusLabel });
+
 /** 仅按 Canvas 明确返回的提交事实判定；成绩（包括零分）本身不代表完成。 */
-export function canvasTodoStatus(assignment: Record<string, unknown>): TodoStatus {
+export function canvasTodoStatus(assignment: Record<string, unknown>) {
   const sub = assignment.submission as Record<string, unknown> | null | undefined;
-  if (!sub || typeof sub !== 'object') return 'unknown';
-  if (sub.excused === true) return 'excused';
-  if (sub.redo_request === true) return 'resubmit';
+  if (!sub || typeof sub !== 'object') return progress('unknown', '待同步确认');
+  if (sub.excused === true) return progress('done', '已豁免');
+  if (sub.redo_request === true) return progress('open', '需重新提交');
   if (
     sub.submitted_at ||
     sub.workflow_state === 'submitted' ||
     sub.workflow_state === 'pending_review'
   ) {
-    return sub.workflow_state === 'graded' ? 'graded' : 'submitted';
+    return progress('done', sub.workflow_state === 'graded' ? '已批改' : '已提交');
   }
   const types = assignment.submission_types;
   if (
@@ -29,44 +31,44 @@ export function canvasTodoStatus(assignment: Record<string, unknown>): TodoStatu
     types.every((type) => type === 'on_paper' || type === 'none') &&
     types.length
   ) {
-    return sub.workflow_state === 'graded' && sub.missing !== true ? 'graded' : 'offline';
+    return sub.workflow_state === 'graded' && sub.missing !== true
+      ? progress('done', '已批改')
+      : progress('unknown', '线下 / 无需在线提交');
   }
   if (
     sub.workflow_state === 'unsubmitted' ||
     sub.missing === true ||
     sub.workflow_state === 'graded'
   )
-    return 'pending';
-  return 'unknown';
+    return progress('open', '未完成');
+  return progress('unknown', '待同步确认');
 }
 
 export const canvasTaskSource: TaskSource = {
+  id: 'canvas',
+  label: 'Canvas 作业',
+  openLabel: '在 Canvas 中打开',
   owner: canvasOwner,
-  courses: listTodoCanvasCourses,
-  async tasks(owner, course) {
+  async groups() {
+    const courses = await listTodoCanvasCourses();
+    return courses.map((course) => ({ id: String(course.id), label: course.name }));
+  },
+  async tasks(group) {
     const now = new Date().toISOString();
-    const assignments = await listTodoCanvasAssignments(course.id);
-    return assignments.flatMap((a): TodoItem[] => {
+    const assignments = await listTodoCanvasAssignments(Number(group.id));
+    return assignments.flatMap((a): SourceTask[] => {
       if (typeof a.id !== 'number' || a.published === false) return [];
       const sub = a.submission as Record<string, unknown> | undefined;
       return [
         {
-          id: `canvas:${owner}:${course.id}:${a.id}`,
-          source: 'canvas',
-          assignmentId: a.id,
-          courseId: course.id,
-          courseCode: course.code || undefined,
-          courseName: course.name,
+          externalId: `${group.id}:${a.id}`,
           title: typeof a.name === 'string' ? a.name : '未命名作业',
-          notes: '',
           dueAt: typeof a.due_at === 'string' ? a.due_at : null,
-          status: canvasTodoStatus(a),
-          submittedAt: typeof sub?.submitted_at === 'string' ? sub.submitted_at : null,
+          ...canvasTodoStatus(a),
+          completedAt: typeof sub?.submitted_at === 'string' ? sub.submitted_at : null,
           url: typeof a.html_url === 'string' ? a.html_url : undefined,
-          description: typeof a.description === 'string' ? a.description : undefined,
+          bodyHtml: typeof a.description === 'string' ? a.description : undefined,
           createdAt: typeof a.created_at === 'string' ? a.created_at : now,
-          syncedAt: now,
-          readAt: null,
         },
       ];
     });

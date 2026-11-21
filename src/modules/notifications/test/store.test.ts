@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { provideTestHostPorts } from '../../../core/test/host-mock';
 
 vi.mock('../../todo', () => ({
-  getTodoState: () => ({ syncedAt: null, error: null }),
+  getTodoState: () => ({ items: [], sources: [], syncing: false }),
+  todoSyncedAt: () => null,
+  todoSyncError: () => null,
   todoNotifications: () => [],
   markTodoRead: vi.fn(),
 }));
