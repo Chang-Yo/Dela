@@ -13,7 +13,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import type { MailComposeFile, PreparedEmail, MailDraftSummary } from '../contract';
-import { resourceRefSchema } from '../../workspace/contract';
+import { resourceAddressSchema } from '../../../core/capabilities/resources';
 import { hostPorts } from '../../../core/ports';
 import { withResourceFile } from '../../workspace';
 import {
@@ -151,7 +151,7 @@ export const emailDraftSchema = z
     to: z.array(z.email()).min(1).max(50),
     subject: z.string().max(500),
     text: z.string().max(1000000),
-    attachments: z.array(resourceRefSchema).max(30).default([]),
+    attachments: z.array(resourceAddressSchema).max(30).default([]),
   })
   .strict();
 

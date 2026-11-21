@@ -39,6 +39,7 @@ import { handleShuiyuanSnapshotRequest } from './main/snapshot-files';
 import {
   addShuiyuanSourceRef,
   getShuiyuanSourceRef,
+  readShuiyuanSnapshotPostCount,
   readShuiyuanSourcePage,
   shuiyuanTopicUrl,
 } from './main/sources';
@@ -69,6 +70,7 @@ export const shuiyuanModule = defineModule({
     addSourceRef: (topicId) => addShuiyuanSourceRef(topicId),
     sourceRef: (topicId) => getShuiyuanSourceRef(topicId),
     snapshotPage: ({ topicId, page }) => readShuiyuanSourcePage(topicId, page),
+    snapshotPostCount: (topicId) => readShuiyuanSnapshotPostCount(topicId),
     refreshSnapshot: (topicId) => refreshShuiyuanSnapshot(topicId),
     openInBrowser: (topicId) => shell.openExternal(shuiyuanTopicUrl(topicId)),
   }),

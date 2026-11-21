@@ -5,7 +5,6 @@ import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
 import { HtmlFrame } from '../../../ui/html-frame';
 import { showToast } from '../../../ui/toast';
-import type { TabId } from '../../workspace/contract';
 import { CodeViewer } from './CodeViewer';
 import { useContentLoader, type LoadedDocument } from './loader';
 import { OfficeExportBanner, OfficePromptCard } from './OfficePrompt';
@@ -13,6 +12,7 @@ import { previewScrollOf, rememberPreviewScroll } from './scroll-memory';
 import { parsePreviewTabId } from './tab-id';
 import { Spinner } from '../../../ui/spinner';
 import { errorMessage } from '../../../core/protocol/contract';
+import type { TabId } from '../../../core/protocol/workbench';
 
 const PdfReader = lazy(() =>
   import('./PdfReader').then((module) => ({ default: module.PdfReader })),
@@ -128,9 +128,9 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {branch === 'html' && (
         <Card className="min-h-0 flex-1">
-          {/* 本地/导入条目（watchesDisk）不补 Canvas 基址，相对地址剥除，免得补到外域泄露请求。 */}
+          {/* 相对地址按资料自己的来源地址补全；本地/导入条目（watchesDisk）没有来源，一律剥除。 */}
           <HtmlFrame
-            baseUrl={doc.watchesDisk ? undefined : 'https://oc.sjtu.edu.cn'}
+            baseUrl={doc.watchesDisk ? undefined : content.url || undefined}
             className="bg-paper"
             fill
             html={content.text ?? ''}
@@ -189,7 +189,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           {exported && (
             <OfficeExportBanner
               exported={exported}
-              officeRef={doc.officeRef}
+              officeAddress={doc.officeAddress}
               onExported={onOfficeRefresh}
             />
           )}
@@ -205,7 +205,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           ) : (
             <OfficePromptCard
               title={content.title}
-              officeRef={doc.officeRef}
+              officeAddress={doc.officeAddress}
               onExported={onOfficeRefresh}
             />
           )}

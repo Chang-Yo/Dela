@@ -38,12 +38,12 @@ describe('课程资料搜索', () => {
     for (const kind of ['file', 'assignment'])
       run(
         'INSERT INTO canvas_sources VALUES (?, 1, ?)',
-        `${kind}:1`,
+        `canvas-${kind}:1`,
         JSON.stringify({ kind, title: 'lecture-notes.pdf' }),
       );
 
     expect(courseFileSearch.search('lecture-notes.pdf', 10)).toEqual([
-      expect.objectContaining({ id: 'file:1', subtitle: '信号与系统' }),
+      expect.objectContaining({ id: 'canvas-file:1', subtitle: '信号与系统' }),
     ]);
   });
 });

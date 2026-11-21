@@ -1,8 +1,8 @@
 // 项目移除后的工作台清场：资料树移除与删除连接级联两条路径共用。
-import type { TabId } from '../../../modules/workspace/contract';
 import { useNavigationStore } from '../navigation/view';
 import { useWorkbenchLayout } from './layout-store';
 import { walkGroups } from './layout-schema';
+import type { TabId } from '../../../core/protocol/workbench';
 
 export function purgeRemovedEntries(liveIds: Set<string>): void {
   const layout = useWorkbenchLayout.getState();

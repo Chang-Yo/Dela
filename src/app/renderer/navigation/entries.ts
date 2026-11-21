@@ -3,7 +3,7 @@
 import type { ComponentType } from 'react';
 import { FolderOpen } from 'lucide-react';
 import type { NavTargets } from '../../module';
-import { navPages } from '../../views';
+import { pages } from '../../views';
 import { usePreferences } from '../shell/preferences';
 
 export type NavEntryId = 'sources' | keyof NavTargets;
@@ -12,7 +12,7 @@ export const navEntries: Array<{
   id: NavEntryId;
   label: string;
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
-}> = [{ id: 'sources', label: '资料', icon: FolderOpen }, ...navPages];
+}> = [{ id: 'sources', label: '资料', icon: FolderOpen }, ...pages.nav];
 
 export function useVisibleNavEntries() {
   const hidden = usePreferences((state) => state.hiddenNavEntries);

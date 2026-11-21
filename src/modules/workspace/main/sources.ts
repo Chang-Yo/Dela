@@ -1,9 +1,10 @@
-// 资料来源注册口：source 条目只存 sourceId，读取与校验交给认领它的模块；工作区不认识具体平台。
-import type { DocumentContent } from '../contract';
+// 项目快捷方式注册口：条目只存 sourceId，读取与校验交给认领它的模块；工作区不认识具体平台。
 import type { ResourceContent } from './resources';
+import type { DocumentContent } from '../../../core/protocol/workbench';
 
 export interface WorkspaceSource {
-  owns(sourceId: string): boolean;
+  /** sourceId 以它开头的都归本模块；与界面侧登记的前缀相同。 */
+  prefix: string;
   validate(sourceId: string): void;
   added?(sourceId: string): void;
   collect?(): Promise<void>;
@@ -15,12 +16,19 @@ export interface WorkspaceSource {
 const sources: WorkspaceSource[] = [];
 
 export function registerWorkspaceSource(source: WorkspaceSource): void {
+  const overlapping = sources.find(
+    (item) => item.prefix.startsWith(source.prefix) || source.prefix.startsWith(item.prefix),
+  );
+  if (overlapping)
+    throw new Error(
+      `资料前缀 ${source.prefix} 与 ${overlapping.prefix} 重叠，sourceId 无法确定归属`,
+    );
   sources.push(source);
 }
 
 export function workspaceSource(sourceId: string): WorkspaceSource {
-  const source = sources.find((item) => item.owns(sourceId));
-  if (!source) throw new Error('该资料来源暂不可用：对应的校园服务未启用');
+  const source = sources.find((item) => sourceId.startsWith(item.prefix));
+  if (!source) throw new Error('该资料暂不可用：对应的功能未启用');
   return source;
 }
 

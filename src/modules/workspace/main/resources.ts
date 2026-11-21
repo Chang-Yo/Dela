@@ -1,8 +1,9 @@
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import { resourceRefSchema, type ResourceRef, workspaceEntryIdSchema } from '../contract';
-import { resourceResolver } from '../../../core/capabilities/resources';
+import { workspaceEntryIdSchema } from '../contract';
+import { resourceAddressSchema, resourceResolver } from '../../../core/capabilities/resources';
+import type { ResourceAddress } from '../../../core/protocol/workbench';
 import { entry, importWorkspaceFiles, workspaceFilePath } from './api';
 import { localFileFormat, textRevision } from './files';
 import { workspaceSource } from './sources';
@@ -58,7 +59,7 @@ export async function readWorkspaceResource(id: string): Promise<ResourceContent
 const documentJobs = () => join(hostPorts().paths.temp(), 'dela-document-reading');
 const jobIdSchema = z.string().regex(/^job-[A-Za-z0-9]{6}$/);
 
-export async function prepareDocumentResource(ref: ResourceRef) {
+export async function prepareDocumentResource(ref: ResourceAddress) {
   return prepareDocumentFile((input) => withResourceFile(ref, (path) => copyFile(path, input)));
 }
 
@@ -101,19 +102,18 @@ export async function releaseDocumentResource(jobId: unknown): Promise<void> {
 }
 
 export async function withResourceFile<T>(
-  source: ResourceRef,
+  source: ResourceAddress,
   consume: (path: string) => Promise<T> | T,
 ): Promise<T> {
-  source = resourceRefSchema.parse(source);
   const resolver = resourceResolver(source.type);
   if (resolver.path) return consume(await resolver.path(source));
-  if (!resolver.withFile) throw new Error('请选择项目文件、Canvas 文件或邮件附件');
+  if (!resolver.withFile) throw new Error('该资源没有对应的文件');
   return resolver.withFile(source, consume);
 }
 
 export async function copyResourceToProject(input: unknown) {
   const { source, parentId } = z
-    .object({ source: resourceRefSchema, parentId: workspaceEntryIdSchema })
+    .object({ source: resourceAddressSchema, parentId: workspaceEntryIdSchema })
     .strict()
     .parse(input);
   return withResourceFile(source, (path) => {
@@ -123,8 +123,8 @@ export async function copyResourceToProject(input: unknown) {
 }
 
 /** 邮件附件落在临时目录，启动竞态下会被清理，所以只放行有持久文件的资源。 */
-export async function openResourceFile(ref: ResourceRef): Promise<void> {
-  const parsed = resourceRefSchema.parse(ref);
+export async function openResourceFile(input: unknown): Promise<void> {
+  const parsed = resourceAddressSchema.parse(input);
   const { path } = resourceResolver(parsed.type);
   if (!path) throw new Error('仅支持资料文件与我的资料条目');
   await hostPorts()

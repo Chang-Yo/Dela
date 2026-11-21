@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileCode2, TriangleAlert } from 'lucide-react';
-import type { TabId } from '../../../../app/module';
 import { diffStatOf } from '../../../../core/protocol/diff';
 import { PanelHeader } from '../../../../ui/panel-header';
 import { agentClient } from '../client';
@@ -12,6 +11,7 @@ import { UncommittedReview } from './UncommittedReview';
 import { Centered, STATUS_TEXT, basenameOf, dirnameOf } from './view-utils';
 import { DiffScroller, PatchDiffView } from './pierre-diff';
 import { errorMessage } from '../../../../core/protocol/contract';
+import type { TabId } from '../../../../core/protocol/workbench';
 
 export function ReviewTab({ tabId }: { tabId: TabId; groupId: string }) {
   const target = parseReviewTabId(tabId);

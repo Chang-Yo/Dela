@@ -149,7 +149,7 @@ async function run(window) {
       '[EXPECTED] macOS PPTX export must reject the request. Electron will log the IPC error; the assertion below checks it.',
     );
     const exportError = await js(
-      "window.dela.bridge.invoke('workspace:exportOfficePdf', { type: 'canvas', id: 'file:smoke' }).then(() => '', error => error.message)",
+      "window.dela.bridge.invoke('workspace:exportOfficePdf', { type: 'source', id: 'canvas-file:smoke' }).then(() => '', error => error.message)",
     );
     assert.match(exportError, /当前平台暂不支持 PPTX 转 PDF/);
     assert.deepEqual(await js("window.dela.bridge.invoke('workspace:state')"), workspace);

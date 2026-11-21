@@ -367,7 +367,7 @@ describe('createWorkspaceEntry', () => {
 
 describe('资料来源条目', () => {
   const fake = {
-    owns: (sourceId: string) => sourceId.startsWith('fake:'),
+    prefix: 'fake:',
     validate: vi.fn((sourceId: string) => {
       if (sourceId === 'fake:missing') throw new Error('资料不存在');
     }),
@@ -381,13 +381,13 @@ describe('资料来源条目', () => {
   it('没有模块认领的来源（对应校园服务未启用）给出产品错误', async () => {
     expect(() =>
       createWorkspaceEntry({ parentId: null, name: '课件', kind: 'source', sourceId: 'file:1' }),
-    ).toThrow('该资料来源暂不可用');
+    ).toThrow('该资料暂不可用');
     const id = crypto.randomUUID();
     db.prepare(
       "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, '课件', 'source', 'file:1', ?, NULL, 'now')",
     ).run(id, workspaceRoot());
-    await expect(readWorkspaceEntry(id)).rejects.toThrow('该资料来源暂不可用');
-    await expect(workspaceFilePath(id)).rejects.toThrow('该资料来源暂不可用');
+    await expect(readWorkspaceEntry(id)).rejects.toThrow('该资料暂不可用');
+    await expect(workspaceFilePath(id)).rejects.toThrow('该资料暂不可用');
   });
 });
 

@@ -14,7 +14,7 @@ import {
   readRemoteDocument,
   remotePortsState,
 } from '../remotes';
-import { resourceRefSchema, workspaceContract } from './contract';
+import { workspaceContract } from './contract';
 import { registerSearchProvider } from '../search';
 import {
   chooseDirectory,
@@ -55,7 +55,11 @@ import {
   projectGitCheckout,
 } from './main/project';
 import { chatSearch, projectSearch } from './main/search';
-import { resourceDomain, workspaceResourceResolver } from './main/read-resource';
+import {
+  resourceDomain,
+  sourceResourceResolver,
+  workspaceResourceResolver,
+} from './main/read-resource';
 import { openResourceFile } from './main/resources';
 import { workspaceSource } from './main/sources';
 
@@ -129,7 +133,7 @@ export const workspaceModule = defineModule({
     projectBranches: projectGitBranches,
     switchProjectBranch: ({ id, branch }) => projectGitCheckout(id, branch),
     exportOfficePdf: exportOfficePdfOf,
-    openResourceFile: (ref) => openResourceFile(resourceRefSchema.parse(ref)),
+    openResourceFile,
     importFiles: async (parentId) => {
       const paths = await pickImportFiles();
       if (paths.length) importWorkspaceFiles(parentId, paths);
@@ -176,6 +180,7 @@ export const workspaceModule = defineModule({
     registerCommandDomain(resourceDomain);
     registerCommandDomain(workspaceDomain);
     registerResourceResolver('workspace', workspaceResourceResolver);
+    registerResourceResolver('source', sourceResourceResolver);
     registerContextDirectory({ id: 'workspace', label: '资料', directory: workspaceRootDirectory });
     registerSearchProvider(projectSearch);
     registerSearchProvider(chatSearch);

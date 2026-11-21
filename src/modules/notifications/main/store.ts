@@ -9,7 +9,7 @@ import {
 } from '../contract';
 import { armSystemNotifications, NOTIFICATIONS_SNOOZE_KEY, showCampusNotice } from './system';
 
-/** 通知来源（邮件与交大各服务）。待办内置；未注册的来源不刷新，其旧通知也不显示。 */
+/** 通知来源（邮件及各模块登记的服务）。待办内置；未注册的来源不刷新，其旧通知也不显示。 */
 export interface NoticeSource {
   id: string;
   /** 当前账号键，未登录时为 null；换账号后旧账号的通知不再显示。 */

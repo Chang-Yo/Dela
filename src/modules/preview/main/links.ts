@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs';
 import { basename } from 'node:path';
 import { hostPorts } from '../../../core/ports';
-import type { OfficeExportInfo } from '../../workspace/contract';
+import type { OfficeExportInfo } from '../../../core/protocol/workbench';
 
 /** version 为导出时源文件的 mtime-size。 */
 export interface OfficeExportLink {

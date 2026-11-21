@@ -1,4 +1,4 @@
-import type { FileFormat } from '../../core/protocol/files';
+import type { DocumentContent, ResourceAddress } from '../../core/protocol/workbench';
 import type { RemoteDirectoryEntry, RemotePortsState } from '../remotes/contract';
 import { workbenchLayoutSchema, type WorkbenchLayout } from './layout';
 import { z } from 'zod';
@@ -19,55 +19,13 @@ export const workspaceEntryIdSchema = z
     { message: '请选择工作区文件路径或有效的条目' },
   );
 
-export const resourceRefSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('workspace'), id: workspaceEntryIdSchema }).strict(),
-  z.object({ type: z.literal('canvas'), id: z.string().min(1).max(512) }).strict(),
-  z.object({ type: z.literal('mail'), id: z.number().int().positive().safe() }).strict(),
-  z
-    .object({
-      type: z.literal('attachment'),
-      messageId: z.number().int().positive().safe(),
-      part: z.string().regex(/^\d+(?:\.\d+)*$/),
-    })
-    .strict(),
-  z.object({ type: z.literal('shuiyuan-online'), id: z.number().int().positive() }).strict(),
-]);
-
-export type ResourceRef = z.infer<typeof resourceRefSchema>;
-
-export interface DocumentContent {
-  title: string;
-  /** html 只来自 Canvas 页面与水源；工作区与远端文件按 FileFormat 分类。 */
-  format: FileFormat | 'html';
-  text?: string;
-  /** 文本只读：超过编辑上限、或来自远端项目。truncated 表示 text 只是文件开头。 */
-  readOnly?: boolean;
-  truncated?: boolean;
-  bytes?: Uint8Array;
-  previewUrl?: string;
-  mime?: string;
-  url?: string;
-  dueAt?: string | null;
-  updatedAt?: string | null;
-  revision?: string;
-  shuiyuanSnapshot?: { postCount: number; pageSize: number };
-  office?: { export?: OfficeExportInfo };
-}
-
-/** 已导出 PDF 与源 pptx 的关联信息；stale 表示源文件在导出后更新过。 */
-export interface OfficeExportInfo {
-  previewUrl: string;
-  title: string;
-  stale: boolean;
-}
-
 export interface OfficeExportProgress {
   phase: 'preparing' | 'converting' | 'writing';
   bytes?: number;
 }
 
 export interface OfficeExportEvent extends OfficeExportProgress {
-  ref: ResourceRef;
+  ref: ResourceAddress;
 }
 
 export interface WorkspaceEntryUpdate {
@@ -123,7 +81,7 @@ const localPaths = z.array(z.string().min(1).max(32_767)).max(100);
 const port = z.number().int().min(1).max(65535);
 const entries = z.custom<WorkspaceEntry[]>();
 const document = z.custom<DocumentContent>();
-const resourceRef = z.custom<ResourceRef>();
+const resourceAddress = z.custom<ResourceAddress>();
 
 export const workspaceContract = defineContract(
   'workspace',
@@ -147,7 +105,7 @@ export const workspaceContract = defineContract(
     },
     remove: { input: entryId, output: z.void() },
     read: { input: entryId, output: document },
-    /** 来源资料（Canvas 课件、水源帖子等）的正文，由认领该 sourceId 的模块读取。 */
+    /** 来源资料（各模块登记的资料）的正文，由认领该 sourceId 的模块读取。 */
     readSource: { input: z.string().max(512), output: document },
     /** 原地覆写文本文件；revision 与磁盘不一致时拒绝。 */
     saveNote: {
@@ -189,8 +147,8 @@ export const workspaceContract = defineContract(
       }),
       output: z.void(),
     },
-    exportOfficePdf: { input: resourceRef, output: z.void() },
-    openResourceFile: { input: resourceRef, output: z.void() },
+    exportOfficePdf: { input: resourceAddress, output: z.void() },
+    openResourceFile: { input: resourceAddress, output: z.void() },
     importFiles: { input: entryId.nullable(), output: z.void() },
     importDroppedFiles: {
       input: z.object({ parentId: entryId.nullable(), paths: localPaths.min(1) }),

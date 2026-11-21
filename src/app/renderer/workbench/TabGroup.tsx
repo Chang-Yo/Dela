@@ -2,7 +2,7 @@
 // 同组只挂载活动标签；组内非活动标签状态由内容组件本地保留与否自决。
 import { Suspense, useEffect, useRef, useState, type DragEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { GroupNode, TabId } from '../../../modules/workspace/contract';
+import type { GroupNode } from '../../../modules/workspace/contract';
 import { ErrorBoundary } from '../shell/ErrorBoundary';
 import { cn } from '../../../ui/lib/cn';
 import { GroupEmptyState } from './GroupEmptyState';
@@ -20,6 +20,7 @@ import {
   tabDropZone,
   type EdgeZone,
 } from './tab-dnd';
+import type { TabId } from '../../../core/protocol/workbench';
 
 function TabSuspenseFallback() {
   return <div className="min-h-0 min-w-0 flex-1 bg-inset" />;

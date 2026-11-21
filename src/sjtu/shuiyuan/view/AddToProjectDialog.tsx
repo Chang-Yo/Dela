@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { errorMessage } from '../../../core/protocol/contract';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { showToast } from '../../../ui/toast';
-import { shuiyuanClient, SOURCE_PREFIX } from './use-shuiyuan';
+import { SHUIYUAN_SOURCE_PREFIX } from '../contract';
+import { shuiyuanClient } from './use-shuiyuan';
 import {
   Dialog,
   DialogContent,
@@ -68,7 +69,7 @@ export function AddToProjectDialog({
         name: topicTitle,
         parentId,
         kind: 'source',
-        sourceId: `${SOURCE_PREFIX}${topicId}`,
+        sourceId: `${SHUIYUAN_SOURCE_PREFIX}${topicId}`,
       });
       await refresh();
       if (ref.snapshot?.status !== 'done')

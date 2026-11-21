@@ -9,6 +9,7 @@ import { createClient, errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';
 import {
   shuiyuanContract,
+  SHUIYUAN_SOURCE_PREFIX,
   type ShuiyuanFeed,
   type ShuiyuanNotificationItem,
   type ShuiyuanPost,
@@ -19,10 +20,8 @@ import { markTopicRead, openTopic, useShuiyuan, type ListSelection, type Reading
 
 export const shuiyuanClient = createClient(shuiyuanContract, window.dela?.bridge);
 
-export const SOURCE_PREFIX = 'shuiyuan-topic:';
-
 export function topicIdOf(sourceId: string): number {
-  return Number(sourceId.slice(SOURCE_PREFIX.length));
+  return Number(sourceId.slice(SHUIYUAN_SOURCE_PREFIX.length));
 }
 
 /** 读取失败时提示原因，页面按未绑定处理，绑定卡即重新授权的出口。 */

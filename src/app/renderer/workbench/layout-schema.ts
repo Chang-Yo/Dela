@@ -13,8 +13,6 @@ export type {
   LayoutNode,
   SplitNode,
   SplitOrientation,
-  TabId,
-  TabKind,
   WorkbenchLayout,
 } from '../../../modules/workspace/contract';
 export {

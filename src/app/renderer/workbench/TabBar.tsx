@@ -2,7 +2,7 @@
 import { useEffect, useRef, type DragEvent, type KeyboardEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
-import type { GroupNode, TabId } from '../../../modules/workspace/contract';
+import type { GroupNode } from '../../../modules/workspace/contract';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -17,6 +17,7 @@ import { ExplorerRevealButton } from './explorer-state';
 import { encodeTabDrag, hasTabDrag, parseTabDrag, setCurrentTabDrag, tabDragType } from './tab-dnd';
 import { GroupToolbar } from './GroupToolbar';
 import { Button } from '../../../ui/button';
+import type { TabId } from '../../../core/protocol/workbench';
 
 export function TabBar({
   group,

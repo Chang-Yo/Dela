@@ -1,5 +1,5 @@
+import type { TabId } from '../../../core/protocol/workbench';
 // 统一标签拖拽协议：application/x-dela-tab（负载带 kind 的 TabId + 来源组）。
-import type { TabId } from '../../../modules/workspace/contract';
 
 export const tabDragType = 'application/x-dela-tab';
 

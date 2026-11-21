@@ -3,7 +3,6 @@ import {
   type GroupNode,
   type LayoutNode,
   type SplitOrientation,
-  type TabId,
   type WorkbenchLayout,
   relocateWorkspacePath,
 } from '../../../modules/workspace/contract';
@@ -29,6 +28,7 @@ import { workspaceClient } from '../../../modules/workspace/view';
 import { terminalClient } from '../../../modules/terminal/view';
 import { showToast } from '../../../ui/toast';
 import { errorMessage } from '../../../core/protocol/contract';
+import type { TabId } from '../../../core/protocol/workbench';
 
 const PERSIST_DEBOUNCE_MS = 800;
 

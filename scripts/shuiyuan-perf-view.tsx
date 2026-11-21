@@ -2,8 +2,8 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ContentLoaderProvider, PreviewTab } from '../src/modules/preview/view';
 import '../src/app/renderer/styles/globals.css';
-import type { DocumentContent } from '../src/modules/workspace/contract';
 import { ShuiyuanSourceDoc } from '../src/sjtu/shuiyuan/view/SourceRefCard';
+import type { DocumentContent } from '../src/core/protocol/workbench';
 
 const bridge = (
   window as unknown as {

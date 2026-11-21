@@ -188,7 +188,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 
 模型推理档位只按模型保存；搜索结果直接携带会话的 `projectId`，不再推导旧入口身份。
 
-schema v14。业务代码只认当前格式；旧数据在启动时由 `src/app/main/migrations/` 逐级升级（规则见该目录的 README），缺少对应迁移的旧版本与更新版本创建的数据拒绝打开。
+schema v15。业务代码只认当前格式；旧数据在启动时由 `src/app/main/migrations/` 逐级升级（规则见该目录的 README），缺少对应迁移的旧版本与更新版本创建的数据拒绝打开。
 
 模型选择属于会话：提供商只有启用/停用，没有全局「使用中」；新会话沿用最近发过消息的会话的模型，开始使用时写定。提供商分两类：内置厂商（`piProvider` 指向 Pi 目录中的厂商，模型只能从目录选）与自定义 OpenAI 兼容服务。
 
@@ -214,7 +214,7 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 
 - 模块的 IPC 由契约声明，`src/app/main/ipc.ts` 统一注册（见 §10.1）。模块的 Agent 命令域、文档读取器与资源解析器在各自的 `register()` 里登记。
 - core 不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/main/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。模块访问数据库、存储目录和主窗口同样经 `HostPorts`；模块的 `main/` 可以直接用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
-- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/main/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`），不进 JSON Schema，也不带版本。
+- Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/main/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`、`workbench`），不进 JSON Schema，也不带版本。
 - 测试与被测代码同层，放在源码旁或同目录的 `test/` 子目录。core 的测试可以引用 main 的实现做集成夹具。
 - `scripts/` 全部为 TypeScript（Node 原生执行，仓库不再有 `.mjs`），纳入 `pnpm typecheck`。
 

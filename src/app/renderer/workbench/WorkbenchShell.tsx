@@ -2,15 +2,13 @@
 import { useEffect, type ReactNode } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
-  type DocumentContent,
   type WorkspaceEntry,
-  type TabId,
   decodeAssetPath,
   isRelativeAssetPath,
   noteAssetUrl,
-  type ResourceRef,
 } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../../modules/remotes/contract';
+import type { DocumentContent, ResourceAddress, TabId } from '../../../core/protocol/workbench';
 import {
   ChatTabSourceProvider,
   type ChatTabSource,
@@ -47,7 +45,7 @@ import { MailDraftDialog } from '../../../modules/mail/view';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../../ui/error-text';
-import { officeRefOf, opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../views';
+import { opensInApp, sources } from '../../views';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
@@ -78,7 +76,7 @@ function useReferenceEntries(projectId: string | null, cwd: string | null) {
       : null;
   const workspaceFiles = useLocalReferences(workspaceRoot);
   const courseFiles = useQueries({
-    queries: referenceQueries.map((query) => ({
+    queries: sources.references.map((query) => ({
       ...query,
       enabled: projectId === null && !remote,
       staleTime: 30_000,
@@ -252,11 +250,11 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
       const content: DocumentContent = sourceId
         ? await workspaceClient.readSource(sourceId)
         : await workspaceClient.read(entryId!);
-      const document = sourceId ? sourceOf(sourceId)?.document : undefined;
-      const officeRef: ResourceRef | undefined =
+      const document = sourceId ? sources.of(sourceId)?.document : undefined;
+      const officeAddress: ResourceAddress | undefined =
         content.format === 'pptx'
           ? sourceId && !document
-            ? officeRefOf(sourceId)
+            ? { type: 'source', id: sourceId }
             : entry?.kind === 'file'
               ? { type: 'workspace', id: entry.id }
               : undefined
@@ -264,12 +262,12 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
       return {
         content,
         source: sourceId && document ? { id: sourceId, document } : undefined,
-        officeRef,
+        officeAddress,
         watchesDisk: entry?.kind === 'file',
       };
     },
     openLink: (url) => {
-      const sourceId = sourceOfLink(url, queryClient);
+      const sourceId = sources.fromLink(url, queryClient);
       if (sourceId) void useNavigationStore.getState().openDocument(`source:${sourceId}`);
       else window.open(url);
     },

@@ -91,7 +91,7 @@ export function ChatMarkdown({
   ...props
 }: ComponentProps<typeof Streamdown>) {
   const { opensLink } = useChatTabSource();
-  // 应用内会打开的链接（如水源主题）免外链确认：主进程会把它交回应用内阅读。
+  // 应用内会打开的链接（由模块认领）免外链确认：主进程会把它交回应用内阅读。
   const linkSafety: LinkSafetyConfig = { enabled: true, onLinkCheck: opensLink };
   return (
     <Streamdown

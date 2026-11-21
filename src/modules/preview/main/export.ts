@@ -3,15 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { hostPorts } from '../../../core/ports';
-import { resourceResolver } from '../../../core/capabilities/resources';
+import { resourceAddressSchema, resourceResolver } from '../../../core/capabilities/resources';
+import type { ResourceAddress } from '../../../core/protocol/workbench';
 import { availablePath, createWorkspaceEntry } from '../../workspace';
 import { readOfficeExportLink, writeOfficeExportLink, type OfficeExportLink } from './links';
 import { classifyOfficeFile } from './parse';
-import {
-  resourceRefSchema,
-  type ResourceRef,
-  type OfficeExportProgress,
-} from '../../workspace/contract';
+import type { OfficeExportProgress } from '../../workspace/contract';
 
 // 我的资料下集中存放导出 PDF 的固定文件夹；id 记在 settings，重命名后仍能找回。
 const EXPORT_FOLDER_NAME = '预览导出';
@@ -177,7 +174,7 @@ function enqueueConversion(run: () => Promise<void>): Promise<void> {
 }
 
 async function runOfficeExport(
-  ref: Extract<ResourceRef, { id: unknown }>,
+  ref: ResourceAddress,
   sourcePath: () => Promise<string>,
   onProgress: (progress: OfficeExportProgress) => void,
 ): Promise<void> {
@@ -237,10 +234,10 @@ export function exportOfficePdf(
 ): Promise<void> {
   if (process.platform !== 'win32')
     return Promise.reject(new Error('当前平台暂不支持 PPTX 转 PDF，请用外部应用打开原文件。'));
-  const parsed = resourceRefSchema.parse(ref);
+  const parsed = resourceAddressSchema.parse(ref);
   const { path } = resourceResolver(parsed.type);
   if (!path || !('id' in parsed)) throw new Error('仅支持资料文件与我的资料条目');
-  const key = `${parsed.type}:${parsed.id}`;
+  const key = `${parsed.type}:${String(parsed.id)}`;
   const existing = inFlight.get(key);
   if (existing) return existing;
   const work = runOfficeExport(parsed, () => path(parsed), onProgress ?? (() => {})).finally(() =>

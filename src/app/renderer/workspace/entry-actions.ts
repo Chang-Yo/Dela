@@ -6,7 +6,7 @@ import {
   type WorkspaceEntry,
   relocateWorkspacePath,
 } from '../../../modules/workspace/contract';
-import { sourceTitle } from '../../views';
+import { sources } from '../../views';
 import { useNoteDrafts } from '../../../modules/note/view';
 import { useWorkbenchLayout } from '../workbench/layout-store';
 import { useTreeState } from '../navigation/store';
@@ -124,7 +124,7 @@ export function prefillNoteText(
   const sourceId = activeKey?.startsWith('source:')
     ? activeKey.slice(7)
     : (entries.find((e) => e.id === activeKey)?.sourceId ?? null);
-  const name = sourceId ? sourceTitle(sourceId, client) : undefined;
+  const name = sourceId ? sources.title(sourceId, client) : undefined;
   const originalUrl = activeKey
     ? useNoteDrafts.getState().drafts[activeKey]?.content.url
     : undefined;

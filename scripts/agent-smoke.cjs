@@ -12,8 +12,7 @@ for (const key of ['DELA_SMOKE_BASE_URL', 'DELA_SMOKE_API_KEY', 'DELA_SMOKE_MODE
   if (!env[key]) throw new Error(`缺少环境变量 ${key}`);
 const root = resolve(process.argv[2] || '.');
 const profile = mkdtempSync(join(tmpdir(), 'dela-agent-smoke-'));
-app.setPath('userData', profile);
-app.setPath('documents', profile);
+for (const name of ['userData', 'documents', 'home']) app.setPath(name, profile);
 process.argv.push('--terminal-smoke-test');
 
 app.once('browser-window-created', (_event, window) => {

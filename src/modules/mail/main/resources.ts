@@ -1,14 +1,13 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { freshness } from '../../../core/capabilities/domain-tools';
+import { z } from 'zod';
+import { freshness, toolError } from '../../../core/capabilities/domain-tools';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
 import { hostPorts } from '../../../core/ports';
-import type { ResourceRef } from '../../workspace/contract';
 import { diskName, documentHint } from '../../workspace';
 import { mailAttachment, readMailMessage, saveMailAttachment } from './api';
 
-type MailRef = Extract<ResourceRef, { type: 'mail' }>;
-type AttachmentRef = Extract<ResourceRef, { type: 'attachment' }>;
+const messageId = z.number().int().positive().safe();
 
 async function withAttachmentFile<T>(
   messageId: number,
@@ -29,9 +28,21 @@ async function withAttachmentFile<T>(
   }
 }
 
-export const mailResourceResolver: ResourceResolver<MailRef> = {
+async function readMail(id: number) {
+  try {
+    return await readMailMessage(id);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('邮箱未配置'))
+      throw toolError('NOT_CONFIGURED', error.message);
+    throw error;
+  }
+}
+
+export const mailResourceResolver: ResourceResolver<{ type: 'mail'; id: number }> = {
+  schema: z.object({ type: z.literal('mail'), id: messageId }).strict(),
+  description: '{"type":"mail","id":<邮件 id>}：邮件正文，结果附带附件的地址',
   async read(ref, offset, limit) {
-    const mail = await readMailMessage(ref.id);
+    const mail = await readMail(ref.id);
     const text = mail.bodyText ?? mail.bodyHtml ?? '';
     return {
       ref,
@@ -56,7 +67,20 @@ export const mailResourceResolver: ResourceResolver<MailRef> = {
   },
 };
 
-export const attachmentResourceResolver: ResourceResolver<AttachmentRef> = {
+export const attachmentResourceResolver: ResourceResolver<{
+  type: 'attachment';
+  messageId: number;
+  part: string;
+}> = {
+  schema: z
+    .object({
+      type: z.literal('attachment'),
+      messageId,
+      part: z.string().regex(/^\d+(?:\.\d+)*$/),
+    })
+    .strict(),
+  description:
+    '{"type":"attachment","messageId":<邮件 id>,"part":"<附件编号>"}：邮件附件，正文用 document-reading skill 读取',
   read: async (ref) =>
     documentHint(ref, mailAttachment(ref.messageId, ref.part).attachment.filename, 'file'),
   withFile: (ref, consume) => withAttachmentFile(ref.messageId, ref.part, consume),

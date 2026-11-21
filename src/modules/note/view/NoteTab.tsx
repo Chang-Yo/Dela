@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Button } from '../../../ui/button';
 import { showToast } from '../../../ui/toast';
-import { parseRemoteNodeId, type TabId, type WorkspaceEntry } from '../../workspace/contract';
+import { parseRemoteNodeId, type WorkspaceEntry } from '../../workspace/contract';
 import { useWorkspaceStore, workspaceClient } from '../../workspace/view';
 import { DocumentToolbar } from './document-toolbar';
 import { useNoteDraftSource } from './draft-source';
@@ -18,6 +18,7 @@ import { markdownImageInsert } from './live-preview';
 import { Spinner } from '../../../ui/spinner';
 import { ConfirmDialog } from '../../../ui/dialog';
 import { errorMessage } from '../../../core/protocol/contract';
+import type { TabId } from '../../../core/protocol/workbench';
 
 const imageInsert = (entryId: string) =>
   markdownImageInsert(

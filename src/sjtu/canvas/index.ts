@@ -1,7 +1,6 @@
 // Canvas：课程资料、作业（注册为待办来源）与课程公告；课程目录登记为通用会话的辅助目录。
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
-import { registerResourceResolver } from '../../core/capabilities/resources';
 import { registerContextDirectory } from '../../core/agent/context-directories';
 import { registerSecretLabel } from '../../core/ports';
 import { implement } from '../../core/protocol/contract';
@@ -29,11 +28,7 @@ import {
   syncCanvasCourses,
 } from './main/api';
 import { canvasNoticeSource } from './main/notice-source';
-import {
-  canvasResourceResolver,
-  canvasWorkspaceSource,
-  handleCanvasPreviewRequest,
-} from './main/resources';
+import { canvasWorkspaceSource, handleCanvasPreviewRequest } from './main/resources';
 import { courseFileSearch } from './main/search';
 import { canvasTaskSource } from './main/todo-source';
 
@@ -68,7 +63,6 @@ export const canvasModule = defineModule({
     registerTaskSource(canvasTaskSource);
     registerNoticeSource(canvasNoticeSource);
     registerWorkspaceSource(canvasWorkspaceSource);
-    registerResourceResolver('canvas', canvasResourceResolver);
     registerPreviewHost('canvas', handleCanvasPreviewRequest);
   },
   start() {

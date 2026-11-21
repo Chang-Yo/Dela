@@ -26,7 +26,6 @@ import {
   decodeAssetPath,
   isRelativeAssetPath,
   matchMarkdownImageRefs,
-  type DocumentContent,
   type WorkspaceCreateInput,
   type WorkspaceEntry,
   type WorkspaceState,
@@ -34,6 +33,7 @@ import {
 import { parseRemoteNodeId } from '../../remotes/contract';
 import { imageMimeOf } from '../../../core/protocol/files';
 import { localFileFormat, readLocalText, textRevision, writeLocalText } from './files';
+import type { DocumentContent } from '../../../core/protocol/workbench';
 
 export const idSchema = z.string().uuid();
 const nameSchema = z.string().trim().min(1).max(200);

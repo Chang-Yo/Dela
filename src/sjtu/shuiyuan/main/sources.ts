@@ -1,7 +1,6 @@
 // 水源帖子作为工作区来源：引用行（shuiyuan_topics）的写入与读取，来源正文读本地快照（snapshot-files.ts）。
 import { z } from 'zod';
 import { hostPorts } from '../../../core/ports';
-import type { DocumentContent } from '../../../modules/workspace/contract';
 import type { ShuiyuanSourceRef } from '../contract';
 import { getShuiyuanSiteStructure, getShuiyuanTopic, SHUIYUAN_ORIGIN } from './api';
 import {
@@ -11,6 +10,7 @@ import {
   type ShuiyuanSnapshotPost,
 } from './snapshot-files';
 import { shuiyuanSnapshotState } from './snapshot';
+import type { DocumentContent } from '../../../core/protocol/workbench';
 
 function escapeHtml(value: string): string {
   return value
@@ -136,8 +136,12 @@ export async function readShuiyuanSourcePreview(topicIdInput: unknown): Promise<
     format: 'html',
     url: shuiyuanTopicUrl(topicId),
     updatedAt: index.savedAt,
-    shuiyuanSnapshot: { postCount: index.postCount, pageSize: index.pageSize },
   };
+}
+
+export async function readShuiyuanSnapshotPostCount(topicIdInput: unknown): Promise<number> {
+  const topicId = z.number().int().positive().parse(topicIdInput);
+  return (await findShuiyuanSnapshot(topicId))?.index.postCount ?? 0;
 }
 
 export async function readShuiyuanSource(topicIdInput: unknown): Promise<DocumentContent> {

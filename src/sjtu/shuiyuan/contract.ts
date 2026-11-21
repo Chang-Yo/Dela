@@ -3,6 +3,10 @@ import { defineContract } from '../../core/protocol/contract';
 
 export const SHUIYUAN_HOST = 'shuiyuan.sjtu.edu.cn';
 
+export const SHUIYUAN_SOURCE_PREFIX = 'shuiyuan-topic:';
+
+export const SHUIYUAN_SNAPSHOT_PAGE_SIZE = 10;
+
 export interface ShuiyuanTopicLink {
   readonly topicId: number;
   readonly postNumber?: number;
@@ -266,6 +270,8 @@ export const shuiyuanContract = defineContract(
       input: z.object({ topicId: id, page: z.number().int().nonnegative() }),
       output: z.string(),
     },
+    /** 来源预览是不带 text 的 html 时，正文按楼层总数分段读 snapshotPage。 */
+    snapshotPostCount: { input: id, output: z.number().int().nonnegative() },
     /** 重新保存快照（失败重试与手动更新共用）；帖子须仍在某个项目里。 */
     refreshSnapshot: { input: id, output: z.void() },
     /** 在系统浏览器打开原帖，不经应用内链接分流。 */

@@ -51,7 +51,7 @@ export function toolError(code: ToolErrorCode, message: string): ToolError {
   return new ToolError(code, message);
 }
 
-/** cached=本地缓存查询；realtime=当次联网（水源、fetch_page、按需拉取的邮件正文）。 */
+/** cached=本地缓存查询；realtime=当次联网（如 fetch_page、按需拉取的邮件正文）。 */
 export function freshness(kind: 'cached' | 'realtime', syncedAt?: string | null) {
   return { kind, ...(syncedAt ? { syncedAt } : {}) };
 }
@@ -61,7 +61,7 @@ export function coverage(scope: string, complete: boolean, warnings?: string[]) 
   return { scope, complete, ...(warnings?.length ? { warnings } : {}) };
 }
 
-/** 远端 cursor 分页（水源 moreUrl 等）：nextCursor 为不透明字符串原样回传，不伪造 total。 */
+/** 远端 cursor 分页：nextCursor 为不透明字符串原样回传，不伪造 total。 */
 export function cursorPage<T>(items: T[], nextCursor: string | null) {
   return { items, nextCursor };
 }

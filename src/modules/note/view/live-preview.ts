@@ -320,7 +320,7 @@ function tableWidget(state: EditorState, table: SyntaxNode, from: number): Table
   );
 }
 
-/** 返回 null 表示不按图片显示（如水源的音视频附件），保持原文。 */
+/** 返回 null 表示不按图片显示（如音视频附件），保持原文。 */
 export type ImageResolver = (src: string, alt: string) => string | null;
 
 function imageWidget(

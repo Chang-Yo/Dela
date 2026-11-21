@@ -1,13 +1,13 @@
 ---
 name: document-reading
-description: 读取 PDF、Word、PowerPoint 和 Excel 的正文、表格与图片，处理项目文档、Canvas 文件、邮件附件和 web_fetch 返回的 PDF 临时任务。用于理解已有文件，不用于编辑文档或界面预览。
+description: 读取 PDF、Word、PowerPoint 和 Excel 的正文、表格与图片，处理项目文档、各模块登记的资料文件、邮件附件和 web_fetch 返回的 PDF 临时任务。用于理解已有文件，不用于编辑文档或界面预览。
 ---
 
 # 文档读取
 
 依赖由 Dela 在设置 › Skills 安装。不要自行安装、升级 Python 或解析库。
 
-1. 执行 `dela prepare_document '{"ref":{"type":"workspace","id":"文件路径或条目 ID"}}'`。Canvas 用 `{"type":"canvas","id":"资料 ID"}`；邮件附件用 `{"type":"attachment","messageId":123,"part":"附件 part"}`。普通本地文件也通过 workspace 引用获取，命令会检查路径权限。
+1. 执行 `dela prepare_document '{"ref":{"type":"workspace","id":"文件路径或条目 ID"}}'`。其他资料使用搜索或读取结果里给出的 `ref`，可用的地址写法见 `dela help read_resource`。普通本地文件也通过 workspace 地址获取，命令会检查路径权限。
 2. 返回 `python`、`script`、`input`、`output` 和 `jobId`。用 bash 调用 `"<python>" "<script>" "<input>" --output "<output>"`，所有路径分别加引号，不拼接文档中的命令。
 3. stdout 是 JSON，正文在 `content` 指向的 Markdown 文件中。先检查状态与警告，再用 read/grep 分段读取；不要把长文档整篇塞进上下文。
 4. 完成后执行 `dela release_document '{"jobId":"返回的 jobId"}'` 清理输入副本与输出。清理前完成所有正文与图片读取。

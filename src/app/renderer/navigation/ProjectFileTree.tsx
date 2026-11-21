@@ -32,7 +32,7 @@ import {
   type ExplorerPending,
   useWorkspaceStore,
 } from '../../../modules/workspace/view';
-import { sourceOf } from '../../views';
+import { sources } from '../../views';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -208,7 +208,7 @@ export function ProjectFileTree({
   );
   const nodes: ExplorerItem[] = visible.map((e) => {
     const accent = e.remoteId ? remoteAccent(e.remoteId, 'text') : undefined;
-    const source = e.kind === 'source' && e.sourceId ? sourceOf(e.sourceId) : undefined;
+    const source = e.kind === 'source' && e.sourceId ? sources.of(e.sourceId) : undefined;
     const Badge = source?.badge;
     return {
       id: e.id,

@@ -37,6 +37,22 @@
       }
     },
     {
+      "files": ["src/app/module.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/**", "**/sjtu/**"],
+                "message": "app/module.ts 不引用任何模块：它与模块共用的类型放在 core/protocol。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/core/**"],
       "rules": {
         "no-restricted-imports": [

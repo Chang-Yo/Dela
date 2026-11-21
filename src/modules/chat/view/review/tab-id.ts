@@ -1,6 +1,6 @@
+import type { TabId } from '../../../../core/protocol/workbench';
 // review:{sessionId}:{turnId}:{path}：冻结轮次的单文件审阅；review:{sessionId}:uncommitted：未提交改动聚合审阅。
 // UUID 定长、路径段可含冒号（Windows 盘符），只能按位置截取才能无损往返。
-import type { TabId } from '../../../../app/module';
 
 export type ReviewTabTarget =
   | { kind: 'turn'; sessionId: string; turnId: string; path: string }

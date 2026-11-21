@@ -38,7 +38,7 @@ export const searchCanvasSourcesTool = tool(
         .map((item) => [
           item.sourceId!,
           {
-            ref: { type: 'canvas' as const, id: item.sourceId! },
+            ref: { type: 'source' as const, id: item.sourceId! },
             title: item.name,
             courseId: item.courseId,
             kind: item.kind,
