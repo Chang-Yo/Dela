@@ -1,8 +1,8 @@
+import { z } from 'zod';
 import { hostPorts } from '../../../core/ports';
 import { freshness } from '../../../core/capabilities/domain-tools';
 import type { WorkspaceSource } from '../../../modules/workspace';
 import type { ResourceResolver } from '../../../core/capabilities/resources';
-import type { ResourceRef } from '../../../modules/workspace/contract';
 import { getShuiyuanTopic } from './api';
 import { requireShuiyuanBound, withShuiyuanErrors } from './agent/helpers';
 import { collectShuiyuanSnapshots, ensureShuiyuanSnapshot } from './snapshot';
@@ -41,9 +41,15 @@ export const shuiyuanWorkspaceSource: WorkspaceSource = {
   },
 };
 
-export const shuiyuanOnlineResourceResolver: ResourceResolver<
-  Extract<ResourceRef, { type: 'shuiyuan-online' }>
-> = {
+export const shuiyuanOnlineResourceResolver: ResourceResolver<{
+  type: 'shuiyuan-online';
+  id: number;
+}> = {
+  schema: z
+    .object({ type: z.literal('shuiyuan-online'), id: z.number().int().positive() })
+    .strict(),
+  description:
+    '{"type":"shuiyuan-online","id":<帖子 id>}：联网读取水源帖子的最新内容，失败时不改读本地快照',
   async read(ref, offset, limit) {
     requireShuiyuanBound();
     const detail = await withShuiyuanErrors(() => getShuiyuanTopic(ref.id));

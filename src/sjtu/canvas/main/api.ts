@@ -647,7 +647,7 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
     const pdf = await isPdf(cached.path);
     const image = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(cached.mime);
     const office = pdf || image ? null : await classifyOfficeFile(cached.path);
-    const link = office === 'pptx' ? readOfficeExportLink('canvas', id) : null;
+    const link = office === 'pptx' ? readOfficeExportLink('source', id) : null;
     const stats = link ? await stat(cached.path) : null;
     const exported =
       link && stats ? officeExportPreviewInfo(link, `${stats.mtimeMs}-${stats.size}`) : null;

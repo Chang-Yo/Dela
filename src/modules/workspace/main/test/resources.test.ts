@@ -3,7 +3,8 @@ import { workspaceFilePath } from '../api';
 import { copyResourceToProject, openResourceFile } from '../resources';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { hostPorts } from '../../../../core/ports';
-import { workspaceResourceResolver } from '../read-resource';
+import { sourceResourceResolver, workspaceResourceResolver } from '../read-resource';
+import { registerWorkspaceSource } from '../sources';
 import { attachmentResourceResolver, mailResourceResolver } from '../../../mail/main/resources';
 import { registerResourceResolver } from '../../../../core/capabilities/resources';
 
@@ -24,6 +25,7 @@ vi.mock('../api', async (importOriginal) => ({
 }));
 
 registerResourceResolver('workspace', workspaceResourceResolver);
+registerResourceResolver('source', sourceResourceResolver);
 registerResourceResolver('mail', mailResourceResolver);
 registerResourceResolver('attachment', attachmentResourceResolver);
 
@@ -50,5 +52,28 @@ describe('openResourceFile', () => {
       '仅支持资料文件与我的资料条目',
     );
     expect(open()).not.toHaveBeenCalled();
+  });
+});
+
+describe('资源地址', () => {
+  it('source 地址交给认领该 id 的模块，未登记的种类在读取前拒绝', async () => {
+    const filePath = vi.fn(async () => 'cache/slides.pptx');
+    registerWorkspaceSource({
+      owns: (id) => id.startsWith('demo:'),
+      validate: vi.fn(),
+      filePath,
+      preview: vi.fn(),
+      read: vi.fn(),
+    });
+    vi.mocked(hostPorts().desktop.open).mockResolvedValue(undefined);
+
+    await openResourceFile({ type: 'source', id: 'demo:1' });
+    expect(filePath).toHaveBeenCalledWith('demo:1');
+    expect(open()).toHaveBeenCalledWith('cache/slides.pptx');
+
+    await expect(openResourceFile({ type: 'canvas', id: 'file:1' })).rejects.toThrow(
+      '无法识别 canvas 类型的资源地址',
+    );
+    expect(open()).toHaveBeenCalledTimes(1);
   });
 });

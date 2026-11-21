@@ -462,3 +462,34 @@ it('v13→v14：没存 SMTP 参数的早期交大账号补上交大服务器，�
   ]);
   db.close();
 });
+
+it('v14→v15：canvas 地址改为 source，PDF 导出关联与写信草稿的附件跟着改', () => {
+  const draft = (type: string) =>
+    JSON.stringify({
+      to: ['a@example.com'],
+      subject: '"type":"canvas"',
+      text: '',
+      attachments: [
+        { type, id: 'file:1' },
+        { type: 'workspace', id: '/tmp/a.pdf' },
+      ],
+    });
+  const before = new Database(dbPath());
+  before.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  const insert = before.prepare('INSERT INTO workspace_settings VALUES (?, ?)');
+  insert.run('preview-export:canvas:file:1', '{"path":"a.pdf"}');
+  insert.run('preview-export:workspace:abc', '{"path":"b.pdf"}');
+  insert.run('email-draft:1', draft('canvas'));
+  before.pragma('user_version = 14');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 15)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT key, value FROM workspace_settings ORDER BY key').all()).toEqual([
+    { key: 'email-draft:1', value: draft('source') },
+    { key: 'preview-export:source:file:1', value: '{"path":"a.pdf"}' },
+    { key: 'preview-export:workspace:abc', value: '{"path":"b.pdf"}' },
+  ]);
+  db.close();
+});

@@ -1,21 +1,27 @@
 import { z } from 'zod';
-import { resourceRefSchema, type ResourceRef } from '../contract';
+import { workspaceEntryIdSchema } from '../contract';
 import { workspaceFilePath } from './api';
 import { readWorkspaceResource, type ResourceContent } from './resources';
+import { workspaceSource } from './sources';
 import type { CommandDomain } from '../../../core/capabilities/commands';
-import { resourceResolver, type ResourceResolver } from '../../../core/capabilities/resources';
-import { freshness, offset, tool, toolError } from '../../../core/capabilities/domain-tools';
+import {
+  resourceAddressGuide,
+  resourceAddressSchema,
+  resourceResolver,
+  type ResourceResolver,
+} from '../../../core/capabilities/resources';
+import type { ResourceAddress } from '../../../core/protocol/resources';
+import { freshness, offset, toolError } from '../../../core/capabilities/domain-tools';
 
 /** 业务层中文错误消息 → 统一错误码（消息保持原文）；未识别的错误原样抛出。 */
 function refineReadError(error: unknown): unknown {
   const message = error instanceof Error ? error.message : '';
-  if (message.includes('邮箱未配置')) return toolError('NOT_CONFIGURED', message);
   if (message.includes('不存在') || message.includes('尚未同步'))
     return toolError('NOT_FOUND', message);
   return error;
 }
 
-export function documentHint(ref: ResourceRef, title: string, format: string) {
+export function documentHint(ref: ResourceAddress, title: string, format: string) {
   return {
     ref,
     title,
@@ -28,7 +34,7 @@ export function documentHint(ref: ResourceRef, title: string, format: string) {
 }
 
 export function readDocument(
-  ref: ResourceRef,
+  ref: ResourceAddress,
   content: ResourceContent,
   offset: number,
   limit: number,
@@ -67,34 +73,55 @@ export function readDocument(
   };
 }
 
-const readResourceTool = tool(
-  '读取项目文本与笔记、Canvas 页面、邮件正文；workspace 水源来源只读本地快照或摘要，shuiyuan-online 只联网读取，失败时不切换来源；图片直接附图。二进制文档与附件返回 document-reading skill 的读取指引，不在 Agent 内解析 Office/PDF。正文按字符分页；HTML 保留原始链接标记。',
-  z
-    .object({
-      ref: resourceRefSchema,
-      offset,
-      limit: z.number().int().min(1).max(30000).default(12000),
-    })
-    .strict(),
-  async ({ ref, offset, limit }) => {
-    try {
-      return await resourceResolver(ref.type).read(ref, offset, limit);
-    } catch (error) {
-      throw refineReadError(error);
-    }
-  },
-);
+const readResourceSchema = z
+  .object({
+    ref: resourceAddressSchema,
+    offset,
+    limit: z.number().int().min(1).max(30000).default(12000),
+  })
+  .strict();
 
-export const workspaceResourceResolver: ResourceResolver<
-  Extract<ResourceRef, { type: 'workspace' }>
-> = {
+async function readResource(input: unknown) {
+  const { ref, offset, limit } = readResourceSchema.parse(input);
+  try {
+    return await resourceResolver(ref.type).read(ref, offset, limit);
+  } catch (error) {
+    throw refineReadError(error);
+  }
+}
+
+export const workspaceResourceResolver: ResourceResolver<{ type: 'workspace'; id: string }> = {
+  schema: z.object({ type: z.literal('workspace'), id: workspaceEntryIdSchema }).strict(),
+  description:
+    '{"type":"workspace","id":"<条目 id 或绝对路径>"}：项目里的文件、笔记与快捷方式，快捷方式读其所指的资料',
   read: async (ref, offset, limit) =>
     readDocument(ref, await readWorkspaceResource(ref.id), offset, limit),
   path: (ref) => workspaceFilePath(ref.id),
 };
 
+/** 项目快捷方式所指的资料，未加入项目时也能按同一 id 读取，交给认领该 id 的模块。 */
+export const sourceResourceResolver: ResourceResolver<{ type: 'source'; id: string }> = {
+  schema: z.object({ type: z.literal('source'), id: z.string().min(1).max(512) }).strict(),
+  description: '{"type":"source","id":"<资料 id>"}：尚未加入项目的资料，例如搜索结果里的课件',
+  read: async (ref, offset, limit) =>
+    readDocument(ref, await workspaceSource(ref.id).read(ref.id), offset, limit),
+  async path(ref) {
+    const source = workspaceSource(ref.id);
+    if (!source.filePath) throw new Error('该资料没有对应的文件');
+    return source.filePath(ref.id);
+  },
+};
+
 export const resourceDomain = {
   name: 'resource',
-  description: '读取项目文件、笔记、Canvas 页面、邮件与水源正文',
-  commands: { read_resource: readResourceTool },
+  description: '按资源地址读取项目文件与各功能登记的资料',
+  commands: {
+    read_resource: {
+      get description() {
+        return `按资源地址读取正文，按字符分页；图片直接附图，HTML 保留原始链接标记，Office/PDF 等二进制文档返回 document-reading skill 的读取指引。可用的地址：\n${resourceAddressGuide()}`;
+      },
+      schema: readResourceSchema,
+      execute: readResource,
+    },
+  },
 } satisfies CommandDomain;

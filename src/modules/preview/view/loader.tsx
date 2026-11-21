@@ -1,11 +1,12 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 import type { Navigate, SourceDocumentProps } from '../../../app/module';
-import type { DocumentContent, ResourceRef, TabId } from '../../workspace/contract';
+import type { ResourceAddress } from '../../../core/protocol/resources';
+import type { DocumentContent, TabId } from '../../workspace/contract';
 
 export interface LoadedDocument {
   content: DocumentContent;
   source?: { id: string; document: ComponentType<SourceDocumentProps> };
-  officeRef?: ResourceRef;
+  officeAddress?: ResourceAddress;
   watchesDisk?: boolean;
 }
 

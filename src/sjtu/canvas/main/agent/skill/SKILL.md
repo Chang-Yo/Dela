@@ -13,8 +13,8 @@ description: Canvas 课程平台：课程与资料检索、作业要求阅读、
 - `dela list_canvas_courses '{}'`：已缓存课程列表
 - `dela search_canvas_sources '{"query":"实验"}'`：按标题搜课程资料
 - `dela refresh_canvas_courses` / `dela refresh_canvas_course`：同步课程（先同步后搜索）
-- `dela read_resource '{"ref":{"type":"canvas","id":"file:123"}}'`：读资料页面正文；文件正文使用 document-reading Skill
-- `dela link_canvas_source`：把资料作为来源引用加入项目
+- `dela read_resource '{"ref":{"type":"source","id":"file:123"}}'`：读资料页面正文；文件正文使用 document-reading Skill
+- `dela link_canvas_source`：把资料作为快捷方式加入项目
 - `dela copy_file_to_project`：把资料复制为项目文件，长期使用
 
 ## 指引

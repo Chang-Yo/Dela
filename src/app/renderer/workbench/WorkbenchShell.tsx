@@ -8,9 +8,9 @@ import {
   decodeAssetPath,
   isRelativeAssetPath,
   noteAssetUrl,
-  type ResourceRef,
 } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../../modules/remotes/contract';
+import type { ResourceAddress } from '../../../core/protocol/resources';
 import {
   ChatTabSourceProvider,
   type ChatTabSource,
@@ -47,7 +47,7 @@ import { MailDraftDialog } from '../../../modules/mail/view';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../../ui/error-text';
-import { officeRefOf, opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../views';
+import { opensInApp, referenceQueries, sourceOf, sourceOfLink } from '../../views';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
@@ -253,10 +253,10 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
         ? await workspaceClient.readSource(sourceId)
         : await workspaceClient.read(entryId!);
       const document = sourceId ? sourceOf(sourceId)?.document : undefined;
-      const officeRef: ResourceRef | undefined =
+      const officeAddress: ResourceAddress | undefined =
         content.format === 'pptx'
           ? sourceId && !document
-            ? officeRefOf(sourceId)
+            ? { type: 'source', id: sourceId }
             : entry?.kind === 'file'
               ? { type: 'workspace', id: entry.id }
               : undefined
@@ -264,7 +264,7 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
       return {
         content,
         source: sourceId && document ? { id: sourceId, document } : undefined,
-        officeRef,
+        officeAddress,
         watchesDisk: entry?.kind === 'file',
       };
     },

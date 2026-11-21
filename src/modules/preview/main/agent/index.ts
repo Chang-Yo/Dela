@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { CommandDomain } from '../../../../core/capabilities/commands';
 import { DOCUMENT_SKILL } from '../runtime';
 import { prepareDocumentResource, releaseDocumentResource } from '../../../workspace';
-import { resourceRefSchema } from '../../../workspace/contract';
+import { resourceAddressSchema } from '../../../../core/capabilities/resources';
 import skill from './skill/SKILL.md?raw';
 import script from './skill/scripts/read.py?raw';
 import { tool } from '../../../../core/capabilities/domain-tools';
@@ -20,7 +20,7 @@ export const documentDomain = {
   commands: {
     prepare_document: tool(
       '为文档读取 skill 准备临时文件和工具路径，不解析正文、不复制进项目；需要已安装文档组件。',
-      z.object({ ref: resourceRefSchema }).strict(),
+      z.object({ ref: resourceAddressSchema }).strict(),
       ({ ref }) => prepareDocumentResource(ref),
     ),
     release_document: tool(

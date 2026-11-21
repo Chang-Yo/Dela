@@ -1,4 +1,4 @@
-// 资料来源注册口：source 条目只存 sourceId，读取与校验交给认领它的模块；工作区不认识具体平台。
+// 项目快捷方式注册口：条目只存 sourceId，读取与校验交给认领它的模块；工作区不认识具体平台。
 import type { DocumentContent } from '../contract';
 import type { ResourceContent } from './resources';
 
@@ -20,7 +20,7 @@ export function registerWorkspaceSource(source: WorkspaceSource): void {
 
 export function workspaceSource(sourceId: string): WorkspaceSource {
   const source = sources.find((item) => item.owns(sourceId));
-  if (!source) throw new Error('该资料来源暂不可用：对应的校园服务未启用');
+  if (!source) throw new Error('该资料暂不可用：对应的功能未启用');
   return source;
 }
 

@@ -2,12 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { hostPorts } from '../../../core/ports';
 import {
   previewFileResponse,
-  readDocument,
   type ResourceContent,
   type WorkspaceSource,
 } from '../../../modules/workspace';
-import type { ResourceResolver } from '../../../core/capabilities/resources';
-import type { ResourceRef } from '../../../modules/workspace/contract';
 import {
   cachedFile,
   canvasFilePath,
@@ -45,12 +42,6 @@ export const canvasWorkspaceSource: WorkspaceSource = {
   filePath: canvasFilePath,
   preview: readCanvasSource,
   read: readCanvasResource,
-};
-
-export const canvasResourceResolver: ResourceResolver<Extract<ResourceRef, { type: 'canvas' }>> = {
-  read: async (ref, offset, limit) =>
-    readDocument(ref, await readCanvasResource(ref.id), offset, limit),
-  path: (ref) => canvasFilePath(ref.id),
 };
 
 /** dela-resource://canvas/<资料 id>：Canvas 文件的缓存副本，只放行 PDF 与可识别的 OOXML。 */

@@ -9,11 +9,11 @@ import type {
   OfficeExportEvent,
   OfficeExportInfo,
   OfficeExportProgress,
-  ResourceRef,
 } from '../../workspace/contract';
 import { ErrorText } from '../../../ui/error-text';
 import { Spinner } from '../../../ui/spinner';
 import { errorMessage } from '../../../core/protocol/contract';
+import type { ResourceAddress } from '../../../core/protocol/resources';
 
 function progressText(progress: OfficeExportProgress | null, opening = false): string {
   if (opening) return '导出完成，正在打开…';
@@ -28,8 +28,7 @@ function progressText(progress: OfficeExportProgress | null, opening = false): s
   return `正在写入 PDF（${size}）…`;
 }
 
-const exportKey = (ref: ResourceRef) =>
-  'id' in ref ? `${ref.type}:${ref.id}` : `${ref.type}:${ref.messageId}:${ref.part}`;
+const exportKey = (ref: ResourceAddress) => `${ref.type}:${String(ref.id)}`;
 
 interface OfficeExportRun {
   progress: OfficeExportProgress | null;
@@ -41,7 +40,7 @@ interface OfficeExportRun {
 /* 导出状态放模块级 store：切标签页会卸载组件，但导出仍在后台进行，回来要能看到进行中状态。 */
 const useOfficeExports = create<{
   runs: Record<string, OfficeExportRun>;
-  start: (ref: ResourceRef, onExported?: () => void) => void;
+  start: (ref: ResourceAddress, onExported?: () => void) => void;
 }>((set) => ({
   runs: {},
   start: (ref, onExported) => {
@@ -96,7 +95,7 @@ if (typeof window !== 'undefined' && window.dela)
     });
   });
 
-function useOfficeExport(ref: ResourceRef | undefined, onExported: (() => void) | undefined) {
+function useOfficeExport(ref: ResourceAddress | undefined, onExported: (() => void) | undefined) {
   const supported = window.dela?.platform === 'win32';
   const active = useOfficeExports((state) => (ref ? state.runs[exportKey(ref)] : undefined));
   const exporting = !!active && !active.error;
@@ -118,19 +117,19 @@ function useOfficeExport(ref: ResourceRef | undefined, onExported: (() => void) 
 
 export interface OfficePromptProps {
   title: string;
-  officeRef: ResourceRef | undefined;
+  officeAddress: ResourceAddress | undefined;
   onExported: (() => void) | undefined;
 }
 
 /** pptx 的确认卡片：经 PowerPoint 导出 PDF 预览需用户主动触发，也可直接用系统默认应用打开。 */
-export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptProps) {
+export function OfficePromptCard({ title, officeAddress, onExported }: OfficePromptProps) {
   const { supported, exporting, opening, error, run, progress, elapsed } = useOfficeExport(
-    officeRef,
+    officeAddress,
     onExported,
   );
   const openExternally = () => {
-    if (!officeRef) return;
-    workspaceClient.openResourceFile(officeRef).catch((cause) =>
+    if (!officeAddress) return;
+    workspaceClient.openResourceFile(officeAddress).catch((cause) =>
       showToast({
         variant: 'error',
         title: '打开失败',
@@ -185,11 +184,11 @@ export function OfficePromptCard({ title, officeRef, onExported }: OfficePromptP
 
 export function OfficeExportBanner({
   exported,
-  officeRef,
+  officeAddress,
   onExported,
 }: Omit<OfficePromptProps, 'title'> & { exported: OfficeExportInfo }) {
   const { supported, exporting, opening, error, run, progress } = useOfficeExport(
-    officeRef,
+    officeAddress,
     onExported,
   );
   if (!exported.stale) {

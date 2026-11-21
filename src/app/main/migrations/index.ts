@@ -10,6 +10,7 @@ import { v10tov11 } from './v10tov11';
 import { v11tov12 } from './v11tov12';
 import { v12tov13 } from './v12tov13';
 import { v13tov14 } from './v13tov14';
+import { v14tov15 } from './v14tov15';
 
 const migrations: Migration[] = [
   { from: 6, run: v6tov7 },
@@ -20,6 +21,7 @@ const migrations: Migration[] = [
   { from: 11, run: v11tov12 },
   { from: 12, run: v12tov13 },
   { from: 13, run: v13tov14 },
+  { from: 14, run: v14tov15 },
 ];
 
 /** 每一步改动的文件：迁移前整份备份，任何一步失败都整体还原。 */

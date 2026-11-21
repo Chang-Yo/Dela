@@ -189,7 +189,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           {exported && (
             <OfficeExportBanner
               exported={exported}
-              officeRef={doc.officeRef}
+              officeAddress={doc.officeAddress}
               onExported={onOfficeRefresh}
             />
           )}
@@ -205,7 +205,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
           ) : (
             <OfficePromptCard
               title={content.title}
-              officeRef={doc.officeRef}
+              officeAddress={doc.officeAddress}
               onExported={onOfficeRefresh}
             />
           )}

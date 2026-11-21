@@ -146,7 +146,7 @@ describe('search_canvas_sources', () => {
     };
     expect(result.items).toEqual([
       {
-        ref: { type: 'canvas', id: 'file:1' },
+        ref: { type: 'source', id: 'file:1' },
         title: 'slides',
         courseId: 1,
         kind: 'file',

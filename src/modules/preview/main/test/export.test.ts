@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 vi.mock('../../../workspace', () => ({
@@ -19,7 +20,12 @@ import { exportOfficePdf } from '../export';
 import { readOfficeExportLink } from '../links';
 
 const workspacePath = vi.fn<() => Promise<string>>();
-registerResourceResolver('workspace', { read: vi.fn(), path: workspacePath });
+registerResourceResolver('workspace', {
+  schema: z.object({ type: z.literal('workspace'), id: z.string() }),
+  description: '',
+  read: vi.fn(),
+  path: workspacePath,
+});
 
 let directory: string;
 let source: string;

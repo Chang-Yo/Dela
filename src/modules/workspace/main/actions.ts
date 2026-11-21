@@ -12,7 +12,8 @@ import { listRemoteDirectory, remoteFileIndex } from '../../../core/remote/opera
 import { notifyRemoteChange } from '../../../core/remote/events';
 import { watchRemoteProject } from '../../../core/remote/watch';
 import { getLocalWorkspaceState, searchLocalWorkspace } from './local-tree';
-import { resourceRefSchema, workspaceContract, type WorkspaceState } from '../contract';
+import { workspaceContract, type WorkspaceState } from '../contract';
+import { resourceAddressSchema } from '../../../core/capabilities/resources';
 import { dialog, shell } from 'electron';
 import { emit, hostPorts } from '../../../core/ports';
 import { watch, type FSWatcher } from 'node:fs';
@@ -113,7 +114,7 @@ export async function searchLocal(rootId: string | null, query: string) {
 }
 
 export function exportOfficePdfOf(ref: unknown) {
-  const parsed = resourceRefSchema.parse(ref);
+  const parsed = resourceAddressSchema.parse(ref);
   return exportOfficePdf(parsed, (progress) =>
     emit(workspaceContract, 'officeExportProgress', { ...progress, ref: parsed }),
   );

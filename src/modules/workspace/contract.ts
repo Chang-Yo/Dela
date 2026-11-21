@@ -1,4 +1,5 @@
 import type { FileFormat } from '../../core/protocol/files';
+import type { ResourceAddress } from '../../core/protocol/resources';
 import type { RemoteDirectoryEntry, RemotePortsState } from '../remotes/contract';
 import { workbenchLayoutSchema, type WorkbenchLayout } from './layout';
 import { z } from 'zod';
@@ -19,25 +20,9 @@ export const workspaceEntryIdSchema = z
     { message: '请选择工作区文件路径或有效的条目' },
   );
 
-export const resourceRefSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('workspace'), id: workspaceEntryIdSchema }).strict(),
-  z.object({ type: z.literal('canvas'), id: z.string().min(1).max(512) }).strict(),
-  z.object({ type: z.literal('mail'), id: z.number().int().positive().safe() }).strict(),
-  z
-    .object({
-      type: z.literal('attachment'),
-      messageId: z.number().int().positive().safe(),
-      part: z.string().regex(/^\d+(?:\.\d+)*$/),
-    })
-    .strict(),
-  z.object({ type: z.literal('shuiyuan-online'), id: z.number().int().positive() }).strict(),
-]);
-
-export type ResourceRef = z.infer<typeof resourceRefSchema>;
-
 export interface DocumentContent {
   title: string;
-  /** html 只来自 Canvas 页面与水源；工作区与远端文件按 FileFormat 分类。 */
+  /** html 只来自模块登记的资料；工作区与远端文件按 FileFormat 分类。 */
   format: FileFormat | 'html';
   text?: string;
   /** 文本只读：超过编辑上限、或来自远端项目。truncated 表示 text 只是文件开头。 */
@@ -67,7 +52,7 @@ export interface OfficeExportProgress {
 }
 
 export interface OfficeExportEvent extends OfficeExportProgress {
-  ref: ResourceRef;
+  ref: ResourceAddress;
 }
 
 export interface WorkspaceEntryUpdate {
@@ -123,7 +108,7 @@ const localPaths = z.array(z.string().min(1).max(32_767)).max(100);
 const port = z.number().int().min(1).max(65535);
 const entries = z.custom<WorkspaceEntry[]>();
 const document = z.custom<DocumentContent>();
-const resourceRef = z.custom<ResourceRef>();
+const resourceAddress = z.custom<ResourceAddress>();
 
 export const workspaceContract = defineContract(
   'workspace',
@@ -189,8 +174,8 @@ export const workspaceContract = defineContract(
       }),
       output: z.void(),
     },
-    exportOfficePdf: { input: resourceRef, output: z.void() },
-    openResourceFile: { input: resourceRef, output: z.void() },
+    exportOfficePdf: { input: resourceAddress, output: z.void() },
+    openResourceFile: { input: resourceAddress, output: z.void() },
     importFiles: { input: entryId.nullable(), output: z.void() },
     importDroppedFiles: {
       input: z.object({ parentId: entryId.nullable(), paths: localPaths.min(1) }),
