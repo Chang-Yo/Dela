@@ -3,13 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { MessageCircleQuestion, MessageSquarePlus } from 'lucide-react';
 import type { ChatComment } from '../../../core/protocol/agent';
-import {
-  CommentChip,
-  CommentFloat,
-  CommentFloatAction,
-  CommentInput,
-  CommentRail,
-} from '../../../ui/agent/comment';
+import { CommentChip } from '../../../ui/agent/comment-chip';
+import { CommentFloat, CommentFloatAction } from '../../../ui/agent/comment-float';
+import { CommentInput } from '../../../ui/agent/comment-input';
+import { CommentRail } from '../../../ui/agent/comment-rail';
 import { useChatDrafts } from './drafts';
 
 const EDGE_REM = 0.5;

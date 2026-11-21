@@ -1,20 +1,29 @@
 'use client';
 
+import type { ComponentProps } from 'react';
 import { Undo2 } from 'lucide-react';
+import { cn } from '../lib/cn';
 
-export function QueuedMessages({
+function QueuedMessages({
   messages,
   onWithdraw,
-}: {
+  className,
+  ...props
+}: ComponentProps<'div'> & {
   messages: string[];
   onWithdraw?: () => void;
 }) {
   return (
     <div
       aria-label="待送达的消息"
-      className="mb-2 flex items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-sm leading-6 shadow-hairline"
+      className={cn(
+        'mb-2 flex items-start gap-2 rounded-card bg-surface px-3 py-1.5 text-sm leading-6 shadow-hairline',
+        className,
+      )}
+      data-slot="queued-messages"
       role="status"
-      style={{ animation: 'pop-in 180ms cubic-bezier(0.23,1,0.32,1) both' }}
+      style={{ animation: 'pop-in 180ms var(--ease-out-strong) both' }}
+      {...props}
     >
       <ol className="min-w-0 flex-1">
         {messages.map((text, index) => (
@@ -45,3 +54,5 @@ export function QueuedMessages({
     </div>
   );
 }
+
+export { QueuedMessages };

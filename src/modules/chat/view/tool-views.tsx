@@ -1,9 +1,10 @@
 import { lazy, Suspense } from 'react';
 import type { AgentToolResult, SubagentDetails } from '../../../core/protocol/agent';
 import { CodeXml, Terminal } from 'lucide-react';
-import { PlainLines, ToolCard } from '../../../ui/agent/tool-card';
+import { PlainLines } from '../../../ui/agent/plain-lines';
+import { ToolCard } from '../../../ui/agent/tool-card';
 import { openLightbox } from '../../../ui/lightbox';
-import { SubagentCard } from '../../../ui/agent/task';
+import { SubagentCard } from '../../../ui/agent/subagent-card';
 import { agentClient } from './client';
 import type { Navigate } from '../../../app/module';
 import { useChatTabSource } from './chat-source';

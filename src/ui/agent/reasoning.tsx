@@ -1,11 +1,17 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps } from 'react';
+import { cn } from '../lib/cn';
 import { Shimmer } from '../shimmer';
 import { TraceDisclosure } from './trace';
 
 /** 思考过程：进行态只显示动画标题，展开后是原始思考文本。 */
-export function Reasoning({ live, children }: { live: boolean; children: ReactNode }) {
+function Reasoning({
+  live,
+  children,
+  className,
+  ...props
+}: ComponentProps<'div'> & { live: boolean }) {
   return (
-    <div className="my-1">
+    <div className={cn('my-1', className)} data-slot="reasoning" {...props}>
       <TraceDisclosure head={live ? <Shimmer>正在思考</Shimmer> : <span>思考过程</span>}>
         <div
           data-reasoning-body
@@ -17,3 +23,5 @@ export function Reasoning({ live, children }: { live: boolean; children: ReactNo
     </div>
   );
 }
+
+export { Reasoning };

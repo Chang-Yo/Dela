@@ -6,7 +6,7 @@ import { Button } from '../button';
 import { Popover, PopoverContent, PopoverTrigger } from '../popover';
 import { useNow } from '../hooks/use-now';
 
-export type BackgroundTaskItem = {
+type BackgroundTaskItem = {
   id: string;
   kind: 'bash' | 'subagent';
   label: string;
@@ -19,7 +19,7 @@ type BackgroundTaskActions = {
   formatElapsed: (ms: number) => string;
 };
 
-export function BackgroundTasks({
+function BackgroundTasks({
   tasks,
   ...actions
 }: { tasks: BackgroundTaskItem[] } & BackgroundTaskActions) {
@@ -29,6 +29,7 @@ export function BackgroundTasks({
         <button
           aria-label={`后台任务（${tasks.length} 个运行中）`}
           className="flex h-7 shrink-0 items-center gap-1 rounded-control px-1.5 text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink"
+          data-slot="background-tasks"
           title="后台任务"
           type="button"
         >
@@ -37,13 +38,13 @@ export function BackgroundTasks({
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" aria-label="后台任务" className="w-72" side="top">
-        <BackgroundTaskList tasks={tasks} {...actions} />
+        <BackgroundTasksList tasks={tasks} {...actions} />
       </PopoverContent>
     </Popover>
   );
 }
 
-function BackgroundTaskList({
+function BackgroundTasksList({
   tasks,
   onStop,
   onOpenSubagent,
@@ -51,7 +52,7 @@ function BackgroundTaskList({
 }: { tasks: BackgroundTaskItem[] } & BackgroundTaskActions) {
   const now = useNow(1000);
   return (
-    <ul className="grid grid-cols-1">
+    <ul className="grid grid-cols-1" data-slot="background-tasks-list">
       {tasks.map((task) => {
         const Icon = task.kind === 'bash' ? SquareTerminal : Bot;
         const label = (
@@ -100,3 +101,5 @@ function BackgroundTaskList({
     </ul>
   );
 }
+
+export { BackgroundTasks, type BackgroundTaskItem };

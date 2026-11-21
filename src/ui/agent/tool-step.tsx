@@ -1,26 +1,28 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn';
 import { Shimmer } from '../shimmer';
+import { DiffStat, type DiffCounts } from './diff-stat';
 import { TraceDisclosure } from './trace';
 
-export type ToolStepStatus = 'running' | 'done' | 'error' | 'interrupted';
+type ToolStepStatus = 'running' | 'done' | 'error' | 'interrupted';
 
-export type ToolStepProps = {
+type ToolStepProps = Omit<ComponentProps<'div'>, 'children'> & {
   status: ToolStepStatus;
   /** 动词短语，已按状态选好进行时或完成时。 */
   label: string;
   target?: { text: string; title?: string; mono?: boolean };
-  stats?: { added: number; deleted: number };
+  stats?: DiffCounts;
   /** 子任务运行中的当前动作。 */
   progress?: { text: string; title?: string };
   children: ReactNode;
 };
 
 /** 一步工具调用：一行「动词 + 对象」，展开后是工具的输入输出。 */
-export function ToolStep({ status, label, target, stats, progress, children }: ToolStepProps) {
+function ToolStep({ status, label, target, stats, progress, children, ...props }: ToolStepProps) {
   const running = status === 'running';
   return (
     <TraceDisclosure
+      data-slot="tool-step"
       head={
         <>
           <span className="shrink-0">
@@ -35,10 +37,7 @@ export function ToolStep({ status, label, target, stats, progress, children }: T
             </span>
           )}
           {stats && (status === 'done' || status === 'interrupted') && (
-            <span className="shrink-0 font-mono text-xs tabular-nums">
-              <span className="text-success">+{stats.added}</span>{' '}
-              <span className="text-danger">−{stats.deleted}</span>
-            </span>
+            <DiffStat className="shrink-0 tabular-nums" counts={stats} />
           )}
           {progress && (
             <span className="min-w-0 truncate text-xs" title={progress.title}>
@@ -49,38 +48,11 @@ export function ToolStep({ status, label, target, stats, progress, children }: T
           {status === 'interrupted' && <span className="shrink-0">未完成</span>}
         </>
       }
+      {...props}
     >
       {children}
     </TraceDisclosure>
   );
 }
 
-/** 相邻工具步骤：给出 summary 时折成一行摘要，否则平铺。 */
-export function ToolGroup({
-  summary,
-  failed = false,
-  children,
-}: {
-  summary?: string;
-  failed?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div className="my-1">
-      {summary === undefined ? (
-        children
-      ) : (
-        <TraceDisclosure
-          head={
-            <>
-              <span className="min-w-0 truncate">{summary}</span>
-              {failed && <span className="shrink-0 text-danger">有失败</span>}
-            </>
-          }
-        >
-          {children}
-        </TraceDisclosure>
-      )}
-    </div>
-  );
-}
+export { ToolStep, type ToolStepProps, type ToolStepStatus };

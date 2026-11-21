@@ -2,7 +2,8 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
-import { ErrorCard, MessageChip } from './message';
+import { ErrorCard } from './error-card';
+import { MessageChip } from './message-chip';
 import { Trace } from './trace';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

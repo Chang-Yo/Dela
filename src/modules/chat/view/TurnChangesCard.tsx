@@ -3,7 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { CodeXml, FolderOpen } from 'lucide-react';
 import type { FileChangeSummary } from '../../../core/protocol/agent';
-import { ChangedFile, ChangesCard } from '../../../ui/agent/changes';
+import { ChangedFile } from '../../../ui/agent/changed-file';
+import { ChangesCard } from '../../../ui/agent/changes-card';
 import { showToast } from '../../../ui/toast';
 import { agentClient, chatClient } from './client';
 import { errorMessage } from '../../../core/protocol/contract';
@@ -47,6 +48,7 @@ function TurnFileRow({
               })
           : undefined
       }
+      openTitle="在 Dela 中打开"
       openWith={[
         {
           key: 'vscode',

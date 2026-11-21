@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
-import { CommentChip } from './comment';
+import { CommentChip } from './comment-chip';
 import { PromptInputSubmit } from './prompt-input';
 import { QueuedMessages } from './queued-messages';
 

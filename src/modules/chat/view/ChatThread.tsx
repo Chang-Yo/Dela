@@ -11,21 +11,17 @@ import {
   Pencil,
   SquareTerminal,
 } from 'lucide-react';
-import {
-  AssistantMessage as AssistantMessageFrame,
-  CompactionDivider,
-  CopyAction,
-  ErrorCard,
-  ExtensionMessage,
-  MessageActions,
-  MessageChip,
-  MessageChips,
-  MessageComments,
-  UserBubble,
-  UserMessage as UserMessageFrame,
-  UserMessageEditor,
-} from '../../../ui/agent/message';
-import { TaskNotice } from '../../../ui/agent/task';
+import { AssistantMessage as AssistantMessageFrame } from '../../../ui/agent/assistant-message';
+import { CompactionDivider } from '../../../ui/agent/compaction-divider';
+import { CopyAction } from '../../../ui/agent/copy-action';
+import { ErrorCard } from '../../../ui/agent/error-card';
+import { ExtensionMessage } from '../../../ui/agent/extension-message';
+import { MessageActions } from '../../../ui/agent/message-actions';
+import { MessageChip, MessageChips } from '../../../ui/agent/message-chip';
+import { MessageComments } from '../../../ui/agent/message-comments';
+import { TaskNotice } from '../../../ui/agent/task-notice';
+import { UserMessage as UserMessageFrame, UserMessageBubble } from '../../../ui/agent/user-message';
+import { UserMessageEditor } from '../../../ui/agent/user-message-editor';
 import { Shimmer } from '../../../ui/shimmer';
 import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatImageToken } from '../../../core/protocol/chat-input';
@@ -122,14 +118,14 @@ function UserMessage({
     <UserMessageFrame>
       {message.comments?.length ? <MessageComments comments={message.comments} /> : null}
       {message.content ? (
-        <UserBubble>
+        <UserMessageBubble>
           <ChatMarkdown
             className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent"
             mode="static"
           >
             {message.content}
           </ChatMarkdown>
-        </UserBubble>
+        </UserMessageBubble>
       ) : null}
       {images}
       {message.attachments?.length ? (

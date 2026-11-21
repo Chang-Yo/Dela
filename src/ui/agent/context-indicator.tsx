@@ -1,9 +1,10 @@
 'use client';
 
+import { Button } from '../button';
 import { Popover, PopoverContent, PopoverTrigger } from '../popover';
 import { ProgressRing } from '../progress-ring';
 
-export type ContextIndicatorUsage = {
+type ContextIndicatorUsage = {
   tokens: number | null;
   estimated?: boolean;
   contextWindow: number;
@@ -21,7 +22,7 @@ function usageTone(percent: number | null): 'neutral' | 'warning' | 'danger' {
   return 'neutral';
 }
 
-export function ContextIndicator({
+function ContextIndicator({
   usage,
   cacheHitRate,
 }: {
@@ -34,14 +35,15 @@ export function ContextIndicator({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
+        <Button
           aria-label="上下文占用"
-          className="flex size-7 shrink-0 items-center justify-center rounded-control transition-colors duration-base hover:bg-hover"
+          data-slot="context-indicator"
+          size="icon-sm"
           title="上下文占用"
-          type="button"
+          variant="ghost"
         >
           <ProgressRing progress={(usage.percent ?? 0) / 100} size={18} tone={tone} />
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent
         align="center"
@@ -65,7 +67,7 @@ export function ContextIndicator({
             style={{
               width: `${Math.min(100, usage.percent ?? 0)}%`,
               background: color,
-              transition: 'width 400ms cubic-bezier(0.23,1,0.32,1)',
+              transition: 'width 400ms var(--ease-out-strong)',
             }}
           />
         </div>
@@ -77,3 +79,5 @@ export function ContextIndicator({
     </Popover>
   );
 }
+
+export { ContextIndicator, type ContextIndicatorUsage };

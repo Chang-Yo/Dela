@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import type { AgentToolResult, SubagentDetails, WorkspaceChat } from '../../../core/protocol/agent';
 import { Reasoning } from '../../../ui/agent/reasoning';
-import { ToolGroup, ToolStep, type ToolStepStatus } from '../../../ui/agent/tool';
+import { ToolGroup } from '../../../ui/agent/tool-group';
+import { ToolStep, type ToolStepStatus } from '../../../ui/agent/tool-step';
 import { Trace } from '../../../ui/agent/trace';
 import { ChatMarkdown } from './markdown';
 import { ToolBody } from './tool-views';
