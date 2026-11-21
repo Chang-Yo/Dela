@@ -24,6 +24,7 @@
 | [0021](0021-context-directories.md) | 通用会话经辅助目录看到资料                         | 已接受   |
 | [0022](0022-json-config-files.md)   | 模型服务、MCP 与联网搜索存为 ~/.dela 下的明文 JSON | 已接受   |
 | [0023](0023-design-token-naming.md) | Design token 按用途命名，改名走 ADR                | 已接受   |
+| [0024](0024-todo-owns-schedule.md)  | 待办是用户安排的唯一入口，课表只显示学校课程       | 已接受   |
 
 新记录沿用下面的格式，控制在一屏以内：
 
