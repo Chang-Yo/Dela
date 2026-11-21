@@ -45,7 +45,7 @@ import { canvasModule } from '../src/sjtu/canvas';
 import { registerAgentIpc } from '../src/app/main/agent-ipc';
 
 const profile = mkdtempSync(join(tmpdir(), 'dela-workspace-test-'));
-app.setPath('userData', profile);
+for (const name of ['userData', 'home'] as const) app.setPath(name, profile);
 registerPreviewScheme();
 const pdf = new TextEncoder().encode('%PDF-1.4\nfixture');
 let failFiles = false;
