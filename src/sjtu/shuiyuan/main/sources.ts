@@ -136,8 +136,12 @@ export async function readShuiyuanSourcePreview(topicIdInput: unknown): Promise<
     format: 'html',
     url: shuiyuanTopicUrl(topicId),
     updatedAt: index.savedAt,
-    shuiyuanSnapshot: { postCount: index.postCount, pageSize: index.pageSize },
   };
+}
+
+export async function readShuiyuanSnapshotPostCount(topicIdInput: unknown): Promise<number> {
+  const topicId = z.number().int().positive().parse(topicIdInput);
+  return (await findShuiyuanSnapshot(topicId))?.index.postCount ?? 0;
 }
 
 export async function readShuiyuanSource(topicIdInput: unknown): Promise<DocumentContent> {

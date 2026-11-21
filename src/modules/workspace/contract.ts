@@ -35,7 +35,6 @@ export interface DocumentContent {
   dueAt?: string | null;
   updatedAt?: string | null;
   revision?: string;
-  shuiyuanSnapshot?: { postCount: number; pageSize: number };
   office?: { export?: OfficeExportInfo };
 }
 

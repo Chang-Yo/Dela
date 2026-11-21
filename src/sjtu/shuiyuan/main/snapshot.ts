@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { emit, hostPorts } from '../../../core/ports';
 import {
   SHUIYUAN_HOST,
+  SHUIYUAN_SNAPSHOT_PAGE_SIZE,
   shuiyuanContract,
   type ShuiyuanPost,
   type ShuiyuanSnapshotState,
@@ -41,7 +42,6 @@ const DRAFT_INTERVAL_MS = 5_000;
 const PENDING_ATTRIBUTE = 'data-snapshot-pending';
 const POSTS_FILE = 'posts.ndjson';
 const SNAPSHOT_URL = 'dela-resource://shuiyuan-snapshot';
-const SNAPSHOT_PAGE_SIZE = 10;
 
 type Progress = NonNullable<ShuiyuanSnapshotState['progress']>;
 
@@ -209,11 +209,11 @@ async function saveSnapshot(topicId: number, signal: AbortSignal): Promise<strin
   const posts = [...fetched.values()].sort((a, b) => a.postNumber - b.postNumber);
 
   const images = new Map<string, Set<number>>();
-  for (let start = 0; start < posts.length; start += SNAPSHOT_PAGE_SIZE) {
+  for (let start = 0; start < posts.length; start += SHUIYUAN_SNAPSHOT_PAGE_SIZE) {
     signal.throwIfAborted();
-    const batch = posts.slice(start, start + SNAPSHOT_PAGE_SIZE);
+    const batch = posts.slice(start, start + SHUIYUAN_SNAPSHOT_PAGE_SIZE);
     const documents = batch.map((post) => load(post.cooked, null, false));
-    const page = start / SNAPSHOT_PAGE_SIZE;
+    const page = start / SHUIYUAN_SNAPSHOT_PAGE_SIZE;
     for (const [url, refs] of collectSnapshotImages(documents)) {
       let pages = images.get(url);
       if (!pages) images.set(url, (pages = new Set()));
@@ -262,7 +262,7 @@ async function saveSnapshot(topicId: number, signal: AbortSignal): Promise<strin
       title: detail.title,
       savedAt: new Date().toISOString(),
       postCount,
-      pageSize: SNAPSHOT_PAGE_SIZE,
+      pageSize: SHUIYUAN_SNAPSHOT_PAGE_SIZE,
     };
     await writeSnapshotBytes(join(partial, 'index.json'), JSON.stringify(snapshot));
     return snapshot.savedAt;

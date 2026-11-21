@@ -157,12 +157,11 @@ export function ShuiyuanSourceDoc({ sourceId, content, navigate, onReload }: Sou
             />
           </section>
         </Card>
-        {content.shuiyuanSnapshot ? (
+        {content.format === 'html' && content.text === undefined ? (
           <ShuiyuanSnapshotBody
             key={`${topicId}:${content.updatedAt}`}
             topicId={topicId}
-            postCount={content.shuiyuanSnapshot.postCount}
-            pageSize={content.shuiyuanSnapshot.pageSize}
+            savedAt={content.updatedAt}
             scrollRef={scrollRef}
             onOpenTopic={openInShuiyuan}
           />

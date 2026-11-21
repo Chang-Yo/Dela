@@ -2,6 +2,7 @@ import { memo, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from '../../../ui/button';
+import { SHUIYUAN_SNAPSHOT_PAGE_SIZE } from '../contract';
 import { ShuiyuanHtmlBody } from './ShuiyuanHtmlBody';
 import { shuiyuanClient } from './use-shuiyuan';
 
@@ -43,14 +44,12 @@ function SnapshotPage({
 
 export const ShuiyuanSnapshotBody = memo(function ShuiyuanSnapshotBody({
   topicId,
-  postCount,
-  pageSize,
+  savedAt,
   scrollRef,
   onOpenTopic,
 }: {
   topicId: number;
-  postCount: number;
-  pageSize: number;
+  savedAt: string | null | undefined;
   scrollRef: RefObject<HTMLDivElement | null>;
   onOpenTopic: (topicId: number, postNumber?: number) => void;
 }) {
@@ -77,11 +76,15 @@ export const ShuiyuanSnapshotBody = memo(function ShuiyuanSnapshotBody({
       cancelAnimationFrame(frame);
     };
   }, [scrollRef]);
+  const postCount = useQuery({
+    queryKey: ['shuiyuan', 'snapshotPostCount', topicId, savedAt],
+    queryFn: () => shuiyuanClient.snapshotPostCount(topicId),
+  }).data;
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
-    count: Math.ceil(postCount / pageSize),
+    count: Math.ceil((postCount ?? 0) / SHUIYUAN_SNAPSHOT_PAGE_SIZE),
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => pageSize * 240,
+    estimateSize: () => SHUIYUAN_SNAPSHOT_PAGE_SIZE * 240,
     overscan: 1,
     scrollMargin: margin,
     useAnimationFrameWithResizeObserver: true,
