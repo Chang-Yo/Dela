@@ -12,7 +12,7 @@ function SubagentCard({
 }: ComponentProps<'div'> & {
   prompt?: string;
   reply?: ReactNode;
-  footer?: { text: string; onOpen: () => void };
+  footer?: { text: string; openLabel: string; onOpen: () => void };
 }) {
   return (
     <div
@@ -21,7 +21,7 @@ function SubagentCard({
       {...props}
     >
       {prompt && (
-        <p className="line-clamp-3 whitespace-pre-wrap break-words text-xs leading-5 text-ink-3">
+        <p className="line-clamp-3 whitespace-pre-wrap break-words text-xs leading-5 text-ink-2">
           {prompt}
         </p>
       )}
@@ -34,7 +34,7 @@ function SubagentCard({
         <div className="flex items-center gap-2 text-xs text-ink-3">
           <span>{footer.text}</span>
           <Button size="sm" variant="ghost" onClick={footer.onOpen}>
-            打开子会话
+            {footer.openLabel}
           </Button>
         </div>
       )}

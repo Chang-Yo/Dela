@@ -14,7 +14,7 @@ import { cn } from '../../../ui/lib/cn';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
 import { ReplyCommentRail } from './reply-comment';
-import { formatDuration } from './ToolTimeline';
+import { formatDuration } from './format-duration';
 import { openSubagent } from './tool-views';
 import { BackgroundTasks } from '../../../ui/agent/background-tasks';
 import { ContextIndicator } from '../../../ui/agent/context-indicator';
