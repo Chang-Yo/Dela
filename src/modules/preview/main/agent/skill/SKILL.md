@@ -1,6 +1,6 @@
 ---
 name: document-reading
-description: 读取 PDF、Word、PowerPoint 和 Excel 的正文、表格与图片，处理项目文档、Canvas 文件、邮件附件和 web_fetch 返回的 PDF 临时任务。用于理解已有文件，不用于编辑文档或界面预览。
+description: 读取 PDF、Word、PowerPoint 和 Excel 的正文、表格与图片，处理项目文档、各模块登记的资料文件、邮件附件和 web_fetch 返回的 PDF 临时任务。用于理解已有文件，不用于编辑文档或界面预览。
 ---
 
 # 文档读取

@@ -70,7 +70,7 @@ export function TodoDetail({
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto border-t pt-3 [scrollbar-width:none]">
           <Card>
             <HtmlFrame
-              baseUrl="https://oc.sjtu.edu.cn"
+              baseUrl={item.url}
               className="bg-paper"
               html={item.description ?? ''}
               onLink={onOpenLink}

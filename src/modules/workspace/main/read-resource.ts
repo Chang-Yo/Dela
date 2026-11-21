@@ -102,7 +102,7 @@ export const workspaceResourceResolver: ResourceResolver<{ type: 'workspace'; id
 /** 项目快捷方式所指的资料，未加入项目时也能按同一 id 读取，交给认领该 id 的模块。 */
 export const sourceResourceResolver: ResourceResolver<{ type: 'source'; id: string }> = {
   schema: z.object({ type: z.literal('source'), id: z.string().min(1).max(512) }).strict(),
-  description: '{"type":"source","id":"<资料 id>"}：尚未加入项目的资料，例如搜索结果里的课件',
+  description: '{"type":"source","id":"<资料 id>"}：尚未加入项目、只在搜索结果等处出现的资料',
   read: async (ref, offset, limit) =>
     readDocument(ref, await workspaceSource(ref.id).read(ref.id), offset, limit),
   async path(ref) {

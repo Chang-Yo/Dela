@@ -27,7 +27,7 @@ export {
 } from './main/store';
 export { systemNotifyToast } from './main/system';
 
-// 来源各自节流（水源与其余请求共用每分钟 20 次的限额），这里两分钟轮询一次。
+// 来源各自节流，这里两分钟轮询一次。
 const REFRESH_MS = 2 * 60_000;
 
 function refreshInBackground() {

@@ -105,7 +105,7 @@ export const workspaceContract = defineContract(
     },
     remove: { input: entryId, output: z.void() },
     read: { input: entryId, output: document },
-    /** 来源资料（Canvas 课件、水源帖子等）的正文，由认领该 sourceId 的模块读取。 */
+    /** 来源资料（各模块登记的资料）的正文，由认领该 sourceId 的模块读取。 */
     readSource: { input: z.string().max(512), output: document },
     /** 原地覆写文本文件；revision 与磁盘不一致时拒绝。 */
     saveNote: {

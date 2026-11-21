@@ -128,9 +128,9 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       )}
       {branch === 'html' && (
         <Card className="min-h-0 flex-1">
-          {/* 本地/导入条目（watchesDisk）不补 Canvas 基址，相对地址剥除，免得补到外域泄露请求。 */}
+          {/* 相对地址按资料自己的来源地址补全；本地/导入条目（watchesDisk）没有来源，一律剥除。 */}
           <HtmlFrame
-            baseUrl={doc.watchesDisk ? undefined : 'https://oc.sjtu.edu.cn'}
+            baseUrl={doc.watchesDisk ? undefined : content.url || undefined}
             className="bg-paper"
             fill
             html={content.text ?? ''}
