@@ -67,8 +67,14 @@ function ToolCard({
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {stats && <DiffStat className="tabular-nums" counts={stats} />}
           {copyText !== undefined && (
-            <span className="-mr-1.5 opacity-0 transition-opacity duration-fast group-focus-within/card:opacity-100 group-hover/card:opacity-100">
-              <CopyAction label="复制" text={copyText} />
+            <span className="-mr-1 flex opacity-0 transition-opacity duration-fast group-focus-within/card:opacity-100 group-hover/card:opacity-100">
+              {/* 卡片 overflow-hidden、标题栏 h-8：按钮和焦点框都要收在栏内，否则被裁掉。 */}
+              <CopyAction
+                className="focus-visible:outline-offset-0"
+                label="复制"
+                size="icon-xs"
+                text={copyText}
+              />
             </span>
           )}
         </span>

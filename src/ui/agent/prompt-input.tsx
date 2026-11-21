@@ -259,7 +259,7 @@ function PromptInputNotice({
             size="icon-xs"
             variant="ghost"
           >
-            <X className="size-3" strokeWidth={2.2} />
+            <X strokeWidth={2.2} />
           </Button>
         )}
       </div>
@@ -283,7 +283,7 @@ function PromptInputOption({
       <button
         aria-checked={active}
         className={cn(
-          'flex h-8 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors',
+          'flex h-8 w-full items-center gap-1 rounded-chip px-2 text-left text-sm transition-colors focus-visible:-outline-offset-2',
           active ? 'bg-hover font-medium text-ink' : 'text-ink-2 hover:bg-hover hover:text-ink',
           className,
         )}

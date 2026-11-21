@@ -88,7 +88,7 @@ function BackgroundTasksList({
             </span>
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon-xs"
               aria-label="停止"
               onClick={() => onStop(task.id)}
               title="停止"

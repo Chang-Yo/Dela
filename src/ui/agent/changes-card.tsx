@@ -32,7 +32,7 @@ function ChangesCard({
       >
         <button
           aria-expanded={open}
-          className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors duration-base hover:bg-hover"
+          className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors duration-base hover:bg-hover focus-visible:-outline-offset-2"
           onClick={() => setOpen((value) => !value)}
           type="button"
         >

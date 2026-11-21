@@ -15,7 +15,7 @@ const searchRow = 'mb-1 flex items-center gap-2 rounded-control px-2 py-1.5 text
 const searchInput =
   'min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3';
 const option =
-  'flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-sm text-ink transition-colors duration-fast hover:bg-hover';
+  'flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-sm text-ink transition-colors duration-fast hover:bg-hover focus-visible:-outline-offset-2';
 const empty = 'px-2 py-2 text-xs text-ink-3';
 
 const matches = (value: string, query: string) =>

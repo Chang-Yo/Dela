@@ -604,7 +604,7 @@ export function ChatComposer({
                   <span className="truncate @max-[220px]:hidden">
                     {modelUnavailable ? `${model} · 已停用` : model}
                   </span>
-                  <Bot className="hidden size-3.5 @max-[220px]:block" />
+                  <Bot className="hidden size-4 @max-[220px]:block" />
                   <ChevronDown className="size-3 @max-[220px]:hidden" />
                 </PromptInputTrigger>
               </PopoverTrigger>
@@ -681,7 +681,7 @@ export function ChatComposer({
                   title="思考强度"
                 >
                   <span className="truncate @max-[260px]:hidden">{effort ?? '默认'}</span>
-                  <Sparkles className="hidden size-3.5 @max-[260px]:block" />
+                  <Sparkles className="hidden size-4 @max-[260px]:block" />
                   <ChevronDown className="size-3 @max-[260px]:hidden" />
                 </PromptInputTrigger>
               </PopoverTrigger>

@@ -57,7 +57,7 @@ function UserMessageEditor({
           className="rounded-full"
           disabled={submitDisabled}
           onClick={onSubmit}
-          size="icon-xs"
+          size="icon-sm"
           title="重新发送"
         >
           <ArrowUp />
