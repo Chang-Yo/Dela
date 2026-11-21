@@ -1,10 +1,10 @@
 import type { CalendarEventColor, TodoItem } from '../contract';
 import { addDays, colorFor, dateKey, dayMilliseconds, mondayOf } from './calendar';
 
-/** Canvas 作业以课程代码为颜色键，与课表同走 `colorFor`，缺失时退回课程名；个人待办沿用自身颜色。 */
+/** 来源条目按分组配色，同一分组颜色固定；个人待办沿用自身颜色。 */
 export function todoCalendarColor(item: TodoItem): CalendarEventColor {
   if (item.source === 'personal') return item.color ?? 'slate';
-  return colorFor(item.courseCode || item.courseName || `course:${item.courseId ?? 'canvas'}`);
+  return colorFor(`${item.source}:${item.group?.id ?? ''}`);
 }
 
 export function groupTodosByDay(items: readonly TodoItem[]): Map<string, TodoItem[]> {

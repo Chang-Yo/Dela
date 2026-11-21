@@ -1,24 +1,25 @@
 import { z } from 'zod';
 import { getTodoState, refreshTodos } from '../store';
+import { todoSyncedAt, todoSyncError } from '../../contract';
 import { coverage, freshness, tool, toolError } from '../../../../core/capabilities/domain-tools';
 import { slimTodo } from './slim';
 
 export const refreshTodosTool = tool(
-  '从 Canvas 刷新作业与提交状态缓存（联网写缓存；覆盖在读未归档课程）。次级副作用：已知课程出现新作业时会触发系统桌面通知。不会提交作业。',
+  '从所有已连接来源（如 Canvas 作业）刷新待办缓存（联网写缓存）。次级副作用：已同步过的分组出现新条目时会触发系统桌面通知。不会提交作业。',
   z.object({}).strict(),
   async () => {
-    const state = getTodoState();
-    if (!state.connected)
-      throw toolError('NOT_CONFIGURED', 'Canvas 未连接，无法刷新作业；请先在设置中连接 Canvas');
+    if (!getTodoState().sources.some((source) => source.connected))
+      throw toolError('NOT_CONFIGURED', '没有已连接的待办来源，请先在设置中连接（如 Canvas）');
     const result = await refreshTodos();
+    const error = todoSyncError(result);
     return {
       ...result,
       items: result.items.map(slimTodo),
-      freshness: freshness('cached', result.syncedAt ?? undefined),
+      freshness: freshness('cached', todoSyncedAt(result) ?? undefined),
       coverage: coverage(
-        'cached_assignments',
-        !result.error,
-        result.error ? [`部分课程同步失败：${result.error}`] : undefined,
+        'cached_sources',
+        !error,
+        error ? [`部分分组同步失败：${error}`] : undefined,
       ),
     };
   },

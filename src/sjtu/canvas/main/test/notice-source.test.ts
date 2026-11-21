@@ -2,7 +2,9 @@ import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../modules/todo', () => ({
-  getTodoState: () => ({ syncedAt: null, error: null }),
+  getTodoState: () => ({ items: [], sources: [], syncing: false }),
+  todoSyncedAt: () => null,
+  todoSyncError: () => null,
   todoNotifications: () => [],
 }));
 vi.mock('../../../../modules/notifications', async (importOriginal) => ({
@@ -46,9 +48,7 @@ describe('Canvas notice source', () => {
   });
 
   it('lists existing announcements silently on first sync and toasts later unread ones', async () => {
-    vi.mocked(listTodoCanvasCourses).mockResolvedValue([
-      { id: 1, name: '操作系统', code: 'CS260' },
-    ]);
+    vi.mocked(listTodoCanvasCourses).mockResolvedValue([{ id: 1, name: '操作系统' }]);
     const announcement = (id: number, read: boolean) => ({
       sourceId: `canvas-discussion:1:${id}`,
       title: `公告 ${id}`,
@@ -83,7 +83,7 @@ describe('Canvas notice source', () => {
   });
 
   it('baselines courses one by one and keeps syncing past a failing course', async () => {
-    const course = (id: number) => ({ id, name: `课程 ${id}`, code: '' });
+    const course = (id: number) => ({ id, name: `课程 ${id}` });
     const announcement = (courseId: number, id: number) => ({
       sourceId: `canvas-discussion:${courseId}:${id}`,
       title: `公告 ${id}`,

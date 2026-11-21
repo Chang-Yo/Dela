@@ -15,34 +15,43 @@ export const calendarEventColors = [
 
 export type CalendarEventColor = (typeof calendarEventColors)[number];
 
-export type TodoStatus =
-  'pending' | 'completed' | 'submitted' | 'graded' | 'excused' | 'resubmit' | 'offline' | 'unknown';
+// 待办只认三种状态（对应 iCalendar 的 NEEDS-ACTION、COMPLETED 与不写），来源的说法放进 statusLabel。
+export type TodoStatus = 'open' | 'done' | 'unknown';
+export interface TodoGroup {
+  id: string;
+  label: string;
+}
 export interface TodoItem {
   id: string;
-  source: 'personal' | 'canvas';
+  /** 'personal' 或登记来源的 id。 */
+  source: string;
   title: string;
   notes: string;
   dueAt: string | null;
   status: TodoStatus;
+  statusLabel?: string;
+  completedAt: string | null;
   readAt: string | null;
   createdAt: string;
   calendar?: boolean;
   color?: CalendarEventColor;
-  courseId?: number;
-  courseCode?: string;
-  courseName?: string;
-  assignmentId?: number;
+  group?: TodoGroup;
   url?: string;
-  description?: string;
-  submittedAt?: string | null;
+  bodyHtml?: string;
   syncedAt?: string;
+}
+export interface TodoSourceState {
+  id: string;
+  label: string;
+  openLabel?: string;
+  connected: boolean;
+  syncedAt: string | null;
+  error: string | null;
 }
 export interface TodoState {
   items: TodoItem[];
-  connected: boolean;
+  sources: TodoSourceState[];
   syncing: boolean;
-  syncedAt: string | null;
-  error: string | null;
 }
 
 export const todoSaveSchema = z
@@ -73,19 +82,19 @@ export const todoContract = defineContract(
   { state },
 );
 
-export const todoStatusLabels: Record<TodoStatus, string> = {
-  pending: '未完成',
-  completed: '已完成',
-  submitted: '已提交',
-  graded: '已批改',
-  excused: '已豁免',
-  resubmit: '需重新提交',
-  offline: '线下 / 无需在线提交',
-  unknown: '待同步确认',
-};
+/** 已连接来源里最早的同步时间，即清单中最旧的数据有多旧；有来源从未同步时为 null。 */
+export function todoSyncedAt(state: TodoState): string | null {
+  const times = state.sources.filter((source) => source.connected).map((source) => source.syncedAt);
+  if (!times.length || times.includes(null)) return null;
+  return times.sort()[0]!;
+}
 
-export function todoCompleted(status: TodoStatus): boolean {
-  return ['completed', 'submitted', 'graded', 'excused'].includes(status);
+export function todoSyncError(state: TodoState): string | null {
+  return state.sources.flatMap((source) => source.error ?? []).join('\n') || null;
+}
+
+export function todoStatusLabel(item: TodoItem): string {
+  return item.statusLabel ?? { open: '未完成', done: '已完成', unknown: '待确认' }[item.status];
 }
 
 declare module '../../app/module' {

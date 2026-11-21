@@ -8,7 +8,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { TodoItem } from '../contract';
-import { todoCompleted, todoStatusLabels } from '../contract';
+import { todoStatusLabel } from '../contract';
 import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
 import { HtmlFrame } from '../../../ui/html-frame';
@@ -23,6 +23,7 @@ export function TodoDetail({
   onEdit,
   onDelete,
   onOpenLink,
+  openLabel,
 }: {
   item: TodoItem;
   now: number;
@@ -30,27 +31,27 @@ export function TodoDetail({
   onEdit: () => void;
   onDelete: () => void;
   onOpenLink: (url: string) => void;
+  openLabel: string;
 }) {
   const personal = item.source === 'personal';
-  const done = todoCompleted(item.status);
-  const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
+  const overdue = item.status !== 'done' && item.dueAt && Date.parse(item.dueAt) < now;
   return (
     <TodoSheet fixedHeight title={item.title} onClose={onClose}>
       <div className="mt-3 shrink-0 space-y-1.5 text-sm text-ink-3">
         <p className="flex items-start gap-1.5">
           <BookOpen className="mt-0.5 size-3.5 shrink-0" />
           <span className="break-words">
-            {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
+            {item.group?.label ?? '个人待办'} · {todoStatusLabel(item)}
           </span>
         </p>
         <p className={cn('flex items-center gap-1.5', overdue && 'text-danger')}>
           <CalendarClock className="size-3.5 shrink-0" />
           截止：{dateLabel(item.dueAt)}
         </p>
-        {item.submittedAt && (
+        {item.completedAt && (
           <p className="flex items-center gap-1.5">
             <CircleCheckBig className="size-3.5 shrink-0" />
-            提交于：{dateLabel(item.submittedAt)}
+            完成于：{dateLabel(item.completedAt)}
           </p>
         )}
         {personal && item.calendar && (
@@ -72,9 +73,9 @@ export function TodoDetail({
             <HtmlFrame
               baseUrl={item.url}
               className="bg-paper"
-              html={item.description ?? ''}
+              html={item.bodyHtml ?? ''}
               onLink={onOpenLink}
-              title="作业描述"
+              title="正文"
             />
           </Card>
         </div>
@@ -95,7 +96,8 @@ export function TodoDetail({
           ) : (
             item.url && (
               <Button onClick={() => onOpenLink(item.url!)}>
-                <ExternalLink className="size-4" />在 Canvas 中打开
+                <ExternalLink className="size-4" />
+                {openLabel}
               </Button>
             )
           )}

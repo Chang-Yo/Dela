@@ -551,3 +551,61 @@ it('v14→v15：Canvas 资料 id 加上 canvas- 前缀，存着它的地方一�
   ]);
   db.close();
 });
+
+it('v15→v16：待办状态换成 open/done/unknown，Canvas 的说法与课程并入 statusLabel、group，同步进度带上来源', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT NOT NULL, data TEXT NOT NULL, read_at TEXT, notice_at TEXT);`);
+  const insert = before.prepare('INSERT INTO todo_items (id, owner, data) VALUES (?, ?, ?)');
+  insert.run(
+    'canvas:o:12:4',
+    'o',
+    JSON.stringify({
+      id: 'canvas:o:12:4',
+      source: 'canvas',
+      title: '作业',
+      status: 'graded',
+      courseId: 12,
+      courseCode: 'CS1',
+      courseName: '操作系统',
+      assignmentId: 4,
+      description: '<p>要求</p>',
+      submittedAt: '2026-09-20T00:00:00.000Z',
+    }),
+  );
+  insert.run(
+    'p1',
+    'local',
+    JSON.stringify({ id: 'p1', source: 'personal', title: '个人', status: 'completed' }),
+  );
+  before
+    .prepare('INSERT INTO workspace_settings VALUES (?, ?)')
+    .run('todo-sync:o', JSON.stringify({ syncedAt: null, error: null, courses: [12] }));
+  before.pragma('user_version = 15');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 16)).toBe(1);
+
+  const db = new Database(dbPath());
+  const data = db.prepare('SELECT data FROM todo_items ORDER BY id').pluck().all() as string[];
+  expect(data.map((value) => JSON.parse(value))).toEqual([
+    {
+      id: 'canvas:o:12:4',
+      source: 'canvas',
+      title: '作业',
+      status: 'done',
+      statusLabel: '已批改',
+      completedAt: '2026-09-20T00:00:00.000Z',
+      group: { id: '12', label: '操作系统' },
+      bodyHtml: '<p>要求</p>',
+    },
+    { id: 'p1', source: 'personal', title: '个人', status: 'done', completedAt: null },
+  ]);
+  expect(db.prepare('SELECT key, value FROM workspace_settings').all()).toEqual([
+    {
+      key: 'todo-sync:canvas:o',
+      value: JSON.stringify({ syncedAt: null, error: null, groups: ['12'] }),
+    },
+  ]);
+  db.close();
+});

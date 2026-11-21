@@ -1,16 +1,16 @@
 import type { SearchProvider } from '../../search';
-import { todoStatusLabels } from '../contract';
+import { todoStatusLabel } from '../contract';
 import { getTodoState } from './store';
 
 export const todoSearch: SearchProvider = {
   id: 'todo',
-  label: 'TODO / 作业',
+  label: 'TODO',
   icon: 'check',
   search(query, limit) {
     const keyword = query.toLocaleLowerCase();
     return getTodoState()
       .items.filter((item) =>
-        `${item.title} ${item.notes} ${item.courseName ?? ''}`
+        `${item.title} ${item.notes} ${item.group?.label ?? ''}`
           .toLocaleLowerCase()
           .includes(keyword),
       )
@@ -18,7 +18,7 @@ export const todoSearch: SearchProvider = {
       .map((item) => ({
         id: item.id,
         title: item.title,
-        subtitle: `${item.courseName ?? '个人待办'} · ${todoStatusLabels[item.status]}${item.dueAt ? ` · ${item.dueAt}` : ''}`,
+        subtitle: `${item.group?.label ?? '个人待办'} · ${todoStatusLabel(item)}${item.dueAt ? ` · ${item.dueAt}` : ''}`,
         target: { page: 'todo', todoId: item.id },
       }));
   },

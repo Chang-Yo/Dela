@@ -1,42 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import { todoCompleted } from '../../../../modules/todo/contract';
 import { canvasTodoStatus } from '../todo-source';
 
 describe('Canvas 作业完成事实', () => {
   it('缺少提交数据不猜测未完成', () => {
-    expect(canvasTodoStatus({})).toBe('unknown');
-    expect(todoCompleted('unknown')).toBe(false);
+    expect(canvasTodoStatus({}).status).toBe('unknown');
   });
   it('有成绩或零分不等于已提交', () => {
     expect(
       canvasTodoStatus({ submission: { workflow_state: 'graded', score: 0, submitted_at: null } }),
-    ).toBe('pending');
+    ).toEqual({ status: 'open', statusLabel: '未完成' });
   });
-  it('已提交、待批阅与已批改分别展示', () => {
-    expect(canvasTodoStatus({ submission: { workflow_state: 'submitted' } })).toBe('submitted');
-    expect(canvasTodoStatus({ submission: { workflow_state: 'pending_review' } })).toBe(
-      'submitted',
+  it('已提交、待批阅与已批改都算完成，说法各自保留', () => {
+    expect(canvasTodoStatus({ submission: { workflow_state: 'submitted' } })).toEqual({
+      status: 'done',
+      statusLabel: '已提交',
+    });
+    expect(canvasTodoStatus({ submission: { workflow_state: 'pending_review' } }).status).toBe(
+      'done',
     );
     expect(
       canvasTodoStatus({
         submission: { workflow_state: 'graded', submitted_at: '2026-09-21T00:00:00Z' },
       }),
-    ).toBe('graded');
+    ).toEqual({ status: 'done', statusLabel: '已批改' });
   });
   it('教师要求重交时不能继续显示完成', () => {
-    const status = canvasTodoStatus({
-      submission: { redo_request: true, submitted_at: '2026-09-21T00:00:00Z' },
-    });
-    expect(status).toBe('resubmit');
-    expect(todoCompleted(status)).toBe(false);
+    expect(
+      canvasTodoStatus({
+        submission: { redo_request: true, submitted_at: '2026-09-21T00:00:00Z' },
+      }),
+    ).toEqual({ status: 'open', statusLabel: '需重新提交' });
   });
-  it('豁免与线下作业独立展示', () => {
-    expect(canvasTodoStatus({ submission: { excused: true } })).toBe('excused');
+  it('豁免算完成，线下作业不猜测', () => {
+    expect(canvasTodoStatus({ submission: { excused: true } }).status).toBe('done');
     expect(
       canvasTodoStatus({
         submission_types: ['on_paper'],
         submission: { workflow_state: 'unsubmitted' },
       }),
-    ).toBe('offline');
+    ).toEqual({ status: 'unknown', statusLabel: '线下 / 无需在线提交' });
   });
 });

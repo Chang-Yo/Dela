@@ -18,9 +18,10 @@ import {
 } from 'lucide-react';
 import { createClient, errorMessage } from '../../../core/protocol/contract';
 import {
-  todoCompleted,
   todoContract,
-  todoStatusLabels,
+  todoStatusLabel,
+  todoSyncedAt,
+  todoSyncError,
   type CalendarEventColor,
   type TodoItem,
   type TodoSaveInput,
@@ -231,7 +232,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
   const state = query.data ?? null;
   const error = query.error ? errorMessage(query.error) : null;
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'personal' | 'canvas'>('all');
+  const [filter, setFilter] = useState('all');
   const [view, setView] = useState<(typeof views)[number]>('calendar');
   const [month, setMonth] = useState(() => startOfDay(new Date()));
   const showCompleted = useTodoPreferences((state) => state.showCompleted);
@@ -272,13 +273,23 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
   const items =
     state?.items.filter(
       (item) =>
-        (filter === 'all' || item.source === filter) &&
-        (showCompleted || !todoCompleted(item.status)),
+        (filter === 'all' || item.source === filter) && (showCompleted || item.status !== 'done'),
     ) ?? [];
-  const pendingCount = (source: 'all' | 'canvas' | 'personal') =>
+  const pendingCount = (source: string) =>
     (state?.items ?? []).filter(
-      (item) => !todoCompleted(item.status) && (source === 'all' || item.source === source),
+      (item) => item.status !== 'done' && (source === 'all' || item.source === source),
     ).length;
+  const sources = state?.sources ?? [];
+  const connected = sources.some((source) => source.connected);
+  const syncedAt = state ? todoSyncedAt(state) : null;
+  const syncError = state ? todoSyncError(state) : null;
+  const openLabel = (item: TodoItem) =>
+    sources.find((source) => source.id === item.source)?.openLabel ?? '打开原页面';
+  const filters = [
+    { value: 'all', label: '全部' },
+    ...sources.map((source) => ({ value: source.id, label: source.label })),
+    { value: 'personal', label: '个人待办' },
+  ];
   const openItem = (id: string) => {
     setDetailId(id);
     void run(() => todo.markRead(id), { failTitle: '标记已读失败' });
@@ -315,20 +326,18 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <p className="text-xs text-ink-3">
-            {state?.syncedAt
-              ? `${formatTime(new Date(state.syncedAt))}更新`
-              : state?.connected
-                ? 'Canvas 尚未同步'
-                : '连接 Canvas 后可同步作业'}
-          </p>
+          {connected && (
+            <p className="text-xs text-ink-3">
+              {syncedAt ? `${formatTime(new Date(syncedAt))}更新` : '尚未同步'}
+            </p>
+          )}
           <div className="flex gap-1">
             <Button
               size="icon-sm"
               variant="ghost"
-              aria-label="同步作业"
-              title="同步作业"
-              disabled={busy || state?.syncing || !state?.connected}
+              aria-label="同步"
+              title="同步"
+              disabled={busy || state?.syncing || !connected}
               onClick={() => void run(() => todo.refresh(), { failTitle: '同步失败' })}
             >
               <RefreshCw className={cn('size-4', state?.syncing && 'animate-spin')} />
@@ -348,13 +357,13 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
           </div>
         </div>
       </header>
-      {(error || state?.error) && (
+      {(error || syncError) && (
         <ErrorText size="sm" className="mt-3 whitespace-pre-wrap">
-          {error || state?.error}
+          {error || syncError}
         </ErrorText>
       )}
       <div className="flex flex-wrap items-center gap-2 py-4">
-        {(['all', 'canvas', 'personal'] as const).map((value) => {
+        {filters.map(({ value, label }) => {
           const count = pendingCount(value);
           return (
             <Button
@@ -364,7 +373,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
               aria-pressed={filter === value}
               onClick={() => setFilter(value)}
             >
-              {value === 'all' ? '全部' : value === 'canvas' ? 'Canvas 作业' : '个人待办'}
+              {label}
               {count > 0 && <Badge variant="count" count={count} />}
             </Button>
           );
@@ -399,7 +408,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
         ) : (
           <ul className="space-y-1">
             {items.map((item) => {
-              const done = todoCompleted(item.status);
+              const done = item.status === 'done';
               const overdue = !done && item.dueAt && Date.parse(item.dueAt) < now;
               const personal = item.source === 'personal';
               return (
@@ -452,7 +461,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
                       )}
                     </div>
                     <p className="mt-1 text-xs text-ink-3">
-                      {item.courseName ?? '个人待办'} · {todoStatusLabels[item.status]}
+                      {item.group?.label ?? '个人待办'} · {todoStatusLabel(item)}
                     </p>
                     <p className={cn('mt-1 text-xs', overdue ? 'text-danger' : 'text-ink-3')}>
                       {overdue ? '已过截止时间 · ' : ''}
@@ -526,8 +535,8 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
                           size="icon-sm"
                           variant="ghost"
                           className={rowActionClass}
-                          aria-label="在 Canvas 中打开"
-                          title="在 Canvas 中打开"
+                          aria-label={openLabel(item)}
+                          title={openLabel(item)}
                           onClick={() => openLink(item.url!)}
                         >
                           <ExternalLink className="size-4" />
@@ -556,6 +565,7 @@ export function TodoView({ target }: { target: NavTargets['todo'] }) {
             })
           }
           onOpenLink={openLink}
+          openLabel={openLabel(detail)}
         />
       )}
       {(creating || editing) && (

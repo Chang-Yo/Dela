@@ -1,5 +1,12 @@
 import { emit, hostPorts } from '../../../core/ports';
-import { getTodoState, markTodoRead, todoNotifications, type TaskNotice } from '../../todo';
+import {
+  getTodoState,
+  markTodoRead,
+  todoNotifications,
+  todoSyncedAt,
+  todoSyncError,
+  type TaskNotice,
+} from '../../todo';
 import {
   notificationsContract,
   type NotificationCategory,
@@ -158,7 +165,7 @@ export function notificationState(sources?: readonly string[]): NotificationStat
   }
   const todos = !sources || sources.includes('todo') ? todoNotifications().map(todoItem) : [];
   const todoState = getTodoState();
-  refresh.todo = { lastSuccessAt: todoState.syncedAt, error: todoState.error };
+  refresh.todo = { lastSuccessAt: todoSyncedAt(todoState), error: todoSyncError(todoState) };
   return {
     items: [...items, ...todos]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))

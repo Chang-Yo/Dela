@@ -2,7 +2,9 @@ import Database from 'better-sqlite3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../modules/todo', () => ({
-  getTodoState: () => ({ syncedAt: null, error: null }),
+  getTodoState: () => ({ items: [], sources: [], syncing: false }),
+  todoSyncedAt: () => null,
+  todoSyncError: () => null,
   todoNotifications: () => [],
   markTodoRead: vi.fn(),
 }));

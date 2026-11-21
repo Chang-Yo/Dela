@@ -27,18 +27,13 @@ const items: TodoItem[] = [
     title: '有截止日期待办',
     notes: '',
     dueAt,
-    status: 'pending',
+    status: 'open',
+    completedAt: null,
     readAt: null,
     createdAt: dueAt,
   },
 ];
-const state: TodoState = {
-  items,
-  connected: false,
-  syncing: false,
-  syncedAt: null,
-  error: null,
-};
+const state: TodoState = { items, sources: [], syncing: false };
 
 let host: HTMLDivElement;
 let root: Root;
