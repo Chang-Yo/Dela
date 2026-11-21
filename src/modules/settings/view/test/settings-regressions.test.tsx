@@ -45,7 +45,6 @@ it('登录项等待系统批准时保持关闭、说明原因，批准后可重�
   const routes: Record<string, (input: unknown) => unknown> = {
     'settings:openAtLogin': () => false,
     'settings:setOpenAtLogin': setOpenAtLogin,
-    'settings:campusNotifications': () => true,
     'settings:taskNotifications': () => ({ failed: true, completed: false }),
   };
   invoke.mockImplementation(async (channel: string, input: unknown) => routes[channel]?.(input));

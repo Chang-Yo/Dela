@@ -62,20 +62,6 @@ export function savedOpenAtLogin(): boolean {
   return openAtLoginSchema.parse(readSetting('open-at-login'));
 }
 
-const campusNotificationsSchema = z
-  .string()
-  .transform((value) => value === '1')
-  .catch(true);
-
-export function savedCampusNotifications(): boolean {
-  return campusNotificationsSchema.parse(readSetting('campus-notifications'));
-}
-
-export function setCampusNotifications(enabled: boolean): boolean {
-  writeSetting('campus-notifications', enabled ? '1' : '0');
-  return enabled;
-}
-
 const taskNotificationsDefaults: TaskNotificationPrefs = { completed: false, failed: true };
 
 export function getTaskNotificationPrefs(): TaskNotificationPrefs {

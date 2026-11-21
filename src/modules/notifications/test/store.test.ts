@@ -9,7 +9,7 @@ vi.mock('../../todo', () => ({
 }));
 vi.mock('../main/system', () => ({
   armSystemNotifications: vi.fn(),
-  showCampusNotice: vi.fn(),
+  showMessageNotice: vi.fn(),
   NOTIFICATIONS_SNOOZE_KEY: 'notifications-snoozed-until',
 }));
 

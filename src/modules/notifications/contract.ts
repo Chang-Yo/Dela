@@ -39,6 +39,9 @@ export const notificationsContract = defineContract(
     markRead: { input: z.string().min(1).max(1000), output: state },
     markAllRead: { input: sources, output: state },
     setSnooze: { input: z.string().datetime().nullable(), output: state },
+    /** 新消息的系统提醒开关；关闭只停桌面通知，应用内列表不受影响。 */
+    messageAlerts: { input: z.undefined(), output: z.boolean() },
+    setMessageAlerts: { input: z.boolean(), output: z.boolean() },
   },
   {
     state,

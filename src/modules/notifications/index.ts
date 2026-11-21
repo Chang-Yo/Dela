@@ -12,7 +12,7 @@ import {
   setNotificationSnooze,
   todoItem,
 } from './main/store';
-import { showCampusNotice } from './main/system';
+import { messageAlertsEnabled, setMessageAlerts, showMessageNotice } from './main/system';
 
 export {
   existingNotifications,
@@ -44,11 +44,13 @@ export const notificationsModule = defineModule({
     markRead: markNotificationRead,
     markAllRead: markAllNotificationsRead,
     setSnooze: setNotificationSnooze,
+    messageAlerts: messageAlertsEnabled,
+    setMessageAlerts,
   }),
   register() {
     onTaskNotice((notice) => {
       const item = todoItem(notice);
-      showCampusNotice(item.id, item.title, '', item.target);
+      showMessageNotice(item.id, item.title, '', item.target);
     });
     onTodoChange(() => void publishNotificationState());
   },

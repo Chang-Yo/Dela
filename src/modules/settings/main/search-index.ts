@@ -23,9 +23,9 @@ const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['通用', '自启动', '开机', '启动', 'login', 'auto'],
   },
   {
-    id: 'campus-notifications',
+    id: 'message-alerts',
     section: 'notifications',
-    title: '校园消息系统提醒',
+    title: '新消息提醒',
     keywords: ['通知', '提醒', '消息', '弹窗', '桌面通知', 'notify'],
   },
   {
