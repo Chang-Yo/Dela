@@ -1,5 +1,6 @@
 import { likePattern, type SearchProvider } from '../../search';
 import { hostPorts } from '../../../core/ports';
+import { searchSessionTitles } from '../../../core/agent/session/store';
 
 export const projectSearch: SearchProvider = {
   id: 'project',
@@ -28,28 +29,17 @@ export const chatSearch: SearchProvider = {
   label: '聊天对话',
   icon: 'message',
   search(query, limit) {
-    const filter = query ? "AND sessions.title LIKE ? ESCAPE '!'" : '';
-    const rows = hostPorts()
+    const project = hostPorts()
       .database()
-      .prepare(
-        `SELECT sessions.id, sessions.project_id AS projectId, sessions.title,
-           coalesce(project.name, '首页') AS projectName
-         FROM sessions LEFT JOIN workspace_entries AS project
-           ON project.id=sessions.project_id AND project.kind='project'
-         WHERE sessions.parent_id IS NULL ${filter}
-         ORDER BY sessions.updated_at DESC LIMIT ?`,
-      )
-      .all(...(query ? [likePattern(query)] : []), limit) as {
-      id: string;
-      projectId: string | null;
-      title: string;
-      projectName: string;
-    }[];
-    return rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      subtitle: row.projectName,
-      target: { page: 'chat', projectId: row.projectId, sessionId: row.id },
+      .prepare("SELECT name FROM workspace_entries WHERE id=? AND kind='project'");
+    return searchSessionTitles(query, limit).map((session) => ({
+      id: session.id,
+      title: session.title,
+      subtitle:
+        (session.projectId &&
+          (project.get(session.projectId) as { name: string } | undefined)?.name) ||
+        '首页',
+      target: { page: 'chat', projectId: session.projectId, sessionId: session.id },
     }));
   },
 };

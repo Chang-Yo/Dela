@@ -6,6 +6,7 @@ let database: DatabaseSync;
 
 vi.mock('../../../notifications', () => ({ systemNotifyToast: vi.fn() }));
 
+import { coreSchema } from '../../../../core/data/schema';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 import { systemNotifyToast } from '../../../notifications';
 import { notifyRunFinished } from '../task-notify';
@@ -19,11 +20,11 @@ provideTestHostPorts({ database: () => database as never });
 
 beforeEach(() => {
   database = new DatabaseSync(':memory:');
-  database.exec(`
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE sessions (id TEXT PRIMARY KEY, title TEXT);
-  `);
-  insert("INSERT INTO sessions VALUES ('session-1', '整理复习计划')");
+  database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);');
+  for (const table of coreSchema.tables) database.exec(table);
+  insert(
+    "INSERT INTO sessions (id, file, title, created_at, updated_at) VALUES ('session-1', '', '整理复习计划', '', '')",
+  );
   vi.mocked(systemNotifyToast).mockClear();
 });
 

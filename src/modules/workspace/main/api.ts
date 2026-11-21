@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { hostPorts, type Projects } from '../../../core/ports';
 import { remoteById, targetOf } from '../../remotes';
 import { locateRemote } from '../../../core/remote/operations';
-import { detachProjectSessions } from '../../../core/agent/session/store';
+import { detachProjectSessions, projectSessionIds } from '../../../core/agent/session/store';
 import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from './sources';
 import { availablePath, diskName } from './disk-name';
 import { officeExportPreviewInfo, officeZipMime, readOfficeExportLink } from '../../preview';
@@ -803,11 +803,7 @@ export async function removeWorkspaceEntry(value: unknown): Promise<void> {
     // 动态导入避开 agent/session → workspace/api 的环。
     const { deleteSession } = await import('../../../core/agent/session/commands');
     const { invalidateSessions } = await import('../../../core/agent/session/run');
-    const ids = hostPorts()
-      .database()
-      .prepare('SELECT id FROM sessions WHERE project_id=? AND parent_id IS NULL')
-      .all(item.id) as { id: string }[];
-    for (const row of ids) await deleteSession(row.id);
+    for (const sessionId of projectSessionIds(item.id)) await deleteSession(sessionId);
     invalidateSessions();
     hostPorts().database().prepare('DELETE FROM workspace_entries WHERE id=?').run(item.id);
     await collectWorkspaceSources();
