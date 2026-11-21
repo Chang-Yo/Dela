@@ -20,8 +20,10 @@ vi.mock('../../../../core/ports', async (importOriginal) => ({
   emit: boundary.notify,
 }));
 vi.mock('../../../../modules/settings', () => ({
-  savedVideoDownloadDirectory: () => boundary.directory,
-  setVideoDownloadDirectory: (value: string) => (boundary.directory = value),
+  readSetting: () => boundary.directory,
+  writeSetting: (_key: string, value: string) => {
+    boundary.directory = value;
+  },
 }));
 vi.mock('../../../campus', () => ({
   getCampusSession: async () => Object.assign(campus, { downloadURL: boundary.download }),

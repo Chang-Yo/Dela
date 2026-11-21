@@ -31,10 +31,8 @@ export {
   savedIcon,
   savedPendingInstall,
   savedTheme,
-  savedVideoDownloadDirectory,
   savedZoom,
   setPendingInstall,
-  setVideoDownloadDirectory,
   writeSetting,
 } from './main/prefs';
 export { applyTheme } from './main/system';

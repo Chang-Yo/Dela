@@ -130,17 +130,6 @@ export function resetKeybindingOverrides(): KeybindingOverrides {
   return { ...keybindingOverridesDefaults };
 }
 
-// 课堂视频默认下载目录：空串 = 没设过；值只来自主进程的目录选择器，不做校验。
-
-export function savedVideoDownloadDirectory(): string {
-  return readSetting('video-download-directory') ?? '';
-}
-
-export function setVideoDownloadDirectory(value: string): string {
-  writeSetting('video-download-directory', value);
-  return value;
-}
-
 // 「下次启动时提醒」标记：读到就清掉，只尝试一次，避免失败后每次启动静默重试。
 
 export function savedPendingInstall(): boolean {
