@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { defineContract } from '../../core/protocol/contract';
-import { calendarEventColors, type CalendarEventColor } from '../../modules/todo/contract';
 
 export interface TimetableLesson {
   readonly id: number;
@@ -25,18 +24,6 @@ export interface TimetableState {
   readonly semester: string;
   readonly lastSyncedAt: string | null;
   readonly semesterStart: string | null;
-}
-
-export interface CalendarEvent {
-  /** 自建事件为数据库自增 id；来自个人待办的派生事件是 `todo:{todoId}` 字符串。 */
-  readonly id: number | string;
-  readonly title: string;
-  readonly startAt: string;
-  readonly endAt: string;
-  readonly location: string | null;
-  readonly color: CalendarEventColor | null;
-  /** 非空表示这条事件由个人待办派生，值为待办 id；删除须走待办而非日历。 */
-  readonly todoId?: string;
 }
 
 export interface TimetableResult {
@@ -65,49 +52,22 @@ export const classPeriods = [
 
 export const semesterSchema = z.string().regex(/^\d{4}-\d{4}-[123]$/);
 
-export const calendarEventInput = z
-  .object({
-    title: z.string().trim().min(1).max(120),
-    startAt: z.string().datetime(),
-    endAt: z.string().datetime(),
-    location: z.string().trim().max(120).optional(),
-    color: z.enum(calendarEventColors).optional(),
-  })
-  .strict()
-  .refine(
-    (event) => Date.parse(event.endAt) > Date.parse(event.startAt),
-    '结束时间必须晚于开始时间',
-  );
-
 const result = z.custom<TimetableResult>();
 const state = z.custom<TimetableState>();
 
-export const timetableContract = defineContract(
-  'timetable',
-  {
-    state: { input: semesterSchema.optional(), output: state },
-    lessons: { input: semesterSchema.optional(), output: z.custom<TimetableLesson[]>() },
-    events: {
-      input: z.object({ startAt: z.string().datetime(), endAt: z.string().datetime() }),
-      output: z.custom<CalendarEvent[]>(),
-    },
-    createEvent: { input: calendarEventInput, output: z.custom<CalendarEvent>() },
-    deleteEvent: { input: z.number().int().positive(), output: z.void() },
-    setSemesterStart: {
-      input: z.object({
-        semester: semesterSchema,
-        value: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      }),
-      output: z.void(),
-    },
-    sync: { input: semesterSchema.optional(), output: result },
-    connect: { input: z.undefined(), output: result },
+export const timetableContract = defineContract('timetable', {
+  state: { input: semesterSchema.optional(), output: state },
+  lessons: { input: semesterSchema.optional(), output: z.custom<TimetableLesson[]>() },
+  setSemesterStart: {
+    input: z.object({
+      semester: semesterSchema,
+      value: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }),
+    output: z.void(),
   },
-  {
-    /** 日程增删后推送，各时间段的读取据此重读；Agent 的写入也走这里。 */
-    events: z.undefined(),
-  },
-);
+  sync: { input: semesterSchema.optional(), output: result },
+  connect: { input: z.undefined(), output: result },
+});
 
 declare module '../../app/module' {
   interface NavTargets {

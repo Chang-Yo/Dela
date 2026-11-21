@@ -1,13 +1,10 @@
 import { MapPin } from 'lucide-react';
-import type { CalendarEvent, TimetableLesson } from '../contract';
+import type { TimetableLesson } from '../contract';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
   blockHeights,
-  eventDayEdges,
   eventStyle,
-  formatEventRange,
   layoutDayColumns,
-  localEventsByDay,
   minuteOfDay,
   minutesToRem,
   periodBoundary,
@@ -21,9 +18,6 @@ import {
   dateKey,
   dayMilliseconds,
   eventColorStyle,
-  eventTone,
-  formatMonthDay,
-  formatTime,
   startOfDay,
   weekDays,
 } from '../../../modules/todo/view';
@@ -33,25 +27,19 @@ import { useNow } from '../../../ui/hooks/use-now';
 // 当前时间线与「今天」高亮的刷新间隔：now 仅在渲染时取值，需定期重渲染保持新鲜。
 const NOW_REFRESH_INTERVAL_MS = 60_000;
 
-export type CalendarItemDetail =
-  | { kind: 'lesson'; lesson: TimetableLesson; date: Date | null }
-  | { kind: 'event'; event: CalendarEvent }
-  | { kind: 'todo'; event: CalendarEvent };
+export type CalendarItemDetail = { lesson: TimetableLesson; date: Date | null };
 
 export function WeekCalendar({
   lessons,
-  events,
   weekStart,
   onOpen,
 }: {
   lessons: readonly TimetableLesson[];
-  events: readonly CalendarEvent[];
   weekStart: Date | null;
   onOpen: (detail: CalendarItemDetail) => void;
 }) {
   useNow(NOW_REFRESH_INTERVAL_MS);
   const timelineHeight = `${minutesToRem(timelineEnd - timelineStart)}rem`;
-  const groupedEvents = localEventsByDay(events);
   const now = new Date();
   const currentDayIndex = weekStart
     ? Math.floor((startOfDay(now).getTime() - weekStart.getTime()) / dayMilliseconds)
@@ -122,16 +110,13 @@ export function WeekCalendar({
           {weekDays.map((day, index) => {
             const date = weekStart ? addDays(weekStart, index) : null;
             const dailyLessons = lessons.filter((lesson) => lesson.weekday === index + 1);
-            const dailyEvents = date ? (groupedEvents.get(dateKey(date)) ?? []) : [];
-            // 课程与本地事件共享同一条日列，必须参与同一次并排布局，否则时间重叠时互相覆盖。
-            const layout = layoutDayColumns([
-              ...dailyLessons.map((lesson) => ({
+            const layout = layoutDayColumns(
+              dailyLessons.map((lesson) => ({
                 id: `lesson-${lesson.id}`,
                 start: periodBoundary(lesson.startPeriod, 'start'),
                 end: periodBoundary(lesson.endPeriod, 'end'),
               })),
-              ...dailyEvents.map((event) => ({ id: `event-${event.id}`, ...eventSpan(event) })),
-            ]);
+            );
             return (
               <div className="relative border-l" key={day}>
                 {dailyLessons.map((lesson) => (
@@ -140,16 +125,6 @@ export function WeekCalendar({
                     key={lesson.id}
                     layout={layout.get(`lesson-${lesson.id}`)!}
                     lesson={lesson}
-                    onOpen={onOpen}
-                  />
-                ))}
-                {dailyEvents.map((event) => (
-                  <LocalEventBlock
-                    date={date}
-                    dayIndex={index}
-                    event={event}
-                    key={event.id}
-                    layout={layout.get(`event-${event.id}`)!}
                     onOpen={onOpen}
                   />
                 ))}
@@ -170,8 +145,7 @@ export function WeekCalendar({
         {weekDays.map((day, index) => {
           const date = weekStart ? addDays(weekStart, index) : null;
           const dailyLessons = lessons.filter((lesson) => lesson.weekday === index + 1);
-          const dailyEvents = date ? (groupedEvents.get(dateKey(date)) ?? []) : [];
-          if (!dailyLessons.length && !dailyEvents.length) return null;
+          if (!dailyLessons.length) return null;
           return (
             <section className="grid gap-2" key={day}>
               <h2 className="flex items-baseline gap-2 text-sm font-semibold">
@@ -187,22 +161,12 @@ export function WeekCalendar({
                 .map((lesson) => (
                   <MobileLesson date={date} key={lesson.id} lesson={lesson} onOpen={onOpen} />
                 ))}
-              {dailyEvents.map((event) => (
-                <MobileEvent event={event} key={event.id} onOpen={onOpen} />
-              ))}
             </section>
           );
         })}
       </div>
     </div>
   );
-}
-
-function eventSpan(event: CalendarEvent): { start: number; end: number } {
-  return {
-    start: Math.max(timelineStart, minuteOfDay(new Date(event.startAt))),
-    end: Math.min(timelineEnd, minuteOfDay(new Date(event.endAt))),
-  };
 }
 
 function LessonBlock({
@@ -218,8 +182,8 @@ function LessonBlock({
 }) {
   const start = periodBoundary(lesson.startPeriod, 'start');
   const end = periodBoundary(lesson.endPeriod, 'end');
-  const open = () => onOpen({ kind: 'lesson', lesson, date });
-  // 与 LocalEventBlock 同一阈值（rem，随字号缩放）：2.75rem 起显示第二行、3.75rem 起显示节次行，
+  const open = () => onOpen({ lesson, date });
+  // 阈值用 rem 随字号缩放：2.75rem 起显示第二行、3.75rem 起显示节次行，
   // 2.25rem 的单节课块只留课程名，避免第三行被 overflow-hidden 裁半。
   const height = minutesToRem(end - start);
   const showMeta = height >= blockHeights.twoRows;
@@ -270,96 +234,6 @@ function LessonBlock({
   );
 }
 
-function LocalEventBlock({
-  date,
-  dayIndex,
-  event,
-  layout,
-  onOpen,
-}: {
-  date: Date | null;
-  dayIndex: number;
-  event: CalendarEvent;
-  layout: DayColumnLayout;
-  onOpen: (detail: CalendarItemDetail) => void;
-}) {
-  const edges = date ? eventDayEdges(event, date) : { isStart: true, isEnd: true };
-  // 参照 Google Calendar / FullCalendar 的连续条：事件真实首末日有圆角收口，
-  // 中间日两侧直边；跨过周首/周末时没有相邻的可见列，按周边缘正常收口。
-  const leftCap = edges.isStart || dayIndex === 0;
-  const rightCap = edges.isEnd || dayIndex === weekDays.length - 1;
-  // 仅独占整列时向相邻列出血连成一条；与课程并排时无法出血，退回独立胶囊。
-  const bleedLeft = !leftCap && layout.width === 100;
-  const bleedRight = !rightCap && layout.width === 100;
-  // 出血侧越过日列间 1px 分隔线，相邻两段才能无缝相接。
-  const left = bleedLeft ? -1 : `calc(${layout.left}% + 0.125rem)`;
-  const width =
-    bleedLeft && bleedRight
-      ? 'calc(100% + 1px)'
-      : bleedLeft
-        ? 'calc(100% - 1px)'
-        : bleedRight
-          ? 'calc(100% - 2px)'
-          : `calc(${layout.width}% - 0.25rem)`;
-  const start = new Date(event.startAt);
-  const end = new Date(event.endAt);
-  const span = eventSpan(event);
-  // 内容区需 2.5rem 才放得下标题与时间；2.75rem（55 分钟）起显示时间行、3.75rem（75 分钟）起显示地点行，
-  // 避免矮块文字贴底被裁切。
-  const height = minutesToRem(span.end - span.start);
-  // 时间前缀只在首段显示；跨天事件首段写全起止日期，避免“22:00–10:00”式误导。
-  const showTime = edges.isStart && height >= blockHeights.twoRows;
-  const showLocation = showTime && Boolean(event.location) && height >= blockHeights.threeRows;
-  const open = () => onOpen(event.todoId ? { kind: 'todo', event } : { kind: 'event', event });
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <article
-          className={cn(
-            'absolute z-10 cursor-pointer overflow-hidden px-2 py-1.5 outline-none focus-visible:ring-3 focus-visible:ring-accent-tint',
-            bleedLeft ? 'rounded-l-none' : 'rounded-l-card',
-            bleedRight ? 'rounded-r-none' : 'rounded-r-card',
-          )}
-          onClick={open}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              open();
-            }
-          }}
-          role="button"
-          style={{
-            ...eventTone(event.color),
-            ...eventStyle(span.start, span.end),
-            left,
-            width,
-          }}
-          tabIndex={0}
-        >
-          <strong className="block break-words text-xs font-semibold leading-tight">
-            {event.title}
-          </strong>
-          {showTime ? (
-            <span className="mt-0.5 block truncate text-xs leading-none opacity-70">
-              {edges.isEnd
-                ? `${formatTime(start)}–${formatTime(end)}`
-                : `${formatMonthDay(start)} ${formatTime(start)} – ${formatMonthDay(end)} ${formatTime(end)}`}
-            </span>
-          ) : null}
-          {showLocation ? (
-            <span className="block truncate text-xs leading-none opacity-70">{event.location}</span>
-          ) : null}
-        </article>
-      </TooltipTrigger>
-      <TooltipContent className="grid gap-0.5 px-3 py-2 text-left font-normal">
-        <strong className="font-semibold">{event.title}</strong>
-        <span>{formatEventRange(event)}</span>
-        {event.location ? <span>地点：{event.location}</span> : null}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 function MobileLesson({
   date,
   lesson,
@@ -370,7 +244,7 @@ function MobileLesson({
   onOpen: (detail: CalendarItemDetail) => void;
 }) {
   const start = periodBoundary(lesson.startPeriod, 'start');
-  const open = () => onOpen({ kind: 'lesson', lesson, date });
+  const open = () => onOpen({ lesson, date });
   return (
     <article
       className="grid cursor-pointer grid-cols-[3.375rem_1fr] overflow-hidden rounded-card p-3 outline-none focus-visible:ring-3 focus-visible:ring-accent-tint"
@@ -400,40 +274,6 @@ function MobileLesson({
           </span>
           {lesson.teacher ? <span>{lesson.teacher}</span> : null}
         </p>
-      </div>
-    </article>
-  );
-}
-
-function MobileEvent({
-  event,
-  onOpen,
-}: {
-  event: CalendarEvent;
-  onOpen: (detail: CalendarItemDetail) => void;
-}) {
-  const start = new Date(event.startAt);
-  const open = () => onOpen(event.todoId ? { kind: 'todo', event } : { kind: 'event', event });
-  return (
-    <article
-      className="grid cursor-pointer grid-cols-[3.375rem_1fr] rounded-card p-3 outline-none focus-visible:ring-3 focus-visible:ring-accent-tint"
-      onClick={open}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          open();
-        }
-      }}
-      role="button"
-      style={eventTone(event.color)}
-      tabIndex={0}
-    >
-      <div className="border-r pr-3 text-xs font-medium tabular-nums">{formatTime(start)}</div>
-      <div className="min-w-0 pl-3">
-        <strong className="block break-words">{event.title}</strong>
-        {event.location ? (
-          <span className="mt-1 block truncate text-xs opacity-70">{event.location}</span>
-        ) : null}
       </div>
     </article>
   );

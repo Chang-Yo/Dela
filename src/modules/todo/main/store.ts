@@ -3,6 +3,7 @@ import { emit, hostPorts } from '../../../core/ports';
 import {
   todoContract,
   todoSaveSchema,
+  todoTimeRange,
   type TodoGroup,
   type TodoItem,
   type TodoSaveInput,
@@ -12,7 +13,7 @@ import {
 /** 来源提供的条目：只含来源知道的内容，条目 id 由待办拼上来源与账号生成。 */
 export type SourceTask = Pick<
   TodoItem,
-  'title' | 'dueAt' | 'status' | 'statusLabel' | 'completedAt' | 'url' | 'bodyHtml' | 'createdAt'
+  'title' | 'time' | 'status' | 'statusLabel' | 'completedAt' | 'url' | 'bodyHtml' | 'createdAt'
 > & { externalId: string };
 
 /** 外部来源（如 Canvas 作业）。按分组逐个同步，一组失败不影响其他组。 */
@@ -87,13 +88,13 @@ function rows(): TodoRow[] {
     .all(...list) as TodoRow[];
 }
 
+const startsAt = (item: TodoItem) => (item.time ? todoTimeRange(item.time)[0] : Infinity);
+
 export function getTodoState(): TodoState {
   return {
     items: rows()
       .map((row) => ({ ...JSON.parse(row.data), readAt: row.read_at }) as TodoItem)
-      .sort(
-        (a, b) => (a.dueAt ?? 'z').localeCompare(b.dueAt ?? 'z') || a.title.localeCompare(b.title),
-      ),
+      .sort((a, b) => startsAt(a) - startsAt(b) || a.title.localeCompare(b.title)),
     sources: [...sources.values()].map((source) => {
       const owner = source.owner();
       const sync = owner ? syncState(source, owner) : null;
@@ -132,10 +133,9 @@ export function saveTodo(input: TodoSaveInput): TodoState {
     source: 'personal',
     title: value.title,
     notes: value.notes ?? old?.notes ?? '',
-    dueAt: value.dueAt === undefined ? (old?.dueAt ?? null) : value.dueAt,
+    time: value.time === undefined ? (old?.time ?? null) : value.time,
     status,
     completedAt: status === 'done' ? (old?.completedAt ?? now) : null,
-    calendar: value.calendar ?? old?.calendar ?? false,
     color: value.color ?? old?.color,
     createdAt: old?.createdAt ?? now,
     readAt: now,

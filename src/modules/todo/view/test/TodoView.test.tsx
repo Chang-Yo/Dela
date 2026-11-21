@@ -26,7 +26,7 @@ const items: TodoItem[] = [
     source: 'personal',
     title: '有截止日期待办',
     notes: '',
-    dueAt,
+    time: { kind: 'due', at: dueAt },
     status: 'open',
     completedAt: null,
     readAt: null,
@@ -102,6 +102,7 @@ describe('TODO 视图', () => {
 
     expect(save).toHaveBeenCalled();
     const saved = save.mock.calls[0]![0] as TodoSaveInput;
-    expect(saved.dueAt == null || Date.parse(saved.dueAt) >= Date.now()).toBe(true);
+    expect(saved.time).toMatchObject({ kind: 'due' });
+    expect(saved.time?.kind === 'due' && Date.parse(saved.time.at) >= Date.now()).toBe(true);
   });
 });

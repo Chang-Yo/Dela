@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { parseSemesterStart, parseWeekNumbers, syncTimetable } from '../api';
 import { fetchGraduateTimetable } from '../graduate';
 import { campusRequest } from '../../../campus';
-import { timetableModule } from '../..';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
 
 vi.mock('electron', () => ({
@@ -38,22 +37,6 @@ describe('parseSemesterStart', () => {
 
   it('ignores malformed dates', () => {
     expect(parseSemesterStart(['第1周', '2026-02-30'])).toBeNull();
-  });
-});
-
-describe('deleteEvent', () => {
-  it('deletes only from calendar_events with a validated id', () => {
-    const run = vi.fn();
-    const prepare = vi.fn(() => ({ run }));
-    provideTestHostPorts({ database: () => ({ prepare }) as never });
-    const deleteEvent = (id: unknown) => timetableModule.ipc!.call('deleteEvent', id);
-    deleteEvent(7);
-    expect(prepare).toHaveBeenCalledWith('DELETE FROM calendar_events WHERE id = ?');
-    expect(run).toHaveBeenCalledWith(7);
-    expect(() => deleteEvent(0)).toThrow();
-    expect(() => deleteEvent(2.5)).toThrow();
-    expect(() => deleteEvent('3')).toThrow();
-    expect(prepare).toHaveBeenCalledOnce();
   });
 });
 

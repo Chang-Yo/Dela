@@ -59,7 +59,7 @@ function shanghaiDayToUtc(date: string, edge: 'start' | 'end'): string {
 }
 
 export const queryScheduleTool = tool(
-  '查询时间范围内的课程与个人事件（只读本地缓存，按 Asia/Shanghai 展开周次）。优先传 startDate/endDate（YYYY-MM-DD，按上海时区解释为当日全天）；也可传 startAt/endAt（UTC ISO 8601）。semester 可选（格式 YYYY-YYYY-[123]），缺省按本机时钟取当前学期。学期未同步或缺学期开始日期时 coverage 带警告；课程与个人事件以 source 字段区分。',
+  '查询时间范围内的课程（只读本地缓存，按 Asia/Shanghai 展开周次）。优先传 startDate/endDate（YYYY-MM-DD，按上海时区解释为当日全天）；也可传 startAt/endAt（UTC ISO 8601）。semester 可选（格式 YYYY-YYYY-[123]），缺省按本机时钟取当前学期。学期未同步或缺学期开始日期时 coverage 带警告。个人安排不在课表里，用 query_todos 查。',
   queryScheduleInput,
   (input) => {
     const startAt =
@@ -81,11 +81,7 @@ export const queryScheduleTool = tool(
       timezone: result.timezone,
       items: result.items,
       freshness: freshness('cached', result.coverage.courseSyncedAt ?? undefined),
-      coverage: coverage(
-        `cached_lessons_and_events:${result.semester}`,
-        result.coverage.complete,
-        warnings,
-      ),
+      coverage: coverage(`cached_lessons:${result.semester}`, result.coverage.complete, warnings),
     };
   },
 );

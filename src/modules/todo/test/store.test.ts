@@ -21,7 +21,7 @@ const group = { id: '1', label: '测试课程' };
 const task = (id: number, status: TodoStatus = 'open'): SourceTask => ({
   externalId: String(id),
   title: '作业 ' + id,
-  dueAt: null,
+  time: null,
   status,
   completedAt: null,
   createdAt: '2026-09-01T00:00:00.000Z',
@@ -106,20 +106,19 @@ describe('TODO 持久化与同步', () => {
     removeTodo(saved.id);
     expect(getTodoState().items).toHaveLength(1);
   });
-  it('写入日历标记与颜色随待办保存，完成等局部更新不会丢失', () => {
-    const saved = saveTodo({
-      title: '准备报告',
-      dueAt: '2026-09-22T10:00:00.000Z',
-      calendar: true,
-      color: 'rose',
-    }).items[0]!;
-    expect(saved).toMatchObject({ calendar: true, color: 'rose' });
-    saveTodo({ id: saved.id, title: '准备报告', completed: true });
-    expect(getTodoState().items[0]).toMatchObject({
-      calendar: true,
-      color: 'rose',
-      status: 'done',
-    });
+  it('时间与颜色随待办保存，完成等局部更新不会丢失；时段不能跨天', () => {
+    const time = {
+      kind: 'span' as const,
+      start: new Date(2026, 8, 22, 9).toISOString(),
+      end: new Date(2026, 8, 22, 10).toISOString(),
+    };
+    const saved = saveTodo({ title: '组会', time, color: 'rose' }).items[0]!;
+    expect(saved).toMatchObject({ time, color: 'rose' });
+    saveTodo({ id: saved.id, title: '组会', completed: true });
+    expect(getTodoState().items[0]).toMatchObject({ time, color: 'rose', status: 'done' });
+    expect(() =>
+      saveTodo({ title: '跨天', time: { ...time, end: new Date(2026, 8, 23, 9).toISOString() } }),
+    ).toThrow();
     expect(() => saveTodo({ title: '非法颜色', color: 'nope' as 'rose' })).toThrow();
   });
   it('多个来源并存，断开一个只隐藏它自己的条目和通知', async () => {

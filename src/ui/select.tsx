@@ -2,7 +2,7 @@ import { Select as SelectPrimitive } from 'radix-ui';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import type * as React from 'react';
 import { cn } from './lib/cn';
-import { menuItem, menuPanel } from './lib/menu-styles';
+import { fieldTrigger, menuItem, menuPanel } from './lib/menu-styles';
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />;
@@ -26,7 +26,8 @@ function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        'flex h-8 w-fit min-w-0 max-w-full items-center justify-between gap-1.5 whitespace-nowrap rounded-control bg-field px-2.5 text-sm font-medium text-ink shadow-hairline outline-none transition-[background-color,box-shadow] duration-base hover:shadow-hairline-strong data-[state=open]:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50 data-[placeholder]:text-ink-3 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-3.5 *:data-[slot=select-value]:truncate',
+        fieldTrigger,
+        'data-[placeholder]:text-ink-3 *:data-[slot=select-value]:truncate',
         triggerSizes[size],
         className,
       )}

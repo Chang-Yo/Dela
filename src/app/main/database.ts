@@ -78,16 +78,6 @@ const schema: string[] = [
     note TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_timetable_lessons_semester_day ON timetable_lessons(semester, weekday, start_period)`,
-  `CREATE TABLE IF NOT EXISTS calendar_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    start_at TEXT NOT NULL,
-    end_at TEXT NOT NULL,
-    location TEXT,
-    color TEXT,
-    created_at TEXT NOT NULL
-  )`,
-  `CREATE INDEX IF NOT EXISTS idx_calendar_events_time ON calendar_events(start_at, end_at)`,
   `CREATE TABLE IF NOT EXISTS canvas_courses (
     id INTEGER PRIMARY KEY,
     data TEXT NOT NULL,
@@ -194,7 +184,7 @@ const createConsentRecords = `CREATE TABLE IF NOT EXISTS consent_records (
   accepted_at TEXT NOT NULL
 )`;
 
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export function getDatabase(): Database.Database {
   if (database) return database;

@@ -1,15 +1,12 @@
-import { useEffect, useState } from 'react';
-import type { CalendarEvent, TimetableLesson } from '../contract';
-import { activeInWeek, localEventsByDay, weekForDate } from './timetable-format';
+import type { TimetableLesson } from '../contract';
+import { activeInWeek, weekForDate } from './timetable-format';
 import {
   addDays,
   colorFor,
   dateKey,
   dayMilliseconds,
   eventColorStyle,
-  eventTone,
   formatMonthDay,
-  formatTime,
   mondayOf,
   weekDays,
 } from '../../../modules/todo/view';
@@ -17,18 +14,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
 import { cn } from '../../../ui/lib/cn';
 
 export function MonthCalendar({
-  events,
   lessons,
   month,
   semesterStart,
-  onCreate,
   onEditSemesterStart,
 }: {
-  events: readonly CalendarEvent[];
   lessons: readonly TimetableLesson[];
   month: Date;
   semesterStart: string | null;
-  onCreate: (start: Date, end?: Date) => void;
   onEditSemesterStart: () => void;
 }) {
   const first = mondayOf(new Date(month.getFullYear(), month.getMonth(), 1));
@@ -37,28 +30,6 @@ export function MonthCalendar({
     (addDays(nextMonthWeek, 7).getTime() - first.getTime()) / dayMilliseconds,
   );
   const days = Array.from({ length: dayCount }, (_, index) => addDays(first, index));
-  const groupedEvents = localEventsByDay(events);
-  const [drag, setDrag] = useState<{ start: Date; end: Date } | null>(null);
-  const dragRange = drag
-    ? [
-        drag.start.getTime() <= drag.end.getTime() ? drag.start : drag.end,
-        drag.start.getTime() <= drag.end.getTime() ? drag.end : drag.start,
-      ]
-    : null;
-
-  useEffect(() => {
-    if (!drag) return;
-    const finish = () => {
-      const [start, end] =
-        drag.start.getTime() <= drag.end.getTime()
-          ? [drag.start, drag.end]
-          : [drag.end, drag.start];
-      setDrag(null);
-      onCreate(start, end);
-    };
-    window.addEventListener('mouseup', finish);
-    return () => window.removeEventListener('mouseup', finish);
-  }, [drag, onCreate]);
 
   return (
     <div className="@container min-h-0 flex-1 overflow-auto">
@@ -92,61 +63,21 @@ export function MonthCalendar({
                   (lesson) => lesson.weekday === (date.getDay() || 7) && activeInWeek(lesson, week),
                 )
               : [];
-          const dayEvents = groupedEvents.get(dateKey(date)) ?? [];
-          const items = [
-            ...dayEvents.map((event) => ({
-              id: `event-${event.id}`,
-              title: event.title,
-              time:
-                dateKey(new Date(event.startAt)) === dateKey(date)
-                  ? // 待办块止于截止时刻，pill 上显示的是截止时间而非合成的开始时间。
-                    formatTime(new Date(event.todoId ? event.endAt : event.startAt))
-                  : null,
-              tone: eventTone(event.color),
-            })),
-            ...dayLessons.map((lesson) => ({
-              id: `lesson-${lesson.id}`,
-              title: lesson.courseName,
-              time: lesson.periodsText,
-              tone: eventColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
-            })),
-          ];
-          // 拖拽可以跨到补位的相邻日期创建，但只有当月日期参与高亮。
-          const selected =
-            !!dragRange && currentMonth && date >= dragRange[0]! && date <= dragRange[1]!;
+          const items = dayLessons.map((lesson) => ({
+            id: `lesson-${lesson.id}`,
+            title: lesson.courseName,
+            time: lesson.periodsText,
+            tone: eventColorStyle(colorFor(lesson.courseCode || lesson.courseName)),
+          }));
           return (
             <div
               aria-current={today ? 'date' : undefined}
               aria-label={`${date.getMonth() + 1}月${date.getDate()}日`}
               className={cn(
-                // 用 div + role 是为了能嵌套「更多」按钮，button 里不能再放交互元素。
-                'flex min-h-28 flex-col border-b border-line p-2 text-left transition-colors duration-base hover:bg-hover @max-[320px]:min-h-16 @max-[320px]:p-1',
-                selected && 'bg-accent-tint',
+                'flex min-h-28 flex-col border-b border-line p-2 text-left @max-[320px]:min-h-16 @max-[320px]:p-1',
                 !currentMonth && 'bg-inset text-ink-3',
               )}
               key={dateKey(date)}
-              role="button"
-              tabIndex={0}
-              onClick={(event) => {
-                // 读屏等合成的 click detail 为 0，同样只认日格自身，忽略「更多」冒泡。
-                if (event.detail === 0 && event.target === event.currentTarget) onCreate(date);
-              }}
-              onKeyDown={(event) => {
-                // 只响应日格自身的键盘激活，忽略内部「更多」按钮冒泡上来的按键。
-                if (event.target !== event.currentTarget) return;
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  onCreate(date);
-                }
-              }}
-              onMouseDown={(event) => {
-                if (event.button !== 0) return;
-                event.preventDefault();
-                setDrag({ start: date, end: date });
-              }}
-              onMouseEnter={() => {
-                if (drag) setDrag((current) => current && { ...current, end: date });
-              }}
             >
               <span
                 className={cn(
@@ -175,11 +106,7 @@ export function MonthCalendar({
                 ))}
                 {items.length > 3 ? (
                   <Popover>
-                    <PopoverTrigger
-                      className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint"
-                      // 不让「更多」上的按下冒泡成日格拖拽的起点。
-                      onMouseDown={(event) => event.stopPropagation()}
-                    >
+                    <PopoverTrigger className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint">
                       +{items.length - 3}
                       <span className="@max-[320px]:hidden"> 更多</span>
                     </PopoverTrigger>

@@ -23,7 +23,7 @@ export {
   type TaskNotice,
   type TaskSource,
 } from './main/store';
-export { todoSyncedAt, todoSyncError } from './contract';
+export { todoInRange, todoSyncedAt, todoSyncError } from './contract';
 
 const REFRESH_MS = 15 * 60_000;
 

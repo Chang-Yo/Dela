@@ -93,7 +93,7 @@ describe('dela 命令桥', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as AddressInfo;
     try {
-      for (const title of samples) await postedBody(port, `create_event '{"title":"${title}"}'`);
+      for (const title of samples) await postedBody(port, `save_todo '{"title":"${title}"}'`);
     } finally {
       server.close();
     }

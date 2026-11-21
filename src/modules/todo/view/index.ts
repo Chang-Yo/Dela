@@ -4,7 +4,6 @@ import { defineView } from '../../../app/module';
 import { markTodoRead, TodoView } from './TodoView';
 
 export { TodoView, useTodoState } from './TodoView';
-export { DateTimeStepper } from './DateTimeStepper';
 export { EventColorRow } from './EventColorRow';
 export * from './calendar';
 

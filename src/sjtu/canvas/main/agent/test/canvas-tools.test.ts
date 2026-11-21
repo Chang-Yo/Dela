@@ -8,7 +8,10 @@ vi.mock('../../api', () => ({
   syncCanvasCourse: vi.fn(),
 }));
 vi.mock('../../../../../modules/workspace', () => ({ createWorkspaceEntry: vi.fn() }));
-vi.mock('../../../../../modules/todo', () => ({ getTodoState: vi.fn() }));
+vi.mock('../../../../../modules/todo', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../../modules/todo')>()),
+  getTodoState: vi.fn(),
+}));
 vi.mock('../../actions', () => ({ publishCanvasState: vi.fn() }));
 
 import { getCanvasState, syncCanvasCourse, syncCanvasCourses } from '../../api';
@@ -169,7 +172,7 @@ describe('query_assignments', () => {
       title: '作业一',
       notes: '',
       group: { id: '1', label: '操作系统' },
-      dueAt: '2026-10-01T16:00:00.000Z',
+      time: { kind: 'due' as const, at: '2026-10-01T16:00:00.000Z' },
       status: 'done' as const,
       statusLabel: '已提交',
       completedAt: null,
