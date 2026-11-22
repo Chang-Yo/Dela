@@ -10,7 +10,7 @@ function Slider({ className, ...props }: React.ComponentProps<typeof SliderPrimi
       {...props}
     >
       <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-line-strong">
-        <SliderPrimitive.Range className="absolute h-full rounded-full bg-checked" />
+        <SliderPrimitive.Range className="absolute h-full rounded-full bg-accent" />
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
         className={cn(
