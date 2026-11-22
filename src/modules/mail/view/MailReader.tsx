@@ -1,4 +1,4 @@
-import { Paperclip, Reply, Trash2 } from 'lucide-react';
+import { ArrowLeft, Paperclip, Reply, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../../ui/button';
 import type { MailMessageDetail, MailAttachmentInfo, MailAddress } from '../contract';
@@ -129,16 +129,15 @@ export function MailReader({
 
   return (
     <section className={cn('@container flex min-h-0 min-w-0 flex-col bg-inset', className)}>
-      <button
-        className={cn(
-          'mx-4 mt-3 items-center self-start rounded-full border border-line px-3 py-1 text-xs text-ink-2 transition-colors hover:bg-hover-strong',
-          showBackButton ? 'inline-flex' : 'hidden',
-        )}
+      <Button
+        className={cn('ml-2 mt-3 self-start', !showBackButton && 'hidden')}
         onClick={() => setMobileReading(false)}
-        type="button"
+        size="sm"
+        variant="ghost"
       >
-        ← 返回列表
-      </button>
+        <ArrowLeft strokeWidth={1.8} />
+        返回列表
+      </Button>
       {detailLoading && <p className="m-auto text-sm text-ink-3">正在获取正文…</p>}
       {!detailLoading && !detail && !detailError && (
         <p className="m-auto text-sm text-ink-3">选择一封邮件查看正文</p>

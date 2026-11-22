@@ -18,14 +18,15 @@ import { InlineButton } from '../../../ui/inline-button';
 export function ListBackButton() {
   const selectList = useSelectList();
   return (
-    <button
-      className="flex items-center gap-1 self-start text-xs text-ink-3 transition-colors hover:text-ink"
+    <Button
+      className="-ml-2 self-start text-ink-3"
       onClick={() => selectList({ kind: 'latest' })}
-      type="button"
+      size="sm"
+      variant="ghost"
     >
-      <ArrowLeft className="size-4" strokeWidth={1.8} />
+      <ArrowLeft strokeWidth={1.8} />
       返回最新
-    </button>
+    </Button>
   );
 }
 

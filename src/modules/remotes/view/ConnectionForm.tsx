@@ -120,14 +120,10 @@ export function ConnectionForm({
 
   return (
     <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
-      <button
-        className="flex w-fit items-center gap-1.5 text-sm font-medium text-ink-2 transition-colors duration-base hover:text-ink"
-        onClick={onBack}
-        type="button"
-      >
-        <ArrowLeft className="size-4" />
+      <Button className="-ml-2.5 w-fit" onClick={onBack} variant="ghost">
+        <ArrowLeft />
         {connection ? `编辑 ${connection.label}` : '新建连接'}
-      </button>
+      </Button>
       <Field label="名称">
         <Input
           aria-label="连接名称"
