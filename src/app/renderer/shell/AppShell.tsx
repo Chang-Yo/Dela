@@ -27,7 +27,6 @@ import { useEditorSettings } from '../../../modules/preview/view';
 import { usePreferences } from './preferences';
 import { showToast, Toaster } from '../../../ui/toast';
 import { Lightbox } from '../../../ui/lightbox';
-import { DelaBrand } from '../../../modules/settings/view';
 import { cn } from '../../../ui/lib/cn';
 import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import type { NavTarget } from '../../module';
@@ -610,18 +609,15 @@ export function AppShell({
           style={narrow ? undefined : { width: effectiveSidebarWidth }}
         >
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
-            <div className="flex min-w-0 items-center gap-2 px-1 py-0.5">
-              <DelaBrand className="h-4.5 w-auto" />
-              <span
-                className={cn(
-                  'text-base font-semibold tracking-tight text-ink',
-                  labelFade,
-                  sidebarCollapsed && 'opacity-0',
-                )}
-              >
-                Dela
-              </span>
-            </div>
+            <span
+              className={cn(
+                'min-w-0 px-1 text-base font-semibold tracking-tight text-ink',
+                labelFade,
+                sidebarCollapsed && 'opacity-0',
+              )}
+            >
+              Dela
+            </span>
             <div className="flex-1" />
             <Button
               variant="ghost"
