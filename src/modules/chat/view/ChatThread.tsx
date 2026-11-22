@@ -10,7 +10,6 @@ import {
   NotebookPen,
   Package,
   Pencil,
-  SquareTerminal,
 } from 'lucide-react';
 import { AssistantMessage as AssistantMessageFrame } from '../../../ui/agent/assistant-message';
 import { CompactionDivider } from '../../../ui/agent/compaction-divider';
@@ -20,19 +19,18 @@ import { MessageActions } from '../../../ui/agent/message-actions';
 import { MessageChip, MessageChips } from '../../../ui/agent/message-chip';
 import { MessageComments } from '../../../ui/agent/message-comments';
 import { SystemMessage } from '../../../ui/agent/system-message';
-import { ToolStep } from '../../../ui/agent/tool-step';
 import { UserMessage as UserMessageFrame, UserMessageBubble } from '../../../ui/agent/user-message';
 import { UserMessageEditor } from '../../../ui/agent/user-message-editor';
 import { Shimmer } from '../../../ui/shimmer';
-import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../core/protocol/agent';
+import type { ChatComment, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';
 import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import type { MailDraftDialog } from './chat-source';
-import { formatDuration } from './format-duration';
 import { ReplyTrace } from './ToolTimeline';
-import { BackgroundTaskContext, TASK_STEP_STATUS, type BackgroundTaskState } from './task-run';
+import { BackgroundTaskContext, type BackgroundTaskState } from './task-run';
+import { TaskNoticeStep } from './task-step';
 import { ChatMarkdown } from './markdown';
 import { ReplyCommentLayer } from './reply-comment';
 import { fetchChatMediaPreview, getChatMediaPreview } from './media';
@@ -326,37 +324,6 @@ function AssistantMessage({
   );
 }
 
-const TASK_STATUS: Record<TaskNoticeDetails['status'], string> = {
-  completed: '已完成',
-  failed: '失败',
-  stopped: '已停止',
-};
-
-/** 后台任务结束的一行通知：主 Agent 随后据此继续；展开看带回的回复或输出末尾。 */
-function TaskNoticeMessage({ content, task }: { content: string; task: TaskNoticeDetails }) {
-  const failed = task.status === 'failed';
-  return (
-    <ToolStep
-      className="my-2"
-      icon={task.kind === 'bash' ? <SquareTerminal /> : <Bot />}
-      label={`后台${task.kind === 'bash' ? '命令' : '子 Agent '}${TASK_STATUS[task.status]}`}
-      meta={
-        failed && task.exitCode !== undefined
-          ? `退出码 ${task.exitCode}`
-          : formatDuration(task.durationMs)
-      }
-      status={TASK_STEP_STATUS[task.status]}
-      target={{ text: task.label, title: task.label, mono: task.kind === 'bash' }}
-    >
-      {content.trim() && (
-        <ChatMarkdown className="text-sm" mode="static">
-          {content}
-        </ChatMarkdown>
-      )}
-    </ToolStep>
-  );
-}
-
 export function ChatThread({
   chat,
   onOpenSource,
@@ -520,7 +487,7 @@ export function ChatThread({
               message.compacted ? (
                 <CompactionDivider key={`${chat.sessionId}:${index}`} />
               ) : message.task ? (
-                <TaskNoticeMessage
+                <TaskNoticeStep
                   content={message.content}
                   key={`${chat.sessionId}:${index}`}
                   task={message.task}

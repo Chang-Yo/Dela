@@ -98,22 +98,28 @@ function Body({ children }: { children: ReactNode }) {
   return <div className="min-w-0 space-y-1.5">{children}</div>;
 }
 
-function BashView({ result, failed }: { result: AgentToolResult; failed: boolean }) {
-  const command = inputText(result, 'command');
-  const stdout = outputText(result);
+export function BashView({
+  command,
+  output,
+  failed,
+}: {
+  command: string;
+  output: string;
+  failed: boolean;
+}) {
   const lines = [
     ...(command ? [`$ ${command.split('\n')[0]!}`, ...command.split('\n').slice(1)] : []),
-    ...(command && stdout ? [''] : []),
-    ...(stdout ? stdout.split('\n') : []),
+    ...(command && output ? [''] : []),
+    ...(output ? output.split('\n') : []),
   ];
   return (
     <Body>
       <ToolCard
         bodyClassName="max-h-64 overflow-y-auto"
-        copyText={`${command}${command && stdout ? '\n\n' : ''}${stdout}`}
+        copyText={`${command}${command && output ? '\n\n' : ''}${output}`}
         failed={failed}
         icon={<SquareTerminal aria-hidden className="size-3.5 shrink-0 text-ink-3" />}
-        title={`输出 · ${lineCount(stdout)} 行`}
+        title={output ? `输出 · ${lineCount(output)} 行` : '命令'}
       >
         <PlainLines lines={lines} />
       </ToolCard>
@@ -400,7 +406,11 @@ const toolEntries: Record<string, ToolEntry> = {
     },
     body: (result, failed) =>
       inputText(result, 'command') || outputText(result) ? (
-        <BashView failed={failed} result={result} />
+        <BashView
+          command={inputText(result, 'command')}
+          failed={failed}
+          output={outputText(result)}
+        />
       ) : null,
   },
   grep: {

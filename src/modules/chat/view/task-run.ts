@@ -41,6 +41,12 @@ export const TASK_STEP_STATUS: Record<TaskNoticeDetails['status'], ToolStepStatu
   stopped: 'interrupted',
 };
 
+export const TASK_STATUS_LABEL: Record<TaskNoticeDetails['status'], string> = {
+  completed: '已完成',
+  failed: '失败',
+  stopped: '已停止',
+};
+
 function backgroundRun(result: AgentToolResult, tasks: BackgroundTaskState): TaskRun | undefined {
   const details = result.output?.details as SubagentDetails | BackgroundBashDetails | undefined;
   if (!details?.background) return undefined;
@@ -98,8 +104,8 @@ export function taskMeta(run: TaskRun, now: number): string | undefined {
       );
     case 'ended':
       if (run.status === 'failed')
-        return run.exitCode === undefined ? '失败' : `退出码 ${run.exitCode}`;
-      if (run.status === 'stopped') return '已停止';
+        return run.exitCode === undefined ? TASK_STATUS_LABEL.failed : `退出码 ${run.exitCode}`;
+      if (run.status === 'stopped') return TASK_STATUS_LABEL.stopped;
       return run.durationMs === undefined ? undefined : formatDuration(run.durationMs);
     case 'unknown':
       return '后台 · 已结束';
