@@ -232,14 +232,14 @@ v3 把功能逐个迁入 `src/modules` 与 `src/sjtu`，全局搜索（`src/modu
 
 1. **契约**：在 `contract.ts` 中用 `defineContract` 声明通道与入参 schema，返回值用 `z.custom<T>()` 只给类型。
 2. **主进程**：在 `index.ts` 中用 `defineModule` 和 `implement` 导出模块，有表的模块同时给出 `data/schema.ts` 里的 `schema`；实现放在 `main/`。别的模块需要提供数据时，在 `index.ts` 中开注册口。
-3. **登记**：模块加进 `app/modules.ts`，契约加进 `app/contracts.ts`，删除旧的 `ipcMain.handle`、preload 文件和 `DelaApi` 字段。
+3. **登记**：模块加进 `app/modules.ts`，preload 放行的通道名单由主进程按注册的契约下发（ADR [0026](adr/0026-runtime-channel-list.md)），不另外登记；删除旧的 `ipcMain.handle`、preload 文件和 `DelaApi` 字段。
 4. **界面**：组件放在 `view/`，从 `view/index.ts` 导出。用 `createClient(contract, window.dela?.bridge)` 加 `useQuery` 取数，不写 Effect、requestId 和定时器。
 5. **跳转**：页面参数通过 `NavTargets` 接口合并登记。
 6. **测试**：主进程查询对着 `database.ts` 建出的真实表跑，不写影子 schema；UI 不写快照和样式断言。
 
 `ModuleDefinition` 除 `ipc` 外还有三个钩子：`register()` 在窗口创建前登记命令域、Skill 与各类注册口（冒烟测试同样调用）；`start()` 启动后台同步并返回停止函数；`openLink(url)` 让模块在应用内接管外部链接。
 
-交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts`、`app/views.ts`、`app/contracts.ts` 三份清单例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。CI 每次都用 `scripts/strip-sjtu.ts` 从三份清单里去掉全部交大模块，再做类型检查、构建与冒烟，守住这条边界。
+交大功能在 `src/sjtu`（canvas、shuiyuan、classroom、timetable、jwc、campus），通用代码不引用它们，只有 `app/modules.ts`、`app/views.ts` 两份清单例外。交大模块在 `register()` 里向通用模块开出的注册口登记自己：待办来源（`registerTaskSource`）、通知来源（`registerNoticeSource`）、搜索（`registerSearchProvider`）、资源读取与会话作用域、工作区资料来源与预览协议主机、凭据名称（`registerSecretLabel`）。从清单里去掉一个交大模块，应用照常启动，对应入口调用时报「该功能在当前版本中未启用」。CI 每次都用 `scripts/strip-sjtu.ts` 从两份清单里去掉全部交大模块，再做类型检查、构建与冒烟，守住这条边界。
 
 Agent 协议（`core/protocol/agent.ts`）是另一种契约：桌面界面和移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。协议里的会话类型由 schema 推导。属于桌面便利功能的通道不进协议，仍是 `session:*`、`chat:*`。生成的 JSON Schema 提交在 `core/protocol/agent.schema.json`，协议一变测试就失败：只新增时用 `pnpm test -u` 更新，删改字段要先升版本。决策见 ADR [0004](adr/0004-agent-protocol.md)、[0015](adr/0015-agent-protocol-v1.md)。
 

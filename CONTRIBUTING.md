@@ -163,7 +163,6 @@ Dela/
 │  └─ app/                    宿主与外壳
 │     ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
 │     ├─ modules.ts           主进程模块清单
-│     ├─ contracts.ts         IPC 契约清单
 │     ├─ views.ts             渲染端视图清单
 │     ├─ main/                Electron 入口、数据库与迁移、IPC 注册与宿主端口实现
 │     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
