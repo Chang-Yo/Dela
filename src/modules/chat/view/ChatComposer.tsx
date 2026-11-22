@@ -65,14 +65,6 @@ import {
 } from './client';
 import { errorMessage } from '../../../core/protocol/contract';
 
-const builtinCommands = [
-  { name: '日程', prompt: '帮我查看本周的日程安排', hint: '课程与个人事件' },
-  { name: '作业', prompt: '帮我查询即将截止的作业，按课程整理', hint: 'Canvas 截止时间' },
-  { name: '邮件', prompt: '帮我查找最近的未读邮件', hint: '已缓存的邮件' },
-  { name: '资料', prompt: '帮我在课程资料中查找相关文件', hint: '搜索并读取资料' },
-  { name: '整理', prompt: '帮我把引用资料里的要点整理成一份笔记', hint: '生成并保存笔记' },
-];
-
 type MenuState = { kind: 'slash' | 'mention' | 'session'; query: string; start: number } | null;
 
 /** 检测光标前的 /、@ 或 # 触发词；单独输入也打开候选（空查询）。「# 」是 Markdown 标题，不触发。 */
@@ -223,7 +215,6 @@ export function ChatComposer({
   const slashItems =
     menu?.kind === 'slash'
       ? [
-          ...builtinCommands,
           ...(customCommands ?? []).map((command) => ({ ...command, hint: '自定义' })),
           // Dela 的会话命令：插入 `/name ` 留给参数，发送时由 use-chat 拦下执行。
           // 旁问里没有会话命令：发出去就是普通提问。
