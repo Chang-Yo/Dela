@@ -259,6 +259,11 @@ export interface SubagentDetails {
   background?: true;
 }
 
+export interface BackgroundBashDetails {
+  taskId: string;
+  background: true;
+}
+
 /** Dela 自己实现的会话命令（对应 Pi 终端界面的同名命令）：输入以它们开头时不发给模型，
  * 优先级 Dela 命令 > 扩展命令 > 提示模板 > 普通消息。 */
 export const SESSION_COMMANDS = [

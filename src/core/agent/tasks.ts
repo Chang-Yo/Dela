@@ -14,7 +14,12 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { finished } from 'node:stream/promises';
 import type { ToolDefinition, getShellConfig } from '@earendil-works/pi-coding-agent';
-import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../protocol/agent';
+import type {
+  BackgroundBashDetails,
+  BackgroundTaskView,
+  TaskNoticeDetails,
+  TaskStatus,
+} from '../protocol/agent';
 import type { RemoteBackend } from '../remote/operations';
 import { loadPi } from './pi';
 import { hostPorts } from '../ports';
@@ -350,7 +355,10 @@ export async function backgroundTools(
           ? (command, options) => remote.runInBackground(command, cwd, options)
           : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
         const id = startBash(parent, params.command, params.timeout, run);
-        return text(`已在后台运行（taskId: ${id}）。结束时会自动通知你，不需要轮询。`);
+        return {
+          ...text(`已在后台运行（taskId: ${id}）。结束时会自动通知你，不需要轮询。`),
+          details: { taskId: id, background: true } satisfies BackgroundBashDetails,
+        };
       },
     } as ToolDefinition,
     {

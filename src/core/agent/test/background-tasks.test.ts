@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { BackgroundBashDetails } from '../../protocol/agent';
 import type { HelperExecOptions, HelperExecResult } from '../../remote/helper';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-remote-tasks-'));
@@ -52,7 +53,7 @@ const lastExec = async () => {
   return helper.execs.at(-1)!;
 };
 const start = async (command: string) =>
-  /taskId: ([\w-]+)/.exec(textOf(await call('bash', { command, background: true })))![1]!;
+  ((await call('bash', { command, background: true })).details as BackgroundBashDetails).taskId;
 
 beforeEach(async () => {
   helper.execs.length = 0;
