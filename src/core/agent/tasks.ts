@@ -34,7 +34,7 @@ export interface TaskNotice {
 export interface TaskParent {
   id: string;
   publish(): void;
-  deliver(notice: TaskNotice, wake: boolean): Promise<void>;
+  deliver(notice: TaskNotice): Promise<void>;
 }
 
 export interface TaskOutcome {
@@ -98,7 +98,7 @@ export function trackTask(
         if (entry.stoppedBy === 'session') return;
         entry.parent.publish();
         void entry.parent
-          .deliver(notice(entry), entry.stoppedBy !== 'user')
+          .deliver(notice(entry))
           .catch((error: unknown) => console.error('后台任务通知投递失败', error));
       }),
   };
@@ -158,7 +158,7 @@ function notice(task: BackgroundTask): TaskNotice {
       : `来源：子 Agent\n任务：${task.label}`,
     `状态：${statusText(outcome)}`,
     `用时：${(durationMs / 1000).toFixed(1)} 秒`,
-    ...(task.stoppedBy === 'user' ? ['用户在后台任务面板上手动停止了它。'] : []),
+    ...(task.stoppedBy === 'user' ? ['用户手动停止了它。'] : []),
     ...(task.kind === 'bash' ? (tail ? ['输出末尾：'] : []) : outcome.reply ? ['最终回复：'] : []),
     '',
   ].join('\n');

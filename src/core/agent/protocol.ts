@@ -20,7 +20,7 @@ import {
 import { askSession, cancelRun, withdrawQueued } from './session/run';
 import { listSessions } from './session/store';
 import { askSidechat, cancelSidechat, closeSidechat, keepSidechat, openSidechat } from './sidechat';
-import { stopUserTask } from './tasks';
+import { stopTask, stopUserTask, taskRunning } from './tasks';
 
 export const agentProtocol = implement(agentContract, {
   handshake: ({ protocolVersion }) => {
@@ -34,7 +34,12 @@ export const agentProtocol = implement(agentContract, {
   'create-session': ({ projectId }) => newSession(projectId),
   'open-session': ({ sessionId }) => openSession(sessionId),
   ask: ({ sessionId, ...input }) => askSession(sessionId, input),
-  'cancel-run': ({ sessionId }) => cancelRun(sessionId),
+  // 后台子 Agent 的会话页停止与任务面板一样，记为用户停止。
+  'cancel-run': ({ sessionId }) => {
+    if (!taskRunning(sessionId)) return cancelRun(sessionId);
+    stopTask(sessionId, 'user');
+    return null;
+  },
   'withdraw-queued': ({ sessionId }) => withdrawQueued(sessionId),
   'stop-task': ({ sessionId, taskId }) => stopUserTask(sessionId, taskId),
   fork: ({ sessionId, entryId }) => forkSession(sessionId, entryId),

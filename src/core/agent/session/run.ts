@@ -58,7 +58,7 @@ export async function ensureLive(id: string): Promise<Live> {
   const parent: TaskParent = {
     id,
     publish: () => publish(id),
-    deliver: (notice, wake) => deliverTaskNotice(id, notice, wake),
+    deliver: (notice) => deliverTaskNotice(id, notice, true),
   };
   const session = await openPiSession({
     cwd,
@@ -292,7 +292,7 @@ function undeliveredNotices(entry: Live, run: Run): TaskNotice[] {
   return run.notices.filter((notice) => !delivered.has(notice.details.noticeId));
 }
 
-/** 后台任务结束的通知：运行中插进本轮，收尾中等它结束，空闲时开新一轮；wake=false（用户手动停止）只追加记录。 */
+/** 后台任务结束的通知：运行中插进本轮，收尾中等它结束，空闲时开新一轮；wake=false（用户停止了本轮）只追加记录。 */
 async function deliverTaskNotice(id: string, notice: TaskNotice, wake: boolean): Promise<void> {
   const entry = await ensureLive(id);
   if (!wake) {

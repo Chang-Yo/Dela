@@ -1,5 +1,5 @@
 // 后台 bash：真实进程，父会话的通知投递换成记录。成功、失败、长输出、停止（连同子进程），
-// 以及用户手动停止只追加不唤醒、归档删除时不投递。
+// 以及用户手动停止时通知里注明、归档删除时不投递。
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +7,7 @@ import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 const root = mkdtempSync(join(tmpdir(), 'dela-tasks-'));
-const delivered: { parentId: string; notice: TaskNotice; wake: boolean }[] = [];
+const delivered: { parentId: string; notice: TaskNotice }[] = [];
 vi.mock('electron', () => ({
   app: { getPath: () => root, isPackaged: false, getAppPath: () => root },
 }));
@@ -25,8 +25,8 @@ import {
 const parent = (parentId: string): TaskParent => ({
   id: parentId,
   publish: () => {},
-  deliver: async (notice, wake) => {
-    delivered.push({ parentId, notice, wake });
+  deliver: async (notice) => {
+    delivered.push({ parentId, notice });
   },
 });
 
@@ -63,9 +63,8 @@ it('不带 background 时就是内置 bash；带上时立即返回，结束后�
   expect(await call('bash', { command: 'echo 前台' })).toContain('前台');
   const taskId = await start('sleep 0.2; echo 后台完成');
   expect(delivered).toHaveLength(0);
-  const { parentId, notice, wake } = await noticeOf(taskId);
+  const { parentId, notice } = await noticeOf(taskId);
   expect(parentId).toBe('parent');
-  expect(wake).toBe(true);
   expect(notice.details).toMatchObject({
     kind: 'bash',
     status: 'completed',
@@ -107,19 +106,17 @@ it('task_stop 连同子进程一起结束，记为停止并照常投递', async 
   const taskId = await start(`(sleep 1; echo > '${marker}') & sleep 30; wait`);
   await new Promise((resolve) => setTimeout(resolve, 300));
   expect(await call('task_stop', { taskId })).toContain('已停止');
-  const { notice, wake } = await noticeOf(taskId);
+  const { notice } = await noticeOf(taskId);
   expect(notice.details.status).toBe('stopped');
-  expect(wake).toBe(true);
   expect(await call('task_stop', { taskId })).toContain('任务已经结束');
   await new Promise((resolve) => setTimeout(resolve, 1500));
   expect(existsSync(marker)).toBe(false);
 }, 15_000);
 
-it('用户在面板上手动停止只追加通知、不唤醒；归档删除时结束任务且不投递', async () => {
+it('用户手动停止照常投递并在通知里注明；归档删除时结束任务且不投递', async () => {
   const manual = await start('sleep 30');
   stopTask(manual, 'user');
-  const { notice, wake } = await noticeOf(manual);
-  expect(wake).toBe(false);
+  const { notice } = await noticeOf(manual);
   expect(notice.text).toContain('手动停止');
 
   const silent = await start('sleep 30');
