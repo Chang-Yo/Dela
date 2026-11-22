@@ -229,17 +229,19 @@ export function PdfReader({
         >
           <Minus />
         </Button>
-        <button
+        <Button
           title="重置缩放到 100%"
           aria-label="重置缩放到 100%"
           disabled={!pageCount}
-          className="rounded-control px-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="tabular-nums"
           onClick={() => {
             if (viewer.current) viewer.current.currentScaleValue = '1';
           }}
+          size="sm"
+          variant="ghost"
         >
           {Math.round(zoom * 100)}%
-        </button>
+        </Button>
         <Button
           size="icon-sm"
           variant="ghost"

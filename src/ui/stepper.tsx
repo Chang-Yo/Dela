@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentProps } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from './button';
 import { cn } from './lib/cn';
 
 type HoldPhase = 'idle' | 'waiting' | 'repeating';
@@ -94,8 +95,6 @@ function Stepper({
 }) {
   const increase = useHoldRepeat(() => onStep(1), canIncrease);
   const decrease = useHoldRepeat(() => onStep(-1), canDecrease);
-  const buttonClass =
-    'grid size-7 place-items-center rounded-control text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent select-none disabled:pointer-events-none disabled:opacity-40';
   return (
     <div
       aria-label={label}
@@ -104,15 +103,15 @@ function Stepper({
       role="group"
       {...props}
     >
-      <button
+      <Button
         aria-label={`减少${label}`}
-        className={buttonClass}
         disabled={!canDecrease}
-        type="button"
+        size="icon-sm"
+        variant="ghost"
         {...decrease}
       >
         <ChevronLeft className="size-3.5" strokeWidth={1.8} />
-      </button>
+      </Button>
       {input ? (
         <StepperInput
           label={label}
@@ -127,15 +126,15 @@ function Stepper({
           {display}
         </span>
       )}
-      <button
+      <Button
         aria-label={`增加${label}`}
-        className={buttonClass}
         disabled={!canIncrease}
-        type="button"
+        size="icon-sm"
+        variant="ghost"
         {...increase}
       >
         <ChevronRight className="size-3.5" strokeWidth={1.8} />
-      </button>
+      </Button>
     </div>
   );
 }

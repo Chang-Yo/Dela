@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { Button } from '../button';
 import { cn } from '../lib/cn';
 
 function CommentFloat({
@@ -21,15 +22,13 @@ function CommentFloat({
 
 function CommentFloatAction({ className, ...props }: ComponentProps<'button'>) {
   return (
-    <button
-      className={cn(
-        'flex h-7 select-none items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-xs font-medium text-ink-2 transition-colors duration-fast hover:bg-hover hover:text-ink [&_svg]:size-3.5',
-        className,
-      )}
+    <Button
+      className={cn('select-none px-2 [&_svg]:size-3.5', className)}
       data-slot="comment-float-action"
       // 不抢焦点、不清选区：点下去之前选中的文字保持原样。
       onPointerDown={(event) => event.preventDefault()}
-      type="button"
+      size="sm"
+      variant="ghost"
       {...props}
     />
   );

@@ -705,10 +705,11 @@ function DesktopMailView({
                       {new Date(item.updatedAt).toLocaleString('zh-CN')}
                     </span>
                   </button>
-                  <button
+                  <Button
                     aria-label="删除草稿"
                     title="删除草稿"
-                    className="rounded p-2 hover:bg-hover-strong"
+                    size="icon-md"
+                    variant="ghost"
                     onClick={() => {
                       if (!window.confirm('删除这份本地草稿？')) return;
                       void mailClient
@@ -728,8 +729,8 @@ function DesktopMailView({
                         );
                     }}
                   >
-                    <Trash2 className="size-4" />
-                  </button>
+                    <Trash2 />
+                  </Button>
                 </div>
               ))}
             </div>

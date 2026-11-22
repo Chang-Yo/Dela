@@ -544,19 +544,20 @@ export function ChatThread({
         </div>
       </div>
       {!atBottom && messages.length > 0 && (
-        <button
+        <Button
           aria-label="回到底部"
-          className="absolute bottom-3 left-1/2 z-10 grid size-8 -translate-x-1/2 place-items-center rounded-full border border-line bg-surface text-ink-2 shadow-raised transition-colors hover:bg-hover-strong hover:text-ink"
+          className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full text-ink-2 shadow-raised"
           onClick={() => {
             followBottom.current = true;
             const el = scrollRef.current;
             const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             el?.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
           }}
-          type="button"
+          size="icon-md"
+          variant="outline"
         >
           <ArrowDown className="size-4" strokeWidth={1.8} />
-        </button>
+        </Button>
       )}
       {replyDraftKey && (
         <ReplyCommentLayer draftKey={replyDraftKey} onSidechat={onSidechat} scrollRef={scrollRef} />

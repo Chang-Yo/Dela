@@ -94,13 +94,11 @@ function PromptInputToolbar({ className, ...props }: ComponentProps<'div'>) {
 
 function PromptInputTrigger({ className, ...props }: ComponentProps<'button'>) {
   return (
-    <button
-      className={cn(
-        'flex h-7 min-w-0 shrink items-center gap-1 rounded-control px-1.5 text-xs font-medium text-ink-2 transition-colors duration-base hover:bg-hover hover:text-ink',
-        className,
-      )}
+    <Button
+      className={cn('min-w-0 shrink gap-1 px-1.5', className)}
       data-slot="prompt-input-trigger"
-      type="button"
+      size="sm"
+      variant="ghost"
       {...props}
     />
   );

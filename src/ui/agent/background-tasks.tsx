@@ -24,16 +24,17 @@ function BackgroundTasks({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
+        <Button
           aria-label={`后台任务（${tasks.length} 个运行中）`}
-          className="flex h-7 shrink-0 items-center gap-1 rounded-control px-1.5 text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink"
+          className="gap-1 text-ink-3"
           data-slot="background-tasks"
+          size="sm"
           title="后台任务"
-          type="button"
+          variant="ghost"
         >
           <Layers className="size-4" />
           <span className="text-xs tabular-nums">{tasks.length}</span>
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="end" aria-label="后台任务" className="w-72" side="top">
         <BackgroundTasksList tasks={tasks} {...actions} />
