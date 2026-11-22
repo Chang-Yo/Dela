@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
 }));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 
-import { locateBash } from '../../../modules/terminal';
+import { testBash } from '../../test/bash';
 import {
   backgroundTools,
   stopSessionTasks,
@@ -30,7 +30,7 @@ const parent = (parentId: string): TaskParent => ({
   },
 });
 
-const shell = locateBash();
+const shell = testBash();
 let tools: ToolDefinition[];
 const tool = (name: string) => tools.find((item) => item.name === name)!;
 const textOf = (result: { content: { type: string; text?: string }[] }) =>

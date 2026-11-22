@@ -25,7 +25,7 @@ vi.mock('electron', () => ({
   shell: { openExternal: vi.fn() },
 }));
 vi.mock('../../../../core/ports', () => ({ emit: vi.fn() }));
-vi.mock('../../../settings', () => ({
+vi.mock('../pending', () => ({
   savedPendingInstall: () => mocks.pendingInstall,
   setPendingInstall: mocks.setPendingInstall,
 }));

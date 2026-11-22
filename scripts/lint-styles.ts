@@ -30,8 +30,12 @@ const rules: Record<string, RegExp> = {
     'g',
   ),
 };
-// token 定义本身，以及给 streamdown 的 shadcn 兼容名。
-const tokenFiles = new Set(['src/ui/tokens.css', 'src/app/renderer/styles/globals.css']);
+// token 定义本身（含应用调色板），以及给 streamdown 的 shadcn 兼容名。
+const tokenFiles = new Set([
+  'src/ui/tokens.css',
+  'src/app/renderer/styles/palette.css',
+  'src/app/renderer/styles/globals.css',
+]);
 
 function* sourceFiles(dir: string): Generator<string> {
   for (const name of readdirSync(dir)) {

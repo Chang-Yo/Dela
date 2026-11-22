@@ -36,7 +36,7 @@ vi.mock('electron-updater', () => ({
   },
 }));
 vi.mock('../../../../core/ports', () => ({ emit: vi.fn() }));
-vi.mock('../../../settings', () => ({
+vi.mock('../pending', () => ({
   savedPendingInstall: () => false,
   setPendingInstall: mocks.setPendingInstall,
 }));

@@ -257,10 +257,6 @@
 
   /* 不随主题变化：外部文档（邮件正文、网页预览）的白底。 */
   --color-paper: oklch(1 0 0);
-  --color-window-close: #e81123;
-  --color-alipay: #1677ff;
-  --color-wechat: #07c160;
-  --font-script: Italianno, cursive;
 }
 
 @theme {

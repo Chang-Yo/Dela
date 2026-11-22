@@ -7,11 +7,16 @@ import type { ModuleDefinition } from '../module';
 
 let database: Database.Database | null = null;
 
-/** 宿主自己的表：各模块共用的设置键值，新键以模块 id 开头。 */
+/** 宿主自己的表：各方共用的设置键值，同一个键只归一方（scripts/lint-tables.ts）。 */
 const hostSchema: Schema = {
   tables: [
     `CREATE TABLE IF NOT EXISTS workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
   ],
+  migrations: {
+    '20261121-rename-storage-directory': (db) => {
+      db.exec("UPDATE workspace_settings SET key='storage-directory' WHERE key='directory'");
+    },
+  },
 };
 
 /** 18 起表结构由 schema_migrations 记账；更早的库先经 migrations/ 的旧版过渡。 */

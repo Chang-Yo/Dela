@@ -25,7 +25,7 @@ vi.mock('../environment', () => ({
     sessionOptions: async () => ({
       appendSystemPrompt: [],
       customTools: [],
-      shellPath: locateBash(),
+      shellPath: testBash(),
       skillPaths: [],
       globalSkillDirs: [],
       disabledSkills: new Set(),
@@ -40,7 +40,7 @@ import { sessionBranch, sessionRunning } from '../session/live';
 import { askSession, cancelRun, shutdownSessions } from '../session/run';
 import { preloadPi } from '../session/store';
 import { sessionTurns } from '../session-read';
-import { locateBash } from '../../../modules/terminal';
+import { testBash } from '../../test/bash';
 import { provideTestHostPorts } from '../../test/host-mock';
 import {
   askInput as input,
@@ -50,7 +50,7 @@ import {
   stopMockModel,
 } from '../../test/mock-model';
 
-provideTestHostPorts({ database: () => state.db!, paths: { bash: locateBash } });
+provideTestHostPorts({ database: () => state.db!, paths: { bash: testBash } });
 
 const backgroundBash = (command: string) => ({
   kind: 'sse' as const,

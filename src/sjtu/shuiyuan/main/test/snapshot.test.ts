@@ -54,6 +54,9 @@ vi.mock('../budget', () => ({
 
 import { nativeImage, safeStorage } from 'electron';
 import { systemNotifyToast } from '../../../../modules/notifications';
+import { remotesModule } from '../../../../modules/remotes';
+import { workspaceModule } from '../../../../modules/workspace';
+import { shuiyuanSchema } from '../../data/schema';
 import { getShuiyuanTopic, loadShuiyuanPosts } from '../api';
 import { collectShuiyuanSnapshots, queueShuiyuanSnapshot } from '../snapshot';
 import {
@@ -121,12 +124,17 @@ async function saved(topicId = 42): Promise<string> {
 beforeEach(() => {
   userData = mkdtempSync(join(tmpdir(), 'dela-snapshot-'));
   db = new Database(':memory:');
+  for (const table of [
+    ...shuiyuanSchema.tables,
+    ...remotesModule.schema!.tables,
+    ...workspaceModule.schema!.tables,
+  ])
+    db.exec(table);
   db.exec(`
-    CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, kind TEXT NOT NULL, source_id TEXT);
-    CREATE TABLE shuiyuan_topics (topic_id INTEGER PRIMARY KEY, title TEXT NOT NULL,
-      snapshot_status TEXT, snapshot_at TEXT, snapshot_error TEXT);
-    INSERT INTO shuiyuan_topics (topic_id, title) VALUES (42, '长帖');
-    INSERT INTO workspace_entries VALUES ('e1', 'source', 'shuiyuan-topic:42');
+    INSERT INTO shuiyuan_topics (topic_id, title, url, added_at)
+      VALUES (42, '长帖', 'https://shuiyuan.sjtu.edu.cn/t/42', 'now');
+    INSERT INTO workspace_entries (id, name, kind, source_id, updated_at)
+      VALUES ('e1', '长帖', 'source', 'shuiyuan-topic:42', 'now');
   `);
   provideTestHostPorts({ database: () => db });
   fetch = vi.fn(async () => image());

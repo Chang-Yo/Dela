@@ -2,6 +2,7 @@
 @import 'streamdown/styles.css';
 @import '../../../ui/tokens.css';
 @import '../../../ui/base.css';
+@import './palette.css';
 @source '../../../../node_modules/streamdown/dist/*.js';
 @source '../../../modules';
 @source '../../../sjtu';

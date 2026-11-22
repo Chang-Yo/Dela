@@ -25,6 +25,7 @@ export interface Paths {
   documents(): string;
   temp(): string;
   storage(): string;
+  setStorage(path: string): void;
   bundled(name: BundledResource): string;
   bash(): string;
 }

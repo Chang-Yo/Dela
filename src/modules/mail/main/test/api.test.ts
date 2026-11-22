@@ -21,6 +21,7 @@ import {
 } from '../api';
 import { mailSyncStatus } from '../sync';
 import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import { mailSchema } from '../../data/schema';
 import { loadMailCredentials } from '../credentials';
 import { storedMailServer } from '../server';
 
@@ -131,55 +132,8 @@ describe('mail MIME rendering', () => {
 function createMailDb(): Database.Database {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
-  db.exec(`
-    CREATE TABLE mail_accounts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      address TEXT NOT NULL UNIQUE,
-      imap_host TEXT NOT NULL,
-      imap_port INTEGER NOT NULL,
-      smtp_host TEXT,
-      smtp_port INTEGER,
-      created_at TEXT NOT NULL,
-      last_synced_at TEXT
-    );
-    CREATE TABLE mail_folders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      account_id INTEGER NOT NULL REFERENCES mail_accounts(id) ON DELETE CASCADE,
-      path TEXT NOT NULL,
-      name TEXT NOT NULL,
-      special_use TEXT,
-      uid_validity TEXT,
-      total INTEGER,
-      unread INTEGER,
-      synced_at TEXT,
-      UNIQUE(account_id, path)
-    );
-    CREATE TABLE mail_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      folder_id INTEGER NOT NULL REFERENCES mail_folders(id) ON DELETE CASCADE,
-      uid INTEGER NOT NULL,
-      message_id TEXT,
-      subject TEXT,
-      sender_name TEXT,
-      sender_address TEXT,
-      to_addresses TEXT,
-      cc_addresses TEXT,
-      date TEXT,
-      seen INTEGER NOT NULL DEFAULT 0,
-      flagged INTEGER NOT NULL DEFAULT 0,
-      has_attachments INTEGER NOT NULL DEFAULT 0,
-      snippet TEXT,
-      body_text TEXT,
-      body_html TEXT,
-      attachments TEXT,
-      size INTEGER,
-      fetched_at TEXT,
-      body_version INTEGER NOT NULL DEFAULT 0,
-      deleted_at TEXT,
-      UNIQUE(folder_id, uid)
-    );
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-  `);
+  for (const table of mailSchema.tables) db.exec(table);
+  db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
   db.prepare(
     'INSERT INTO mail_accounts (address, imap_host, imap_port, smtp_host, smtp_port, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(

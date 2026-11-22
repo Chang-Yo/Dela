@@ -20,6 +20,7 @@ const testPorts: HostPorts = {
     documents: () => scratch,
     temp: () => scratch,
     storage: () => scratch,
+    setStorage: () => {},
     bundled: (name) => resolve(bundledInRepo[name]),
     bash: () => 'bash',
   },
