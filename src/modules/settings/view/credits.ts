@@ -11,6 +11,7 @@ import sbsjkmAvatar from '../../../../assets/credits/sbsjkm/avatar.jpg';
 import slayerwaltAvatar from '../../../../assets/credits/slayerwalt/avatar.jpg';
 import aletheiarAvatar from '../../../../assets/credits/aletheiar/avatar.png';
 import yixuanwang4Avatar from '../../../../assets/credits/yixuanwang4/avatar.png';
+import hojicha333Avatar from '../../../../assets/credits/hojicha333/avatar.png';
 import frameneoLogoBlack from '../../../../assets/sponsors/FRAMENEO_logo_black.png';
 import frameneoLogoWhite from '../../../../assets/sponsors/FRAMENEO_logo_white.png';
 
@@ -118,6 +119,11 @@ export const creditSections: CreditSection[] = [
       {
         name: 'YixuanWang4',
         avatar: yixuanwang4Avatar,
+      },
+      {
+        name: 'hojicha333',
+        avatar: hojicha333Avatar,
+        links: [{ kind: 'github', url: 'https://github.com/hojicha333' }],
       },
     ],
   },
