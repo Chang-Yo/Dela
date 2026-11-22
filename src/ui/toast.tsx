@@ -1,5 +1,3 @@
-'use client';
-
 import { CircleAlert, CircleCheck, Sparkles, X, type LucideIcon } from 'lucide-react';
 import { Toast as ToastPrimitive } from 'radix-ui';
 import type { ReactNode } from 'react';

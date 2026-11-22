@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, type ComponentProps } from 'react';
 import { Card } from '../card';
 import { cn } from '../lib/cn';

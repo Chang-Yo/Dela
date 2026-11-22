@@ -1,5 +1,3 @@
-'use client';
-
 import { Button } from '../button';
 import { cn } from '../lib/cn';
 import { Popover, PopoverContent, PopoverTrigger } from '../popover';

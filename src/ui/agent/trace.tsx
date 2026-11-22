@@ -1,5 +1,3 @@
-'use client';
-
 import { Fragment, useState, type ComponentProps, type ReactNode } from 'react';
 import { cn } from '../lib/cn';
 import { Collapsible, CollapsibleChevron } from '../collapsible';

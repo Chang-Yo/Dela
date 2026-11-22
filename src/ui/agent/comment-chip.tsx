@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, type ComponentProps } from 'react';
 import { TextQuote, X } from 'lucide-react';
 import { Button } from '../button';
