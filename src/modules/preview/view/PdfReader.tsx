@@ -13,6 +13,7 @@ import { Button } from '../../../ui/button';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
+import { InlineButton } from '../../../ui/inline-button';
 
 declare const __PDF_ASSET_DIR__: string;
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -274,8 +275,8 @@ export function PdfReader({
         {error && (
           <ErrorText size="sm" className="absolute inset-x-0 top-0 bg-surface p-3">
             PDF 打开失败：{error}
-            <button
-              className="ml-2 underline"
+            <InlineButton
+              className="ml-2"
               onClick={() => {
                 setPageCount(0);
                 setError('');
@@ -283,7 +284,7 @@ export function PdfReader({
               }}
             >
               重试
-            </button>
+            </InlineButton>
           </ErrorText>
         )}
         {!pageCount && !error && (

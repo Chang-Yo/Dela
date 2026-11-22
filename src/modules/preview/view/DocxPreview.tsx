@@ -5,6 +5,7 @@ import { Button } from '../../../ui/button';
 import { pinchZoomRef } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
+import { InlineButton } from '../../../ui/inline-button';
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
@@ -85,9 +86,9 @@ export function DocxPreview({ url }: { url: string }) {
         {error && (
           <ErrorText size="sm" className="absolute inset-x-0 top-0 bg-surface p-3">
             文档打开失败：{error}
-            <button className="ml-2 underline" onClick={() => setAttempt((value) => value + 1)}>
+            <InlineButton className="ml-2" onClick={() => setAttempt((value) => value + 1)}>
               重试
-            </button>
+            </InlineButton>
           </ErrorText>
         )}
         {loading && !error && (

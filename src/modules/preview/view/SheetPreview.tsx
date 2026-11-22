@@ -6,6 +6,7 @@ import { Button } from '../../../ui/button';
 import { pinchZoomRef } from './use-pinch-zoom';
 import { ErrorText } from '../../../ui/error-text';
 import { errorMessage } from '../../../core/protocol/contract';
+import { InlineButton } from '../../../ui/inline-button';
 
 const SHEET_ROW_LIMIT = 2000;
 const MIN_ZOOM = 0.5;
@@ -121,9 +122,9 @@ export function SheetPreview({ url }: { url: string }) {
         {error && (
           <ErrorText size="sm" className="absolute inset-x-0 top-0 bg-surface p-3">
             表格打开失败：{error}
-            <button className="ml-2 underline" onClick={() => void workbook.refetch()}>
+            <InlineButton className="ml-2" onClick={() => void workbook.refetch()}>
               重试
-            </button>
+            </InlineButton>
           </ErrorText>
         )}
         {!loaded && !error && (

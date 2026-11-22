@@ -13,6 +13,7 @@ import {
 } from './use-shuiyuan';
 import { describeNotification, formatListDate } from './shuiyuan-format';
 import { Alert } from '../../../ui/alert';
+import { InlineButton } from '../../../ui/inline-button';
 
 export function ListBackButton() {
   const selectList = useSelectList();
@@ -62,15 +63,7 @@ export function BookmarkList() {
       {!loading && !error && bookmarks.length === 0 ? <EmptyState title="还没有收藏" /> : null}
       {error ? (
         <Alert
-          action={
-            <button
-              className="underline underline-offset-2"
-              onClick={() => void query.refetch()}
-              type="button"
-            >
-              重试
-            </button>
-          }
+          action={<InlineButton onClick={() => void query.refetch()}>重试</InlineButton>}
           className="mx-1 mt-3"
           role="alert"
         >
@@ -137,15 +130,7 @@ export function NotificationList() {
       {!loading && !error && notifications.length === 0 ? <EmptyState title="暂无通知" /> : null}
       {error ? (
         <Alert
-          action={
-            <button
-              className="underline underline-offset-2"
-              onClick={() => void query.refetch()}
-              type="button"
-            >
-              重试
-            </button>
-          }
+          action={<InlineButton onClick={() => void query.refetch()}>重试</InlineButton>}
           className="mx-1 mt-3"
           role="alert"
         >

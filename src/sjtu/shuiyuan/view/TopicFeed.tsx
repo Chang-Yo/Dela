@@ -12,6 +12,7 @@ import { useFeed, useSiteStructure, type FeedSelection } from './use-shuiyuan';
 import { Alert } from '../../../ui/alert';
 import { Skeleton } from '../../../ui/skeleton';
 import { Spinner } from '../../../ui/spinner';
+import { InlineButton } from '../../../ui/inline-button';
 
 export function CategoryTag({ category }: { category: { name: string; color: string } }) {
   return (
@@ -204,15 +205,7 @@ export function TopicFeed({ list }: { list: FeedSelection }) {
       ) : null}
       {error ? (
         <Alert
-          action={
-            <button
-              className="underline underline-offset-2"
-              onClick={() => void feed.refetch()}
-              type="button"
-            >
-              重试
-            </button>
-          }
+          action={<InlineButton onClick={() => void feed.refetch()}>重试</InlineButton>}
           className="mt-3"
           role="alert"
         >
