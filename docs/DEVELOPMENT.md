@@ -116,7 +116,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 
 **尺寸一律由 rem 派生**（字号设置会整体缩放文字、间距、图标与圆角）：禁止写死像素字号与宽高，换算基准固定 16。字号用 token，圆角用 `src/ui` 的 `rounded-*`。保留 px 的只有三类——边框/描边/阴影、媒体与容器查询断点、第三方 dist 内改不到的固定值；拖拽调宽的容器尺寸也是 px，因为它是用户用鼠标量出的画布尺寸。沙箱 iframe（邮件正文、水源楼层、Canvas 网页）是独立文档，rem 不继承外层，由 `src/ui/hooks/root-font-size.ts` 把根字号注进内层。
 
-颜色、阴影、圆角、层级与时长只用 `src/ui/tokens.css` 的 token，按用途命名，改名要走 ADR 并一次性全局替换（[ADR 0023](adr/0023-design-token-naming.md)），缺少时新增而不是借用别的用途的 token。`pnpm lint` 会拦下 token 之外的写法和写了却不生成 CSS 的类名。
+颜色、阴影、圆角、层级与时长只用 `src/ui/tokens.css` 的 token（只属于 app 的颜色与字体放在 `src/app/renderer/styles/palette.css`，ui 不引用），按用途命名，改名要走 ADR 并一次性全局替换（[ADR 0023](adr/0023-design-token-naming.md)），缺少时新增而不是借用别的用途的 token。`pnpm lint` 会拦下 token 之外的写法和写了却不生成 CSS 的类名。
 
 ## 3. 会话与上下文
 
@@ -188,7 +188,7 @@ Windows 与 macOS 共用一套：`electron-updater` + `electron-builder` 的 NSI
 
 模型推理档位只按模型保存；搜索结果直接携带会话的 `projectId`，不再推导旧入口身份。
 
-只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，经 `defineModule` 的 `schema` 交给宿主；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。只有表的主人写自己表的 SQL，别人经主人 `index.ts` 导出的函数读写，`scripts/lint-tables.ts` 把关；`workspace_settings` 是谁都能用的共享键值表。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
+只有一个 `dela.db`，表归各自的模块（ADR [0025](adr/0025-module-owned-schema.md)）：模块在 `data/schema.ts` 里写当前的建表语句和按 `YYYYMMDD-简述` 命名的迁移，经 `defineModule` 的 `schema` 交给宿主；宿主启动时给新出现的模块建表，给已有的模块补跑迁移，记在 `schema_migrations` 里，全部在一个事务里完成。业务代码只认当前格式。只有表的主人写自己表的 SQL，别人经主人 `index.ts` 导出的函数读写，`scripts/lint-tables.ts` 把关；`workspace_settings` 是谁都能用的共享键值表，键名不限前缀，但同一个键只归一方，同样由它检查。3.x 及更早的数据先经 `src/app/main/migrations/` 的旧版过渡升到 v17 并记下起点（规则见该目录的 README）；更新版本创建的数据拒绝打开。
 
 写模块的迁移时：
 

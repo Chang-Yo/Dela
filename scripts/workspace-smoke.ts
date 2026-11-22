@@ -133,7 +133,7 @@ app
   .then(async () => {
     provideHostPorts(electronPorts);
     const db = openDatabase(modules);
-    db.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)").run(
+    db.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-directory', ?)").run(
       join(profile, 'notes'),
     );
     await configureCanvas('fixture-token');
@@ -341,7 +341,9 @@ app
     // Simulate a crash after the physical rename but before the database commit.
     const moveFrom = join(profile, 'notes', 'workspace', '独立项目', '参考改名');
     const moveTo = join(profile, 'notes', 'workspace', '独立项目', '恢复后的参考');
-    db.prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('storage-move', ?)").run(
+    db.prepare(
+      "INSERT OR REPLACE INTO workspace_settings VALUES ('workspace-pending-move', ?)",
+    ).run(
       JSON.stringify({
         from: moveFrom,
         to: moveTo,

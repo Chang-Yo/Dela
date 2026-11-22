@@ -248,10 +248,6 @@ export async function chooseDirectory() {
     properties: ['openDirectory', 'createDirectory'],
   });
   const path = result.filePaths[0];
-  if (!result.canceled && path)
-    hostPorts()
-      .database()
-      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('directory', ?)")
-      .run(path);
+  if (!result.canceled && path) hostPorts().paths.setStorage(path);
   return hostPorts().paths.storage();
 }

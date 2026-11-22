@@ -22,7 +22,8 @@ vi.mock('../../../notifications', async (importOriginal) => ({
   systemNotifyItem: vi.fn(),
 }));
 
-import { systemNotifyItem } from '../../../notifications';
+import { notificationsModule, systemNotifyItem } from '../../../notifications';
+import { mailSchema } from '../../data/schema';
 import { onMailCacheChanged } from '../api';
 import { registerMailNotices } from '../notice-source';
 
@@ -37,15 +38,9 @@ function unreadIds(): string[] {
 }
 
 function insertMail(id: number, date: string, seen = 0): void {
-  db.prepare('INSERT INTO mail_messages VALUES (?, 1, ?, ?, ?, ?, ?, ?, NULL)').run(
-    id,
-    `邮件 ${id}`,
-    '课程组',
-    'course@sjtu.edu.cn',
-    '请提交作业',
-    date,
-    seen,
-  );
+  db.prepare(
+    'INSERT INTO mail_messages (id, folder_id, uid, subject, sender_name, sender_address, snippet, date, seen) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(id, id, `邮件 ${id}`, '课程组', 'course@sjtu.edu.cn', '请提交作业', date, seen);
 }
 
 /** 模拟邮件缓存变化后的重播：读信、删除与同步完成都会触发。 */
@@ -56,19 +51,14 @@ function cacheChanged(): void {
 beforeEach(() => {
   vi.clearAllMocks();
   db = new Database(':memory:');
-  db.exec(`
-    CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL, created_at TEXT NOT NULL);
-    CREATE TABLE mail_folders (id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL, special_use TEXT);
-    CREATE TABLE mail_messages (id INTEGER PRIMARY KEY, folder_id INTEGER NOT NULL, subject TEXT, sender_name TEXT, sender_address TEXT, snippet TEXT, date TEXT, seen INTEGER NOT NULL, deleted_at TEXT);
-    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_key TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL, read_at TEXT, source_unread INTEGER NOT NULL DEFAULT 1, href TEXT NOT NULL, category TEXT, count INTEGER NOT NULL DEFAULT 1);
-    CREATE TABLE notification_refreshes (source TEXT NOT NULL, account_key TEXT NOT NULL, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));
-  `);
-  db.prepare('INSERT INTO mail_accounts VALUES (1, ?, ?)').run(
-    'student@sjtu.edu.cn',
-    '2026-09-10T00:00:00.000Z',
-  );
-  db.prepare("INSERT INTO mail_folders VALUES (1, 1, '\\Inbox')").run();
+  db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  for (const table of [...mailSchema.tables, ...notificationsModule.schema!.tables]) db.exec(table);
+  db.prepare(
+    "INSERT INTO mail_accounts (id, address, imap_host, imap_port, created_at) VALUES (1, ?, 'imap.sjtu.edu.cn', 993, ?)",
+  ).run('student@sjtu.edu.cn', '2026-09-10T00:00:00.000Z');
+  db.prepare(
+    "INSERT INTO mail_folders (id, account_id, path, name, special_use) VALUES (1, 1, 'INBOX', 'INBOX', '\\Inbox')",
+  ).run();
   provideTestHostPorts({ database: () => db as never });
 });
 

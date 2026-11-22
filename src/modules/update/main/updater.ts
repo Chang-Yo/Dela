@@ -1,13 +1,13 @@
 import { app, BrowserWindow, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { emit } from '../../../core/ports';
-import { savedPendingInstall, setPendingInstall } from '../../settings';
 import {
   updateContract,
   type UpdateReason,
   type UpdateSnapshot,
   type UpdateStep,
 } from '../contract';
+import { savedPendingInstall, setPendingInstall } from './pending';
 import { failureEvent, initialUpdateState, reduceUpdate, type UpdateEvent } from './state';
 
 const DOWNLOAD_PAGE_URL = 'https://openlist.frameneo.com/@s/Dela_latest_release';

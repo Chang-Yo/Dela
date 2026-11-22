@@ -135,6 +135,41 @@ describe('module schemas', () => {
         expect(name).toMatch(/^\d{8}-[a-z0-9-]+$/);
   });
 
+  it('3.0 的库补跑迁移：过时或易混淆的设置键改名，值不变', () => {
+    freshRoot();
+    const old = new Database(join(root, 'dela.db'));
+    old.pragma('user_version = 17');
+    v17ToBaseline(old);
+    const insert = old.prepare('INSERT INTO workspace_settings VALUES (?, ?)');
+    for (const key of [
+      'directory',
+      'storage-move',
+      'campus-notifications',
+      'pending-install',
+      'email-draft:d1',
+      'theme',
+    ])
+      insert.run(key, `value of ${key}`);
+    old.close();
+
+    const settings = Object.fromEntries(
+      (
+        openDatabase(modules).prepare('SELECT key, value FROM workspace_settings').all() as {
+          key: string;
+          value: string;
+        }[]
+      ).map((row) => [row.key, row.value]),
+    );
+    expect(settings).toEqual({
+      'storage-directory': 'value of directory',
+      'workspace-pending-move': 'value of storage-move',
+      'notifications-message-alerts': 'value of campus-notifications',
+      'update-pending-install': 'value of pending-install',
+      'mail-prepared:d1': 'value of email-draft:d1',
+      theme: 'value of theme',
+    });
+  });
+
   it('3.0 的库补跑迁移：通知来源不再写死，会话不再外键指向项目，原有数据保留', () => {
     freshRoot();
     const old = new Database(join(root, 'dela.db'));

@@ -61,5 +61,10 @@ export const notificationsSchema: Schema = {
       db.exec('DROP TABLE notification_refreshes');
       db.exec('ALTER TABLE notification_refreshes_next RENAME TO notification_refreshes');
     },
+    '20261121-rename-alerts-setting': (db) => {
+      db.exec(
+        "UPDATE workspace_settings SET key='notifications-message-alerts' WHERE key='campus-notifications'",
+      );
+    },
   },
 };

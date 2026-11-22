@@ -163,7 +163,7 @@ export function prepareEmail(input: unknown) {
   hostPorts()
     .database()
     .prepare('INSERT INTO workspace_settings VALUES (?, ?)')
-    .run(`email-draft:${id}`, JSON.stringify(draft));
+    .run(`mail-prepared:${id}`, JSON.stringify(draft));
   return {
     draftId: id,
     to: draft.to,
@@ -181,7 +181,7 @@ export async function openEmailDraft(id: unknown): Promise<PreparedEmail> {
   const row = hostPorts()
     .database()
     .prepare('SELECT value FROM workspace_settings WHERE key=?')
-    .get(`email-draft:${key}`) as { value: string } | undefined;
+    .get(`mail-prepared:${key}`) as { value: string } | undefined;
   if (!row) throw new Error('草稿不存在');
   const draft = emailDraftSchema.parse(JSON.parse(row.value));
   const files: MailComposeFile[] = [];

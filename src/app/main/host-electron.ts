@@ -30,7 +30,7 @@ import {
 import { getDatabase } from './database';
 import { workspaceWindow } from './window';
 import { notifyRunFinished } from '../../modules/settings';
-import { storageDirectory } from './storage';
+import { setStorageDirectory, storageDirectory } from './storage';
 import { locateBash } from '../../modules/terminal';
 import { workspaceProjects } from '../../modules/workspace';
 
@@ -120,6 +120,7 @@ export const electronPorts: HostPorts = {
     documents: () => app.getPath('documents'),
     temp: () => app.getPath('temp'),
     storage: storageDirectory,
+    setStorage: setStorageDirectory,
     bundled: (name) =>
       app.isPackaged
         ? join(process.resourcesPath, name)

@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 vi.mock('electron', () => ({
   ipcMain: {},
@@ -16,10 +17,8 @@ vi.mock('electron', () => ({
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
 vi.mock('../skills', () => ({ effectiveDisabledSkills: () => new Set(['curriculum', 'canvas']) }));
 import { COMMAND_BRIDGE, startDomainBridge } from '../command-server';
-import { registerCommandDomain } from '../commands';
-import { todoDomain } from '../../../modules/todo/main/agent';
-import { resourceDomain } from '../../../modules/workspace/main/read-resource';
-import { locateBash } from '../../../modules/terminal';
+import { registerCommandDomain, type CommandDomain } from '../commands';
+import { testBash } from '../../test/bash';
 
 const CURL_STUB =
   'curl() { while [ "$#" -gt 0 ]; do [ "$1" = "--data-binary" ] && cat > "$DELA_CAPTURE"; shift; done; }\n';
@@ -39,7 +38,7 @@ function bridgeBody(line: string) {
     line,
   );
   try {
-    const run = spawnSync(locateBash(), [path], { encoding: 'utf8' });
+    const run = spawnSync(testBash(), [path], { encoding: 'utf8' });
     expect(run.stderr).toBe('');
     expect(run.status).toBe(0);
     return JSON.parse(readFileSync(capture, 'utf8'));
@@ -57,7 +56,7 @@ async function postedBody(port: number, line: string) {
   );
   try {
     // 异步执行：同步阻塞会让同进程的 HTTP 服务端无法应答。
-    const child = spawn(locateBash(), [path], { stdio: ['ignore', 'ignore', 'pipe'] });
+    const child = spawn(testBash(), [path], { stdio: ['ignore', 'ignore', 'pipe'] });
     let stderr = '';
     child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
     await new Promise((resolve) => child.on('close', resolve));
@@ -103,7 +102,16 @@ describe('dela 命令桥', () => {
 });
 
 it('停用的 Skill 对应的命令不出现在 help 中，也不能执行', async () => {
-  for (const domain of [todoDomain, resourceDomain]) registerCommandDomain(domain);
+  const domain = (name: string, command: string, skill?: string): CommandDomain => ({
+    name,
+    description: name,
+    skill: skill ? { name: skill, files: [] } : undefined,
+    commands: { [command]: { description: name, schema: z.object({}), execute: () => ({}) } },
+  });
+  registerCommandDomain(domain('todo', 'query_todos'));
+  registerCommandDomain(domain('resource', 'read_resource'));
+  registerCommandDomain(domain('schedule', 'query_schedule', 'curriculum'));
+  registerCommandDomain(domain('canvas', 'link_canvas_source', 'canvas'));
   const bridge = await startDomainBridge();
   const call = async (command: string, input: unknown = {}) =>
     (await fetch(bridge.url, {

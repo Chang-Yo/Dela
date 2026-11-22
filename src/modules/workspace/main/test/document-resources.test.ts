@@ -1,5 +1,5 @@
 import { mkdtempSync, existsSync } from 'node:fs';
-import { rm, readFile, writeFile } from 'node:fs/promises';
+import { readdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { afterAll, beforeEach, expect, it, vi } from 'vitest';
@@ -28,12 +28,17 @@ vi.mock('../../../mail/main/api', () => ({
   ),
   mailAttachment: vi.fn(() => ({ attachment: { filename: '报名.xlsx' } })),
 }));
-import { prepareDocumentResource, releaseDocumentResource } from '../resources';
+import {
+  prepareDocumentFile,
+  prepareDocumentResource,
+  releaseDocumentResource,
+} from '../resources';
 import { entry, readWorkspaceEntry, workspaceFilePath } from '../api';
 import { attachmentResourceResolver, mailResourceResolver } from '../../../mail/main/resources';
 import { resourceDomain, workspaceResourceResolver } from '../read-resource';
 import { registerResourceResolver } from '../../../../core/capabilities/resources';
 import { assertDocumentDependency } from '../../../preview';
+import { hostPorts } from '../../../../core/ports';
 
 const readResourceTool = resourceDomain.commands.read_resource;
 registerResourceResolver('workspace', workspaceResourceResolver);
@@ -60,6 +65,15 @@ it('reads a snapshot and never removes the original workspace document', async (
   expect(await readFile(job.input, 'utf8')).toBe('original document');
   await releaseDocumentResource(job.jobId);
   expect(await readFile(source, 'utf8')).toBe('edited after preparation');
+});
+
+it('removes the job directory when writing the input fails', async () => {
+  await expect(
+    prepareDocumentFile(async () => {
+      throw new Error('download interrupted');
+    }),
+  ).rejects.toThrow('download interrupted');
+  expect(await readdir(join(hostPorts().paths.temp(), 'dela-document-reading'))).toEqual([]);
 });
 
 it('rejects cleanup traversal and checks the dependency before acquiring files', async () => {

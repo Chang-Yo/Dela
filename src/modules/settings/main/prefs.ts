@@ -115,14 +115,3 @@ export function resetKeybindingOverrides(): KeybindingOverrides {
   writeSetting('keybindings', JSON.stringify(keybindingOverridesDefaults));
   return { ...keybindingOverridesDefaults };
 }
-
-// 「下次启动时提醒」标记：读到就清掉，只尝试一次，避免失败后每次启动静默重试。
-
-export function savedPendingInstall(): boolean {
-  return readSetting('pending-install') === '1';
-}
-
-export function setPendingInstall(pending: boolean): boolean {
-  writeSetting('pending-install', pending ? '1' : '0');
-  return pending;
-}

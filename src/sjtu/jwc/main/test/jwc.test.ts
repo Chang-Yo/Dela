@@ -20,7 +20,7 @@ vi.mock('node:fs/promises', () => ({ writeFile: vi.fn() }));
 
 import { app, dialog } from 'electron';
 import { writeFile } from 'node:fs/promises';
-import { systemNotifyItem } from '../../../../modules/notifications';
+import { notificationsModule, systemNotifyItem } from '../../../../modules/notifications';
 import {
   parseJwcList,
   refreshJwc,
@@ -47,9 +47,8 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-11-02T04:00:00Z'));
   Object.defineProperty(app, 'isPackaged', { value: true, configurable: true });
   db = new Database(':memory:');
-  db.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT, account_key TEXT, title TEXT, body TEXT, created_at TEXT, read_at TEXT, source_unread INTEGER, href TEXT);
-    CREATE TABLE notification_refreshes (source TEXT, account_key TEXT, last_success_at TEXT, error TEXT, PRIMARY KEY(source, account_key));`);
+  db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  for (const table of notificationsModule.schema!.tables) db.exec(table);
   provideTestHostPorts({ database: () => db });
 });
 afterEach(() => {
