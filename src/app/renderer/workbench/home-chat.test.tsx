@@ -77,6 +77,7 @@ function Home() {
     navigate: useNavigationStore.getState().navigate,
     workbench: { open: () => {}, openDocument: () => {}, close: () => {} },
     opensLink: () => false,
+    replyActions: [],
   };
   return (
     <QueryClientProvider client={queryClient}>

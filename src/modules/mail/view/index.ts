@@ -3,11 +3,11 @@ import { defineView } from '../../../app/module';
 import { MailCredential } from './MailCredential';
 import { MailOnboardingStep } from './MailOnboardingStep';
 import { MailStorage } from './MailStorage';
+import { MailReplyActions } from './MailReplyActions';
 import { MailPage } from './MailView';
 import { leaveComposer } from './compose-close';
 
 export { leaveComposer, registerComposeSave, saveComposers } from './compose-close';
-export { MailDraftDialog } from './MailDraftDialog';
 export { registerMailPreset, type MailPreset } from './presets';
 
 export const mailView = defineView({
@@ -18,4 +18,5 @@ export const mailView = defineView({
   settings: { credentials: MailCredential, storage: MailStorage },
   onboarding: MailOnboardingStep,
   leaveGuard: leaveComposer,
+  chatReplyActions: MailReplyActions,
 });

@@ -1,8 +1,8 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
-import type { Navigate, Workbench } from '../../../app/module';
+import type { ChatReplyActions, Navigate, Workbench } from '../../../app/module';
 
 // ChatTab 的容器注入面（与 note 的 draft-source、preview 的 loader 同一模式）：workbench 只传 tabId/groupId，
-// 引用数据源与邮件草稿弹窗经 Provider 注入；chat 域不 import workspace store。
+// 引用数据源与各模块登记的回复操作经 Provider 注入；chat 域不 import workspace store。
 
 /** @ 引用候选：key 为绝对路径，title 为相对会话 cwd 的路径。 */
 export type ReferenceEntry = { key: string; title: string };
@@ -21,26 +21,16 @@ export interface ReferenceSource {
   flushReference?(key: string): Promise<void>;
 }
 
-/** 邮件草稿检查弹窗：由容器注入；读取草稿、账号校验、未保存关闭守卫与发送都在组件内完成。 */
-export type MailDraftDialogProps = {
-  draftId: string;
-  /** 仅在关闭守卫通过后调用。 */
-  onClose: () => void;
-  /** 发送完成回调；warning 为服务端警告文案，无警告为 null。 */
-  onSent: (warning: string | null) => void;
-};
-export type MailDraftDialog = ComponentType<MailDraftDialogProps>;
-
-/** ChatTab 的容器注入面；未挂 Provider 时无引用与邮件注入，跳转与开标签不生效。 */
+/** ChatTab 的容器注入面；未挂 Provider 时无引用与模块注入，跳转与开标签不生效。 */
 export interface ChatTabSource {
   navigate: Navigate;
   workbench: Workbench;
   /** 应用内会打开的链接，点击时免去外链确认。 */
   opensLink(url: string): boolean;
+  /** 各模块登记的回复操作，渲染在每条助手回复的正文之后。 */
+  replyActions: ChatReplyActions[];
   /** @ 引用数据源；未提供时 composer 无 @ 候选、发送前不冲盘引用草稿。 */
   referenceSource?: ReferenceSource;
-  /** 邮件草稿检查弹窗；未提供时隐藏「检查并发送邮件」入口。 */
-  mailDialog?: MailDraftDialog;
   /** 把回答保存为笔记；未提供时隐藏入口。 */
   onSaveNote?(text: string): void;
 }
@@ -58,6 +48,7 @@ const detached: ChatTabSource = {
   navigate: () => false,
   workbench: { open: () => {}, openDocument: () => {}, close: () => {} },
   opensLink: () => false,
+  replyActions: [],
 };
 
 const ChatTabSourceContext = createContext<ChatTabSource>(detached);

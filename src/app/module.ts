@@ -3,6 +3,7 @@ import type { Implementation } from '../core/protocol/contract';
 import type { Schema } from '../core/ports';
 import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
+import type { AgentToolResult } from '../core/protocol/agent';
 import type { DocumentContent, TabId } from '../core/protocol/workbench';
 
 /**
@@ -87,7 +88,12 @@ export interface ViewDefinition {
   leaveGuard?(proceed: () => void): boolean;
   /** 本模块会在应用内打开的链接，聊天里点击时免去外链确认。 */
   opensLink?(url: string): boolean;
+  /** 渲染在每条助手回复下方的操作，例如邮件的「检查并发送邮件」。 */
+  chatReplyActions?: ChatReplyActions;
 }
+
+/** 拿到这条回复的工具结果，自己决定显示什么，可以什么都不显示。 */
+export type ChatReplyActions = ComponentType<{ tools: readonly AgentToolResult[] }>;
 
 export interface LibraryProps {
   archived: boolean;

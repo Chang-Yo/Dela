@@ -74,6 +74,8 @@ export const sources = {
   references: sourceList.flatMap((source) => source.references ?? []),
 };
 
+export const chatReplyActions = views.flatMap((view) => view.chatReplyActions ?? []);
+
 export function opensInApp(url: string): boolean {
   return views.some((view) => view.opensLink?.(url));
 }
