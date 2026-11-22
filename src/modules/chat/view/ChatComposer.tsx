@@ -14,7 +14,7 @@ import { cn } from '../../../ui/lib/cn';
 import type { ComposerContext } from './composer-context';
 import { ComposerContextBar } from './composer-context-bar';
 import { ReplyCommentRail } from './reply-comment';
-import { formatDuration } from './ToolTimeline';
+import { formatDuration } from './format-duration';
 import { openSubagent } from './tool-views';
 import { BackgroundTasks } from '../../../ui/agent/background-tasks';
 import { ContextIndicator } from '../../../ui/agent/context-indicator';
@@ -27,6 +27,7 @@ import {
   PromptInputNotice,
   PromptInputOption,
   PromptInputOptionCheck,
+  PromptInputOptionList,
   PromptInputSetup,
   PromptInputSubmit,
   PromptInputToolbar,
@@ -158,7 +159,7 @@ export function ChatComposer({
   /** 会话的模型已停用或被移除：禁止发送，提示另选。 */
   modelUnavailable?: boolean;
   onModelSelect: (provider: LlmProviderView, model: string) => void;
-  /** 当前推理强度档位；未配置时为 null，显示 default 并提供设置入口。 */
+  /** 当前推理强度档位；未配置时为 null，显示「默认」并提供设置入口。 */
   effort: string | null;
   effortLevels: string[];
   onEffortSelect: (level: string) => void;
@@ -545,37 +546,30 @@ export function ChatComposer({
                     }}
                   />
                 ) : (
-                  <ul aria-label="联网搜索">
-                    <li>
-                      <PromptInputOption
-                        active={searchSelectedId === null}
-                        aria-checked={searchSelectedId === null}
-                        className="h-8 gap-2"
-                        onClick={() => void selectSearchEntry(null)}
-                        role="radio"
-                      >
-                        <span className="truncate">关闭</span>
-                        {searchSelectedId === null && <PromptInputOptionCheck />}
-                      </PromptInputOption>
-                    </li>
+                  <PromptInputOptionList aria-label="联网搜索">
+                    <PromptInputOption
+                      active={searchSelectedId === null}
+                      className="gap-2"
+                      onClick={() => void selectSearchEntry(null)}
+                    >
+                      <span className="truncate">关闭</span>
+                      {searchSelectedId === null && <PromptInputOptionCheck />}
+                    </PromptInputOption>
                     {searchEntries.map((entry) => (
-                      <li key={entry.id}>
-                        <PromptInputOption
-                          active={entry.id === searchSelectedId}
-                          aria-checked={entry.id === searchSelectedId}
-                          className="h-8 gap-2"
-                          onClick={() => void selectSearchEntry(entry.id)}
-                          role="radio"
-                        >
-                          <span className="truncate">{entry.name}</span>
-                          {entry.provider === 'deepseek' && (
-                            <span className="shrink-0 text-xs text-ink-3">按次计费</span>
-                          )}
-                          {entry.id === searchSelectedId && <PromptInputOptionCheck />}
-                        </PromptInputOption>
-                      </li>
+                      <PromptInputOption
+                        active={entry.id === searchSelectedId}
+                        className="gap-2"
+                        key={entry.id}
+                        onClick={() => void selectSearchEntry(entry.id)}
+                      >
+                        <span className="truncate">{entry.name}</span>
+                        {entry.provider === 'deepseek' && (
+                          <span className="shrink-0 text-xs text-ink-3">按次计费</span>
+                        )}
+                        {entry.id === searchSelectedId && <PromptInputOptionCheck />}
+                      </PromptInputOption>
                     ))}
-                  </ul>
+                  </PromptInputOptionList>
                 )}
               </PopoverContent>
             </Popover>
@@ -590,7 +584,11 @@ export function ChatComposer({
             />
           )}
           {configured && contextUsage && (
-            <ContextIndicator cacheHitRate={cacheHitRateText(contextUsage)} usage={contextUsage} />
+            <ContextIndicator
+              cacheHitLabel="缓存命中率"
+              cacheHitRate={cacheHitRateText(contextUsage)}
+              usage={contextUsage}
+            />
           )}
           {configured && !sidechat && (
             <Popover onOpenChange={openModelPicker} open={modelPickerOpen}>
@@ -606,7 +604,7 @@ export function ChatComposer({
                   <span className="truncate @max-[220px]:hidden">
                     {modelUnavailable ? `${model} · 已停用` : model}
                   </span>
-                  <Bot className="hidden size-3.5 @max-[220px]:block" />
+                  <Bot className="hidden size-4 @max-[220px]:block" />
                   <ChevronDown className="size-3 @max-[220px]:hidden" />
                 </PromptInputTrigger>
               </PopoverTrigger>
@@ -628,46 +626,47 @@ export function ChatComposer({
                   />
                 ) : (
                   <div className="flex gap-0.5">
-                    <ul aria-label="模型服务" className="max-h-64 w-28 shrink-0 overflow-y-auto">
+                    <PromptInputOptionList
+                      aria-label="模型服务"
+                      className="max-h-64 w-28 shrink-0 overflow-y-auto"
+                    >
                       {providers.map((provider) => (
-                        <li key={provider.id}>
-                          <PromptInputOption
-                            active={provider.id === focused?.id}
-                            onClick={() => setFocusedId(provider.id)}
-                          >
-                            <span className="truncate">{provider.name}</span>
-                            {provider.id === providerId && (
-                              <span
-                                aria-label="本会话使用"
-                                className="ms-auto size-1.5 shrink-0 rounded-full bg-success"
-                                title="本会话使用"
-                              />
-                            )}
-                          </PromptInputOption>
-                        </li>
+                        <PromptInputOption
+                          active={provider.id === focused?.id}
+                          key={provider.id}
+                          onClick={() => setFocusedId(provider.id)}
+                        >
+                          <span className="truncate">{provider.name}</span>
+                          {provider.id === providerId && (
+                            <span
+                              aria-label="本会话使用"
+                              className="ms-auto size-1.5 shrink-0 rounded-full bg-success"
+                              title="本会话使用"
+                            />
+                          )}
+                        </PromptInputOption>
                       ))}
-                    </ul>
-                    <ul
+                    </PromptInputOptionList>
+                    <PromptInputOptionList
                       aria-label="模型"
                       className="max-h-64 min-w-0 flex-1 overflow-y-auto border-l border-line pl-1.5"
                     >
                       {focused?.models.map((item) => (
-                        <li key={item}>
-                          <PromptInputOption
-                            active={focused.id === providerId && model === item}
-                            onClick={() => {
-                              setModelPickerOpen(false);
-                              onModelSelect(focused, item);
-                            }}
-                          >
-                            <span className="truncate">{item}</span>
-                            {focused.id === providerId && model === item && (
-                              <PromptInputOptionCheck />
-                            )}
-                          </PromptInputOption>
-                        </li>
+                        <PromptInputOption
+                          active={focused.id === providerId && model === item}
+                          key={item}
+                          onClick={() => {
+                            setModelPickerOpen(false);
+                            onModelSelect(focused, item);
+                          }}
+                        >
+                          <span className="truncate">{item}</span>
+                          {focused.id === providerId && model === item && (
+                            <PromptInputOptionCheck />
+                          )}
+                        </PromptInputOption>
                       ))}
-                    </ul>
+                    </PromptInputOptionList>
                   </div>
                 )}
               </PopoverContent>
@@ -681,8 +680,8 @@ export function ChatComposer({
                   className="@max-[260px]:px-1.5 @max-[160px]:hidden"
                   title="思考强度"
                 >
-                  <span className="truncate @max-[260px]:hidden">{effort ?? 'default'}</span>
-                  <Sparkles className="hidden size-3.5 @max-[260px]:block" />
+                  <span className="truncate @max-[260px]:hidden">{effort ?? '默认'}</span>
+                  <Sparkles className="hidden size-4 @max-[260px]:block" />
                   <ChevronDown className="size-3 @max-[260px]:hidden" />
                 </PromptInputTrigger>
               </PopoverTrigger>
@@ -701,22 +700,21 @@ export function ChatComposer({
                     }}
                   />
                 ) : (
-                  <ul aria-label="思考强度">
+                  <PromptInputOptionList aria-label="思考强度">
                     {effortLevels.map((level) => (
-                      <li key={level}>
-                        <PromptInputOption
-                          active={level === effort}
-                          onClick={() => {
-                            setEffortPickerOpen(false);
-                            onEffortSelect(level);
-                          }}
-                        >
-                          <span className="truncate">{level}</span>
-                          {level === effort && <PromptInputOptionCheck />}
-                        </PromptInputOption>
-                      </li>
+                      <PromptInputOption
+                        active={level === effort}
+                        key={level}
+                        onClick={() => {
+                          setEffortPickerOpen(false);
+                          onEffortSelect(level);
+                        }}
+                      >
+                        <span className="truncate">{level}</span>
+                        {level === effort && <PromptInputOptionCheck />}
+                      </PromptInputOption>
                     ))}
-                  </ul>
+                  </PromptInputOptionList>
                 )}
               </PopoverContent>
             </Popover>

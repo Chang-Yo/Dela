@@ -21,6 +21,7 @@ import { backgroundTools, stopAllTasks, type TaskNotice, type TaskParent } from 
 import { live, liveSteps, type Live, type Run } from './live';
 import {
   encodeMeta,
+  liveMessages,
   projectMessages,
   publish,
   queuedTexts,
@@ -57,7 +58,7 @@ export async function ensureLive(id: string): Promise<Live> {
   const parent: TaskParent = {
     id,
     publish: () => publish(id),
-    deliver: (notice, wake) => deliverTaskNotice(id, notice, wake),
+    deliver: (notice) => deliverTaskNotice(id, notice, true),
   };
   const session = await openPiSession({
     cwd,
@@ -186,9 +187,8 @@ function stream(id: string, entry: Live) {
   const now = Date.now();
   if (now - (streamTimers.get(id) ?? 0) < 100) return;
   streamTimers.set(id, now);
-  const streaming = entry.session.state.streamingMessage;
   const messages = projectMessages(
-    streaming ? [...entry.session.messages, streaming] : entry.session.messages,
+    liveMessages(entry.session, entry.session.state.streamingMessage),
     liveSteps.get(id),
     true,
   );
@@ -227,7 +227,6 @@ export async function runSubagent(
   id: string,
   prompt: string,
   signal: AbortSignal | undefined,
-  onEvent: (event: AgentSessionEvent) => void,
 ): Promise<SubagentResult> {
   const entry = await ensureLive(id);
   if (entry.run || entry.session.isCompacting)
@@ -235,7 +234,6 @@ export async function runSubagent(
   if (signal?.aborted) return { status: 'stopped', reply: null };
   const turnId = randomUUID();
   const priorCount = entry.session.messages.length;
-  const unsubscribe = entry.session.subscribe(onEvent);
   const stop = () => cancelRun(id);
   signal?.addEventListener('abort', stop, { once: true });
   try {
@@ -255,7 +253,6 @@ export async function runSubagent(
     };
   } finally {
     signal?.removeEventListener('abort', stop);
-    unsubscribe();
   }
 }
 
@@ -295,7 +292,7 @@ function undeliveredNotices(entry: Live, run: Run): TaskNotice[] {
   return run.notices.filter((notice) => !delivered.has(notice.details.noticeId));
 }
 
-/** 后台任务结束的通知：运行中插进本轮，收尾中等它结束，空闲时开新一轮；wake=false（用户手动停止）只追加记录。 */
+/** 后台任务结束的通知：运行中插进本轮，收尾中等它结束，空闲时开新一轮；wake=false（用户停止了本轮）只追加记录。 */
 async function deliverTaskNotice(id: string, notice: TaskNotice, wake: boolean): Promise<void> {
   const entry = await ensureLive(id);
   if (!wake) {

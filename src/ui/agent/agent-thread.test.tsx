@@ -2,7 +2,8 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
-import { ErrorCard, MessageChip } from './message';
+import { ErrorCard } from './error-card';
+import { MessageChip } from './message-chip';
 import { Trace } from './trace';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -36,14 +37,14 @@ it('chip 有 onClick 时是按钮，否则是纯文本', async () => {
   expect(onClick).toHaveBeenCalledOnce();
 });
 
-it('给出 foldLabel 时过程块被隐藏，展开后可见，最后一块始终可见', async () => {
+it('给出 fold 时过程块被隐藏，展开后可见，最后一块始终可见', async () => {
   const host = await render(
     <Trace
       blocks={[
         { key: 0, node: <p>过程</p> },
         { key: 1, node: <p>结论</p> },
       ]}
-      foldLabel="已处理"
+      fold={{ label: '已处理' }}
     />,
   );
   const process = host.querySelector('p')!.parentElement!;

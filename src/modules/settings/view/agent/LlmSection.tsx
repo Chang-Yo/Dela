@@ -46,6 +46,7 @@ import {
 import { Field } from '../../../../ui/field';
 import { llmClient } from '../../../chat/view';
 import { errorMessage } from '../../../../core/protocol/contract';
+import { InlineButton } from '../../../../ui/inline-button';
 
 type Detail = { mode: 'create' } | { mode: 'edit'; id: string };
 
@@ -934,13 +935,9 @@ function ProviderDetail({
               {verifyResult.ok && <Check className="size-3.5 shrink-0" />}
               {verifyResult.message}
               {verifyResult.ok && verifyResult.models?.length ? (
-                <button
-                  className="underline underline-offset-2"
-                  onClick={() => importModels(verifyResult.models!)}
-                  type="button"
-                >
+                <InlineButton onClick={() => importModels(verifyResult.models!)}>
                   一键导入
-                </button>
+                </InlineButton>
               ) : null}
             </p>
           )}

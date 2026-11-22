@@ -6,7 +6,7 @@ import { DesktopOnlyNotice } from '../../../ui/desktop-only-notice';
 import { drawerFromRight } from '../../../ui/lib/motion';
 import { BindCard } from './BindCard';
 import { NewMessageDialog } from './NewMessageDialog';
-import { BookmarkList, ListBackButton, NotificationList } from './PersonalLists';
+import { BookmarkList, ListHeader, NotificationList } from './PersonalLists';
 import { ShuiyuanHeader } from './ShuiyuanHeader';
 import { TopicReader, TopicReaderHeader } from './TopicReader';
 import { TopicFeed } from './TopicFeed';
@@ -51,13 +51,12 @@ function DesktopShuiyuanView() {
           ) : (
             <>
               {list.kind === 'messages' ? (
-                <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 pb-1 pt-3 max-md:px-3">
-                  <ListBackButton />
+                <ListHeader>
                   <Button onClick={() => setMessageOpen(true)} size="sm" variant="outline">
                     <PencilLine className="size-3.5" />
                     新私信
                   </Button>
-                </div>
+                </ListHeader>
               ) : null}
               <TopicFeed list={list} />
             </>

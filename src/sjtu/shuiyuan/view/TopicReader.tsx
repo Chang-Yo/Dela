@@ -91,14 +91,15 @@ function PostActions({ post, canReply, onLike, onQuote, onReply }: PostActionsPr
           >
             <Quote strokeWidth={1.8} />
           </Button>
-          <button
-            className="flex h-7 items-center gap-1.5 rounded-control px-2 text-xs text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+          <Button
+            className="font-normal text-ink-3"
             onClick={() => onReply(post)}
-            type="button"
+            size="sm"
+            variant="ghost"
           >
             <Reply aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
             回复
-          </button>
+          </Button>
         </>
       ) : null}
     </footer>

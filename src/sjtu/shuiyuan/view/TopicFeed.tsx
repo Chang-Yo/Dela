@@ -2,16 +2,16 @@ import { useEffect, useRef } from 'react';
 import { Bookmark, Lock, Mail, MessageSquare, Pin } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { ShuiyuanTopicSummary } from '../contract';
-import { Card } from '../../../ui/card';
 import { EmptyState } from '../../../ui/empty-state';
 import { cn } from '../../../ui/lib/cn';
+import { FeedCard, FeedCardSkeleton, FeedColumn } from './FeedCard';
 import { ShuiyuanTitle } from './shuiyuan-emoji';
 import { isTopicUnread, openTopic, useShuiyuan } from './store';
 import { avatarUrl, categoryOf, formatCount, formatListDate, tagColor } from './shuiyuan-format';
 import { useFeed, useSiteStructure, type FeedSelection } from './use-shuiyuan';
 import { Alert } from '../../../ui/alert';
-import { Skeleton } from '../../../ui/skeleton';
 import { Spinner } from '../../../ui/spinner';
+import { InlineButton } from '../../../ui/inline-button';
 
 export function CategoryTag({ category }: { category: { name: string; color: string } }) {
   return (
@@ -63,86 +63,66 @@ function TopicRow({
   const category = categoryOf(structure, topic.categoryId);
   const isPM = topic.archetype === 'private_message';
   return (
-    <button
-      className={cn(
-        'flex w-full items-start gap-3.5 rounded-card border border-line p-5 text-left shadow-hairline transition-colors max-md:p-4',
-        topic.pinned ? 'bg-inset hover:bg-hover-strong' : 'bg-surface hover:bg-hover',
-      )}
+    <FeedCard
+      className={topic.pinned ? 'bg-inset hover:bg-hover-strong' : undefined}
+      leading={<TopicAvatar topic={topic} />}
       onClick={() => openTopic(topic.id)}
-      type="button"
     >
-      <TopicAvatar topic={topic} />
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-start gap-2">
-          {topic.pinned ? (
-            <Pin aria-label="置顶" className="mt-1 size-3.5 shrink-0 text-ink-3" />
-          ) : null}
-          {topic.closed ? (
-            <Lock aria-label="已关闭" className="mt-1 size-3.5 shrink-0 text-ink-3" />
-          ) : null}
-          <span
-            className={cn(
-              'line-clamp-2 text-base leading-snug',
-              unread ? 'font-semibold text-ink' : 'font-medium text-ink-2',
-            )}
-          >
-            <ShuiyuanTitle text={topic.title} />
-          </span>
-        </div>
-        {showExcerpt && topic.excerpt ? (
-          <p className="line-clamp-2 text-xs leading-relaxed text-ink-3">{topic.excerpt}</p>
+      <div className="flex items-start gap-2">
+        {topic.pinned ? (
+          <Pin aria-label="置顶" className="mt-1 size-3.5 shrink-0 text-ink-3" />
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-ink-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5">
-            {category && !isPM ? <CategoryTag category={category} /> : null}
-            {isPM ? (
-              <span className="flex items-center gap-1">
-                <Mail aria-hidden="true" className="size-3" strokeWidth={1.8} />
-                私信
-              </span>
-            ) : null}
-            {topic.authorUsername ? (
-              <span className="max-w-48 truncate">{topic.authorUsername}</span>
-            ) : null}
-            {topic.tags.slice(0, 2).map((tag) => (
-              <span className="flex items-center gap-1.5" key={tag}>
-                <span
-                  aria-hidden="true"
-                  className="size-2.5 shrink-0 rounded-[0.125rem]"
-                  style={{ backgroundColor: tagColor(tag) }}
-                />
-                {tag}
-              </span>
-            ))}
-          </div>
-          <div className="flex shrink-0 items-center gap-3 whitespace-nowrap tabular-nums">
-            <span className="flex min-w-14 items-center justify-end gap-1" title="回复数">
-              <MessageSquare aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-              {formatCount(Math.max(topic.postsCount - 1, 0))}
-              <span className="sr-only">回复</span>
+        {topic.closed ? (
+          <Lock aria-label="已关闭" className="mt-1 size-3.5 shrink-0 text-ink-3" />
+        ) : null}
+        <span
+          className={cn(
+            'line-clamp-2 text-base leading-snug',
+            unread ? 'font-semibold text-ink' : 'font-medium text-ink-2',
+          )}
+        >
+          <ShuiyuanTitle text={topic.title} />
+        </span>
+      </div>
+      {showExcerpt && topic.excerpt ? (
+        <p className="line-clamp-2 text-xs leading-relaxed text-ink-3">{topic.excerpt}</p>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-ink-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5">
+          {category && !isPM ? <CategoryTag category={category} /> : null}
+          {isPM ? (
+            <span className="flex items-center gap-1">
+              <Mail aria-hidden="true" className="size-3" strokeWidth={1.8} />
+              私信
             </span>
-            {topic.bookmarked ? (
-              <Bookmark aria-label="已收藏" className="size-3.5 fill-current" />
-            ) : null}
-            <span>{formatListDate(topic.lastPostedAt ?? topic.createdAt)}</span>
-          </div>
+          ) : null}
+          {topic.authorUsername ? (
+            <span className="max-w-48 truncate">{topic.authorUsername}</span>
+          ) : null}
+          {topic.tags.slice(0, 2).map((tag) => (
+            <span className="flex items-center gap-1.5" key={tag}>
+              <span
+                aria-hidden="true"
+                className="size-2.5 shrink-0 rounded-[0.125rem]"
+                style={{ backgroundColor: tagColor(tag) }}
+              />
+              {tag}
+            </span>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-3 whitespace-nowrap tabular-nums">
+          <span className="flex min-w-14 items-center justify-end gap-1" title="回复数">
+            <MessageSquare aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
+            {formatCount(Math.max(topic.postsCount - 1, 0))}
+            <span className="sr-only">回复</span>
+          </span>
+          {topic.bookmarked ? (
+            <Bookmark aria-label="已收藏" className="size-3.5 fill-current" />
+          ) : null}
+          <span>{formatListDate(topic.lastPostedAt ?? topic.createdAt)}</span>
         </div>
       </div>
-    </button>
-  );
-}
-
-function TopicCardSkeleton() {
-  return (
-    <Card aria-hidden="true" className="p-5 max-md:p-4" variant="surface">
-      <div className="flex items-start gap-3.5">
-        <Skeleton className="mt-0.5 size-10 shrink-0 rounded-full max-md:size-8" />
-        <div className="flex min-w-0 flex-1 flex-col gap-3 py-0.5">
-          <Skeleton className="h-5 w-2/3" />
-          <Skeleton className="h-3 w-1/3" />
-        </div>
-      </div>
-    </Card>
+    </FeedCard>
   );
 }
 
@@ -170,7 +150,7 @@ export function TopicFeed({ list }: { list: FeedSelection }) {
   }, [hasNextPage, loading, error, reading, fetchNextPage]);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 pb-10 pt-4 max-md:px-3">
+    <FeedColumn>
       {topics.map((topic) => (
         <TopicRow
           key={`${topic.id}-${topic.lastPostedAt ?? ''}`}
@@ -180,7 +160,7 @@ export function TopicFeed({ list }: { list: FeedSelection }) {
         />
       ))}
       {loading && topics.length === 0
-        ? Array.from({ length: 5 }, (_, index) => <TopicCardSkeleton key={index} />)
+        ? Array.from({ length: 5 }, (_, index) => <FeedCardSkeleton key={index} />)
         : null}
       {hasNextPage && !error ? (
         <div
@@ -204,21 +184,13 @@ export function TopicFeed({ list }: { list: FeedSelection }) {
       ) : null}
       {error ? (
         <Alert
-          action={
-            <button
-              className="underline underline-offset-2"
-              onClick={() => void feed.refetch()}
-              type="button"
-            >
-              重试
-            </button>
-          }
+          action={<InlineButton onClick={() => void feed.refetch()}>重试</InlineButton>}
           className="mt-3"
           role="alert"
         >
           {error}
         </Alert>
       ) : null}
-    </div>
+    </FeedColumn>
   );
 }

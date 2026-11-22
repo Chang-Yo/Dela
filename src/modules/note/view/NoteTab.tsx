@@ -19,6 +19,7 @@ import { Spinner } from '../../../ui/spinner';
 import { ConfirmDialog } from '../../../ui/dialog';
 import { errorMessage } from '../../../core/protocol/contract';
 import type { TabId } from '../../../core/protocol/workbench';
+import { InlineButton } from '../../../ui/inline-button';
 
 const imageInsert = (entryId: string) =>
   markdownImageInsert(
@@ -166,22 +167,22 @@ export function NoteTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
         <div role="alert" className="shrink-0 break-words border-b px-4 py-2 text-xs text-danger">
           {error ?? draft.error}
           {error && (
-            <button className="ml-3 underline" onClick={runReload}>
+            <InlineButton className="ml-3" onClick={runReload}>
               重试
-            </button>
+            </InlineButton>
           )}
           {draft.error && (
             <>
-              <button className="ml-3 underline" onClick={() => void source.save(entryId)}>
+              <InlineButton className="ml-3" onClick={() => void source.save(entryId)}>
                 重试保存
-              </button>
+              </InlineButton>
               {source.saveAsNewNote && (
-                <button
-                  className="ml-3 underline"
+                <InlineButton
+                  className="ml-3"
                   onClick={() => source.saveAsNewNote?.(entryId, draft.text)}
                 >
                   另存为新笔记
-                </button>
+                </InlineButton>
               )}
             </>
           )}

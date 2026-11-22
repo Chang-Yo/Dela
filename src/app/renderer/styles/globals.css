@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'streamdown/styles.css';
 @import '../../../ui/tokens.css';
+@import '../../../ui/base.css';
 @import './palette.css';
 @source '../../../../node_modules/streamdown/dist/*.js';
 @source '../../../modules';
@@ -41,11 +42,6 @@
 }
 
 @layer base {
-  * {
-    border-color: var(--line);
-    outline-color: color-mix(in oklch, var(--accent) 50%, transparent);
-  }
-
   html,
   body,
   #root {
@@ -66,21 +62,6 @@
     color: var(--ink);
     font-size: 0.875rem;
     line-height: 1.5;
-  }
-
-  button {
-    cursor: pointer;
-  }
-
-  button:disabled {
-    cursor: default;
-  }
-
-  button:focus-visible,
-  textarea:focus-visible,
-  input:focus-visible {
-    outline: 2px solid color-mix(in oklch, var(--accent) 60%, transparent);
-    outline-offset: 2px;
   }
 
   /* 仅用 ::-webkit-scrollbar 定制：同时声明 scrollbar-width/color 会让 Chromium
@@ -161,20 +142,6 @@
    否则字号调大时行号不跟随，与同块的 text-sm 正文脱节。 */
 [data-streamdown='code-block-body'] > pre > code > span::before {
   font-size: 0.8125rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-  }
-
-  .animate-spin {
-    animation-duration: 1s !important;
-  }
 }
 
 ::highlight(dela-reply-comment) {

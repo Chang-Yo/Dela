@@ -1,6 +1,6 @@
 // 守住 src/ui 的组件约定（src/ui/README.md）：文件名、size 与 tone 取值、写法，外部网页只经 HtmlFrame。
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const uiDir = join(root, 'src/ui');
@@ -95,16 +95,23 @@ function violations(file: string, source: string): { rule: Rule; message: string
   return found;
 }
 
-const files = readdirSync(uiDir, { withFileTypes: true })
-  .filter(
-    (entry) => entry.isFile() && /\.tsx$/.test(entry.name) && !/\.test\.tsx$/.test(entry.name),
+// hooks/ 与 lib/ 不放组件，只查根目录与 agent/。
+const files = ['', 'agent/']
+  .flatMap((dir) =>
+    readdirSync(join(uiDir, dir), { withFileTypes: true })
+      .filter(
+        (entry) => entry.isFile() && /\.tsx$/.test(entry.name) && !/\.test\.tsx$/.test(entry.name),
+      )
+      .map((entry) => dir + entry.name),
   )
-  .map((entry) => entry.name)
   .sort();
 
 const errors: string[] = [];
 for (const file of files)
-  for (const { rule, message } of violations(file, readFileSync(join(uiDir, file), 'utf8')))
+  for (const { rule, message } of violations(
+    basename(file),
+    readFileSync(join(uiDir, file), 'utf8'),
+  ))
     errors.push(`  src/ui/${file} [${rule}] ${message}`);
 
 for (const file of readdirSync(join(root, 'src'), { recursive: true, encoding: 'utf8' }))

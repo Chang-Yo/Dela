@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Bell,
   Check,
-  ChevronDown,
   ChevronLeft,
   CodeXml,
   Copy,
@@ -28,7 +27,6 @@ import { useEditorSettings } from '../../../modules/preview/view';
 import { usePreferences } from './preferences';
 import { showToast, Toaster } from '../../../ui/toast';
 import { Lightbox } from '../../../ui/lightbox';
-import { DelaBrand } from '../../../modules/settings/view';
 import { cn } from '../../../ui/lib/cn';
 import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import type { NavTarget } from '../../module';
@@ -44,12 +42,8 @@ import {
 } from '../navigation/ProjectSessionNav';
 import { zoomLevels, type ZoomPreference } from '../../../modules/settings/contract';
 import { acceleratorKeys, matchShortcut, shortcutGroups } from '../../../modules/settings/contract';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../../ui/dropdown-menu';
+import { DropdownMenuItem } from '../../../ui/dropdown-menu';
+import { SplitButton, SplitButtonAction, SplitButtonMenu } from '../../../ui/split-button';
 import { drawerFromLeft, fadeIn, overlayFade } from '../../../ui/lib/motion';
 import { navIcon, navRow } from '../navigation/nav-styles';
 import { UpdateBadge } from '../../../modules/update/view';
@@ -483,55 +477,42 @@ export function AppShell({
           )}
           {view === 'workbench' && projectId && window.dela && (
             <div className="[-webkit-app-region:no-drag] flex shrink-0 items-center gap-1 px-2">
-              <div className="flex h-7 items-center rounded-control shadow-hairline">
-                <button
+              <SplitButton>
+                <SplitButtonAction
                   aria-label={
                     effectiveOpenTarget === 'vscode'
                       ? vscodeOpenLabel
                       : `在 ${fileManagerName} 中打开项目`
                   }
-                  className="grid size-7 place-items-center rounded-l-control text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink"
                   onClick={() => openProjectDirectory(effectiveOpenTarget)}
+                  size="icon-sm"
                   title={
                     effectiveOpenTarget === 'vscode'
                       ? vscodeOpenLabel
                       : `在 ${fileManagerName} 中打开项目`
                   }
-                  type="button"
                 >
                   {effectiveOpenTarget === 'vscode' ? (
-                    <CodeXml className="size-4 text-accent" />
+                    <CodeXml className="text-accent" />
                   ) : (
-                    <FolderOpen className="size-4" />
+                    <FolderOpen />
                   )}
-                </button>
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      aria-label="选择项目打开方式"
-                      className="grid h-full w-6 place-items-center rounded-r-control border-l border-line text-ink-3 transition-colors duration-base hover:bg-hover hover:text-ink data-[state=open]:bg-selected"
-                      title="选择项目打开方式"
-                      type="button"
-                    >
-                      <ChevronDown className="size-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {!projectIsRemote && (
-                      <DropdownMenuItem onSelect={() => openProjectDirectory('explorer')}>
-                        <FolderOpen />
-                        {fileManagerName}
-                        {effectiveOpenTarget === 'explorer' && <Check className="ml-auto" />}
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onSelect={() => openProjectDirectory('vscode')}>
-                      <CodeXml className="text-accent" />
-                      {projectIsRemote ? 'VS Code（SSH）' : 'VS Code'}
-                      {effectiveOpenTarget === 'vscode' && <Check className="ml-auto" />}
+                </SplitButtonAction>
+                <SplitButtonMenu label="选择项目打开方式">
+                  {!projectIsRemote && (
+                    <DropdownMenuItem onSelect={() => openProjectDirectory('explorer')}>
+                      <FolderOpen />
+                      {fileManagerName}
+                      {effectiveOpenTarget === 'explorer' && <Check className="ml-auto" />}
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                  )}
+                  <DropdownMenuItem onSelect={() => openProjectDirectory('vscode')}>
+                    <CodeXml className="text-accent" />
+                    {projectIsRemote ? 'VS Code（SSH）' : 'VS Code'}
+                    {effectiveOpenTarget === 'vscode' && <Check className="ml-auto" />}
+                  </DropdownMenuItem>
+                </SplitButtonMenu>
+              </SplitButton>
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -628,18 +609,15 @@ export function AppShell({
           style={narrow ? undefined : { width: effectiveSidebarWidth }}
         >
           <div className="flex h-11 shrink-0 items-center gap-1.5 px-1">
-            <div className="flex min-w-0 items-center gap-2 px-1 py-0.5">
-              <DelaBrand className="h-4.5 w-auto" />
-              <span
-                className={cn(
-                  'text-base font-semibold tracking-tight text-ink',
-                  labelFade,
-                  sidebarCollapsed && 'opacity-0',
-                )}
-              >
-                Dela
-              </span>
-            </div>
+            <span
+              className={cn(
+                'min-w-0 px-1 text-base font-semibold tracking-tight text-ink',
+                labelFade,
+                sidebarCollapsed && 'opacity-0',
+              )}
+            >
+              Dela
+            </span>
             <div className="flex-1" />
             <Button
               variant="ghost"

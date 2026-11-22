@@ -4,8 +4,9 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 const state = vi.hoisted(() => ({
   db: null as Database.Database | null,
@@ -39,6 +40,7 @@ vi.mock('../providers', () => ({
     state.configured ? state.providers.filter(({ enabled }) => enabled) : [],
 }));
 vi.mock('../pi', () => ({
+  loadPi: () => import('@earendil-works/pi-coding-agent'),
   resolveModel: async ({ model }: { model: string }) => ({ model, thinking: 'off' }),
   openPiSession: async (input: { beforeTool?: () => Promise<void> | undefined }) => {
     state.beforeTool = input.beforeTool;
@@ -53,12 +55,9 @@ vi.mock('../pi', () => ({
         return state.messages;
       },
       sessionManager: {
-        buildSessionProjection: () => ({
-          entries: state.messages.map((message, index) => ({
-            sourceEntry: { type: 'message', id: `e${index}` },
-            messages: [message],
-          })),
-        }),
+        getBranch: () =>
+          state.messages.map((message, index) => ({ type: 'message', id: `e${index}`, message })),
+        buildSessionProjection: () => ({ messages: state.messages }),
       },
       get isCompacting() {
         return state.compacting;
@@ -106,8 +105,9 @@ import {
   readSessionTurnFileChange,
   readSessionUncommittedChanges,
 } from '../session/files';
-import { projectMessages, contextUsageView } from '../session/projection';
+import { projectMessages, contextUsageView, liveMessages } from '../session/projection';
 import { askSession, invalidateSessions, cancelRun } from '../session/run';
+import { preloadPi, requirePiSync } from '../session/store';
 import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
 import { coreSchema } from '../../data/schema';
@@ -122,6 +122,8 @@ registerDocumentReader({
     throw new Error('用例不准备文档');
   },
 });
+
+beforeAll(preloadPi);
 
 beforeEach(() => {
   state.configured = false;
@@ -467,6 +469,36 @@ describe('projectMessages', () => {
     ] as AgentMessage[]);
     expect(reply).toMatchObject({ interrupted: true });
     expect(reply!.content).toContain('401');
+  });
+
+  it('压缩后历史仍在，压缩标记落在发生的位置；运行中未落盘的尾部接在后面', () => {
+    const { SessionManager } = requirePiSync();
+    const manager = SessionManager.inMemory();
+    const answer = (text: string) =>
+      assistant([{ type: 'text', text }], { stopReason: 'stop' }) as Parameters<
+        typeof manager.appendMessage
+      >[0];
+    manager.appendMessage({ role: 'user', content: '第一问', timestamp: 1 });
+    manager.appendMessage(answer('一'));
+    const kept = manager.appendMessage({ role: 'user', content: '第二问', timestamp: 3 });
+    manager.appendMessage(answer('二'));
+    manager.appendCompaction('摘要', kept, 1000);
+    manager.appendMessage({ role: 'user', content: '第三问', timestamp: 5 });
+    const session = {
+      sessionManager: manager,
+      messages: [...manager.buildSessionContext().messages, answer('三')],
+    } as unknown as AgentSession;
+
+    const view = projectMessages(liveMessages(session), undefined, true);
+    expect(view.map((message) => (message.compacted ? '[压缩]' : message.content))).toEqual([
+      '第一问',
+      '一',
+      '第二问',
+      '二',
+      '[压缩]',
+      '第三问',
+      '三',
+    ]);
   });
 });
 

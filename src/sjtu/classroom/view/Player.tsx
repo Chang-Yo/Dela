@@ -39,6 +39,7 @@ import { SeekBar } from './SeekBar';
 import { useClassroom } from './store';
 import { classroomClient, useStreams } from './use-classroom';
 import { Spinner } from '../../../ui/spinner';
+import { InlineButton } from '../../../ui/inline-button';
 
 const RATE_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
 const VOLUME_KEY = 'dela.classroom.volume';
@@ -364,13 +365,9 @@ export function Player({
             role="status"
           >
             <span className="tabular-nums">上次观看到 {formatTime(resumeNotice)}，已继续播放</span>
-            <button
-              className="shrink-0 text-on-media/80 underline underline-offset-2 transition-colors hover:text-on-media"
-              onClick={restartFromBeginning}
-              type="button"
-            >
+            <InlineButton className="shrink-0 text-on-media/80" onClick={restartFromBeginning}>
               回到开头
-            </button>
+            </InlineButton>
           </div>
         )}
       </div>

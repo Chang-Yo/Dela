@@ -108,6 +108,9 @@ it('父会话空闲时自动开一轮处理通知，界面显示运行中；只�
   const notice = messages.find((message) => message.task);
   expect(messages.filter((message) => message.task)).toHaveLength(1);
   expect(notice!.task).toMatchObject({ kind: 'bash', status: 'completed' });
+  // 模型拿到完整通知，界面只显示输出末尾。
+  expect(JSON.stringify(requests[2]!.body)).toContain('后台任务结束');
+  expect(notice!.content).toBe('```\n构建完成\n```');
   expect(messages[messages.indexOf(notice!) + 1]).toMatchObject({
     role: 'assistant',
     content: '构建好了',

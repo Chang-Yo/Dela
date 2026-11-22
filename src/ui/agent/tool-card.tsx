@@ -1,90 +1,85 @@
-'use client';
+import type { ComponentProps, ReactNode } from 'react';
+import { cn } from '../lib/cn';
+import { CopyAction } from './copy-action';
+import { DiffStat, type DiffCounts } from './diff-stat';
 
-import { useState, type ReactNode } from 'react';
-import { Check, Copy } from 'lucide-react';
-
-export type ToolCardProps = {
+type ToolCardProps = ComponentProps<'div'> & {
   icon: ReactNode;
   title: string;
-  stats?: { added: number; deleted: number };
+  /** title 是路径时，目录淡色并允许截断，文件名始终完整。 */
+  titleIsPath?: boolean;
+  /** 标题后的补充说明，例如起始行号。 */
+  meta?: ReactNode;
+  stats?: DiffCounts;
   copyText?: string;
   failed?: boolean;
   bodyClassName?: string;
-  children: ReactNode;
 };
 
-export function ToolCard({
+function ToolCardTitle({ title, isPath }: { title: string; isPath: boolean }) {
+  if (!isPath)
+    return <span className="min-w-0 truncate font-mono leading-normal text-ink">{title}</span>;
+  const nameStart = Math.max(title.lastIndexOf('/'), title.lastIndexOf('\\')) + 1;
+  return (
+    <span className="flex min-w-0 font-mono leading-normal" title={title}>
+      {nameStart > 0 && (
+        <span className="min-w-0 truncate text-ink-3">{title.slice(0, nameStart)}</span>
+      )}
+      <span className="shrink-0 text-ink">{title.slice(nameStart)}</span>
+    </span>
+  );
+}
+
+function ToolCard({
   icon,
   title,
+  titleIsPath = false,
+  meta,
   stats,
   copyText,
   failed = false,
   bodyClassName,
   children,
+  className,
+  ...props
 }: ToolCardProps) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    navigator.clipboard.writeText(copyText ?? '').then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-
   return (
-    <div className="relative w-full overflow-hidden rounded-card bg-surface shadow-card">
+    <div
+      className={cn(
+        'group/card relative w-full overflow-hidden rounded-card border border-line bg-surface',
+        className,
+      )}
+      data-slot="tool-card"
+      {...props}
+    >
       {failed && (
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[0.1875rem] bg-danger"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-0.75 bg-danger"
         />
       )}
-      {/* 标题保留正常行高：leading-none 会在字号调大后裁掉下划线与字形下缘。 */}
-      <div className="flex min-h-11 items-center gap-2 border-b border-line px-4 py-2 text-sm">
+      <div className="flex h-8 items-center gap-2 border-b border-line bg-inset px-3 text-xs">
         {icon}
-        <span className="min-w-0 truncate font-mono leading-normal text-ink">{title}</span>
-        {stats && (
-          <span className="ml-auto inline-flex shrink-0 items-center gap-2 font-mono text-xs leading-none tabular-nums">
-            <span className="text-success">+{stats.added}</span>
-            <span className="text-danger">-{stats.deleted}</span>
-          </span>
-        )}
-        {copyText !== undefined && (
-          <button
-            type="button"
-            aria-label="Copy code"
-            onClick={copy}
-            className={`-mr-1 ml-auto flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-chip px-1.5 text-xs
-              font-medium transition-colors duration-fast hover:bg-hover
-              ${copied ? 'text-success' : 'text-ink-3 hover:text-ink'}`}
-          >
-            {copied ? (
-              <Check aria-hidden className="size-3" />
-            ) : (
-              <Copy aria-hidden className="size-3" />
-            )}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-        )}
+        <ToolCardTitle isPath={titleIsPath} title={title} />
+        {meta && <span className="shrink-0 text-ink-3">{meta}</span>}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {stats && <DiffStat className="tabular-nums" counts={stats} />}
+          {copyText !== undefined && (
+            <span className="-mr-1 flex opacity-0 transition-opacity duration-fast group-focus-within/card:opacity-100 group-hover/card:opacity-100">
+              {/* 卡片 overflow-hidden、标题栏 h-8：按钮和焦点框都要收在栏内，否则被裁掉。 */}
+              <CopyAction
+                className="focus-visible:outline-offset-0"
+                label="复制"
+                size="icon-xs"
+                text={copyText}
+              />
+            </span>
+          )}
+        </span>
       </div>
       <div className={bodyClassName}>{children}</div>
     </div>
   );
 }
 
-/** 带行号的纯文本行：bash、ls、grep、find 等不需要语法高亮的工具输出。 */
-export function PlainLines({ lines }: { lines: string[] }) {
-  return (
-    <div className="py-3 font-mono text-xs leading-5 text-ink-2">
-      <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-5 w-px bg-line" />
-        {lines.map((line, i) => (
-          <div key={i} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start">
-            <span className="select-none text-center text-xs text-ink-3">{i + 1}</span>
-            <code className="pr-3 pl-1 break-words whitespace-pre-wrap">{line}</code>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+export { ToolCard, type ToolCardProps };

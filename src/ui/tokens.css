@@ -273,6 +273,10 @@
   --transition-duration-slow: 200ms;
   --transition-duration-slower: 300ms;
 
+  /* 用户一侧内容（气泡、chip、评论）的最大宽度；浮层与容器边缘留的余量。 */
+  --container-message: 85%;
+  --container-float: calc(100% - 1rem);
+
   --animate-fade-in: fade-in 150ms ease-out both;
   --animate-overlay-in: fade-in 150ms cubic-bezier(0.23, 1, 0.32, 1) both;
   --animate-pop-in: pop-in 150ms cubic-bezier(0.23, 1, 0.32, 1) both;
@@ -282,6 +286,7 @@
   --animate-sheet-up: sheet-up 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
   --animate-toast-in: toast-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
   --animate-toast-out: toast-out 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-shimmer: shimmer-text 1.8s linear infinite;
 
   /* 只有引导页用 */
   --animate-fade-out: fade-out 150ms ease-out both;

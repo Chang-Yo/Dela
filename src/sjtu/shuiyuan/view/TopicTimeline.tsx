@@ -65,15 +65,16 @@ function FloorField({
     );
   }
   return (
-    <button
-      className="flex h-7 items-center gap-1 whitespace-nowrap rounded-control px-1.5 text-xs tabular-nums transition-colors duration-base hover:bg-hover"
+    <Button
+      className="gap-1 px-1.5 font-normal tabular-nums"
       onClick={() => setEditing(true)}
+      size="sm"
       title="跳到楼层"
-      type="button"
+      variant="ghost"
     >
       <span className="font-medium text-ink">{value}</span>
       <span className="text-ink-3">/ {highest}</span>
-    </button>
+    </Button>
   );
 }
 

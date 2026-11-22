@@ -14,21 +14,27 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { finished } from 'node:stream/promises';
 import type { ToolDefinition, getShellConfig } from '@earendil-works/pi-coding-agent';
-import type { BackgroundTaskView, TaskNoticeDetails, TaskStatus } from '../protocol/agent';
+import type {
+  BackgroundBashDetails,
+  BackgroundTaskView,
+  TaskNoticeDetails,
+  TaskStatus,
+} from '../protocol/agent';
 import type { RemoteBackend } from '../remote/operations';
 import { loadPi } from './pi';
 import { hostPorts } from '../ports';
 
 export interface TaskNotice {
   text: string;
-  details: TaskNoticeDetails;
+  /** bodyStart：正文（回复或输出末尾）在 text 中的起点，界面只显示正文。 */
+  details: TaskNoticeDetails & { bodyStart: number };
 }
 
 /** 任务所属的父会话：由会话运行层注入，任务层因此不依赖会话。 */
 export interface TaskParent {
   id: string;
   publish(): void;
-  deliver(notice: TaskNotice, wake: boolean): Promise<void>;
+  deliver(notice: TaskNotice): Promise<void>;
 }
 
 export interface TaskOutcome {
@@ -92,7 +98,7 @@ export function trackTask(
         if (entry.stoppedBy === 'session') return;
         entry.parent.publish();
         void entry.parent
-          .deliver(notice(entry), entry.stoppedBy !== 'user')
+          .deliver(notice(entry))
           .catch((error: unknown) => console.error('后台任务通知投递失败', error));
       }),
   };
@@ -145,25 +151,27 @@ function notice(task: BackgroundTask): TaskNotice {
   const outcome = task.outcome!;
   const durationMs = task.finishedAt! - task.startedAt;
   const tail = task.tail.split('\n').slice(-NOTICE_LINES).join('\n').trimEnd();
-  const lines = [
+  const header = [
     `后台任务结束（taskId: ${task.id}）`,
     task.kind === 'bash'
       ? `来源：bash\n命令：${task.label}`
       : `来源：子 Agent\n任务：${task.label}`,
     `状态：${statusText(outcome)}`,
     `用时：${(durationMs / 1000).toFixed(1)} 秒`,
-    ...(task.stoppedBy === 'user' ? ['用户在后台任务面板上手动停止了它。'] : []),
+    ...(task.stoppedBy === 'user' ? ['用户手动停止了它。'] : []),
+    ...(task.kind === 'bash' ? (tail ? ['输出末尾：'] : []) : outcome.reply ? ['最终回复：'] : []),
+    '',
+  ].join('\n');
+  const body =
     task.kind === 'bash'
       ? tail
-        ? `输出末尾：\n\`\`\`\n${tail}\n\`\`\``
+        ? `\`\`\`\n${tail}\n\`\`\``
         : '没有输出'
-      : outcome.reply
-        ? `最终回复：\n${outcome.reply}`
-        : '没有最终回复',
-  ];
+      : outcome.reply || '没有最终回复';
   return {
-    text: lines.join('\n'),
+    text: header + body,
     details: {
+      bodyStart: header.length,
       taskId: task.id,
       kind: task.kind,
       label: task.label,
@@ -347,7 +355,10 @@ export async function backgroundTools(
           ? (command, options) => remote.runInBackground(command, cwd, options)
           : localBash(cwd, pi.getShellConfig(shellPath), commandPrefix);
         const id = startBash(parent, params.command, params.timeout, run);
-        return text(`已在后台运行（taskId: ${id}）。结束时会自动通知你，不需要轮询。`);
+        return {
+          ...text(`已在后台运行（taskId: ${id}）。结束时会自动通知你，不需要轮询。`),
+          details: { taskId: id, background: true } satisfies BackgroundBashDetails,
+        };
       },
     } as ToolDefinition,
     {

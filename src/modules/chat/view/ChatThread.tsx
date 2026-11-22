@@ -8,33 +8,29 @@ import {
   GitBranch,
   MessageSquare,
   NotebookPen,
+  Package,
   Pencil,
-  SquareTerminal,
 } from 'lucide-react';
-import {
-  AssistantMessage as AssistantMessageFrame,
-  CompactionDivider,
-  CopyAction,
-  ErrorCard,
-  ExtensionMessage,
-  MessageActions,
-  MessageChip,
-  MessageChips,
-  MessageComments,
-  UserBubble,
-  UserMessage as UserMessageFrame,
-  UserMessageEditor,
-} from '../../../ui/agent/message';
-import { TaskNotice } from '../../../ui/agent/task';
+import { AssistantMessage as AssistantMessageFrame } from '../../../ui/agent/assistant-message';
+import { CompactionDivider } from '../../../ui/agent/compaction-divider';
+import { CopyAction } from '../../../ui/agent/copy-action';
+import { ErrorCard } from '../../../ui/agent/error-card';
+import { MessageActions } from '../../../ui/agent/message-actions';
+import { MessageChip, MessageChips } from '../../../ui/agent/message-chip';
+import { MessageComments } from '../../../ui/agent/message-comments';
+import { SystemMessage } from '../../../ui/agent/system-message';
+import { UserMessage as UserMessageFrame, UserMessageBubble } from '../../../ui/agent/user-message';
+import { UserMessageEditor } from '../../../ui/agent/user-message-editor';
 import { Shimmer } from '../../../ui/shimmer';
-import type { ChatComment, TaskNoticeDetails, WorkspaceChat } from '../../../core/protocol/agent';
+import type { ChatComment, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';
 import { useMediaQuery } from '../../../ui/hooks/use-media-query';
-import { useChatTabSource, type MailDraftDialog } from './chat-source';
-import { formatDuration, ReplyTrace } from './ToolTimeline';
-import { openSubagent } from './tool-views';
+import type { MailDraftDialog } from './chat-source';
+import { ReplyTrace } from './ToolTimeline';
+import { BackgroundTaskContext, type BackgroundTaskState } from './task-run';
+import { TaskNoticeStep } from './task-step';
 import { ChatMarkdown } from './markdown';
 import { ReplyCommentLayer } from './reply-comment';
 import { fetchChatMediaPreview, getChatMediaPreview } from './media';
@@ -57,15 +53,11 @@ function MessageImage({ id, name }: { id: string; name: string }) {
       title={name || undefined}
       type="button"
     >
-      <img
-        alt={name}
-        className="size-20 rounded-card border border-line border-line/60 object-cover"
-        src={url}
-      />
+      <img alt={name} className="size-20 rounded-card border border-line object-cover" src={url} />
     </button>
   ) : (
     <span
-      className="grid size-20 place-items-center rounded-card border border-line border-line/60 bg-inset text-xs text-ink-3"
+      className="grid size-20 place-items-center rounded-card border border-line bg-inset text-xs text-ink-3"
       title={name || undefined}
     >
       图片
@@ -122,14 +114,14 @@ function UserMessage({
     <UserMessageFrame>
       {message.comments?.length ? <MessageComments comments={message.comments} /> : null}
       {message.content ? (
-        <UserBubble>
+        <UserMessageBubble>
           <ChatMarkdown
             className="[&_code]:bg-transparent [&_code]:px-0 [&_pre]:bg-transparent [&_[data-streamdown=code-block]]:bg-transparent [&_[data-streamdown=code-block-header]]:bg-transparent"
             mode="static"
           >
             {message.content}
           </ChatMarkdown>
-        </UserBubble>
+        </UserMessageBubble>
       ) : null}
       {images}
       {message.attachments?.length ? (
@@ -280,7 +272,7 @@ function AssistantMessage({
           </ChatMarkdown>
         )}
       />
-      {reason && <ErrorCard onRetry={onRetry} reason={reason} />}
+      {reason && <ErrorCard announce={Boolean(onRetry)} onRetry={onRetry} reason={reason} />}
       {message.stopped && !live && <p className="my-2 text-sm text-ink-3">已停止</p>}
       {onOpenDraft &&
         draftIds.map((draftId) => (
@@ -329,34 +321,6 @@ function AssistantMessage({
         </MessageActions>
       )}
     </AssistantMessageFrame>
-  );
-}
-
-const TASK_STATUS: Record<TaskNoticeDetails['status'], string> = {
-  completed: '已完成',
-  failed: '失败',
-  stopped: '已停止',
-};
-
-function TaskNoticeMessage({ content, task }: { content: string; task: TaskNoticeDetails }) {
-  const { navigate } = useChatTabSource();
-  return (
-    <TaskNotice
-      duration={formatDuration(task.durationMs)}
-      failed={task.status === 'failed'}
-      icon={task.kind === 'bash' ? SquareTerminal : Bot}
-      label={task.label}
-      onOpenSession={
-        task.kind === 'subagent' ? () => void openSubagent(task.taskId, navigate) : undefined
-      }
-      title={`后台任务${TASK_STATUS[task.status]}${
-        task.exitCode !== undefined && task.status === 'failed' ? `（退出码 ${task.exitCode}）` : ''
-      }`}
-    >
-      <ChatMarkdown className="pt-1.5 text-sm" mode="static">
-        {content}
-      </ChatMarkdown>
-    </TaskNotice>
   );
 }
 
@@ -482,6 +446,26 @@ export function ChatThread({
           onEditLast([lastUser.content, ...tokens].filter(Boolean).join('\n'), lastUser.comments);
         }
       : undefined;
+  const backgroundTasks: BackgroundTaskState = {
+    running: new Map((chat.tasks ?? []).map((task) => [task.id, task.startedAt])),
+    finished: new Map(
+      messages.flatMap((message) =>
+        message.task
+          ? [
+              [
+                message.task.taskId,
+                {
+                  status: message.task.status,
+                  durationMs: message.task.durationMs,
+                  exitCode: message.task.exitCode,
+                  body: message.content,
+                },
+              ] as const,
+            ]
+          : [],
+      ),
+    ),
+  };
 
   return (
     <div className="relative min-h-0 flex-1">
@@ -497,68 +481,83 @@ export function ChatThread({
         }}
       >
         <div ref={contentRef} className="relative mx-auto w-full max-w-3xl px-4 py-4">
-          {/* 消息无稳定 id，key 用 sessionId:index：依赖列表 append-only（editLast 截断重发按同索引整表替换），勿在中间插入/删除。 */}
-          {messages.map((message, index) =>
-            message.compacted ? (
-              <CompactionDivider key={`${chat.sessionId}:${index}`} />
-            ) : message.task ? (
-              <TaskNoticeMessage
-                content={message.content}
-                key={`${chat.sessionId}:${index}`}
-                task={message.task}
-              />
-            ) : message.extension ? (
-              <ExtensionMessage
-                customType={message.extension.customType}
-                key={`${chat.sessionId}:${index}`}
-              >
-                <ChatMarkdown className="text-sm" mode="static">
-                  {message.content}
-                </ChatMarkdown>
-              </ExtensionMessage>
-            ) : message.role === 'user' ? (
-              <UserMessage
-                key={`${chat.sessionId}:${index}`}
-                message={message}
-                onOpenSource={onOpenSource}
-                onOpenSession={onOpenSession}
-                onEdit={handleEditLast}
-                editable={index === lastUserIndex && !streaming && onEditLast !== undefined}
-              />
-            ) : (
-              <AssistantMessage
-                key={`${chat.sessionId}:${index}`}
-                sessionId={chat.sessionId}
-                reviewEnabled={chat.projectId != null}
-                onRetry={index === messages.length - 1 && !streaming ? retry : undefined}
-                live={streaming && index === messages.length - 1}
-                turnEnd={message.turnId !== undefined && turnEnds.get(message.turnId) === index}
-                animate={message.startedAt !== resumedReplyAt}
-                message={message}
-                activeTool={chat.activeTool}
-                onOpenDraft={MailDialog ? setDraftId : undefined}
-                onSaveNote={onSaveNote}
-                onFork={streaming ? undefined : onFork}
-              />
-            ),
-          )}
+          <BackgroundTaskContext value={backgroundTasks}>
+            {/* 消息无稳定 id，key 用 sessionId:index：依赖列表 append-only（editLast 截断重发按同索引整表替换），勿在中间插入/删除。 */}
+            {messages.map((message, index) =>
+              message.compacted ? (
+                <CompactionDivider key={`${chat.sessionId}:${index}`} />
+              ) : message.task ? (
+                <TaskNoticeStep
+                  content={message.content}
+                  key={`${chat.sessionId}:${index}`}
+                  task={message.task}
+                />
+              ) : message.extension ? (
+                <SystemMessage
+                  icon={<Package />}
+                  label={`扩展 · ${message.extension.customType}`}
+                  key={`${chat.sessionId}:${index}`}
+                >
+                  <ChatMarkdown className="text-sm" mode="static">
+                    {message.content}
+                  </ChatMarkdown>
+                </SystemMessage>
+              ) : message.role === 'user' && chat.subagent ? (
+                // 子会话里的「用户消息」是主 Agent 写的任务说明，不该像用户本人发的。
+                <SystemMessage
+                  icon={<Bot />}
+                  key={`${chat.sessionId}:${index}`}
+                  label="主 Agent 交给它的任务"
+                >
+                  <ChatMarkdown className="text-sm" mode="static">
+                    {message.content}
+                  </ChatMarkdown>
+                </SystemMessage>
+              ) : message.role === 'user' ? (
+                <UserMessage
+                  key={`${chat.sessionId}:${index}`}
+                  message={message}
+                  onOpenSource={onOpenSource}
+                  onOpenSession={onOpenSession}
+                  onEdit={handleEditLast}
+                  editable={index === lastUserIndex && !streaming && onEditLast !== undefined}
+                />
+              ) : (
+                <AssistantMessage
+                  key={`${chat.sessionId}:${index}`}
+                  sessionId={chat.sessionId}
+                  reviewEnabled={chat.projectId != null}
+                  onRetry={index === messages.length - 1 && !streaming ? retry : undefined}
+                  live={streaming && index === messages.length - 1}
+                  turnEnd={message.turnId !== undefined && turnEnds.get(message.turnId) === index}
+                  animate={message.startedAt !== resumedReplyAt}
+                  message={message}
+                  activeTool={chat.activeTool}
+                  onOpenDraft={MailDialog ? setDraftId : undefined}
+                  onSaveNote={onSaveNote}
+                  onFork={streaming ? undefined : onFork}
+                />
+              ),
+            )}
+          </BackgroundTaskContext>
           {chat.compacting && <CompactionDivider pending />}
         </div>
       </div>
       {!atBottom && messages.length > 0 && (
-        <button
+        <Button
           aria-label="回到底部"
-          className="absolute bottom-3 left-1/2 z-10 grid size-8 -translate-x-1/2 place-items-center rounded-full border border-line bg-surface text-ink-2 shadow-raised transition-colors hover:bg-hover-strong hover:text-ink"
+          className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full text-ink-2 shadow-raised"
           onClick={() => {
             followBottom.current = true;
             const el = scrollRef.current;
             const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             el?.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
           }}
-          type="button"
+          size="icon-md"
+          variant="outline"
         >
           <ArrowDown className="size-4" strokeWidth={1.8} />
-        </button>
+        </Button>
       )}
       {replyDraftKey && (
         <ReplyCommentLayer draftKey={replyDraftKey} onSidechat={onSidechat} scrollRef={scrollRef} />

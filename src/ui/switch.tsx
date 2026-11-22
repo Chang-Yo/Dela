@@ -13,8 +13,8 @@ function Switch({ className, checked, indeterminate, ...props }: SwitchProps) {
       aria-checked={indeterminate ? 'mixed' : checked}
       checked={checked}
       className={cn(
-        'h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors duration-slow outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50 data-[state=checked]:bg-ink',
-        indeterminate ? 'bg-ink/40' : 'bg-line-strong',
+        'h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors duration-slow outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50 data-[state=checked]:bg-accent',
+        indeterminate ? 'bg-accent/40' : 'bg-line-strong',
         className,
       )}
       data-slot="switch"

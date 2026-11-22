@@ -3,7 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { CodeXml, FolderOpen } from 'lucide-react';
 import type { FileChangeSummary } from '../../../core/protocol/agent';
-import { ChangedFile, ChangesCard } from '../../../ui/agent/changes';
+import { ChangedFile } from '../../../ui/agent/changed-file';
+import { ChangesCard } from '../../../ui/agent/changes-card';
 import { showToast } from '../../../ui/toast';
 import { agentClient, chatClient } from './client';
 import { errorMessage } from '../../../core/protocol/contract';
@@ -47,6 +48,7 @@ function TurnFileRow({
               })
           : undefined
       }
+      openTitle="在 Dela 中打开"
       openWith={[
         {
           key: 'vscode',
@@ -99,6 +101,7 @@ export function TurnChangesCard({
     <ChangesCard
       counts={reviewEnabled ? total : undefined}
       fileCount={record.files.length}
+      title="本轮改动"
       warning={
         record.state === 'partial' && record.warnings.length > 0
           ? `部分内容未能记录：${record.warnings[0]}${

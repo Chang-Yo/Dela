@@ -2,7 +2,7 @@
  * 子 Agent（task 工具）：在父会话的目录下另开一个历史为空的会话，工具与父会话相同（不含 task），
  * 只把最终回复交回父会话。同时运行的子 Agent 数全应用合计，超出直接报错，不排队。
  */
-import type { AgentSessionEvent, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { z } from 'zod';
 import type { TaskStatus, SubagentDetails } from '../protocol/agent';
 import { hostPorts } from '../ports';
@@ -42,18 +42,9 @@ export type RunSubagent = (
   id: string,
   prompt: string,
   signal: AbortSignal | undefined,
-  onEvent: (event: AgentSessionEvent) => void,
 ) => Promise<SubagentResult>;
 
 let running = 0;
-
-function targetOf(args: unknown): string {
-  const input = (args ?? {}) as Record<string, unknown>;
-  const value = ['command', 'path', 'pattern', 'query', 'url']
-    .map((key) => input[key])
-    .find((item): item is string => typeof item === 'string');
-  return value?.split('\n')[0] ?? '';
-}
 
 const DESCRIPTION = `派一个子 Agent 独立完成一项任务，等它做完后返回它的最终回复。
 子 Agent 看不到当前对话的历史，工具与你相同（不能再派子 Agent），工作目录相同。prompt 里写清背景、目标、要交回什么，以及允许修改的文件范围；并行的子 Agent 改同一个文件会互相覆盖，派活时划好边界。
@@ -114,7 +105,7 @@ export function taskTool(
             label: params.description,
             stop: () => abort.abort(),
           },
-          runSubagent(taskId, params.prompt, abort.signal, () => {}).finally(() => (running -= 1)),
+          runSubagent(taskId, params.prompt, abort.signal).finally(() => (running -= 1)),
         );
         return {
           content: [
@@ -126,31 +117,18 @@ export function taskTool(
           details: {
             taskId,
             status: 'running',
-            steps: 0,
             background: true,
           } satisfies SubagentDetails,
         };
       }
-      const details: SubagentDetails = { taskId, status: 'running', steps: 0 };
-      const update = () => onUpdate?.({ content: [], details: { ...details } });
       try {
-        update();
-        const result = await runSubagent(taskId, params.prompt, signal, (event) => {
-          if (event.type === 'tool_execution_start') {
-            details.steps += 1;
-            details.tool = { name: event.toolName, target: targetOf(event.args) };
-            update();
-          } else if (event.type === 'tool_execution_end') {
-            delete details.tool;
-            update();
-          }
+        // 先交出 taskId：运行中的子 Agent 也能从父会话打开。
+        onUpdate?.({
+          content: [],
+          details: { taskId, status: 'running' } satisfies SubagentDetails,
         });
-        const final: SubagentDetails = {
-          taskId,
-          status: result.status,
-          steps: details.steps,
-          reply: result.reply,
-        };
+        const result = await runSubagent(taskId, params.prompt, signal);
+        const final: SubagentDetails = { taskId, status: result.status, reply: result.reply };
         const text =
           result.status === 'completed'
             ? (result.reply ?? '（子 Agent 没有给出最终回复）')

@@ -253,10 +253,13 @@ export type SidechatView = z.infer<typeof sidechatViewSchema>;
 export interface SubagentDetails {
   taskId: string;
   status: TaskStatus;
-  steps: number;
-  tool?: { name: string; target: string };
   reply?: string | null;
   background?: true;
+}
+
+export interface BackgroundBashDetails {
+  taskId: string;
+  background: true;
 }
 
 /** Dela 自己实现的会话命令（对应 Pi 终端界面的同名命令）：输入以它们开头时不发给模型，

@@ -65,15 +65,18 @@ export function DiffScroller({ children }: { children: React.ReactNode }) {
 // edit 的文本片段多半不带结尾换行，补齐后末行不会被判成改动。
 const withFinalNewline = (text: string) => (text && !text.endsWith('\n') ? `${text}\n` : text);
 
-/** 工具卡片里的 read/write：与 edit 同一套 Shiki 主题，按文件名识别语言，复制的是原文。 */
+/** 工具卡片里的 read/write：与 edit 同一套 Shiki 主题，按文件名识别语言，复制的是原文。
+ * Pierre 的 File 不能指定起始行号，从中间读起时在标题旁注明。 */
 export function CodeFileCard({
   path,
   content,
   failed,
+  startLine,
 }: {
   path: string;
   content: string;
   failed: boolean;
+  startLine?: number;
 }) {
   const themeType = useAppThemeType();
   return (
@@ -82,7 +85,9 @@ export function CodeFileCard({
       copyText={content}
       failed={failed}
       icon={<FileIcon path={path} />}
+      meta={startLine && `第 ${startLine} 行起`}
       title={path}
+      titleIsPath
     >
       <File
         className="bg-surface"
@@ -120,6 +125,7 @@ export function EditDiffCard({
       icon={<FileIcon path={path} />}
       stats={{ added, deleted }}
       title={path}
+      titleIsPath
     >
       <FileDiff
         className="bg-surface"
