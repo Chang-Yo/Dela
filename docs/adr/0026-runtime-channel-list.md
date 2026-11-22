@@ -32,4 +32,4 @@
 - preload 包体预计降到几 KB。
 - 每次加载或重载页面多一次同步往返。实测单次约 1 ms；主进程忙时首屏会相应等待。名单在注册 IPC 时算好，早于创建窗口。
 - 构建 preload 时，类型检查不再覆盖通道名。界面订阅一个主进程没有注册的事件，会像现在一样直接报错；主进程某个模块漏注册时，它的调用会被拒绝，推送则静默收不到。由测试兜底：下发的名单与主进程注册的通道一致，名单外的调用被拒绝，被拒绝的来源拿到空名单。原来比对两份清单的测试删除。
-- 需要同步修改：`.oxlintrc.json`、`tsconfig.preload.json`、`tsconfig.renderer.json` 中对 `contracts.ts` 的引用，`docs/DEVELOPMENT.md` 与 `CONTRIBUTING.md` 中的清单说明。AGENTS.md 中提到 `contracts.ts` 的两处由维护者修改。
+- 需要同步修改：`.oxlintrc.json`、`tsconfig.preload.json`、`tsconfig.renderer.json` 中对 `contracts.ts` 的引用，`docs/DEVELOPMENT.md`、`CONTRIBUTING.md` 与 `AGENTS.md` 中的清单说明。
