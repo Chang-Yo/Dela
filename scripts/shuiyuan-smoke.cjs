@@ -161,6 +161,30 @@ const routes = {
   },
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
+// preload 按主进程下发的名单放行（docs/adr/0026）；事件是界面启动与水源页会订阅的那些。
+ipcMain.on('contract:manifest', (event) => {
+  event.returnValue = {
+    channels: Object.keys(routes),
+    events: [
+      'agent:session-update',
+      'agent:session-stream',
+      'agent:queue',
+      'workspace:officeExportProgress',
+      'agent:run-event',
+      'agent:sidechat-update',
+      'agent:sidechat-stream',
+      'agent:sidechat-closed',
+      'remotes:helperState',
+      'remotes:setupProgress',
+      'classroom:downloadEnded',
+      'shuiyuan:openTopic',
+      'shuiyuan:snapshotEnded',
+      'notifications:open',
+      'update:state',
+      'workspace:changed',
+    ],
+  };
+});
 
 app
   .whenReady()

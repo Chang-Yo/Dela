@@ -190,8 +190,7 @@ app
         nativeImage.createFromPath(join(__dirname, 'icons', `Dela_${savedIcon()}_bg.png`)),
       );
     }
-    registerAgentIpc();
-    registerModuleIpc(modules);
+    registerModuleIpc(modules, registerAgentIpc());
     for (const module of modules) module.register?.();
     registerSearchProvider(settingsSearch);
     gcChatMedia();

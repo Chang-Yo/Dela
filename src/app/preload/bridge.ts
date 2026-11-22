@@ -1,11 +1,13 @@
 import { ipcRenderer } from 'electron';
-import { channelsOf, eventChannelsOf, type Bridge } from '../../core/protocol/contract';
-import { contracts } from '../contracts';
+import type { Bridge, ChannelManifest } from '../../core/protocol/contract';
 
-const channels = new Set(contracts.flatMap(channelsOf));
-const eventChannels = new Set(contracts.flatMap(eventChannelsOf));
+// 名单由主进程按实际注册的契约下发，在页面脚本运行前取好，页面改不了（docs/adr/0026）。
+const manifest: ChannelManifest = ipcRenderer.sendSync('contract:manifest');
+const channels = new Set(manifest.channels);
+const eventChannels = new Set(manifest.events);
 
 export const bridge: Bridge = {
+  queryEvents: manifest.events.filter((channel) => channels.has(channel)),
   invoke(channel, input) {
     if (!channels.has(channel)) return Promise.reject(new Error('该功能在当前版本中未启用'));
     return ipcRenderer.invoke(channel, input);
