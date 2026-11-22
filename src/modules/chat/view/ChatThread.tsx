@@ -32,7 +32,7 @@ import { useMediaQuery } from '../../../ui/hooks/use-media-query';
 import type { MailDraftDialog } from './chat-source';
 import { formatDuration } from './format-duration';
 import { ReplyTrace } from './ToolTimeline';
-import { BackgroundTaskContext, type BackgroundTaskState } from './subagent-step';
+import { BackgroundTaskContext, TASK_STEP_STATUS, type BackgroundTaskState } from './task-run';
 import { ChatMarkdown } from './markdown';
 import { ReplyCommentLayer } from './reply-comment';
 import { fetchChatMediaPreview, getChatMediaPreview } from './media';
@@ -345,7 +345,7 @@ function TaskNoticeMessage({ content, task }: { content: string; task: TaskNotic
           ? `退出码 ${task.exitCode}`
           : formatDuration(task.durationMs)
       }
-      status={failed ? 'error' : task.status === 'stopped' ? 'interrupted' : 'done'}
+      status={TASK_STEP_STATUS[task.status]}
       target={{ text: task.label, title: task.label, mono: task.kind === 'bash' }}
     >
       {content.trim() && (
@@ -490,6 +490,7 @@ export function ChatThread({
                 {
                   status: message.task.status,
                   durationMs: message.task.durationMs,
+                  exitCode: message.task.exitCode,
                   body: message.content,
                 },
               ] as const,

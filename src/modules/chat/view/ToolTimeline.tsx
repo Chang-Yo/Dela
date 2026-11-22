@@ -1,23 +1,26 @@
-import type { ReactNode } from 'react';
+import { use, type ReactNode } from 'react';
 import { Layers } from 'lucide-react';
 import type { AgentToolResult, WorkspaceChat } from '../../../core/protocol/agent';
 import { Reasoning } from '../../../ui/agent/reasoning';
 import { ToolGroup } from '../../../ui/agent/tool-group';
 import { ToolStep, type ToolStepStatus } from '../../../ui/agent/tool-step';
-import { Trace } from '../../../ui/agent/trace';
+import { Trace, type TraceFold } from '../../../ui/agent/trace';
 import { formatDuration } from './format-duration';
 import { ChatMarkdown } from './markdown';
-import { SubagentStep } from './subagent-step';
+import { BackgroundTaskContext, taskRun } from './task-run';
+import { TaskStep } from './task-step';
 import { stepMeta, toolBody, toolEntry } from './tool-views';
 
 // 回复的行内轨迹：思考与工具步骤按发生顺序夹在正文之间，每步一行，展开看输入输出。
-// 整轮折叠行只报用时；失败标在步骤行尾，整轮失败由错误卡说明。
+// 状态只用颜色表达：运行中 accent，失败 danger。整轮折叠后不再单独列出任何步骤，
+// 仍在后台运行的任务由折叠行尾报出；失败标在步骤行尾，整轮失败由错误卡说明。
 
 type ChatParts = NonNullable<WorkspaceChat['messages'][number]['parts']>;
 type Part = ChatParts[number];
 
 function ChatToolStep({ result, live }: { result: AgentToolResult; live: boolean }) {
-  if (result.name === 'task') return <SubagentStep live={live} result={result} />;
+  const run = taskRun(result, live, use(BackgroundTaskContext));
+  if (run) return <TaskStep result={result} run={run} />;
   const failed = Boolean(result.output?.isError);
   const status: ToolStepStatus =
     live && result.finishedAt === undefined
@@ -51,10 +54,10 @@ function summarize(results: AgentToolResult[]): string {
     .join('，');
 }
 
-// 步骤少时折叠省不了几行，却多一次点击；子 Agent 单独成块，不折叠。
+// 步骤少时折叠省不了几行，却多一次点击。
 const FOLD_MIN_STEPS = 4;
 
-/** live 是整条回复是否在运行：并行调用里子 Agent 单独成块，不在最后一块时也可能还在跑。 */
+/** live 是整条回复是否在运行；正在增长的最后一组不折叠。 */
 function ChatToolGroup({
   results,
   live,
@@ -64,14 +67,16 @@ function ChatToolGroup({
   live: boolean;
   last: boolean;
 }) {
-  const fold = !(live && last) && results.length >= FOLD_MIN_STEPS && results[0]!.name !== 'task';
+  const tasks = use(BackgroundTaskContext);
+  const fold = !(live && last) && results.length >= FOLD_MIN_STEPS;
+  const running = results.some((result) => taskRun(result, live, tasks)?.kind === 'running');
   const failed = results.some((result) => result.output?.isError);
   return (
     <ToolGroup
-      failed={failed}
       icon={<Layers />}
-      meta={failed ? '有失败' : undefined}
+      meta={running ? '运行中' : failed ? '有失败' : undefined}
       summary={fold ? summarize(results) : undefined}
+      tone={running ? 'accent' : failed ? 'danger' : 'neutral'}
     >
       {results.map((result) => (
         <ChatToolStep key={result.id} live={live} result={result} />
@@ -80,7 +85,7 @@ function ChatToolGroup({
   );
 }
 
-/** 回复正文与轨迹：相邻工具合并（子 Agent 另成一块，整轮折叠时不收起）；块 key 由 part 索引派生，流式增长不重建。 */
+/** 回复正文与轨迹：相邻工具合并为一块；块 key 取首个 part 的索引，流式增长不重建。 */
 export function ReplyTrace({
   parts,
   live,
@@ -95,28 +100,17 @@ export function ReplyTrace({
   finishedAt?: number;
   renderText?: (text: string) => ReactNode;
 }) {
-  const blocks: { key: number; part: Part; pinned?: boolean }[] = [];
+  const tasks = use(BackgroundTaskContext);
+  const blocks: { key: number; part: Part }[] = [];
   parts.forEach((part, index) => {
-    if (part.type !== 'tools') {
-      if (part.text.trim()) blocks.push({ key: index * 1000, part });
-      return;
-    }
-    let created = 0;
-    for (const result of part.results) {
-      const pinned = result.name === 'task';
-      const last = blocks.at(-1);
-      if (last?.part.type === 'tools' && Boolean(last.pinned) === pinned)
-        blocks[blocks.length - 1] = {
-          ...last,
-          part: { type: 'tools', results: [...last.part.results, result] },
-        };
-      else
-        blocks.push({
-          key: index * 1000 + created++,
-          part: { type: 'tools', results: [result] },
-          pinned,
-        });
-    }
+    const last = blocks.at(-1);
+    if (part.type === 'tools' && last?.part.type === 'tools')
+      blocks[blocks.length - 1] = {
+        key: last.key,
+        part: { type: 'tools', results: [...last.part.results, ...part.results] },
+      };
+    else if (part.type === 'tools' ? part.results.length : part.text.trim())
+      blocks.push({ key: index, part });
   });
   const lastIndex = blocks.length - 1;
   const renderBlock = ({ part }: (typeof blocks)[number], index: number) => {
@@ -148,20 +142,26 @@ export function ReplyTrace({
   };
   // 整轮结束且以正文收尾：之前的说明、思考与工具自动折进一行，只留最终回复。
   const foldable = !live && blocks.length > 1 && blocks[lastIndex]!.part.type === 'text';
-  const duration =
-    startedAt !== undefined && finishedAt !== undefined && finishedAt > startedAt
-      ? formatDuration(finishedAt - startedAt)
-      : null;
-  const hasTools = blocks.some(({ part }) => part.type === 'tools');
-  const foldLabel = `${hasTools ? '已处理' : '已思考'}${duration ? ` · 用时 ${duration}` : ''}`;
+  let fold: TraceFold | undefined;
+  if (foldable) {
+    const results = blocks.flatMap(({ part }) => (part.type === 'tools' ? part.results : []));
+    const duration =
+      startedAt !== undefined && finishedAt !== undefined && finishedAt > startedAt
+        ? formatDuration(finishedAt - startedAt)
+        : null;
+    const running = results.filter(
+      (result) => taskRun(result, live, tasks)?.kind === 'running',
+    ).length;
+    fold = {
+      label: `${results.length ? '已处理' : '已思考'}${duration ? ` · 用时 ${duration}` : ''}`,
+      meta: running ? `${running} 个后台任务运行中` : undefined,
+      tone: 'accent',
+    };
+  }
   return (
     <Trace
-      blocks={blocks.map((block, index) => ({
-        key: block.key,
-        node: renderBlock(block, index),
-        pinned: block.pinned,
-      }))}
-      foldLabel={foldable ? foldLabel : undefined}
+      blocks={blocks.map((block, index) => ({ key: block.key, node: renderBlock(block, index) }))}
+      fold={fold}
     />
   );
 }

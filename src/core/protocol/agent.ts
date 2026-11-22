@@ -253,8 +253,6 @@ export type SidechatView = z.infer<typeof sidechatViewSchema>;
 export interface SubagentDetails {
   taskId: string;
   status: TaskStatus;
-  steps: number;
-  tool?: { name: string; target: string };
   reply?: string | null;
   background?: true;
 }

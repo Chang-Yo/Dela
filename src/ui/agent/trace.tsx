@@ -11,17 +11,45 @@ const guide = 'ml-2 border-l border-line pl-3.75';
 const rowClass =
   'group/row flex h-7 w-full min-w-0 items-center gap-2 rounded-chip text-left text-sm text-ink-2';
 
-function TraceIcon({ className, ...props }: ComponentProps<'span'>) {
+/** 行的状态色，只染图标与行尾结果：运行中 accent，失败 danger。 */
+type TraceTone = 'neutral' | 'accent' | 'danger';
+
+const toneText: Record<TraceTone, string> = {
+  neutral: 'text-ink-3',
+  accent: 'text-accent',
+  danger: 'text-danger',
+};
+
+function TraceIcon({
+  tone = 'neutral',
+  className,
+  ...props
+}: ComponentProps<'span'> & { tone?: TraceTone }) {
   return (
     <span
       aria-hidden
       className={cn(
-        'flex size-4 shrink-0 items-center justify-center text-ink-3 [&_svg]:size-3.5',
+        'flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5',
+        toneText[tone],
         className,
       )}
       data-slot="trace-icon"
       {...props}
     />
+  );
+}
+
+function TraceMeta({ tone, children }: { tone: TraceTone; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        'ml-0.5 flex shrink-0 items-center gap-1.5 text-xs tabular-nums',
+        toneText[tone],
+      )}
+      data-slot="trace-meta"
+    >
+      {children}
+    </span>
   );
 }
 
@@ -43,12 +71,14 @@ function TraceToggle({ open, className, ...props }: ComponentProps<'button'> & {
 }
 
 /**
- * 一行步骤：图标、内容，可展开时内容后带箭头（悬停、聚焦或展开时出现）。没有 children 时只是一行。
+ * 一行步骤：图标、内容、行尾结果，可展开时再带箭头（悬停、聚焦或展开时出现）。没有 children 时只是一行。
  * action 放在行尾、展开按钮之外，避免按钮嵌套。
  */
 function TraceDisclosure({
   icon,
   head,
+  meta,
+  tone = 'neutral',
   action,
   children,
   className,
@@ -56,14 +86,19 @@ function TraceDisclosure({
 }: Omit<ComponentProps<'div'>, 'children'> & {
   icon: ReactNode;
   head: ReactNode;
+  meta?: ReactNode;
+  tone?: TraceTone;
   action?: ReactNode;
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const content = (
     <>
-      <TraceIcon>{icon}</TraceIcon>
-      <span className="flex min-w-0 items-center gap-1.5">{head}</span>
+      <TraceIcon tone={tone}>{icon}</TraceIcon>
+      <span className="flex min-w-0 items-center gap-1.5">
+        {head}
+        {meta && <TraceMeta tone={tone}>{meta}</TraceMeta>}
+      </span>
     </>
   );
   const row = children ? (
@@ -99,34 +134,41 @@ function TraceDisclosure({
   );
 }
 
+type TraceFold = {
+  label: string;
+  /** 折叠行尾的整体状态，例如仍在后台运行的任务。 */
+  meta?: ReactNode;
+  tone?: TraceTone;
+};
+
 /**
- * 回复的过程块序列。给出 foldLabel 时，最后一块与 pinned 块之外的过程块折进一行；
+ * 回复的过程块序列。给出 fold 时，最后一块之前的过程块按原顺序折进一行；
  * 过程块保持原位只是隐藏，最后一块在折叠前后是同一个节点。
  */
 function Trace({
   blocks,
-  foldLabel,
+  fold,
   className,
   ...props
 }: ComponentProps<'div'> & {
-  blocks: { key: number; node: ReactNode; pinned?: boolean }[];
-  foldLabel?: string;
+  blocks: { key: number; node: ReactNode }[];
+  fold?: TraceFold;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const foldable = foldLabel !== undefined;
   const lastIndex = blocks.length - 1;
   return (
     <div className={cn('min-w-0', className)} data-slot="trace" {...props}>
-      {foldable && (
+      {fold && (
         <TraceToggle className="mb-1" onClick={() => setExpanded(!expanded)} open={expanded}>
           <TraceIcon>
             <CollapsibleChevron open={expanded} />
           </TraceIcon>
-          <span className="min-w-0 truncate">{foldLabel}</span>
+          <span className="min-w-0 truncate">{fold.label}</span>
+          {fold.meta && <TraceMeta tone={fold.tone ?? 'neutral'}>{fold.meta}</TraceMeta>}
         </TraceToggle>
       )}
-      {blocks.map(({ key, node, pinned }, index) =>
-        foldable && index < lastIndex && !pinned ? (
+      {blocks.map(({ key, node }, index) =>
+        fold && index < lastIndex ? (
           <div key={key} hidden={!expanded} className={cn(fadeIn, guide)}>
             {node}
           </div>
@@ -138,4 +180,4 @@ function Trace({
   );
 }
 
-export { Trace, TraceDisclosure };
+export { Trace, TraceDisclosure, type TraceFold, type TraceTone };

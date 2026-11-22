@@ -227,7 +227,6 @@ export async function runSubagent(
   id: string,
   prompt: string,
   signal: AbortSignal | undefined,
-  onEvent: (event: AgentSessionEvent) => void,
 ): Promise<SubagentResult> {
   const entry = await ensureLive(id);
   if (entry.run || entry.session.isCompacting)
@@ -235,7 +234,6 @@ export async function runSubagent(
   if (signal?.aborted) return { status: 'stopped', reply: null };
   const turnId = randomUUID();
   const priorCount = entry.session.messages.length;
-  const unsubscribe = entry.session.subscribe(onEvent);
   const stop = () => cancelRun(id);
   signal?.addEventListener('abort', stop, { once: true });
   try {
@@ -255,7 +253,6 @@ export async function runSubagent(
     };
   } finally {
     signal?.removeEventListener('abort', stop);
-    unsubscribe();
   }
 }
 

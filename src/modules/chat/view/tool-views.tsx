@@ -475,10 +475,10 @@ const toolEntries: Record<string, ToolEntry> = {
     meta: () => undefined,
     body: genericBody,
   },
-  // 状态与展开内容由 subagent-step.tsx 呈现，这里只给名称与对象。
+  // 状态与展开内容由 task-step.tsx 呈现，这里只给名称与对象；运行中由颜色与动画表示，名称不变。
   task: {
     icon: <Bot />,
-    doing: '子 Agent 正在处理',
+    doing: '子 Agent',
     done: '子 Agent',
     noun: '个任务',
     target: (result) => ({

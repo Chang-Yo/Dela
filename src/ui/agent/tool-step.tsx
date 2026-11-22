@@ -1,9 +1,16 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn';
 import { Shimmer } from '../shimmer';
-import { TraceDisclosure } from './trace';
+import { TraceDisclosure, type TraceTone } from './trace';
 
 type ToolStepStatus = 'running' | 'done' | 'error' | 'interrupted';
+
+const statusTone: Record<ToolStepStatus, TraceTone> = {
+  running: 'accent',
+  done: 'neutral',
+  error: 'danger',
+  interrupted: 'neutral',
+};
 
 type ToolStepProps = Omit<ComponentProps<'div'>, 'children'> & {
   status: ToolStepStatus;
@@ -11,7 +18,7 @@ type ToolStepProps = Omit<ComponentProps<'div'>, 'children'> & {
   /** 动词短语，已按状态选好进行时或完成时。 */
   label: string;
   target?: { text: string; title?: string; mono?: boolean };
-  /** 折叠时的一句结果：数量、行号、退出码、增删行数、来源头像等，由调用方按工具给出。 */
+  /** 行尾的一句结果：数量、行号、退出码、增删行数、用时等，由调用方按工具给出。 */
   meta?: ReactNode;
   /** 行尾的操作，例如打开子会话。 */
   action?: ReactNode;
@@ -19,21 +26,10 @@ type ToolStepProps = Omit<ComponentProps<'div'>, 'children'> & {
   children?: ReactNode;
 };
 
-/** 一步工具调用：一行「图标 + 动词 + 对象 + 结果」，展开后是工具的输入输出。 */
-function ToolStep({
-  status,
-  icon,
-  label,
-  target,
-  meta,
-  action,
-  children,
-  ...props
-}: ToolStepProps) {
-  const failed = status === 'error';
+/** 一步工具调用：一行「图标 + 动词 + 对象 + 结果」，图标与结果按状态着色，展开后是工具的输入输出。 */
+function ToolStep({ status, label, target, ...props }: ToolStepProps) {
   return (
     <TraceDisclosure
-      action={action}
       data-slot="tool-step"
       data-status={status}
       head={
@@ -49,23 +45,11 @@ function ToolStep({
               {target.text}
             </span>
           )}
-          {meta !== undefined && (
-            <span
-              className={cn(
-                'ml-0.5 flex shrink-0 items-center gap-1.5 text-xs tabular-nums',
-                failed ? 'text-danger' : 'text-ink-3',
-              )}
-            >
-              {meta}
-            </span>
-          )}
         </>
       }
-      icon={<span className={cn('contents', failed && 'text-danger')}>{icon}</span>}
+      tone={statusTone[status]}
       {...props}
-    >
-      {children}
-    </TraceDisclosure>
+    />
   );
 }
 
