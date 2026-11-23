@@ -4,9 +4,12 @@
 
 # Working core rules
 
+## 0. Everything is a trade-off
+
 **"不要默认假设。不要隐藏困惑。呈现权衡。"**
 **每个人的想法都受限于认知，注意提醒用户的Unknown unknown。**
 **请先阅读 @README.md**
+**改代码前先读 `CONTRIBUTING.md` 的「架构」一节：分层、依赖规则、改动落点与设计原则都在那里。**
 
 ## 1. 先思考再编码
 
@@ -31,6 +34,7 @@
 
 编辑现有代码时：
 
+- 尽可能地阅读相关代码，获取足够且准确地上下文
 - 不要"改善"相邻的代码、注释或格式。
 - 不要重构没有问题的代码。
 - **与现有风格保持一致。**
@@ -97,8 +101,7 @@
 ## 7. 界面与 Design System
 
 - 界面优先使用 `ui` 中的组件和 design token，不写 arbitrary 值，不用 Tailwind 原生色板
-- token 按用途命名，不按色相命名；缺少时新增，不借用别的用途的 token。改名或删除要先写 ADR，并在同一个提交里全局替换、同步 lint（ADR 0023）
-- 同样的界面结构出现两次以上，就提取为组件；先用基础组件组合，反复出现的复杂组合才提取为高级组件。提取前先问：去掉 Dela 的文案和业务，它还成立吗？
+- token 按用途命名，不按色相命名；缺少时新增，不借用别的用途的 token。改名或删除先征得用户同意，并在同一个提交里全局替换、同步 `scripts/lint-styles.ts`
 - 写或改 `ui` 里的组件前，先读 `src/ui/README.md` 的约定
 
 ## 8. 其他
@@ -106,51 +109,9 @@
 - 禁止写 .mjs 文件，全部一律换为 .ts 格式
 - 优先复用社区成熟的依赖，不重复造轮子；引入新依赖前核对维护状态、许可证和体积
 
-# 架构
+### 目录与分层
 
-代码按下面的结构组织。设计理由见 `docs/adr/`，各子系统的约定见 `docs/DEVELOPMENT.md`。
-
-```
-src/
-├─ core/       Agent 内核与 Agent 协议（core/protocol），不依赖 Electron、React 与业务
-├─ ui/         Design System，零业务依赖
-├─ modules/    通用功能：没有交大也成立
-├─ sjtu/       交大功能：离开交大就没有意义
-└─ app/        Electron 入口、宿主端口实现、工作台外壳、模块清单（modules、views、contracts）
-```
-
-每个模块按需包含 `index.ts`（模块定义，主进程侧出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/`（`view/index.ts` 是界面侧出口）、`data/`（`data/schema.ts` 是本模块的表与迁移）；Agent 的命令域与 Skill 放在 `main/agent/`。
-
-依赖规则（由 CI 的 lint 检查）：
-
-1. `core` 不依赖 Electron、React，也不引用 `app`、`modules`、`sjtu`、`ui`，宿主能力经 `core/ports.ts` 注入；`core/protocol` 只依赖 zod
-2. `ui` 只依赖 react、radix、cva、lucide、zustand、DOMPurify 与样式工具；`ui/agent` 建在基础组件之上，基础组件不能反过来引用它
-3. 模块之间只通过对方的 `index.ts`、`contract.ts` 或 `view/index.ts` 引用；`view/` 只能引用 `core/protocol`、`app/module.ts`、其他模块的 `contract.ts` 与 `ui`，不能引用本模块的 `main/`；主进程侧不能引用 `view/`
-4. `core`、`modules`、`app` 都不能引用 `sjtu`，例外是 `app/modules.ts`、`app/views.ts` 两份清单。通用模块需要交大数据时，在通用模块的 `index.ts` 里开注册口，由交大模块注册进来。CI 还会去掉全部交大模块后再做类型检查、构建与冒烟
-5. 模块只能引用 `app/module.ts`，不能引用 app 的其他部分
-6. `app/module.ts` 不引用任何模块，它与模块共用的类型放在 `core/protocol`
-7. 项目快捷方式的 sourceId 前缀以模块名开头（如 `canvas-`、`shuiyuan-topic:`），前缀重叠时登记直接报错
-
-拿到需求后，先判断改动落在哪里：
-
-| 你要做的事                         | 改动位置                                                   |
-| ---------------------------------- | ---------------------------------------------------------- |
-| 只改某个功能的界面                 | `modules/x/view` 或 `sjtu/x/view`                          |
-| 交大接口改版，或需要从学校取新数据 | `sjtu/x/main`                                              |
-| 新增一个交大功能                   | 新建 `sjtu/x/`，并在 app 的两份清单里按需各加一行          |
-| 让 Agent 获得某个领域的新能力      | 对应模块 `main/agent/` 里的命令域与 Skill                  |
-| 一个模块需要另一个模块的数据       | 调用对方的 `index.ts`；通用模块需要交大数据时开注册口      |
-| 让 Agent 获得通用的新工具          | `core/capabilities`                                        |
-| 移动端也需要的新能力               | `core/protocol`，**需要先和用户确认版本策略**              |
-| 新的跨模块概念                     | `core` 或 `app/module.ts`，**需要先写 ADR 并获得用户同意** |
-
-拿不准放 `modules` 还是 `sjtu` 时，问一句：如果交大不存在，这个功能还有意义吗？
-
-# 文件目录
-
-下面是 Dela 项目当前的文件结构。在修改对应的代码前应该先定位代码对应的模块位置，并阅读足够的代码来获取到足够的上下文：
-
-```
+```text
 Dela/
 ├─ src/
 │  ├─ core/                   Agent 内核，不依赖 Electron、React 与业务
@@ -163,16 +124,17 @@ Dela/
 │  │  └─ ports.ts             宿主端口（HostPorts）
 │  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
 │  │  └─ agent/               Agent 对话外观组件（消息、工具卡片、输入框）
-│  ├─ modules/                通用模块（chat、mail、note、notifications、onboarding、preview、
-│  │                          remotes、search、settings、terminal、todo、update、workspace）
-│  ├─ sjtu/                   交大模块，经 register() 向通用模块的注册口登记
+│  ├─ modules/                通用模块，没有交大也成立（chat、mail、note、notifications、
+│  │                          onboarding、preview、remotes、search、settings、terminal、
+│  │                          todo、update、workspace）
+│  ├─ sjtu/                   交大模块，离开交大就没有意义，经 register() 向通用模块登记
 │  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
 │  │  ├─ canvas/              Canvas 课程资料、作业与公告
 │  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
 │  │  ├─ jwc/                 教务处通知
 │  │  ├─ mail/                交大邮箱的服务器预设，登记给通用邮件模块
 │  │  ├─ shuiyuan/            水源社区
-│  │  └─ timetable/           课表与日历事件
+│  │  └─ timetable/           课表（只读）
 │  └─ app/                    宿主与外壳
 │     ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
 │     ├─ modules.ts           主进程模块清单
@@ -180,13 +142,13 @@ Dela/
 │     ├─ main/                Electron 入口、数据库、旧版数据过渡、IPC 注册与宿主端口实现
 │     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
 │     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
-├─ helper/                    Go 远端 helper
+├─ helper/                    远程项目的 Go helper
 ├─ scripts/                   开发、冒烟、打包与校验脚本
-├─ docs/                      开发文档、架构决策（adr/）、条款与接口资料
-├─ vendor/                    入库的 helper、搜索工具与 OpenSSH
+├─ docs/                      条款与功能边界
+├─ vendor/                    入库的 helper 产物、rg/fd 与 Windows 兜底 OpenSSH
 ├─ LICENSES/                  随源码分发的第三方许可证
 ├─ assets/                    图标与品牌素材
 └─ build/                     打包用图标等构建资源
 ```
 
-如果出现较大的代码改动，需要及时更新该目录树。
+当修改代码时应该先弄清楚你修改的代码属于哪个部分，牵涉到哪些模块。
