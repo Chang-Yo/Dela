@@ -136,17 +136,41 @@ pnpm test
 ```text
 Dela/
 ├─ src/
-│  ├─ core/       Agent 内核与 Agent 协议（core/protocol），不依赖 Electron、React 与业务
-│  ├─ ui/         Design System，零业务依赖；ui/agent 是 Agent 对话外观组件
-│  ├─ modules/    通用功能，没有交大也成立：chat、mail、note、notifications、onboarding、
-│  │              preview、remotes、search、settings、terminal、todo、update、workspace
-│  ├─ sjtu/       交大功能，离开交大就没有意义：campus、canvas、classroom、jwc、mail、
-│  │              shuiyuan、timetable
-│  └─ app/        Electron 入口、preload、宿主端口实现、工作台外壳与两份模块清单
-├─ helper/        远程项目的 Go helper
-├─ scripts/       开发、冒烟、打包与校验脚本
-├─ docs/          条款、功能边界与接口资料
-└─ vendor/        入库的 helper 产物、rg/fd 与 Windows 兜底 OpenSSH
+│  ├─ core/                   Agent 内核，不依赖 Electron、React 与业务
+│  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
+│  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
+│  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
+│  │  ├─ remote/              远程执行后端与 helper 通道
+│  │  ├─ data/                会话表的结构与迁移
+│  │  ├─ config-files.ts      ~/.dela 下的 JSON 配置（模型服务、联网搜索、MCP）
+│  │  └─ ports.ts             宿主端口（HostPorts）
+│  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
+│  │  └─ agent/               Agent 对话外观组件（消息、工具卡片、输入框）
+│  ├─ modules/                通用模块，没有交大也成立（chat、mail、note、notifications、
+│  │                          onboarding、preview、remotes、search、settings、terminal、
+│  │                          todo、update、workspace）
+│  ├─ sjtu/                   交大模块，离开交大就没有意义，经 register() 向通用模块登记
+│  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
+│  │  ├─ canvas/              Canvas 课程资料、作业与公告
+│  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
+│  │  ├─ jwc/                 教务处通知
+│  │  ├─ mail/                交大邮箱的服务器预设，登记给通用邮件模块
+│  │  ├─ shuiyuan/            水源社区
+│  │  └─ timetable/           课表（只读）
+│  └─ app/                    宿主与外壳
+│     ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
+│     ├─ modules.ts           主进程模块清单
+│     ├─ views.ts             渲染端视图清单
+│     ├─ main/                Electron 入口、数据库、旧版数据过渡、IPC 注册与宿主端口实现
+│     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
+│     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
+├─ helper/                    远程项目的 Go helper
+├─ scripts/                   开发、冒烟、打包与校验脚本
+├─ docs/                      条款、功能边界与接口资料
+├─ vendor/                    入库的 helper 产物、rg/fd 与 Windows 兜底 OpenSSH
+├─ LICENSES/                  随源码分发的第三方许可证
+├─ assets/                    图标与品牌素材
+└─ build/                     打包用图标等构建资源
 ```
 
 每个模块按需包含 `index.ts`（模块定义，主进程侧出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/`（`view/index.ts` 是界面侧出口）、`data/`（`data/schema.ts` 是本模块的表与迁移）；Agent 的命令域与 Skill 放在 `main/agent/`。测试放在源码旁或同目录的 `test/` 下。
