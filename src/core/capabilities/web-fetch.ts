@@ -12,60 +12,49 @@ const MAX_REDIRECTS = 5;
 // 单次返回的字符数；超出部分经 offset 续读，分页本身不截断。
 const TEXT_LIMIT = 20000;
 
-interface WebPageContent {
-  source: { url: string; fetchedAt: string };
+interface Page {
+  url: URL;
   title: string | null;
   contentType: string;
   text: string;
-  totalCharacters: number;
-  nextOffset: number | null;
   truncated: boolean;
-  note?: string;
 }
 
-export async function fetchWebPage(
-  rawUrl: string,
-  offset = 0,
-  deepseek?: { apiKey: string },
-): Promise<WebPageContent> {
+export async function fetchWebPage(rawUrl: string, offset = 0, deepseek?: { apiKey: string }) {
   const fetchedAt = new Date().toISOString();
-  const finish = (
-    url: URL,
-    title: string | null,
-    contentType: string,
-    fullText: string,
-    bytesTruncated: boolean,
-    extraNotes: string[] = [],
-  ): WebPageContent => {
-    const notes = [...extraNotes];
-    if (bytesTruncated) notes.push('页面超过 2MB 读取上限，内容可能不完整');
-    const nextOffset = offset + TEXT_LIMIT < fullText.length ? offset + TEXT_LIMIT : null;
-    if (nextOffset !== null)
-      notes.push(
-        `正文共 ${fullText.length} 字符，本次返回第 ${offset}–${nextOffset} 字符；传 offset=${nextOffset} 续读`,
-      );
-    return {
-      source: { url: url.toString(), fetchedAt },
-      title,
-      contentType,
-      text: fullText.slice(offset, offset + TEXT_LIMIT),
-      totalCharacters: fullText.length,
-      nextOffset,
-      truncated: bytesTruncated,
-      ...(notes.length ? { note: notes.join('；') } : {}),
-    };
-  };
-  let url = httpUrl(rawUrl);
+  const url = httpUrl(rawUrl);
+  let page: Page | null = null;
   if (deepseek) {
     try {
-      const page = await fetchDeepSeek(url.toString(), deepseek.apiKey);
-      if (page.text.trim())
-        return finish(url, page.title, 'text/markdown', page.text.replace(/\r\n/g, '\n'), false);
+      const { title, text } = await fetchDeepSeek(url.toString(), deepseek.apiKey);
+      if (text.trim()) page = { url, title, contentType: 'text/markdown', text, truncated: false };
     } catch {
       // 注册了 DeepSeek 也不该让抓取失去可用性：取不到正文（404）或临时故障时回退本地抓取。
     }
   }
-  let response: Response | null = null;
+  page ??= await fetchDirectly(url);
+  const fullText = page.text.replace(/\r\n/g, '\n');
+  const nextOffset = offset + TEXT_LIMIT < fullText.length ? offset + TEXT_LIMIT : null;
+  const notes = [
+    page.truncated && '页面超过 2MB 读取上限，内容可能不完整',
+    nextOffset !== null &&
+      `正文共 ${fullText.length} 字符，本次返回第 ${offset}–${nextOffset} 字符；传 offset=${nextOffset} 续读`,
+  ].filter(Boolean);
+  return {
+    source: { url: page.url.toString(), fetchedAt },
+    title: page.title,
+    contentType: page.contentType,
+    text: fullText.slice(offset, offset + TEXT_LIMIT),
+    totalCharacters: fullText.length,
+    nextOffset,
+    truncated: page.truncated,
+    ...(notes.length ? { note: notes.join('；') } : {}),
+  };
+}
+
+async function fetchDirectly(start: URL): Promise<Page> {
+  let url = start;
+  let response: Response;
   for (let hop = 0; ; hop += 1) {
     response = await fetch(url, {
       redirect: 'manual',
@@ -83,13 +72,13 @@ export async function fetchWebPage(
     if (hop >= MAX_REDIRECTS) throw new Error('网页重定向次数过多');
     url = httpUrl(new URL(location, url).toString());
   }
-  if (!response!.ok) throw new Error(`网页请求失败（HTTP ${response!.status}）`);
-  const contentType = response!.headers.get('content-type') ?? '';
+  if (!response.ok) throw new Error(`网页请求失败（HTTP ${response.status}）`);
+  const contentType = response.headers.get('content-type') ?? '';
   if (contentType && !/^text\/|[/+](?:xml|json)\b/i.test(contentType)) {
-    await response!.body?.cancel();
+    await response.body?.cancel();
     throw new Error(`该地址不是网页（${contentType}），需要文件时请自行下载`);
   }
-  const { bytes, truncated: bytesTruncated } = await readCapped(response!);
+  const { bytes, truncated } = await readCapped(response);
   const charset = /charset=([\w-]+)/i.exec(contentType)?.[1];
   let source: string;
   try {
@@ -101,8 +90,7 @@ export async function fetchWebPage(
   const { title, text } = isMarkup
     ? htmlToPage(source, url.toString())
     : { title: null, text: source };
-  const normalized = text.replace(/\r\n/g, '\n');
-  return finish(url, title, contentType || 'text/html', normalized, bytesTruncated);
+  return { url, title, contentType: contentType || 'text/html', text, truncated };
 }
 
 function httpUrl(raw: string): URL {
