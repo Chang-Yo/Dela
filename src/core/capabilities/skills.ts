@@ -5,7 +5,6 @@ import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import type { SkillOrigin, SkillView } from '../protocol/capabilities';
 import { discoverProjectSkills } from './discovery';
-import { documentReader, readyDocumentReader } from './documents';
 import { hostPorts } from '../ports';
 import { builtinSkills } from './commands';
 
@@ -47,13 +46,6 @@ export function readDisabledSkills(): Set<string> {
   return new Set(parsed.success ? parsed.data : []);
 }
 
-export function effectiveDisabledSkills(): Set<string> {
-  const disabled = readDisabledSkills();
-  const reader = documentReader();
-  if (reader && reader.dependency().status !== 'ready') disabled.add(reader.skill);
-  return disabled;
-}
-
 const DISABLED_PATHS_KEY = 'skills-disabled-paths';
 
 export function readDisabledSkillPaths(): Set<string> {
@@ -74,7 +66,6 @@ function globalSkills(): SkillView[] {
   const skills: SkillView[] = [];
   const seen = new Set<string>();
   const builtin = new Set(builtinSkills().map((skill) => skill.name));
-  const reader = documentReader();
   for (const directory of globalSkillDirectories()) {
     if (!existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -87,12 +78,9 @@ function globalSkills(): SkillView[] {
         id: path,
         name: entry.name,
         description: description(path),
-        enabled:
-          !disabled.has(entry.name) &&
-          (entry.name !== reader?.skill || reader.dependency().status === 'ready'),
+        enabled: !disabled.has(entry.name),
         path,
         origin,
-        dependency: entry.name === reader?.skill ? reader.dependency() : undefined,
       });
     }
   }
@@ -126,7 +114,6 @@ export async function listSkills(): Promise<SkillView[]> {
 }
 
 export async function setGlobalSkillEnabled(name: string, enabled: boolean): Promise<void> {
-  if (name === documentReader()?.skill && enabled) await readyDocumentReader().verify();
   const disabled = readDisabledSkills();
   if (enabled) disabled.delete(name);
   else disabled.add(name);

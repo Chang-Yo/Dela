@@ -5,7 +5,6 @@
     "scripts/build-helper.ts",
     "scripts/ci-smoke.ts",
     "scripts/dev.ts",
-    "scripts/document-runtime-smoke.ts",
     "scripts/fix-native-permissions.ts",
     "scripts/prepare-runtime.ts",
     "scripts/refactor-metrics.ts",

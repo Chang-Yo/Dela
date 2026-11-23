@@ -13,9 +13,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import type { MailComposeFile, PreparedEmail, MailDraftSummary } from '../contract';
-import { resourceAddressSchema } from '../../../core/capabilities/resources';
+import { resourceAddressSchema, withResourceFile } from '../../../core/capabilities/resources';
 import { hostPorts } from '../../../core/ports';
-import { withResourceFile } from '../../workspace';
 import {
   addComposeAttachment,
   releaseComposeFiles,

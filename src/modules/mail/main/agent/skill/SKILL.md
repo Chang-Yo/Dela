@@ -12,7 +12,7 @@ description: 邮箱：搜索邮件、读正文与附件、准备邮件草稿
 - `dela search_mail '{"query":"成绩单","limit":20}'`：搜索邮件（按文件夹/日期过滤）
 - `dela list_mail_folders '{}'`：文件夹与同步状态
 - `dela read_resource '{"ref":{"type":"mail","id":123}}'`：读邮件正文（分页）
-- 附件：ref 用 `{"type":"attachment","messageId":123,"part":"..."}`；用 document-reading Skill 读取文件正文
+- 附件：ref 用 `{"type":"attachment","messageId":123,"part":"..."}`；用 read_document 工具读取文件正文
 - `dela prepare_email`：准备邮件草稿（收件人/主题/正文），草稿在应用邮件编辑器中由用户发送
 
 ## 指引

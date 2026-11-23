@@ -4,11 +4,6 @@ vi.mock('../../../../../modules/workspace/main/resources', async (importOriginal
   ...(await importOriginal<typeof import('../../../../../modules/workspace/main/resources')>()),
   readWorkspaceResource: vi.fn(),
 }));
-vi.mock('../../../../../modules/preview', () => ({
-  DOCUMENT_SKILL: 'document-reading',
-  assertDocumentDependency: vi.fn(),
-  documentPython: () => 'component/python.exe',
-}));
 vi.mock('../../../../../modules/workspace/main/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../../modules/workspace/main/api')>()),
   workspaceFilePath: vi.fn(),

@@ -6,14 +6,6 @@ import { defineContract } from './contract';
 /** Skill 来处：builtin 为 Dela 写入 ~/.dela/skills 的内置技能，user 为本机用户目录，project 为本地项目目录。 */
 export type SkillOrigin = 'builtin' | 'user' | 'project';
 
-export interface SkillDependency {
-  status: 'missing' | 'installing' | 'ready' | 'error';
-  phase?: string;
-  received?: number;
-  total?: number;
-  error?: string;
-}
-
 /** 已发现的 Skill（同名时项目覆盖全局）。 */
 export interface SkillView {
   /** 唯一标识，即 SKILL.md 的绝对路径：启停、查看与上传都用它（主进程只认清单里有的）。 */
@@ -24,7 +16,6 @@ export interface SkillView {
   path: string;
   origin: SkillOrigin;
   group?: { id: string; label: string };
-  dependency?: SkillDependency;
 }
 
 export type McpConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -122,8 +113,6 @@ export const capabilitiesContract = defineContract(
   {
     listSkills: { input: z.undefined(), output: skills },
     setSkillEnabled: { input: z.object({ id: skillId, enabled: z.boolean() }), output: skills },
-    installSkillDependencies: { input: z.string(), output: skills },
-    cancelSkillInstallation: { input: z.string(), output: z.void() },
     readSkill: { input: skillId, output: z.string() },
     revealSkill: { input: skillId, output: z.void() },
     /** 目标已存在且 overwrite 为 false 时抛「远端已存在：…」，供界面二次确认。 */
@@ -146,6 +135,10 @@ export const capabilitiesContract = defineContract(
     listBuiltinCapabilities: { input: z.undefined(), output: builtins },
     setBuiltinCapability: { input: z.object({ name, enabled: z.boolean() }), output: builtins },
     setBuiltinDomain: { input: z.object({ domain: name, enabled: z.boolean() }), output: builtins },
+    /** Token 只进不出：界面只知道是否已配置；保存先向 MinerU 校验，保存即开启 read_document，删除即关闭。 */
+    hasDocumentToken: { input: z.undefined(), output: z.boolean() },
+    saveDocumentToken: { input: z.string(), output: builtins },
+    removeDocumentToken: { input: z.undefined(), output: builtins },
     /** 全应用同时运行的子 Agent 上限（同步与后台合计）。 */
     subagentLimit: { input: z.undefined(), output: z.number() },
     setSubagentLimit: { input: z.number(), output: z.number() },

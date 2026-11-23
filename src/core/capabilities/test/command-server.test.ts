@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
   app: { getPath: () => tmpdir(), isPackaged: false, getAppPath: () => tmpdir() },
 }));
 vi.mock('node-pty', () => ({ spawn: vi.fn() }));
-vi.mock('../skills', () => ({ effectiveDisabledSkills: () => new Set(['curriculum', 'canvas']) }));
+vi.mock('../skills', () => ({ readDisabledSkills: () => new Set(['curriculum', 'canvas']) }));
 import { COMMAND_BRIDGE, startDomainBridge } from '../command-server';
 import { registerCommandDomain, type CommandDomain } from '../commands';
 import { testBash } from '../../test/bash';

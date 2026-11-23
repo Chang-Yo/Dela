@@ -9,6 +9,7 @@ import { SectionHeader } from '../SectionHeader';
 import { SettingsGroup } from '../SettingsGroup';
 import { showToast } from '../../../../ui/toast';
 import { SearchConfigDialog } from './SearchConfigDialog';
+import { DocumentTokenDialog } from './DocumentTokenDialog';
 import { ErrorText } from '../../../../ui/error-text';
 import { Spinner } from '../../../../ui/spinner';
 import { capabilitiesClient, onWebSearchChanged } from '../../../chat/view';
@@ -92,6 +93,12 @@ export function CapabilitiesSection() {
   const capabilities = list.data;
   const [busy, setBusy] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [documentOpen, setDocumentOpen] = useState(false);
+  const hasDocumentToken = useQuery({
+    queryKey: ['capabilities', 'documentToken'],
+    queryFn: () => capabilitiesClient.hasDocumentToken(),
+    enabled: Boolean(window.dela),
+  }).data;
 
   useEffect(
     () =>
@@ -146,6 +153,17 @@ export function CapabilitiesSection() {
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => setSearchOpen(true)}
+                          >
+                            <SlidersHorizontal className="size-4" strokeWidth={1.8} />
+                          </Button>
+                        )}
+                        {group.id === 'document' && (
+                          <Button
+                            aria-label="配置 MinerU Token"
+                            title="配置 MinerU Token"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => setDocumentOpen(true)}
                           >
                             <SlidersHorizontal className="size-4" strokeWidth={1.8} />
                           </Button>
@@ -208,12 +226,15 @@ export function CapabilitiesSection() {
                             disabled={busy}
                             aria-label={capability.label}
                             onCheckedChange={(next) =>
-                              void run(() =>
-                                capabilitiesClient.setBuiltinCapability({
-                                  name: capability.name,
-                                  enabled: next,
-                                }),
-                              )
+                              // 没有 Token 时开启读取文档没有意义，直接引导去配置。
+                              next && capability.name === 'read_document' && !hasDocumentToken
+                                ? setDocumentOpen(true)
+                                : void run(() =>
+                                    capabilitiesClient.setBuiltinCapability({
+                                      name: capability.name,
+                                      enabled: next,
+                                    }),
+                                  )
                             }
                           />
                         )}
@@ -230,6 +251,12 @@ export function CapabilitiesSection() {
           )}
           {list.error && <ErrorText>{errorMessage(list.error)}</ErrorText>}
           {searchOpen && <SearchConfigDialog onClose={() => setSearchOpen(false)} />}
+          {documentOpen && (
+            <DocumentTokenDialog
+              onClose={() => setDocumentOpen(false)}
+              onSaved={(next) => queryClient.setQueryData(['capabilities', 'builtin'], next)}
+            />
+          )}
         </>
       )}
     </div>

@@ -5,7 +5,6 @@ import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   root: '',
-  missing: false,
   disabled: false,
   sessions: [] as { file: string }[],
 }));
@@ -15,11 +14,10 @@ vi.mock('electron', () => ({
   nativeImage: {},
   dialog: {},
 }));
-vi.mock('../../capabilities/skills', () => ({
-  readDisabledSkills: () => new Set(state.disabled ? ['document-reading'] : []),
+vi.mock('../../capabilities/tools', () => ({
+  readDisabledTools: () => new Set(state.disabled ? ['read_document'] : []),
 }));
 import { provideTestHostPorts } from '../../test/host-mock';
-import { registerDocumentReader } from '../../capabilities/documents';
 import { gcChatMedia, readChatAttachment, releaseChatAttachments, stageChatMedia } from '../media';
 
 beforeEach(() => {
@@ -27,17 +25,8 @@ beforeEach(() => {
     paths: { userData: () => state.root },
     database: () => ({ prepare: () => ({ all: () => state.sessions }) }) as never,
   });
-  state.missing = false;
   state.disabled = false;
   state.sessions = [];
-});
-registerDocumentReader({
-  skill: 'document-reading',
-  dependency: () => ({ status: state.missing ? 'missing' : 'ready' }),
-  verify: async () => {},
-  prepare: async () => {
-    throw new Error('用例不准备文档');
-  },
 });
 afterAll(() => rmSync(state.root, { recursive: true, force: true }));
 
@@ -60,14 +49,11 @@ it('stages documents as files, retains sent files referenced by sessions, and co
   expect(existsSync(attachment.path)).toBe(false);
 });
 
-it('keeps text attachments in memory and checks missing or disabled document dependencies', () => {
+it('keeps text attachments in memory and refuses documents while read_document is off', () => {
   const view = stageChatMedia('notes.txt', Buffer.from('正文'));
   expect(readChatAttachment(view.id)).toEqual({ name: 'notes.txt', bytes: Buffer.from('正文') });
   releaseChatAttachments([view.id]);
   expect(() => readChatAttachment(view.id)).toThrow('不存在');
-  state.missing = true;
-  expect(() => stageChatMedia('file.pdf', Buffer.from('%PDF-'))).toThrow('安装');
-  state.missing = false;
   state.disabled = true;
-  expect(() => stageChatMedia('file.pptx', Buffer.from('PK'))).toThrow('启用');
+  expect(() => stageChatMedia('file.pptx', Buffer.from('PK'))).toThrow('MinerU Token');
 });

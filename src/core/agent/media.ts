@@ -20,17 +20,16 @@ import {
 } from '../protocol/chat-input';
 import type { ChatMediaView } from '../protocol/agent';
 import { SNIFF_BYTES } from '../protocol/files';
-import { readyDocumentReader } from '../capabilities/documents';
-import { readDisabledSkills } from '../capabilities/skills';
+import { readDisabledTools } from '../capabilities/tools';
 import { hostPorts } from '../ports';
 
 // 内联图片暂存在 userData/chat-media/<UUID>.<ext>：模型拿到的是 base64（随 Pi 会话落盘），
-// 文档同样保留本地副本供 skill 按需读取；文本附件只进内存。启动时按会话引用回收孤儿文件。
+// 文档同样保留本地副本供 read_document 按需读取；文本附件只进内存。启动时按会话引用回收孤儿文件。
 const attachments = new Map<string, { name: string } & ({ bytes: Buffer } | { path: string })>();
 
-function assertDocumentSkill(): void {
-  if (readDisabledSkills().has(readyDocumentReader().skill))
-    throw new Error('请先在设置 › Skills 启用文档读取');
+function assertDocumentTool(): void {
+  if (readDisabledTools().has('read_document'))
+    throw new Error('请先在 设置 › 内置能力 › 文档 配置 MinerU Token');
 }
 
 function mediaDir(): string {
@@ -60,7 +59,7 @@ function isUuid(value: string): boolean {
 export function stageChatMedia(name: string, bytes: Buffer): ChatMediaView {
   const kind = chatFileKind(name, bytes);
   if (kind === 'document') {
-    assertDocumentSkill();
+    assertDocumentTool();
     if (bytes.length > CHAT_DOCUMENT_MAX_BYTES) throw new Error('文档附件超过 128 MiB 上限');
     const id = randomUUID();
     const path = join(mediaDir(), id + safeExtension(name));
@@ -101,7 +100,7 @@ export function stageChatMediaFiles(paths: readonly string[]): ChatMediaView[] {
             : CHAT_DOCUMENT_MAX_BYTES;
       if (stat.size > limit)
         throw new Error(`“${basename(path)}”超过 ${limit / 1024 / 1024} MiB 上限`);
-      if (kind === 'document') assertDocumentSkill();
+      if (kind === 'document') assertDocumentTool();
       picked.push(stageChatMedia(basename(path), readFileSync(path)));
     }
     return picked;
@@ -132,7 +131,7 @@ export function readChatMediaBytes(id: string): Buffer {
 export function readChatAttachment(id: string) {
   const attachment = attachments.get(id);
   if (!attachment) throw new Error('附件不存在或已发送，请重新添加');
-  if ('path' in attachment) assertDocumentSkill();
+  if ('path' in attachment) assertDocumentTool();
   return attachment;
 }
 

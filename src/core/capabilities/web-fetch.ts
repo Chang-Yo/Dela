@@ -1,8 +1,6 @@
 import { htmlToMarkdown } from '@mdream/js';
 import { clean } from '@mdream/js/clean';
 import { extractionPlugin, filterPlugin } from '@mdream/js/plugins';
-import { open } from 'node:fs/promises';
-import { readyDocumentReader, type PreparedDocument } from './documents';
 import { fetchDeepSeek } from './deepseek';
 
 // 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
@@ -10,7 +8,6 @@ const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 const REQUEST_TIMEOUT_MS = 15000;
 const PAGE_BYTE_LIMIT = 2 * 1024 * 1024;
-const DOCUMENT_BYTE_LIMIT = 128 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 // 单次返回的字符数；超出部分经 offset 续读，分页本身不截断。
 const TEXT_LIMIT = 20000;
@@ -24,7 +21,6 @@ interface WebPageContent {
   nextOffset: number | null;
   truncated: boolean;
   readable?: false;
-  document?: PreparedDocument;
   note?: string;
 }
 
@@ -95,19 +91,12 @@ export async function fetchWebPage(
     contentType.toLowerCase().includes('pdf') ||
     new TextDecoder('latin1').decode(peeked.prefix.subarray(0, 5)) === '%PDF-';
   if (looksLikePdf) {
-    try {
-      const document = await readyDocumentReader().prepare((path) =>
-        saveDocument(peeked.response, path),
-      );
-      return {
-        ...finish(url, null, contentType || 'application/pdf', '', false),
-        readable: false,
-        document,
-        note: '此地址返回 PDF，已保存完整临时文件。使用 document-reading skill，直接用 document 中的 python、script、input、output 解析并读取正文或页面图片，无需再次 prepare_document；完成后用 document.jobId 调用 dela release_document。',
-      };
-    } finally {
-      await peeked.response.body?.cancel().catch(() => {});
-    }
+    await peeked.response.body?.cancel().catch(() => {});
+    return {
+      ...finish(url, null, contentType || 'application/pdf', '', false),
+      readable: false,
+      note: '此地址返回 PDF，用 read_document 工具传入 url 读取正文。',
+    };
   }
   if (/^(image|audio|video)\//.test(contentType)) {
     await peeked.response.body?.cancel();
@@ -153,29 +142,6 @@ async function peekResponse(response: Response) {
     cancel: (reason) => reader.cancel(reason),
   });
   return { response: new Response(body, { headers: response.headers }), prefix };
-}
-
-async function saveDocument(response: Response, path: string): Promise<void> {
-  if (Number(response.headers.get('content-length')) > DOCUMENT_BYTE_LIMIT)
-    throw new Error('文档超过 128 MiB 下载上限，未解析截断内容');
-  const reader = response.body?.getReader();
-  const file = await open(path, 'wx');
-  let length = 0;
-  try {
-    if (!reader) throw new Error('文档响应为空');
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.length;
-      if (length > DOCUMENT_BYTE_LIMIT)
-        throw new Error('文档超过 128 MiB 下载上限，未解析截断内容');
-      await file.writeFile(value);
-    }
-  } finally {
-    await file.close();
-    await reader?.cancel().catch(() => {});
-    reader?.releaseLock();
-  }
 }
 
 const looksLikePdfUrl = (url: URL) => /\.pdf$/i.test(url.pathname);

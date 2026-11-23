@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Cloud, CloudUpload, FileText, FolderOpen, RefreshCw } from 'lucide-react';
 import type {
   RemoteSkillUpload,
@@ -9,7 +9,6 @@ import type {
 import type { WorkspaceEntry } from '../../../workspace/contract';
 import { Button } from '../../../../ui/button';
 import { Card } from '../../../../ui/card';
-import { DownloadProgress } from '../../../../ui/download-progress';
 import { Switch } from '../../../../ui/switch';
 import { SegmentedControl } from '../../../../ui/segmented-control';
 import { useWorkspaceStore } from '../../../workspace/view';
@@ -84,21 +83,11 @@ export function SkillsTab() {
   const queryClient = useQueryClient();
   const setSkills = (views: SkillView[] | undefined) =>
     queryClient.setQueryData(['capabilities', 'skills'], views);
-  const install = useMutation({
-    mutationFn: (name: string) => capabilitiesClient.installSkillDependencies(name),
-    onSuccess: setSkills,
-    onError: () => queryClient.invalidateQueries({ queryKey: ['capabilities', 'skills'] }),
-  });
-  const installing = install.isPending;
-  // 未读到列表（data 为 undefined）时不渲染空态，避免闪烁；依赖安装期间每秒重读进度。
+  // 未读到列表（data 为 undefined）时不渲染空态，避免闪烁。
   const list = useQuery({
     queryKey: ['capabilities', 'skills'],
     queryFn: () => capabilitiesClient.listSkills(),
     enabled: Boolean(window.dela),
-    refetchInterval: (query) =>
-      installing || query.state.data?.some((skill) => skill.dependency?.status === 'installing')
-        ? 1000
-        : false,
   });
   const skills = list.data;
   const [busy, setBusy] = useState(false);
@@ -107,24 +96,6 @@ export function SkillsTab() {
   const [uploading, setUploading] = useState<SkillView | null>(null);
 
   const refresh = () => void list.refetch();
-
-  const installDependencies = (skill: SkillView) => {
-    if (!window.dela || installing) return;
-    install.mutate(skill.name, {
-      onError: (cause) =>
-        showToast({ variant: 'error', title: '组件安装未完成', description: errorMessage(cause) }),
-    });
-  };
-
-  // 先 reset：用户主动取消引发的安装失败不再作为错误提示。
-  const cancelInstallation = async (name: string) => {
-    install.reset();
-    try {
-      await capabilitiesClient.cancelSkillInstallation(name);
-    } catch (cause) {
-      showToast({ variant: 'error', title: '取消失败', description: errorMessage(cause) });
-    }
-  };
 
   const toggle = async (skill: SkillView, next: boolean) => {
     if (!window.dela || busy) return;
@@ -230,29 +201,6 @@ export function SkillsTab() {
                     <span className="truncate font-mono text-xs text-ink-3" title={skill.path}>
                       {skill.path}
                     </span>
-                    {skill.dependency &&
-                      skill.dependency.status !== 'ready' &&
-                      (skill.dependency.status === 'error' ? (
-                        <span
-                          className="truncate text-xs text-danger"
-                          role="status"
-                          title={skill.dependency.error}
-                        >
-                          {skill.dependency.error ?? '组件安装失败'}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-ink-3" role="status">
-                          {skill.dependency.phase ?? '需要安装文档解析组件'}
-                        </span>
-                      ))}
-                    {skill.dependency?.status === 'installing' && skill.dependency.total ? (
-                      <DownloadProgress
-                        barClassName="w-16 md:w-40"
-                        label={`${skill.name} 组件下载进度`}
-                        received={skill.dependency.received ?? 0}
-                        total={skill.dependency.total}
-                      />
-                    ) : null}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
@@ -276,36 +224,19 @@ export function SkillsTab() {
                   </Button>
                   <Button
                     aria-label={`上传 ${skill.name} 到远端项目`}
-                    disabled={!!skill.dependency}
                     onClick={() => setUploading(skill)}
                     size="icon-sm"
-                    title={skill.dependency ? '此组件仅在本机使用' : '上传到远端项目'}
+                    title="上传到远端项目"
                     variant="ghost"
                   >
                     <CloudUpload />
                   </Button>
-                  {skill.dependency && skill.dependency.status !== 'ready' ? (
-                    skill.dependency.status === 'installing' || installing ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void cancelInstallation(skill.name)}
-                      >
-                        取消安装
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={() => installDependencies(skill)}>
-                        {skill.dependency.status === 'error' ? '重试安装' : '安装并启用'}
-                      </Button>
-                    )
-                  ) : (
-                    <Switch
-                      checked={skill.enabled}
-                      disabled={busy}
-                      aria-label={`启用 ${skill.name}`}
-                      onCheckedChange={(next) => void toggle(skill, next)}
-                    />
-                  )}
+                  <Switch
+                    checked={skill.enabled}
+                    disabled={busy}
+                    aria-label={`启用 ${skill.name}`}
+                    onCheckedChange={(next) => void toggle(skill, next)}
+                  />
                 </div>
               </li>
             ))}
