@@ -2,7 +2,7 @@
 // 结果按文件内容缓存在临时目录，续读与重读不再上传，也不再消耗用户的解析额度。
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, existsSync, openAsBlob } from 'node:fs';
-import { mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, extname, join, sep } from 'node:path';
 import { buffer } from 'node:stream/consumers';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -151,7 +151,7 @@ async function unpack(archive: Buffer, directory: string): Promise<string> {
   return markdown;
 }
 
-/** MinerU 按扩展名判断格式；附件与下载的文件名不可靠时按内容识别。 */
+/** MinerU 按扩展名判断格式；附件等文件名不可靠时按内容识别。 */
 async function extension(path: string, name: string): Promise<string> {
   const named = extname(name).slice(1).toLowerCase();
   if (EXTENSIONS.has(named)) return named;
@@ -193,42 +193,12 @@ async function parseCached(
   }
 }
 
-async function download(url: string, path: string, signal?: AbortSignal): Promise<string> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error('不是有效的 URL');
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
-    throw new Error('只支持 http(s) 地址');
-  const response = await fetch(parsed, { signal });
-  if (!response.ok || !response.body) throw new Error(`下载文档失败（HTTP ${response.status}）`);
-  const file = await open(path, 'wx');
-  let length = 0;
-  try {
-    for await (const chunk of response.body) {
-      length += chunk.length;
-      if (length > FILE_BYTE_LIMIT) throw new Error('文档超过 MinerU 的 200 MB 上限');
-      await file.writeFile(chunk);
-    }
-  } finally {
-    await file.close();
-  }
-  return decodeURIComponent(basename(parsed.pathname)) || 'document';
-}
-
 const inputSchema = z
-  .object({
-    ref: resourceAddressSchema.optional(),
-    url: z.string().trim().min(1).optional(),
-    offset: z.number().int().min(0).optional(),
-  })
-  .strict()
-  .refine((input) => !input.ref !== !input.url, '传 ref 或 url 其中之一');
+  .object({ ref: resourceAddressSchema, offset: z.number().int().min(0).optional() })
+  .strict();
 
 export async function readDocument(input: unknown, signal?: AbortSignal) {
-  const { ref, url, offset = 0 } = inputSchema.parse(input);
+  const { ref, offset = 0 } = inputSchema.parse(input);
   const token = hostPorts().secrets.read(TOKEN);
   if (!token) throw new Error(`未配置 MinerU Token，${TOKEN_HINT}`);
   const root = join(hostPorts().paths.temp(), 'dela-documents');
@@ -238,23 +208,11 @@ export async function readDocument(input: unknown, signal?: AbortSignal) {
     if (Date.now() - (await stat(path)).mtimeMs > CACHE_MAX_AGE_MS)
       await rm(path, { recursive: true, force: true });
   }
-  let title: string;
-  let parsed: { directory: string; markdown: string };
-  if (url) {
-    const path = join(root, `download-${randomUUID()}`);
-    try {
-      title = await download(url, path, signal);
-      parsed = await parseCached(token, root, path, title, signal);
-    } finally {
-      await rm(path, { force: true });
-    }
-  } else {
-    [title, parsed] = await withResourceFile(ref!, async (path) => [
-      basename(path),
-      await parseCached(token, root, path, basename(path), signal),
-    ]);
-  }
-  const { directory, markdown } = parsed;
+  const [title, { directory, markdown }] = await withResourceFile(
+    ref,
+    async (path) =>
+      [basename(path), await parseCached(token, root, path, basename(path), signal)] as const,
+  );
   const images = (await readdir(join(directory, 'images'))).length;
   const nextOffset = offset + TEXT_LIMIT < markdown.length ? offset + TEXT_LIMIT : null;
   const notes = [

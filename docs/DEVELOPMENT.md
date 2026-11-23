@@ -45,7 +45,7 @@
 - **rg/fd 落在 `~/.pi/agent/bin`，不是 `userData/pi/bin`**。bin 只认 `PI_CODING_AGENT_DIR`，Dela 不设置它。`userData/pi` 里隔离的是 auth、models、sessions 与 skills，bin 是唯一例外。
 - 搜索工具**随包分发**。Pi 自身的兜底是从 GitHub 直连下载，大陆大概率失败，所以 rg/fd 经 `extraResources` 进 `resources/bin`，启动时前插 PATH 直接命中（来源与升级见 [vendor/bin/README](../vendor/bin/README.md)）。
 
-`web_fetch` 用纯 JS `@mdream/js` 转 Markdown，不执行 JavaScript。PDF 按 MIME 或文件头识别后不下载，提示改用 `read_document`——**不能把网页截断的字节当成完整 PDF**。`web_search` 由用户提供搜索服务，默认关闭；`web_fetch` 默认开启。
+`web_fetch` 用纯 JS `@mdream/js` 转 Markdown，不执行 JavaScript。它只读网页正文，Content-Type 不是文本、XML 或 JSON 时直接报错，不替 Agent 下载文件。`web_search` 由用户提供搜索服务，默认关闭；`web_fetch` 默认开启。
 
 `read_document` 把 PDF、Office 与图片上传到 MinerU 精准解析（vlm，公式与表格开启，正文为空时以 OCR 重试），Token 由用户自备、经 `HostPorts.secrets` 加密保存，保存时校验并开启工具，未配置时默认关闭。解析结果按文件内容哈希缓存在系统临时目录，续读与重读不再上传、不耗用户额度；结果里的图片落在缓存目录，Agent 需要时用 `read` 查看。参数固定，不给用户调。GUI 的 DOCX/XLSX/PPTX 预览是**另一条独立路径**，不复用这套。
 

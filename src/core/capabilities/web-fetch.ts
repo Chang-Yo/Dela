@@ -20,7 +20,6 @@ interface WebPageContent {
   totalCharacters: number;
   nextOffset: number | null;
   truncated: boolean;
-  readable?: false;
   note?: string;
 }
 
@@ -57,7 +56,7 @@ export async function fetchWebPage(
     };
   };
   let url = httpUrl(rawUrl);
-  if (deepseek && !looksLikePdfUrl(url)) {
+  if (deepseek) {
     try {
       const page = await fetchDeepSeek(url.toString(), deepseek.apiKey);
       if (page.text.trim())
@@ -72,7 +71,7 @@ export async function fetchWebPage(
       redirect: 'manual',
       headers: {
         'user-agent': BROWSER_UA,
-        accept: 'text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.8',
+        accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
         'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -86,23 +85,11 @@ export async function fetchWebPage(
   }
   if (!response!.ok) throw new Error(`网页请求失败（HTTP ${response!.status}）`);
   const contentType = response!.headers.get('content-type') ?? '';
-  const peeked = await peekResponse(response!);
-  const looksLikePdf =
-    contentType.toLowerCase().includes('pdf') ||
-    new TextDecoder('latin1').decode(peeked.prefix.subarray(0, 5)) === '%PDF-';
-  if (looksLikePdf) {
-    await peeked.response.body?.cancel().catch(() => {});
-    return {
-      ...finish(url, null, contentType || 'application/pdf', '', false),
-      readable: false,
-      note: '此地址返回 PDF，用 read_document 工具传入 url 读取正文。',
-    };
+  if (contentType && !/^text\/|[/+](?:xml|json)\b/i.test(contentType)) {
+    await response!.body?.cancel();
+    throw new Error(`该地址不是网页（${contentType}），需要文件时请自行下载`);
   }
-  if (/^(image|audio|video)\//.test(contentType)) {
-    await peeked.response.body?.cancel();
-    throw new Error('该地址是媒体文件，不是网页');
-  }
-  const { bytes, truncated: bytesTruncated } = await readCapped(peeked.response);
+  const { bytes, truncated: bytesTruncated } = await readCapped(response!);
   const charset = /charset=([\w-]+)/i.exec(contentType)?.[1];
   let source: string;
   try {
@@ -117,34 +104,6 @@ export async function fetchWebPage(
   const normalized = text.replace(/\r\n/g, '\n');
   return finish(url, title, contentType || 'text/html', normalized, bytesTruncated);
 }
-
-async function peekResponse(response: Response) {
-  if (!response.body) return { response, prefix: new Uint8Array() };
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  while (length < 5) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    length += value.length;
-  }
-  const prefix = Buffer.concat(chunks);
-  const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      for (const chunk of chunks) controller.enqueue(chunk);
-    },
-    async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) controller.close();
-      else controller.enqueue(value);
-    },
-    cancel: (reason) => reader.cancel(reason),
-  });
-  return { response: new Response(body, { headers: response.headers }), prefix };
-}
-
-const looksLikePdfUrl = (url: URL) => /\.pdf$/i.test(url.pathname);
 
 function httpUrl(raw: string): URL {
   let url: URL;

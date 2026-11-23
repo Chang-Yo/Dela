@@ -73,7 +73,7 @@ const tools: Omit<AgentCapabilityView, 'enabled'>[] = [
   {
     name: 'web_fetch',
     label: '读取网页',
-    description: '读取网页；PDF 直链交给读取文档工具',
+    description: '读取网页正文，转为 Markdown',
     domain: 'web',
     domainLabel: '网络',
   },

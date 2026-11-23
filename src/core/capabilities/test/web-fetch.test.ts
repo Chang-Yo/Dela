@@ -51,7 +51,7 @@ describe('web_fetch', () => {
     expect(first.truncated).toBe(false);
   });
 
-  it('纯文本保持原样，PDF 交给 read_document 而不在这里下载', async () => {
+  it('纯文本保持原样，不是网页的地址直接报错', async () => {
     vi.stubGlobal(
       'fetch',
       vi
@@ -64,30 +64,7 @@ describe('web_fetch', () => {
         ),
     );
     expect((await fetchWebPage('https://example.com/text')).text).toBe('普通 <文本>');
-    const pdf = await fetchWebPage('https://example.com/file.pdf');
-    expect(pdf).toMatchObject({
-      title: null,
-      text: '',
-      readable: false,
-      nextOffset: null,
-      truncated: false,
-      note: expect.stringContaining('read_document'),
-    });
-  });
-
-  it('PDF 重定向后记录最终来源地址', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(null, { status: 302, headers: { location: '/download' } }),
-      )
-      .mockResolvedValueOnce(
-        new Response('%PDF-1.7', { headers: { 'content-type': 'application/pdf' } }),
-      );
-    vi.stubGlobal('fetch', fetch);
-    const pdf = await fetchWebPage('https://example.com/start');
-    expect(pdf.source.url).toBe('https://example.com/download');
-    expect(fetch).toHaveBeenCalledTimes(2);
+    await expect(fetchWebPage('https://example.com/file.pdf')).rejects.toThrow('不是网页');
   });
 
   it('普通网页仍按 2 MiB 截断并说明内容不完整', async () => {
