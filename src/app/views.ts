@@ -1,4 +1,4 @@
-// 渲染端清单：外壳据此渲染模块的页面（docs/adr/0019）；去掉一行，对应页面随之消失。
+// 渲染端清单：外壳据此渲染模块的页面；去掉一行，对应页面随之消失。
 import type { QueryClient } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
 import type {

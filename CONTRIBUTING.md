@@ -131,7 +131,7 @@ pnpm test
 - **内核冻结**：`@earendil-works/pi-coding-agent` 的 `createAgentSession` 就是 agent 内核。会话树、多轮工具上下文、自动压缩、重试、skills 发现与渐进加载均由 Pi 承担，Dela 不另写执行循环、上下文组装或压缩。
 - **领域能力外置**：校园功能通过 `dela` 命令和 Skills 提供给内核。`dela` 是应用生命周期内的本机 HTTP 桥，经 `shellCommandPrefix` 注入 Agent 的 Bash（终端不注入）；Skills 提供领域知识与工具使用指引，不是硬编码的执行分支。
 - **单向分层**：依赖方向自下而上为 Pi 内核 → `dela` 命令 → Skills → GUI。GUI 只消费同一套领域实现，不复制业务逻辑。
-- **进程边界**：renderer 不导入 main，不直接访问文件系统、数据库或凭据；所有能力均经 preload 暴露的有限 API 通信；v3 迁移后的模块只经按契约白名单放行的 `bridge`（见 [ADR 0011](docs/adr/0011-module-contracts.md)）。校园网页使用独立 Session 与 sandbox，不加载主界面 preload。
+- **进程边界**：renderer 不导入 main，不直接访问文件系统、数据库或凭据；所有能力均经 preload 暴露的有限 API 通信；v3 迁移后的模块只经按契约白名单放行的 `bridge`。校园网页使用独立 Session 与 sandbox，不加载主界面 preload。
 - **单应用、单 package**：仓库不是 monorepo。仅在出现真实重复与多个调用方后提取抽象，不预建 Manager、Service、Factory 层级。
 - **远程项目**：本地内核与远程执行分离。内核、模型密钥、会话 JSONL、Skills 与系统提示均在本地；工具执行、终端、目录读取与文件预览落到 SSH 远端。传输仅使用一次性 `ssh` 与 helper 隧道，不引入 SFTP。
 - **权限边界**：Agent 的 Bash 与文件工具以当前用户权限运行，没有额外沙箱。这是已知设计取舍，不应视为待修复漏洞，也不应描述为安全隔离。

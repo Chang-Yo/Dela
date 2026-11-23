@@ -1,4 +1,4 @@
-// 守住 ADR 0025：只有表的主人写自己表的 SQL，别人经主人 index.ts 导出的函数读写。
+// 只有表的主人写自己表的 SQL，别人经主人 index.ts 导出的函数读写。
 // workspace_settings 是宿主的共享键值表，谁都能用，但同一个键只能归一方。
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';

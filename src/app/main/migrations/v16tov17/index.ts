@@ -7,7 +7,7 @@ const localDate = (date: Date) =>
   `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
 
 /**
- * 待办的截止时间改为三选一的时间（ADR 0024），「写入日历」开关随之取消；
+ * 待办的截止时间改为三选一的时间，「写入日历」开关随之取消；
  * 课表里的个人日程并入个人待办：同一天内的成为时段，跨天的按日期成为全天，原时刻记进备注。
  */
 export function v16tov17(db: Database.Database): void {

@@ -1,4 +1,4 @@
-// 课表：从教学信息网同步个人课表，只读；个人安排归待办（ADR 0024）。
+// 课表：从教学信息网同步个人课表，只读；个人安排归待办。
 import type { WebContents } from 'electron';
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';

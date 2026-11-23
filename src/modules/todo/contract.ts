@@ -15,7 +15,7 @@ const dateText = z
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .refine((value) => localDay(value).getDate() === Number(value.slice(8)), '日期不存在');
 
-// 三种时间互斥（ADR 0024）：截止对应 VTODO 的 DUE，时段与全天对应 VEVENT；全天的结束日算在内。
+// 三种时间互斥：截止对应 VTODO 的 DUE，时段与全天对应 VEVENT；全天的结束日算在内。
 export const todoTimeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('due'), at: z.string().datetime() }).strict(),
   z

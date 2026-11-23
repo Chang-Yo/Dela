@@ -1,4 +1,4 @@
-// preload 的通道名单由主进程按实际注册的契约下发（docs/adr/0026）：漏下发一个，对应调用就会被拒。
+// preload 的通道名单由主进程按实际注册的契约下发：漏下发一个，对应调用就会被拒。
 import type { IpcMainEvent } from 'electron';
 import { expect, it, vi } from 'vitest';
 

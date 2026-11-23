@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron';
 import type { Bridge, ChannelManifest } from '../../core/protocol/contract';
 
-// 名单由主进程按实际注册的契约下发，在页面脚本运行前取好，页面改不了（docs/adr/0026）。
+// 名单由主进程按实际注册的契约下发，在页面脚本运行前取好，页面改不了。
 const manifest: ChannelManifest = ipcRenderer.sendSync('contract:manifest');
 const channels = new Set(manifest.channels);
 const eventChannels = new Set(manifest.events);

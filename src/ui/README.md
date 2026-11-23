@@ -38,7 +38,7 @@ Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt
 
 ## 样式
 
-- 颜色、阴影、圆角、层级与时长只用 `tokens.css` 里的通用 token（[ADR 0023](../../docs/adr/0023-design-token-naming.md)），不用应用调色板（`cal-*`、`syntax-*` 等）、app 的 `palette.css`、Tailwind 原生色板和任意值。`pnpm lint` 会检查。
+- 颜色、阴影、圆角、层级与时长只用 `tokens.css` 里的通用 token，不用应用调色板（`cal-*`、`syntax-*` 等）、app 的 `palette.css`、Tailwind 原生色板和任意值。`pnpm lint` 会检查。
 - 尺寸一律由 rem 派生，用户在设置里调字号时整体缩放。正文 `text-sm`，次要文字 `text-xs`。
 - 按钮、输入框、下拉框这类基础控件用固定的 rem 高度（如 `h-8`），保证放在同一行时对齐；rem 会随字号设置一起缩放。
 

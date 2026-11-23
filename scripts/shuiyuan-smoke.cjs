@@ -161,7 +161,7 @@ const routes = {
   },
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
-// preload 按主进程下发的名单放行（docs/adr/0026）；事件是界面启动与水源页会订阅的那些。
+// preload 按主进程下发的名单放行；事件是界面启动与水源页会订阅的那些。
 ipcMain.on('contract:manifest', (event) => {
   event.returnValue = {
     channels: Object.keys(routes),
