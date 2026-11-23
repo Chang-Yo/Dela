@@ -47,7 +47,7 @@
 
 `web_fetch` 用纯 JS `@mdream/js` 转 Markdown，不执行 JavaScript。它只读网页正文，Content-Type 不是文本、XML 或 JSON 时直接报错，不替 Agent 下载文件。`web_search` 由用户提供搜索服务，默认关闭；`web_fetch` 默认开启。
 
-`read_document` 把 PDF、Office 与图片上传到 MinerU 精准解析（vlm，公式与表格开启，正文为空时以 OCR 重试），Token 由用户自备、经 `HostPorts.secrets` 加密保存，保存时校验并开启工具，未配置时默认关闭。解析结果按文件内容哈希缓存在系统临时目录，续读与重读不再上传、不耗用户额度；结果里的图片落在缓存目录，Agent 需要时用 `read` 查看。参数固定，不给用户调。GUI 的 DOCX/XLSX/PPTX 预览是**另一条独立路径**，不复用这套。
+`read_document` 把 PDF 与 Office 上传到 MinerU 精准解析（vlm，公式与表格开启，扫描件正文为空时以 OCR 重试）。图片不走 MinerU，由模型直接看，Token 由用户自备、经 `HostPorts.secrets` 加密保存，保存时校验并开启工具，未配置时默认关闭。解析结果按文件内容哈希缓存在系统临时目录，续读与重读不再上传、不耗用户额度；结果里的图片落在缓存目录，Agent 需要时用 `read` 查看。参数固定，不给用户调。GUI 的 DOCX/XLSX/PPTX 预览是**另一条独立路径**，不复用这套。
 
 ### 2.1.1 轮次文件变化与 Git 审阅
 

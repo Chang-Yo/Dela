@@ -1,4 +1,5 @@
-// 文档读取：PDF、Office 与图片上传到 MinerU 精准解析，Token 由用户自备并加密保存。
+// 文档读取：PDF 与 Office 上传到 MinerU 精准解析，Token 由用户自备并加密保存。
+// 图片不在这里解析：多模态模型直接看图，不支持图片的模型如实说明读不了。
 // 结果按文件内容缓存在临时目录，续读与重读不再上传，也不再消耗用户的解析额度。
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, existsSync, openAsBlob } from 'node:fs';
@@ -19,22 +20,7 @@ const TEXT_LIMIT = 20000;
 const POLL_INTERVAL_MS = 3000;
 const PARSE_TIMEOUT_MS = 15 * 60 * 1000;
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const EXTENSIONS = new Set([
-  'pdf',
-  'doc',
-  'docx',
-  'ppt',
-  'pptx',
-  'xls',
-  'xlsx',
-  'png',
-  'jpg',
-  'jpeg',
-  'jp2',
-  'webp',
-  'gif',
-  'bmp',
-]);
+const EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']);
 const TOKEN_HINT = '请在 设置 › 内置能力 › 文档 中配置 MinerU Token';
 
 registerSecretLabel(TOKEN, 'MinerU 凭据');
@@ -157,7 +143,7 @@ async function extension(path: string, name: string): Promise<string> {
   if (EXTENSIONS.has(named)) return named;
   const detected = (await fileTypeFromBlob(await openAsBlob(path)))?.ext ?? '';
   if (EXTENSIONS.has(detected)) return detected;
-  throw new Error('不支持的文档格式：只能读取 PDF、Word、PowerPoint、Excel 与图片');
+  throw new Error('不支持的文档格式：只能读取 PDF、Word、PowerPoint 与 Excel');
 }
 
 async function contentHash(path: string): Promise<string> {

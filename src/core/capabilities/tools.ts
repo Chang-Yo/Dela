@@ -80,7 +80,7 @@ const tools: Omit<AgentCapabilityView, 'enabled'>[] = [
   {
     name: 'read_document',
     label: '读取文档',
-    description: '上传到 MinerU 解析 PDF、Word、PowerPoint、Excel 与图片（需配置 MinerU Token）',
+    description: '上传到 MinerU 解析 PDF、Word、PowerPoint 与 Excel（需配置 MinerU Token）',
     domain: 'document',
     domainLabel: '文档',
   },
