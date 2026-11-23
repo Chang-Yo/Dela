@@ -32,7 +32,7 @@ export function registerModuleIpc(modules: ModuleDefinition[], coreContracts: Co
     channels: contracts.flatMap(channelsOf),
     events: contracts.flatMap(eventChannelsOf),
   };
-  // preload 用 sendSync 等这份名单（docs/adr/0026），拒绝时也要回复，否则页面一直卡住。
+  // preload 用 sendSync 等这份名单，拒绝时也要回复，否则页面一直卡住。
   ipcMain.on('contract:manifest', (event) => {
     try {
       checkWorkspaceSender(event);

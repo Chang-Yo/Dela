@@ -169,7 +169,6 @@ async function syncFolder(
        WHERE id = ?`,
     ).run(folder.id);
 
-    // 从最新一封开始预取正文，保证打开页面即可阅读。
     const updateBody = db.prepare(
       `UPDATE mail_messages
        SET body_text = ?, body_html = ?, body_version = 1, snippet = COALESCE(?, snippet)
@@ -275,7 +274,7 @@ async function runSync(account: AccountRow, password: string): Promise<void> {
         .get(account.id, folder.path) as FolderRow | undefined;
       if (row) folderRows.push(row);
     }
-    // 过滤后 keptPaths 可能为空（服务器只有草稿箱/已删除时），NOT IN () 不是合法 SQL。
+    // 过滤后 keptPaths 可能为空（服务器只有草稿箱/已删除时），此时清空该账号的文件夹。
     if (keptPaths.size > 0) {
       const placeholders = [...keptPaths].map(() => '?').join(', ');
       db.prepare(

@@ -14,7 +14,6 @@ function ToolGroup({
 }: ComponentProps<'div'> & {
   icon?: ReactNode;
   summary?: string;
-  /** 摘要行尾的整体状态，例如「运行中」「有失败」。 */
   meta?: ReactNode;
   tone?: TraceTone;
 }) {

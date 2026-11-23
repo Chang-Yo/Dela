@@ -29,6 +29,8 @@ function systemShell(): { file: string; args: string[]; title: string } {
     );
     return { file: pwsh ?? windowsPowerShell, args: ['-NoLogo'], title: 'PowerShell' };
   }
+  // 终端用登录 shell；Agent 在 Mac 用 /bin/bash、不跑登录 shell，
+  // 只写在 Zsh 初始化里的 SDK 环境，终端可见、Agent 不一定可见。
   const file = userInfo().shell || '/bin/zsh';
   return { file, args: ['-l'], title: basename(file) };
 }

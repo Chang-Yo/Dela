@@ -134,7 +134,6 @@ export function setMailTrashRetention(retention: unknown): MailTrashRetention {
   return parsed.data;
 }
 
-// SqlDatabase 端口没有 transaction()，用显式 BEGIN/COMMIT 保持多条写入的原子性。
 export function inTransaction(db: SqlDatabase, write: () => void): void {
   db.prepare('BEGIN').run();
   try {
@@ -155,7 +154,6 @@ export function applyTrashRetention(db: SqlDatabase): void {
   );
 }
 
-// 本地删除只改缓存：置 deleted_at 的行从列表/未读数中排除，但保留正文供回收站查看与恢复。
 export function toSummary(row: MessageRow): MailMessageSummary {
   return {
     id: row.id,

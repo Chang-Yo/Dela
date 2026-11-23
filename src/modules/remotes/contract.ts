@@ -88,7 +88,6 @@ export function withinRemotePath(root: string, path: string): boolean {
   return path === root || path.startsWith(root === '/' ? '/' : `${root}/`);
 }
 
-/** 远端 Markdown 里的相对图片按所在目录解析；越界的相对路径与绝对地址原样返回。 */
 export function remoteAssetUrl(
   projectId: string,
   root: string,

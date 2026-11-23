@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-// 打开远端项目时目录侧栏收掉写入口：「+ 新建」下拉不出现，空白处双击也不出现新建输入行；
-// 只读操作（全部收起）保留。本地项目树里新建是 VS Code 式行内输入，不开弹窗。
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -131,7 +129,6 @@ async function render(projectId: string | null, activeDocKey: string | null = nu
 it('hides the write entries while a remote project is open', async () => {
   const { onAction } = await render(remoteProject.id);
   expect(newButton()).toBeNull();
-  // 「全部收起」是只读操作，远端树照常保留。
   expect(collapseButton()).toBeTruthy();
 
   await act(async () => blank().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
@@ -182,7 +179,6 @@ it('falls back to the current project root when the selection belongs to another
   expect(currentContainerOf(localFolder.id, remoteProject.id)).toBe(remoteProject.id);
   expect(currentContainerOf(localFolder.id, localProject.id)).toBe(localFolder.id);
   expect(currentContainerOf(null, localProject.id)).toBe(localProject.id);
-  // 全局视图（rootId 为空）保持旧行为：选中项目时新建到项目内。
   expect(currentContainerOf(localProject.id, null)).toBe(localProject.id);
 });
 
@@ -191,7 +187,6 @@ const treeRow = (label: string) =>
     (el) => el.getAttribute('aria-label') === label,
   );
 
-// 资料树只呈现资料根目录里的东西；外部登记的项目与远程项目从侧栏项目列表进入。
 it('hides remote and external projects from the library tree', async () => {
   const externalProject: WorkspaceEntry = {
     ...localProject,

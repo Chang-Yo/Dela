@@ -1,4 +1,3 @@
-// 连接一台服务器时的过程展示：步骤标签、上传字节进度条与逐行日志；失败时标题说清卡在哪一步。
 import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { Button } from '../../../ui/button';

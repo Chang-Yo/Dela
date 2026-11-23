@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-// 旧版过渡的终点（0025）：补建 v17 时启动才建的表，再把当时的各个表主人记到起点。
+// 旧版过渡的终点：补建 v17 时启动才建的表，再把当时的各个表主人记到起点。
 const v17Tables = [
   `CREATE TABLE IF NOT EXISTS mail_accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

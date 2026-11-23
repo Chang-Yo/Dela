@@ -13,7 +13,6 @@ const STATUS = {
   stopped: { label: '已停止', tone: 'neutral' },
 } as const;
 
-/** 子 Agent 会话页顶部：返回父会话、任务名、状态，运行中可以单独停止它。 */
 function SubagentBanner({
   title,
   status,

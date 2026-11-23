@@ -15,7 +15,7 @@ export type HtmlFrameDocumentOptions = {
 
 /**
  * 外层 CSP 要 pin 这段脚本的 sha256（见 src/app/renderer/index.html），改动须同步，
- * app/renderer/frame-script-csp.test.ts 会拦下漂移。脚本只上报事实，怎么处理由外层决定。
+ * app/renderer/frame-script-csp.test.ts 会拦下漂移。除图片懒加载与滚动定位外脚本只上报，由外层处理。
  */
 export const FRAME_SCRIPT = `(() => {
   const post = (data) => parent.postMessage(data, '*');

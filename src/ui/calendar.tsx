@@ -20,7 +20,6 @@ function monthDays(month: Date): Date[] {
   );
 }
 
-/** 月历网格，打开时停在 value 所在的月份。 */
 function Calendar({
   value,
   onValueChange,

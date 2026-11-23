@@ -68,7 +68,7 @@
                   "react-dom",
                   "react-dom/**"
                 ],
-                "message": "core 只依赖 Pi 与 Node（docs/adr/0001、0013）：宿主能力经端口注入，界面在模块的 view/ 里。"
+                "message": "core 只依赖 Pi 与 Node：宿主能力经端口注入，界面在模块的 view/ 里。"
               },
               {
                 "group": [
@@ -81,7 +81,7 @@
                   "**/modules/**",
                   "**/ui/**"
                 ],
-                "message": "core 不认识具体业务（docs/adr/0014）：在 core/capabilities 开注册表，由模块注册进来。"
+                "message": "core 不认识具体业务：在 core/capabilities 开注册表，由模块注册进来。"
               },
               {
                 "group": ["**/sjtu/**"],
@@ -108,7 +108,7 @@
                   "react-dom",
                   "react-dom/**"
                 ],
-                "message": "core 只依赖 Pi 与 Node（docs/adr/0001、0013）：宿主能力经端口注入，界面在模块的 view/ 里。"
+                "message": "core 只依赖 Pi 与 Node：宿主能力经端口注入，界面在模块的 view/ 里。"
               },
               {
                 "group": [
@@ -121,7 +121,7 @@
                   "**/modules/**",
                   "**/ui/**"
                 ],
-                "message": "core 不认识具体业务（docs/adr/0014）：在 core/capabilities 开注册表，由模块注册进来。"
+                "message": "core 不认识具体业务：在 core/capabilities 开注册表，由模块注册进来。"
               },
               {
                 "group": ["**/sjtu/**"],

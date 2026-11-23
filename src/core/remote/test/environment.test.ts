@@ -1,5 +1,5 @@
 // 受限环境诊断的分类规则：纯字符串进、文案出，离线可测。
-// 诊断脚本（diagnoseEnvironment）要真远端才能跑，见 helper.test.ts 的真机套件。
+// 诊断脚本（diagnoseEnvironment）要真远端才能跑，这里不覆盖。
 import { describe, expect, it } from 'vitest';
 
 import { classifyEnvironment } from '../helper';

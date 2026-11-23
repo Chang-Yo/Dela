@@ -8,7 +8,6 @@ export * from './layout';
 export * from './note-files';
 export { parseRemoteNodeId } from '../remotes/contract';
 
-/** 普通文件使用绝对磁盘路径；UUID 用于已登记的项目与资料条目。 */
 export const workspaceEntryIdSchema = z
   .string()
   .min(1)

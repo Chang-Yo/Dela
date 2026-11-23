@@ -1,3 +1,10 @@
+<!--
+写作：加粗以中文标点收尾且紧跟汉字（如「。**你」）时，CommonMark 不把该 ** 当闭合，
+会渲染出字面星号（GitHub 同样），把标点移到加粗之外。
+同步：本文同时是官网 /privacy 的正文来源，由人手抄进 ../Dela_Web，两仓库互不 import；
+改这里要同步改那边，包括顶部的日期行。
+-->
+
 # Dela 隐私条款
 
 本页说明你的数据存放在哪里，以及哪些内容会离开你的设备。使用本软件时的责任划分见[《Dela 使用条款》](https://dela.changyo.me/terms)。
@@ -81,8 +88,8 @@
 | MCP 服务器     | 只连接你在 设置 › MCP Server 中添加的远程地址，携带你填写的请求头；Agent 调用其工具时，把工具参数发往该服务器。本地命令型服务器在本机运行，联网行为由该程序决定。                                                                                                                                                                                                                                                   |
 | 远程项目       | 只连接你在 设置 › 远程 中自行添加的 SSH 主机。                                                                                                                                                                                                                                                                                                                                                                      |
 | 软件更新       | openlist.frameneo.com：打包版定时检查正式版更新，你选择后下载安装包与差分数据；不会发送邮件、课程、聊天或模型密钥。                                                                                                                                                                                                                                                                                                 |
-| 联网搜索       | 把搜索词发往你在 设置 › 内置能力 › 网络 中注册的搜索服务：Brave（api.search.brave.com）、Google（www.googleapis.com/customsearch）或你填写的自定义 JSON 端点（可带自定义请求头）。Dela 不内置搜索服务，未注册时不发起任何搜索请求。                                                                                                                                                                                 |
-| 读取网页       | 抓取模型指定的任意公网地址，只允许 http/https 与 80/443 端口；内网、环回与链路本地地址被拒绝，每一跳重定向都会重新做 DNS 校验。                                                                                                                                                                                                                                                                                     |
+| 联网搜索       | 把搜索词发往你在 设置 › 内置能力 › 网络 中注册的搜索服务：Brave（api.search.brave.com）、Google（www.googleapis.com/customsearch）、DeepSeek（api.deepseek.com）或你填写的自定义 JSON 端点（可带自定义请求头）。Dela 不内置搜索服务，未注册时不发起任何搜索请求。                                                                                                                                                   |
+| 读取网页       | 由本机直接请求模型指定的 http/https 地址。如果你注册了 DeepSeek 搜索并开启「网页读取也使用 DeepSeek」，地址先发往 api.deepseek.com 读取，读取失败时再由本机直接请求。                                                                                                                                                                                                                                               |
 | MinerU         | mineru.net 及其返回的文件存储地址：只在你于 设置 › 内置能力 › 文档 或引导页保存 MinerU Token 后启用。保存时用 Token 查询一次以校验；Agent 调用 read_document 时，把该文档原文件上传到 MinerU 解析，再下载解析结果。同一文件再次读取使用本机缓存，不重复上传。文档上传后如何保存与处理由 MinerU 决定，见其[个人信息保护政策](https://webpub.shlab.tech/dps/opendatalab-web/odl_v5.1690/privacy.html)，本应用不控制。 |
 | 远程图片       | 界面直接加载的远程图片：邮件正文图片默认显示（可在邮件页切换为隐藏），水源楼层中的站内图片经主进程代理取回，站外图片与头像由界面直接加载。                                                                                                                                                                                                                                                                          |
 

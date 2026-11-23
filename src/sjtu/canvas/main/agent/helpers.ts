@@ -3,7 +3,7 @@ import type { CanvasCourse, CanvasState } from '../../contract';
 import { getCanvasState } from '../api';
 import { ToolError, toolError } from '../../../../core/capabilities/domain-tools';
 
-/** syncCourse 各分支的标识与中文标签（与 canvas/api.ts branch() 写入 course.error 的前缀一致）。 */
+/** syncCourse 各分支的标识与中文标签（与 main/api.ts 的 branch() 写入 course.error 的前缀一致）。 */
 export const canvasSyncBranches = [
   { key: 'files', label: '文件' },
   { key: 'assignments', label: '作业' },
@@ -29,7 +29,7 @@ export function requireCanvasConfigured(state: CanvasState = getCanvasState()) {
     throw toolError('NOT_CONFIGURED', '尚未连接 Canvas（未保存访问令牌），请先在设置中连接 Canvas');
 }
 
-/** Canvas 业务错误 → 细分错误码；未识别的错误原样抛出（registry 兜底 OPERATION_FAILED）。 */
+/** Canvas 业务错误 → 细分错误码；未识别的错误原样抛出。 */
 function mapCanvasError(error: unknown): Error {
   if (error instanceof ToolError || error instanceof z.ZodError || !(error instanceof Error))
     return error instanceof Error ? error : new Error(String(error));

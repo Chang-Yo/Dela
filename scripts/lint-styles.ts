@@ -1,4 +1,4 @@
-// 守住 tokens.css 的 token（ADR 0018、0023）：禁用 token 体系之外的写法，并找出写了却不生成 CSS 的类名。
+// 守住 tokens.css 的 token：禁用 token 体系之外的写法，并找出写了却不生成 CSS 的类名。
 import { createRequire } from 'node:module';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';

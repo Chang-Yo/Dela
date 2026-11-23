@@ -1,5 +1,3 @@
-// 设置页的 Skills 清单：内置与本机目录分开；每个本地项目各自成组，按 SKILL.md 路径开关，
-// 同名 Skill 互不牵连。
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';

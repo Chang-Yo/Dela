@@ -1,4 +1,4 @@
-// 统一标签工作台的布局契约；zod schema 供 layout:* IPC 双侧校验（节点数上限、ratio 边界、组内标签去重）。
+// 统一标签工作台的布局契约；zod schema 校验节点数上限、ratio 边界与组内标签去重。
 import { z } from 'zod';
 import { tabKinds, type TabId } from '../../core/protocol/workbench';
 

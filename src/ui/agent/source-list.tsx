@@ -4,7 +4,6 @@ import { SourceAvatar } from './source-stack';
 
 type SourceItem = { key: string; url: string; title: string; label: string; snippet?: string };
 
-/** 搜索来源列表：头像取站点名首字，标题是外链，摘要最多两行。 */
 function SourceList({
   items,
   className,

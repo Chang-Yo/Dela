@@ -94,6 +94,7 @@ export async function handleVsjtuMediaRequest(request: Request): Promise<Respons
     )
       return new Response(null, { status: 403 });
     const view = Number(match[2]);
+    // 播放流中断后不支持无缝续接（2026-10 记录）。
     let response: Response | undefined;
     for (let attempt = 0; attempt < 2; attempt++) {
       request.signal.throwIfAborted();

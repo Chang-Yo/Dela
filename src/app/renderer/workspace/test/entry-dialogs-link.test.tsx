@@ -130,7 +130,6 @@ it.each([undefined, '普通文件夹', 'missing', '远程项目'])(
 
 it('clears an unavailable project target instead of silently using the workspace root', async () => {
   await render('课程项目');
-  // 目标项目从镜像里消失（如刚被移除）时清空选择，不静默落到工作区根。
   await act(async () =>
     useWorkspaceStore.setState({
       workspace: {

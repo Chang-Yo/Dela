@@ -18,7 +18,7 @@ export async function downloadRemoteFile(
 ): Promise<void> {
   const entry = await statRemoteFile(target, remotePath);
   const size = entry.size ?? 0;
-  // 临时名带 pid：同名并发下载不会互相踩。写完再 rename，失败不留半个文件。
+  // 临时名带 pid：同名并发下载不会互相踩。
   const temp = `${localPath}.${process.pid}.part`;
   const stream = createWriteStream(temp);
   try {

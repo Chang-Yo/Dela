@@ -78,7 +78,6 @@ function subagentRun(result: AgentToolResult, live: boolean): TaskRun {
   };
 }
 
-/** 子 Agent 与后台命令的运行状态；普通工具调用返回 undefined。 */
 export function taskRun(
   result: AgentToolResult,
   live: boolean,

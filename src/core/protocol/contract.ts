@@ -8,7 +8,7 @@ type Events = Record<string, z.ZodType>;
 export interface Contract<P extends Procedures = Procedures, E extends Events = Events> {
   namespace: string;
   procedures: P;
-  /** 主进程推送的事件；与过程同名的事件推送该过程的最新结果（docs/adr/0017）。 */
+  /** 主进程推送的事件；与过程同名的事件推送该过程的最新结果。 */
   events: E;
 }
 
@@ -38,13 +38,12 @@ export type EventPayload<C extends Contract, K extends keyof C['events']> = z.ou
 >;
 
 export interface Bridge {
-  /** 与过程同名的事件通道（docs/adr/0017），界面据此把推送写入查询缓存。 */
+  /** 与过程同名的事件通道，界面据此把推送写入查询缓存。 */
   readonly queryEvents: readonly string[];
   invoke(channel: string, input: unknown): Promise<unknown>;
   subscribe(channel: string, listener: (payload: unknown) => void): () => void;
 }
 
-/** 主进程按实际注册的契约下发给 preload 的通道名单（docs/adr/0026）。 */
 export interface ChannelManifest {
   channels: string[];
   events: string[];

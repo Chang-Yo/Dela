@@ -1,7 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn';
 
-/** 子 Agent 步骤展开后的正文：交给它的任务与它交回的结果（回复或失败原因）。 */
 function SubagentCard({
   prompt,
   result,

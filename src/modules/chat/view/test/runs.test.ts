@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { RunEvent } from '../../../../core/protocol/agent';
 
-// 与 store.test.ts 相同的模式：镜像订阅在模块加载时取 bridge，须先于导入装好。
+// 与 sessions.test.ts 相同的模式：镜像订阅在模块加载时取 bridge，须先于导入装好。
 const runEventListeners = vi.hoisted(() => {
   const listeners: Array<(event: RunEvent) => void> = [];
   Object.defineProperty(globalThis, 'window', {

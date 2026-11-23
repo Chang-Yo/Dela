@@ -1,4 +1,3 @@
-// Run 终态通知的偏好门控：completed/failed 各自按开关决定是否弹系统提醒。
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 

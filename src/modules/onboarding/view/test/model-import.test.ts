@@ -1,4 +1,3 @@
-// 向导导入模型的纯逻辑：勾选结果按检测列表顺序回传，超出上限的勾选不写入配置。
 import { describe, expect, it } from 'vitest';
 import { capModels, selectedModels } from '../steps/model-import';
 

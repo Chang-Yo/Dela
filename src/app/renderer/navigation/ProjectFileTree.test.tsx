@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// 文件树的行为：本地目录按展开读取与释放、远端项目身份、工具改动后的刷新。
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -248,7 +247,6 @@ it('refreshes a remote directory after the tools changed it', async () => {
     path: '/home/u/proj/src',
   });
 
-  // 与已缓存目录无关的变化：一次都不重读。
   await act(async () => {
     workspace.listeners.get('workspace:remoteChange')!('/elsewhere/dir');
     await new Promise((resolve) => setTimeout(resolve, 350));

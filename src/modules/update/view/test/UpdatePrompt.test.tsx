@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// 下载完成才弹确认；答过不再问，下一版重新问；保存与安装期间保持模态锁。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';

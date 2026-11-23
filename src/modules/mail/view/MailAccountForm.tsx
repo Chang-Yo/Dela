@@ -9,7 +9,6 @@ import { mailPresets } from './presets';
 
 const OTHER = '其他邮箱';
 
-/** 向导页与邮箱空态共用的连接表单：登记过的常用邮箱走预设，其他邮箱自填服务器参数。 */
 export function MailAccountForm({
   error,
   onSubmit,

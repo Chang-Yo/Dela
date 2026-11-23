@@ -23,6 +23,7 @@ jobs:
     needs: [prepare, helper]
     name: Sign and notarize mac-arm64
     runs-on: macos-15
+    # Environments 里需建 macos-release，并配置 Developer ID 证书与 Apple 公证凭据。
     environment: macos-release
     timeout-minutes: 90
     defaults:

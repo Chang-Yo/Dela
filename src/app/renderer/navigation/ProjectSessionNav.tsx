@@ -1,4 +1,4 @@
-// 顶部功能入口与按项目分组的会话历史；会话数据与运行徽标由接入方注入，本组件不 import sessions/。
+// 顶部功能入口与按项目分组的会话历史；会话数据与运行徽标由接入方注入。
 import { useState } from 'react';
 import { Button } from '../../../ui/button';
 import { useDismissOnOutsidePointer } from '../../../ui/hooks/use-dismiss-on-outside-pointer';

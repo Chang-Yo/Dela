@@ -1,4 +1,4 @@
-// 更新后首次启动的「更新内容」弹窗：内容取自 CHANGELOG 每个版本的条目，条数本身就是上限。
+// 更新后首次启动的「更新内容」弹窗：内容取自 CHANGELOG 每个版本的条目，原样展示不截断。
 import { useState } from 'react';
 import { Button } from '../../../ui/button';
 import { takePendingReleaseNotes } from './notes';

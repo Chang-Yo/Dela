@@ -1,6 +1,5 @@
 import type { MailServerConfig } from '../contract';
 
-/** 常用邮箱的服务器预设：连接表单据此免填服务器，并核对地址后缀。 */
 export interface MailPreset {
   readonly label: string;
   readonly domain: string;

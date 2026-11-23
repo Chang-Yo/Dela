@@ -1,5 +1,4 @@
-// 插队：真实 Pi 会话加本地 mock 模型。运行中发来的消息在当前回复结束后、下一次调用模型前送达，
-// 沿用本轮 turnId；停止或撤回时还没送达的交回输入框。
+// 真实 Pi 会话加本地 mock 模型。
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

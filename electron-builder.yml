@@ -51,6 +51,7 @@ extraResources:
     filter:
       - 'LICENSE-*.txt'
       - 'README.md'
+# better-sqlite3 与 node-pty 用随包预编译产物，不在打包时源码重建。
 npmRebuild: false
 win:
   publish:

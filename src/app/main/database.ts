@@ -27,7 +27,6 @@ const baseline = 'baseline';
 
 type Owner = Schema & { owner: string };
 
-/** 按宿主、core 与各模块声明的表结构打开数据库；之后 getDatabase 直接取用。 */
 export function openDatabase(modules: ModuleDefinition[]): Database.Database {
   closeDatabase();
   const dir = hostPorts().paths.userData();

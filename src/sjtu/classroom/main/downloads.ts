@@ -27,6 +27,7 @@ function setVideoDownloadDirectory(value: string): string {
   return value;
 }
 
+// 下载任务只在内存，不跨重启续传。
 const downloads = new Map<string, { info: VideoDownload; item: DownloadItem; path: string }>();
 const pending = new Set<string>();
 

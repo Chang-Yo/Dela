@@ -1,4 +1,3 @@
-// Canvas：课程资料、作业（注册为待办来源）与课程公告；课程目录登记为通用会话的辅助目录。
 import { defineModule } from '../../app/module';
 import { registerCommandDomain } from '../../core/capabilities/commands';
 import { registerContextDirectory } from '../../core/agent/context-directories';

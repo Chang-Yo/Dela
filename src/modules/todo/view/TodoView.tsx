@@ -55,7 +55,7 @@ const views = ['calendar', 'list'] as const;
 
 const todo = createClient(todoContract, window.dela?.bridge);
 
-/** 待办状态的唯一副本：主进程推送 todo:state 时直接写入这一键（docs/adr/0017）。 */
+/** 待办状态的唯一副本：主进程推送 todo:state 时直接写入这一键。 */
 export function useTodoState() {
   return useQuery({ queryKey: ['todo', 'state'], queryFn: () => todo.state() });
 }

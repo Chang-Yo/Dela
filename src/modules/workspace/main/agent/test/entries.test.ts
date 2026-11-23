@@ -1,4 +1,3 @@
-// 工具层契约：remove_entry 的守卫与错误码映射、list_workspace_entries 的浏览/过滤。
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../api', () => ({

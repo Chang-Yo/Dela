@@ -41,7 +41,7 @@ export class UnsupportedDataVersionError extends Error {
   }
 }
 
-/** 旧版过渡（0025）只迁到 v17，之后交给各模块按名字登记的迁移。 */
+/** 旧版过渡只迁到 v17，之后交给各模块按名字登记的迁移。 */
 const lastVersion = 17;
 
 /**

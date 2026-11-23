@@ -41,7 +41,6 @@ export const useSidechats = create<SidechatState>((set) => ({
 
 export const sidechatDraftKey = (parentId: string) => `sidechat:${parentId}`;
 
-/** 打开旁问（已开着就展开）；quote 非空时作为评论放进旁问输入框，首条提问就带上这段原文。 */
 export async function openSidechat(
   parentId: string,
   options: { quote?: string; prompt?: string } = {},

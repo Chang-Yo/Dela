@@ -1,6 +1,6 @@
 // 传输层的离线部分：命令拼装用的引号处理。
-// 需要真实主机才能验证的部分（自检、NUL 清单解析、二进制写入往返）在
-// transport.remote.test.ts，由 pnpm test:remote 运行。
+// 需要真实主机才能验证的部分（自检、不可达主机）在 transport.remote.test.ts，
+// 由 pnpm test:remote 运行。
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({

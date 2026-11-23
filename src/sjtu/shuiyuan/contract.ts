@@ -104,7 +104,7 @@ export interface ShuiyuanTopicDetail {
   readonly closed: boolean;
   readonly archetype: string;
   readonly bookmarked: boolean;
-  /** 楼层 post id 全量；`posts` 为已加载的前段。 */
+  /** 楼层 post id 全量；`posts` 为已加载的一段，不一定从头开始。 */
   readonly stream: readonly number[];
   readonly posts: readonly ShuiyuanPost[];
 }
@@ -218,7 +218,6 @@ export const shuiyuanContract = defineContract(
     bind: { input: z.string().max(8192), output: z.custom<ShuiyuanState>() },
     unbind: { input: z.undefined(), output: z.void() },
     siteStructure: { input: z.undefined(), output: z.custom<ShuiyuanSiteStructure>() },
-    /** 主题列表；moreUrl 是上一页返回的下一页地址。 */
     topics: {
       input: z.object({ feed: z.custom<ShuiyuanFeed>(), moreUrl: z.string().optional() }),
       output: z.custom<ShuiyuanTopicPage>(),
@@ -228,7 +227,6 @@ export const shuiyuanContract = defineContract(
       input: z.object({ id, postNumber: id.optional() }),
       output: z.custom<ShuiyuanTopicDetail>(),
     },
-    /** 按 post id 分段加载楼层（长帖加载更多）。 */
     posts: {
       input: z.object({ topicId: id, postIds: z.array(id).max(100) }),
       output: z.custom<ShuiyuanPost[]>(),

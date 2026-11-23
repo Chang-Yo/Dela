@@ -1,4 +1,3 @@
-// ~/.ssh/config 解析：只取具体主机作为候选，通配块与 Match 块不算，同名以先出现的为准（与 ssh 一致）。
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

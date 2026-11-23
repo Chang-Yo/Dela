@@ -303,7 +303,6 @@ describe('mail local trash and folder sync', () => {
       },
     ];
     const folderId = insertFolder(db, 'INBOX', '\\Inbox', 7);
-    // 本地已删除（回收站中）但服务器仍存在的邮件。
     insertMessage(db, folderId, 1, 1, daysAgo(1));
 
     startMailSync();
@@ -428,7 +427,6 @@ describe('mail local trash and folder sync', () => {
     getMailState();
     expect(db.prepare('SELECT uid FROM mail_messages ORDER BY uid').all()).toEqual([{ uid: 2 }]);
 
-    // 0 表示永久保留。
     insertMessage(db, folderId, 3, 1, daysAgo(400));
     setMailTrashRetention(0);
     getMailState();

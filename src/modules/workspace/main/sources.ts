@@ -3,7 +3,6 @@ import type { ResourceContent } from './resources';
 import type { DocumentContent } from '../../../core/protocol/workbench';
 
 export interface WorkspaceSource {
-  /** sourceId 以它开头的都归本模块；与界面侧登记的前缀相同。 */
   prefix: string;
   validate(sourceId: string): void;
   added?(sourceId: string): void;

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// 播放器续播回归：进入场次时恢复保存的秒数，暂停/播放中落盘，播完清除。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

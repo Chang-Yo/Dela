@@ -299,7 +299,6 @@ function finishMove(move: PendingMove) {
   })();
 }
 
-/** 归档文件夹身份：路径缺失或目录丢失时重新落定，之后只读。 */
 function ensureArchiveFolder() {
   const db = hostPorts().database();
   const stored = db

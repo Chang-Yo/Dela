@@ -53,7 +53,6 @@ export function ShuiyuanHeader() {
   const listLoading = useIsFetching({ queryKey: listKey(list), exact: true }) > 0;
   const choose = useSelectList();
   const [search, setSearch] = useState('');
-  // 搜索前的上一个来源：清空搜索时还原。
   const [beforeSearch, setBeforeSearch] = useState<ListSelection | null>(null);
   const searchTimer = useRef<number | undefined>(undefined);
 

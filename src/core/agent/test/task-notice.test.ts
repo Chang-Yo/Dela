@@ -1,5 +1,4 @@
-// 后台任务的通知投递：真实 Pi 会话加本地 mock 模型。父会话空闲时自动开一轮且界面显示运行中，
-// 主对话停止后结束的任务照常唤醒；每个任务只投递一次。
+// 真实 Pi 会话加本地 mock 模型。
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -108,7 +107,6 @@ it('父会话空闲时自动开一轮处理通知，界面显示运行中；只�
   const notice = messages.find((message) => message.task);
   expect(messages.filter((message) => message.task)).toHaveLength(1);
   expect(notice!.task).toMatchObject({ kind: 'bash', status: 'completed' });
-  // 模型拿到完整通知，界面只显示输出末尾。
   expect(JSON.stringify(requests[2]!.body)).toContain('后台任务结束');
   expect(notice!.content).toBe('```\n构建完成\n```');
   expect(messages[messages.indexOf(notice!) + 1]).toMatchObject({

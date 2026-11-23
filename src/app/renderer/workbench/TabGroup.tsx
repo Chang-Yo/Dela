@@ -155,8 +155,7 @@ export function TabGroup({ group, onNewChat }: { group: GroupNode; onNewChat: ()
         ) : (
           <GroupEmptyState onNewChat={onNewChat} />
         )}
-        {/* 预览覆盖正文、不染组背景；半屏与实际二等分结果一致。
-            复用现有明暗主题蓝色 token，15% 不透明度保持正文可读。 */}
+        {/* 预览覆盖正文、不染组背景；半屏与实际二等分结果一致。 */}
         <div
           aria-hidden
           className={cn(

@@ -1,4 +1,4 @@
-// Run 终态的系统提醒入口：由 agent/session/manager 在 finishRun 后调用。
+// Run 终态的系统提醒入口：由 core/agent/session/run 在 Run 结束后经 hostPorts().notifier 调用。
 // 偏好读取失败或系统通知不可用都不影响 Run 终态落库与推送。
 import { row } from '../../../core/agent/session/store';
 import { systemNotifyToast } from '../../notifications';

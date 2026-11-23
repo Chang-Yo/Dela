@@ -1,4 +1,3 @@
-// 要作用到系统或窗口的偏好：主题、页面缩放与开机启动。
 import { app, nativeTheme, type WebContents } from 'electron';
 import { hostPorts } from '../../../core/ports';
 import type { ThemePreference, ZoomPreference } from '../contract';
@@ -28,6 +27,7 @@ export function openAtLogin(): boolean {
     : app.getLoginItemSettings().openAtLogin;
 }
 
+// 登录启动不用 openAsHidden：Windows 传 --hidden，Mac 启动时读 wasOpenedAtLogin。
 export function setOpenAtLogin(enabled: boolean): boolean {
   if (app.isPackaged && process.platform === 'darwin') {
     app.setLoginItemSettings({ openAtLogin: enabled });

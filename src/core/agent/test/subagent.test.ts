@@ -1,5 +1,4 @@
-// 子 Agent（task 工具）：真实 Pi 会话加本地 mock 模型。子会话历史为空、工具里没有 task，
-// 只把最终回复交回父会话；带 taskId 续接；父会话停止时连带中止；后台子 Agent 占用并发名额。
+// 真实 Pi 会话加本地 mock 模型。
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

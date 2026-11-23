@@ -1,5 +1,3 @@
-// 跨会话读取：用 Pi 的 SessionManager 构造会话记录，覆盖多次压缩、编辑重发分支、运行中 / 停止 / 中断的轮次、
-// 插队并轮、超长回复与分页；session_search / session_read 只看当前项目内未归档的会话。
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

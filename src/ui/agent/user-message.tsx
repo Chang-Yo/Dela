@@ -1,7 +1,6 @@
 import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn';
 
-/** 用户消息：右对齐，操作栏悬停时出现。 */
 function UserMessage({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div

@@ -83,7 +83,6 @@ export function matchReferenceTokens(text: string, options: ChatReference[]): Re
   return tokens;
 }
 
-/** 发送用：解析出的引用按 key 去重（同文件 @ 两次只进一次上下文），保持出现顺序。 */
 export function referenceContext(text: string, options: ChatReference[]): ChatReference[] {
   const seen = new Set<string>();
   const refs: ChatReference[] = [];
@@ -114,7 +113,6 @@ export function sessionReferences(
   });
 }
 
-/** path 在 base 之下时返回相对路径；仅 Windows 路径归一化分隔符与大小写。 */
 function relativeTo(path: string, base: string): string | null {
   const windows = /^(?:[a-z]:[\\/]|\\\\)/i.test(base);
   const target = windows ? path.replaceAll('\\', '/') : path;
@@ -171,8 +169,7 @@ export function withCourseReferences(
   return merged;
 }
 
-/** 远端会话用远端索引候选（文件不在本地镜像里）；本机项目只用自己的目录候选；
- *  通用池另并入资料根目录与已下载课件。 */
+/** 远端会话的文件不在本地镜像里，用远端索引候选。 */
 export function referenceEntryCandidates(
   entries: WorkspaceEntry[],
   cwd: string | null,

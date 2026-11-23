@@ -1,4 +1,3 @@
-// 应用根组件：launch 阶段（首启引导）、AppShell 壳与视图切换。
 import { useEffect, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
@@ -81,6 +80,7 @@ export default function App() {
     enabled: !isSmokeTest,
   });
   const [stage, setLaunchStage] = useState<'flow' | 'completion' | 'app'>();
+  // 条款门对所有人成立，只看有没有同意标记；否则「不同意并退出」再打开就绕过去了。
   const launchStage =
     stage ??
     (isSmokeTest || onboarding.data?.consented ? 'app' : onboarding.data ? 'flow' : undefined);

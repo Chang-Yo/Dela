@@ -145,7 +145,7 @@ describe('list_shuiyuan_topics', () => {
   });
 
   it('rejects feed inputs missing their required discriminator fields', () => {
-    // 校验失败在 schema.parse 阶段同步抛出（registry 映射为 INVALID_INPUT）。
+    // 校验失败在 schema.parse 阶段同步抛出。
     expect(() =>
       shuiyuanDomain.commands.list_shuiyuan_topics.execute({ kind: 'category' }),
     ).toThrow('categoryId');

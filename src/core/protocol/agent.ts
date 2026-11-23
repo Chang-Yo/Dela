@@ -1,4 +1,4 @@
-// Agent 协议：桌面界面与移动端共用的唯一对外契约，只做向后兼容的新增（AD-5）。
+// Agent 协议：桌面界面与移动端共用的唯一对外契约，只做向后兼容的新增。
 // 默认单用户：任一端都可以取消或撤回，事件推给所有端，重连时重取快照即可。
 import { z } from 'zod';
 import { defineContract } from './contract';

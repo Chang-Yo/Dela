@@ -13,7 +13,7 @@ export interface HostPorts {
   imageCodec: ImageCodec;
   desktop: Desktop;
   network: Network;
-  /** 宿主打开并按各方的 Schema 建表、迁移好的数据库（0025）。 */
+  /** 宿主打开并按各方的 Schema 建表、迁移好的数据库。 */
   database(): SqlDatabase;
   workspaceClient(): ClientHandle | null;
   projects: Projects;
@@ -47,7 +47,7 @@ export interface SqlDatabase {
 }
 
 /**
- * 一方自己的表（0025）：tables 是当前结构，只在这一方第一次出现时执行；
+ * 一方自己的表：tables 是当前结构，只在这一方第一次出现时执行；
  * 之后改表写成迁移，键为 YYYYMMDD-简述，按日期执行一次。
  */
 export interface Schema {
@@ -139,7 +139,6 @@ export function hostPorts(): HostPorts {
   return ports;
 }
 
-/** 推送契约事件给订阅过的窗口（docs/adr/0017）。 */
 export function emit<C extends Contract, K extends keyof C['events'] & string>(
   contract: C,
   name: K,

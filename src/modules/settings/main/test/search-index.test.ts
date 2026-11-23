@@ -1,4 +1,3 @@
-// 设置搜索：模块登记的条目要让所属分区可被搜到。
 import { expect, it } from 'vitest';
 import { registerSettingsSearch, settingsSectionsMatching } from '../search-index';
 

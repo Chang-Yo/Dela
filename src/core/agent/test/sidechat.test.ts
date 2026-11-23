@@ -1,5 +1,4 @@
-// 旁问：真实 Pi 会话加本地 mock 模型。旁问带着主会话的上下文提问，不写文件也不进数据库；
-// 保留后成为带「旁问：」前缀的新会话。
+// 真实 Pi 会话加本地 mock 模型。
 import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

@@ -1,6 +1,6 @@
 import type { Schema } from '../../../core/ports';
 
-// Dela 不保存任何 SSH 凭据：密钥、端口与跳板由 ssh 自己按 ~/.ssh/config 解析。
+// Dela 不保存密码，只存连接参数与私钥路径；凭据由 ssh 从 ~/.ssh 与 agent 读取。
 export const remotesSchema: Schema = {
   tables: [
     `CREATE TABLE IF NOT EXISTS remotes (

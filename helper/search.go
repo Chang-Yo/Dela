@@ -29,7 +29,7 @@ const (
 	searchMaxCtx   = 20
 	// 单行文本上限：压缩过的 js 一行几 MB，原样回传会撑爆响应。
 	searchLineLimit = 500
-	// 跳过超过这个大小的文件（Go 遍历时）：rg 默认也不会把它们当文本看。
+	// 仅 Go 回退遍历用：跳过超过这个大小的文件，rg 后端不受此限。
 	searchFileLimit = 16 << 20
 	searchTimeout   = 60 * time.Second
 )

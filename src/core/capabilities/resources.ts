@@ -36,12 +36,10 @@ export async function withResourceFile<T>(
   return resolver.withFile(source, consume);
 }
 
-/** 已登记的地址写法，拼进读取命令的说明。 */
 export function resourceAddressGuide(): string {
   return [...resolvers].map(([type, resolver]) => `- ${type}：${resolver.description}`).join('\n');
 }
 
-/** 先按 type 找到登记者，再交给它的格式校验；未登记的种类直接拒绝。 */
 export const resourceAddressSchema = z
   .looseObject({ type: z.string().min(1).max(64) })
   .transform((value, ctx): ResourceAddress => {

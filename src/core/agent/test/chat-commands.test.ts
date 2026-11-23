@@ -1,4 +1,3 @@
-// 自定义指令：与内置会话命令（/compact、/reload、/name、/new）同名的新建与改名被拒绝，报错是能读的一句话。
 import { DatabaseSync } from 'node:sqlite';
 import { beforeEach, expect, it } from 'vitest';
 import { provideTestHostPorts } from '../../test/host-mock';

@@ -80,7 +80,6 @@ type frame struct {
 	Code   int    `json:"code"`
 }
 
-// readStream 读帧直到 exit 或 stop 返回 true；ctx 取消即断开连接。
 func readStream(ctx context.Context, t *testing.T, endpoint *httptest.Server, id string, offset int64, stop func(frame) bool) []frame {
 	t.Helper()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet,

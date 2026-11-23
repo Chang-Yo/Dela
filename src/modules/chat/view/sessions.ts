@@ -6,7 +6,7 @@ import type {
 } from '../../../core/protocol/agent';
 import { agentClient, chatClient, onAgentEvent } from './client';
 
-// 会话列表镜像：会话事实（chat_sessions 表）在 main，本模块数据全来自 list-sessions 与
+// 会话列表镜像：会话事实（sessions 表）在 main，本模块数据全来自 list-sessions 与
 // session-update 推送，只读不发起执行（「打开视图不启动执行」）。
 
 /** 会话池键：projectId 为 null（通用池）时用占位符；projectId 为 UUID，不会与其冲突。 */
@@ -25,7 +25,7 @@ interface SessionsState {
   forgetSession: (sessionId: string) => void;
 }
 
-/** 列表重读抖动（毫秒）：一轮问答里 on-update 会按工具边界多次到达，合并成一次查询。 */
+/** 列表重读抖动（毫秒）：一轮问答里 session-update 会按工具边界多次到达，合并成一次查询。 */
 const listRefreshDelayMs = 300;
 
 export const useSessions = create<SessionsState>((set, get) => {
@@ -134,7 +134,7 @@ export function keepToolImages(previous: ChatMessage | undefined, next: ChatMess
   };
 }
 
-/** 所有入口共用归档/置顶后的镜像刷新；归档不停止运行、不删除消息，标签由调用方经工作台关闭。 */
+/** 所有入口共用归档/置顶后的镜像刷新；归档不停止主运行、不删除消息，标签由调用方经工作台关闭。 */
 export async function updateSession(
   sessionId: string,
   patch: { archived?: boolean; pinned?: boolean },

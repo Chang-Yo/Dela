@@ -1,4 +1,5 @@
 // 轮次审阅记录工作目录的前后状态，不依赖工具名称，也不把历史 diff 重新对当前文件计算。
+// 并发修改也会计入，不保证归因为 Agent；两轮之间后台子 Agent 的写入只见于「未提交改动」。
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';

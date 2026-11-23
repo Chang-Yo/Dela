@@ -419,7 +419,7 @@ async function downloadImage(
   }
 }
 
-/** 帖子从所有项目移除后：取消保存、删除快照文件、清空状态列（引用行保留，重新添加时直接复用）。 */
+/** 帖子从所有项目移除后：取消保存、删除快照文件、清空状态列（引用行保留，重新添加时重存）。 */
 export async function collectShuiyuanSnapshots(): Promise<void> {
   const db = hostPorts().database();
   const referencedIds = referencedTopicIds();
@@ -438,7 +438,7 @@ export async function collectShuiyuanSnapshots(): Promise<void> {
 
 /**
  * 启动时：先回收，再续上未完成的保存与文件丢失的快照（例如从不含快照的备份恢复）。
- * 失败的保存等用户手动重试；未绑定时不动。
+ * 失败的保存等用户手动重试；未绑定时只回收、不续传。
  */
 export async function resumeShuiyuanSnapshots(): Promise<void> {
   await collectShuiyuanSnapshots();

@@ -1,8 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-/** 可编程的本地 OpenAI 兼容 SSE mock 服务：按序返回脚本化响应并记录请求。 */
-
 export interface SseFrame {
   data: unknown;
   delayMs?: number;

@@ -8,7 +8,6 @@ type ToolCardProps = ComponentProps<'div'> & {
   title: string;
   /** title 是路径时，目录淡色并允许截断，文件名始终完整。 */
   titleIsPath?: boolean;
-  /** 标题后的补充说明，例如起始行号。 */
   meta?: ReactNode;
   stats?: DiffCounts;
   copyText?: string;

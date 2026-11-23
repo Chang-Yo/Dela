@@ -4,7 +4,6 @@ import { cn } from '../lib/cn';
 import { Shimmer } from '../shimmer';
 import { TraceDisclosure } from './trace';
 
-/** 思考过程：进行态只显示动画标题，展开后是原始思考文本。 */
 function Reasoning({
   live,
   label = '思考过程',
