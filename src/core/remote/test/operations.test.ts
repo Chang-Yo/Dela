@@ -10,7 +10,7 @@ import { mirrorCommandText, remotePath, setContextMirrors } from '../operations'
 
 describe('remotePath', () => {
   it('还原被 node:path 改写过的远端路径', () => {
-    // 本机实测：cwd=/root/proj 时相对路径 src/a.ts 会被解析成 E:\root\proj\src\a.ts
+    // 本机实测：Windows 上 node:path 会把远端相对路径解析成带盘符的本机路径，下面还原回去。
     expect(remotePath('E:\\root\\proj\\src\\a.ts')).toBe('/root/proj/src/a.ts');
     expect(remotePath('\\tmp\\x')).toBe('/tmp/x');
     expect(remotePath('/root/proj/')).toBe('/root/proj');

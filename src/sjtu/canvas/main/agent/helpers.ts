@@ -3,7 +3,7 @@ import type { CanvasCourse, CanvasState } from '../../contract';
 import { getCanvasState } from '../api';
 import { ToolError, toolError } from '../../../../core/capabilities/domain-tools';
 
-/** syncCourse 各分支的标识与中文标签（与 canvas/api.ts branch() 写入 course.error 的前缀一致）。 */
+/** syncCourse 各分支的标识与中文标签（与 main/api.ts 的 branch() 写入 course.error 的前缀一致）。 */
 export const canvasSyncBranches = [
   { key: 'files', label: '文件' },
   { key: 'assignments', label: '作业' },
