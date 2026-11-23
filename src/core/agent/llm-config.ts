@@ -104,7 +104,6 @@ export function writeLlmProvider(provider: StoredLlmProvider): void {
   );
 }
 
-/** 内置厂商用厂商 id，自定义服务用域名品牌名。 */
 export function addLlmProvider(provider: Omit<StoredLlmProvider, 'id'>): StoredLlmProvider {
   let added: StoredLlmProvider | undefined;
   updateConfigFile('config.json', (config) => {

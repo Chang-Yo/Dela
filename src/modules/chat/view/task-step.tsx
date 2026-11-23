@@ -70,7 +70,6 @@ export function TaskStep({ result, run }: { result: AgentToolResult; run: TaskRu
   );
 }
 
-/** 后台任务结束的一行通知：主 Agent 随后据此继续；展开看带回的回复或输出末尾。 */
 export function TaskNoticeStep({ content, task }: { content: string; task: TaskNoticeDetails }) {
   return (
     <ToolStep

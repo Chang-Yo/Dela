@@ -310,7 +310,6 @@ export function ChatThread({
   draftKey,
 }: {
   chat: WorkspaceChat;
-  /** 选中回复文字后另起旁问；未提供时不显示入口。 */
   onSidechat?: (quote: string) => void;
   /** 回复评论落进的草稿键；默认是会话自己的草稿。 */
   draftKey?: string | null;
@@ -318,10 +317,8 @@ export function ChatThread({
   onOpenSource?: (key: string) => void;
   /** 点击 # 引用的会话 chip 时打开该会话；未提供时 chip 不可点。 */
   onOpenSession?: (id: string) => void;
-  /** 把回答保存为笔记；未提供时隐藏入口。 */
   onSaveNote?: (text: string) => void;
   onEditLast?: (text: string, comments?: ChatComment[]) => void;
-  /** 从一条已完成回复分支为新会话；未提供时隐藏入口。 */
   onFork?: (entryId: string) => void;
 }) {
   const replyDraftKey = draftKey === undefined ? chat.sessionId : draftKey;
@@ -380,7 +377,6 @@ export function ChatThread({
     const key = `${chat.sessionId}:${lastUserIndex}:${replyStartedAt ?? ''}`;
     if (anchoredKey.current !== key) {
       anchoredKey.current = key;
-      // 新回合贴底，流式期间自动跟随；用户上滚退出跟随（见 onScroll），回到底部或点按钮恢复。
       followBottom.current = streaming;
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
     }

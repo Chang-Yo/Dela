@@ -41,7 +41,7 @@ const lines = (buffer) =>
   buffer
     // oxlint-disable-next-line no-control-regex -- 终端输出本身就是控制序列。
     .replace(/\x1b\[\d*(;\d*)?H/g, '\n')
-    // oxlint-disable-next-line no-control-regex -- 同上。
+    // oxlint-disable-next-line no-control-regex
     .replace(/\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07|\x1b[=>]/g, '')
     .split(/\r?\n/)
     .map((line) => line.trim());

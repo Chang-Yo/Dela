@@ -1,4 +1,3 @@
-// workspace/store 状态机单测：并发 load 共享一次请求、失败后可重试、refresh/setError 镜像语义。
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceEntry } from '../../contract';
 

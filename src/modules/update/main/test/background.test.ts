@@ -118,7 +118,6 @@ describe('startBackgroundUpdateCheck', () => {
   });
 });
 
-// 上次推迟的更新只准备到 ready，由用户再次确认安装。
 describe('准备上次推迟的更新', () => {
   const update = { version: '1.0.1' };
 

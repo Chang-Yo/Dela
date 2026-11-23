@@ -67,7 +67,6 @@ export const sources = {
   of: (sourceId: string): SourceDefinition | undefined =>
     sourceList.find((source) => sourceId.startsWith(source.prefix)),
   title: (sourceId: string, client: QueryClient) => sources.of(sourceId)?.title?.(sourceId, client),
-  /** 预览正文里指向已同步资料的链接，换成它的 sourceId。 */
   fromLink: (url: string, client: QueryClient) =>
     sourceList.map((source) => source.fromLink?.(url, client)).find((id) => id !== undefined),
   libraries: sourceList.flatMap((source) => source.library ?? []),

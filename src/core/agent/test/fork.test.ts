@@ -1,5 +1,4 @@
-// 会话分支：真实 Pi 会话加本地 mock 模型。已完成的回复带分支锚点；从中间一条回复分出的新会话只含
-// 到那里为止的历史、沿用项目与模型；原会话的文件和正在用它的实例都不受影响。
+// 真实 Pi 会话加本地 mock 模型。
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

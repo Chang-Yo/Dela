@@ -1,4 +1,3 @@
-// 更新相关的渲染层逻辑：快照的展示映射、快照镜像 store 与动作派发。
 import { create } from 'zustand';
 import { errorMessage } from '../../../core/protocol/contract';
 import { showToast } from '../../../ui/toast';

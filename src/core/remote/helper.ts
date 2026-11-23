@@ -810,7 +810,6 @@ class Channel {
     };
   }
 
-  /** 引导或重连：同一时刻只跑一轮。 */
   connect(state: 'connecting' | 'reconnecting', onProgress?: (p: RemoteSetupProgress) => void) {
     if (this.connecting) return this.connecting;
     this.setState(state);

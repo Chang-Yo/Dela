@@ -1,5 +1,4 @@
-// 用本地 echo 服务器（stdio JSON-RPC）与环回 HTTP 服务器走真实的 ~/.dela/mcp.json，
-// 覆盖 MCP 连接、工具发现、断连与配置持久化。
+// 用本地 echo 服务器（stdio JSON-RPC）与环回 HTTP 服务器走真实的 ~/.dela/mcp.json。
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';

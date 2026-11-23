@@ -227,7 +227,6 @@ app
       "[...document.querySelectorAll('aside[aria-label=\\\"主导航\\\"] nav[aria-label=功能入口] button')].find(b => b.textContent.includes('水源'))",
     );
 
-    // 信息流：表头、两个主题行、类别色点、未读徽标。
     await wait(
       "document.body.innerText.includes('置顶公告帖') && document.body.innerText.includes('考试经验分享帖')",
     );
@@ -268,7 +267,6 @@ app
       'manual load-more button should be replaced by auto pagination',
     );
 
-    // 阅读页推入：返回按钮、楼层 iframe、标题。
     await click(
       "[...document.querySelectorAll('button')].find(b => b.textContent.includes('置顶公告帖'))",
     );
@@ -282,16 +280,13 @@ app
       'content stays inside iframe',
     );
 
-    // 引用按钮：展开回复器并插入引用文本。
     await click('document.querySelector(\'[aria-label=\\"引用第 1 楼\\"]\')');
     await wait("document.querySelector('.cm-content')");
     assert.match(await evaluate("document.querySelector('.cm-content').innerText"), /楼主/);
 
-    // 返回信息流。
     await click('document.querySelector(\'[aria-label=\\"返回信息流\\"]\')');
     await wait("document.body.innerText.includes('考试经验分享帖')");
 
-    // 通知：未读点、全部已读后消失。
     await click("document.querySelector('header button[title=通知]')");
     await wait("document.body.innerText.includes('点赞人')");
     assert.ok(
@@ -306,7 +301,6 @@ app
       "![...document.querySelectorAll('button')].some(b => b.textContent.includes('全部标为已读'))",
     );
 
-    // 搜索：输入后 400ms 防抖切换到搜索 feed。
     await evaluate(`(() => {
       const input = document.querySelector('input[aria-label=搜索水源]');
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;

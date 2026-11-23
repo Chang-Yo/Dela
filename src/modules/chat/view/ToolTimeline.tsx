@@ -140,7 +140,6 @@ export function ReplyTrace({
       );
     return <ChatToolGroup last={index === lastIndex} live={live} results={part.results} />;
   };
-  // 整轮结束且以正文收尾：之前的说明、思考与工具自动折进一行，只留最终回复。
   const foldable = !live && blocks.length > 1 && blocks[lastIndex]!.part.type === 'text';
   let fold: TraceFold | undefined;
   if (foldable) {

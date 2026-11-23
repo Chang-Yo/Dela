@@ -44,7 +44,6 @@ export interface Bridge {
   subscribe(channel: string, listener: (payload: unknown) => void): () => void;
 }
 
-/** 主进程按实际注册的契约下发给 preload 的通道名单。 */
 export interface ChannelManifest {
   channels: string[];
   events: string[];

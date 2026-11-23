@@ -1,4 +1,3 @@
-// 搜索服务多条目存储：新建即选中、删除回落与选择联动工具开关。
 import { readFileSync, rmSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { beforeEach, expect, it, vi } from 'vitest';

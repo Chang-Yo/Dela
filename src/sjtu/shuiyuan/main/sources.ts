@@ -104,7 +104,6 @@ export function getShuiyuanSourceRef(topicIdInput: unknown): ShuiyuanSourceRef |
   return row ? mapRefRow(row) : null;
 }
 
-/** 楼层合并为一段 HTML，楼层头只留用户名、楼号、日期与回复目标。 */
 export function shuiyuanPostsHtml(posts: readonly ShuiyuanSnapshotPost[]): string {
   return posts
     .map((post) => {

@@ -1,5 +1,4 @@
-// 后台 bash：真实进程，父会话的通知投递换成记录。成功、失败、长输出、停止（连同子进程），
-// 以及用户手动停止时通知里注明、归档删除时不投递。
+// 真实进程，父会话的通知投递换成记录。
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

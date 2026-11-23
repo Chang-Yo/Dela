@@ -1,4 +1,3 @@
-// 应用根组件：launch 阶段（首启引导）、AppShell 壳与视图切换。
 import { useEffect, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { AppShell } from './AppShell';

@@ -91,7 +91,6 @@ describe('Canvas notice source', () => {
     vi.mocked(listCanvasAnnouncements).mockResolvedValueOnce([announcement(1, 1)]);
     await refreshNotifications();
 
-    // 新学期加入课程 2（存量公告）与课程 3（请求失败），课程 1 有新公告。
     vi.mocked(listTodoCanvasCourses).mockResolvedValueOnce([course(3), course(2), course(1)]);
     vi.mocked(listCanvasAnnouncements)
       .mockRejectedValueOnce(new Error('令牌失效或无权访问此内容'))

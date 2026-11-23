@@ -20,7 +20,6 @@ export interface ModuleDefinition {
   id: string;
   /** 本模块的表与迁移，由宿主建表并记在模块 id 名下。 */
   schema?: Schema;
-  /** 模块内部契约的主进程实现，由 app 注册到 IPC。 */
   ipc?: Implementation;
   /** 应用就绪后、窗口创建前调用：登记 IPC、命令域与各类注册口。冒烟测试同样调用。 */
   register?(): void;
@@ -43,7 +42,6 @@ export interface Workbench {
   open(tab: TabId, options?: { aside?: boolean }): void;
   /** 文档 key（条目、来源、远端节点、绝对路径）由外壳换成笔记或预览标签。 */
   openDocument(key: string, options?: { aside?: boolean }): void;
-  /** 在所有组里关闭该标签，例如会话归档后。 */
   close(tab: TabId): void;
 }
 
@@ -68,7 +66,6 @@ export interface PageDefinition<Page extends keyof NavTargets> {
   open?(target: NavTargets[Page]): void;
 }
 
-/** 模块的界面侧定义，由 app/views.ts 列入渲染端清单。 */
 export interface ViewDefinition {
   pages: { [Page in keyof NavTargets]?: PageDefinition<Page> };
   /** 本模块通知来源的名称与图标，键为来源 id。 */
@@ -82,7 +79,6 @@ export interface ViewDefinition {
   };
   /** 首启向导中本模块的一步，完成或跳过后调用 onDone。 */
   onboarding?: ComponentType<{ onDone: () => void }>;
-  /** 本模块的资料。 */
   sources?: SourceDefinition;
   /** 每次跳转前调用；要先确认（例如写信未保存）时返回 false，确认后由本模块调用 proceed 重试。 */
   leaveGuard?(proceed: () => void): boolean;
@@ -112,7 +108,6 @@ export interface LibraryProps {
 /** sourceId 以 prefix 开头的资料都归本模块；前缀与主进程登记的相同，不同模块之间不能重叠。 */
 export interface SourceDefinition {
   prefix: string;
-  /** 项目快捷方式在文件树里的图标与角标。 */
   icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
   badge?: ComponentType<{ sourceId: string }>;
   /** 预览标签里的正文；不提供时按内容格式通用预览。 */

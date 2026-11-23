@@ -184,7 +184,7 @@ describe('moveTab / moveTabToEdge', () => {
   it('跨组移动去重：目标组已有同 id 标签时合并为一个', () => {
     state().openTab('note:a');
     state().openTab('note:b');
-    state().splitGroup('primary', 'vertical'); // 新组复制活动标签 note:b
+    state().splitGroup('primary', 'vertical');
     const side = groups()[1]!;
     state().moveTab('note:b', 'primary', side.id, 0);
     expect(side.tabs).toEqual(['note:b']);
@@ -203,7 +203,6 @@ describe('moveTab / moveTabToEdge', () => {
     expect(root.orientation).toBe('vertical');
     expect(root.children[0]).toMatchObject({ type: 'group', tabs: ['note:a'] });
     expect(root.children[1]).toMatchObject({ type: 'group', id: 'primary', tabs: ['note:b'] });
-    // 移动而非复制：原组不再持有该标签。
     expect(walkGroups(root).flatMap((g) => g.tabs)).toEqual(['note:a', 'note:b']);
   });
 

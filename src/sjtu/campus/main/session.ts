@@ -94,7 +94,6 @@ export interface CampusRequestOptions {
   body?: string;
 }
 
-/** 登录失效错误：调用方据此引导重新登录，而非当作普通失败。 */
 export class CampusAuthError extends Error {}
 
 /**

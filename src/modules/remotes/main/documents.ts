@@ -68,7 +68,6 @@ export async function readRemoteDocument(
     };
   }
   if (size > TEXT_PREVIEW_MAX_BYTES) return { title, format: 'binary', revision };
-  // 远端只读：文本同样只拉编辑上限那么多字节，再大的文件给头部并标注截断。
   const truncated = size > TEXT_EDIT_MAX_BYTES;
   const bytes = await readRemoteRange(target, path, 0, Math.min(size, TEXT_EDIT_MAX_BYTES));
   if (!isTextContent(bytes, truncated)) return { title, format: 'binary', revision };

@@ -139,7 +139,6 @@ export function hostPorts(): HostPorts {
   return ports;
 }
 
-/** 推送契约事件给订阅过的窗口。 */
 export function emit<C extends Contract, K extends keyof C['events'] & string>(
   contract: C,
   name: K,

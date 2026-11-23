@@ -1,5 +1,3 @@
-// search_mail / list_mail_folders 的统一契约：未配置报 NOT_CONFIGURED、
-// coverage 对象化（folders 附带）、freshness 取账号最近同步时间。
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../api', async () => {

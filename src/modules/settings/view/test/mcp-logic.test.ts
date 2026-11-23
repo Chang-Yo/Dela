@@ -1,4 +1,3 @@
-// MCP 页签纯逻辑测试：键值文本解析、表单校验与编辑补丁。
 import { describe, expect, it } from 'vitest';
 import { mcpUpdatePatch, parseMcpForm, parsePairs } from '../agent/mcp-logic';
 

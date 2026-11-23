@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-// 远程项目的 @ 引用候选：候选来自主进程的远端文件索引，同一个项目在一次运行里只拉一次，
-// 索引失败时退化为空候选而不抛错。
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

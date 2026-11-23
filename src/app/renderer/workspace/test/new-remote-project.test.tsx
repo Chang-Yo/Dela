@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// 新建远程项目面板：选中服务器就连并从主目录起浏览，以自定义名称导入；ssh config 里的主机选中即保存为连接。
 import { act, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
@@ -181,7 +180,6 @@ it('connects the first saved server and browses from its home directory', async 
     draft: expect.objectContaining({ host: 'gpu-box' }),
     path: '/home/u',
   });
-  // 隐藏目录默认不显示，名称默认取当前目录名。
   expect(document.body.textContent).toContain('proj');
   expect(document.body.textContent).not.toContain('.cache');
   expect(input('项目名称').value).toBe('u');
@@ -201,7 +199,6 @@ it('selects on click, enters on double click, and imports under a custom name', 
   await act(async () => setValue(input('项目名称'), '我的实验'));
   await act(async () => row().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
   await flush();
-  // 进到 proj 里面：项目目录就是当前路径；改过的名字不再跟着目录变。
   expect(remotes.browse).toHaveBeenLastCalledWith(
     expect.objectContaining({ path: '/home/u/proj' }),
   );
@@ -214,7 +211,6 @@ it('selects on click, enters on double click, and imports under a custom name', 
     name: '我的实验',
   });
   expect(onImported).toHaveBeenCalledWith(created);
-  // 下次打开这台服务器回到这里。
   expect(usePreferences.getState().remoteLastDirectory['gpu-box']).toBe('/home/u/proj');
 });
 

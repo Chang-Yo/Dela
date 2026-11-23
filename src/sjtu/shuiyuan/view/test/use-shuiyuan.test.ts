@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// 阅读缓存的改写：楼层分段加载、失败回滚与 await 期间离开帖子的守卫。
 import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ShuiyuanPost, ShuiyuanTopicDetail } from '../../contract';
@@ -59,7 +58,6 @@ function makeDetail(id: number, posts: ShuiyuanPost[]): ShuiyuanTopicDetail {
 const reading = { topicId: 1, postNumber: 35 };
 let queryClient: QueryClient;
 
-/** 60 楼长帖，只加载了深链落点附近的 30–40 楼。 */
 function openDeepLinked() {
   const all = Array.from({ length: 60 }, (_, index) => makePost(index + 1));
   queryClient.setQueryData(['shuiyuan', 'topic', 1, 35], {

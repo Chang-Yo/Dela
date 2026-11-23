@@ -1,4 +1,4 @@
-// 键 `layout:{projectId}`（首页 = `layout:_general`）存 workspace_settings；损坏数据回退 null，由界面重新种子。
+// 损坏的布局回退 null，由界面重新种子。
 import { hostPorts } from '../../../core/ports';
 import { workbenchLayoutSchema, type WorkbenchLayout } from '../contract';
 

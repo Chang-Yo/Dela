@@ -179,7 +179,6 @@ export function ChatComposer({
     queryKey: ['settings', 'commands'],
     queryFn: () => agentClient['list-commands']({}),
   }).data;
-  // 两列模型面板：打开时重读设置配置保证新鲜；focusedId 是左列手动查看的提供商，空则跟随当前使用项。
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const providerQuery = useQuery({
     queryKey: ['llm', 'list'],
@@ -260,7 +259,6 @@ export function ChatComposer({
     } else {
       const option = mentionItems[position];
       if (!option) return;
-      // 引用即文本：原位留下「@相对路径」或「#会话标题」token（尾随空格隔开后续输入），发送时解析回 key。
       editorRef.current?.replaceRange(
         menu.start,
         caret,
@@ -276,7 +274,6 @@ export function ChatComposer({
     editorRef.current?.insertAt(caret, '@');
   };
 
-  /** 插入一张已暂存的内联图片 token，返回新的插入位置（批量拖入时逐张顺延）。 */
   const insertImageView = (view: ChatMediaView, pos: number) => {
     setChatMediaPreview(view.id, view.previewUrl);
     const token = `${chatImageToken(view.id, view.name)} `;

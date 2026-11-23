@@ -1,4 +1,3 @@
-// 构建远端 helper：默认 linux/amd64，`--all` 同时出 linux/arm64。
 // 静态链接（CGO_ENABLED=0）、不带本机路径（-trimpath）；产物放 vendor/dela-helper/，随 Dela 分发。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';

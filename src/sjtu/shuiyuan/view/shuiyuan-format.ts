@@ -49,7 +49,6 @@ export function formatListDate(iso: string): string {
   return sameYear ? monthDay : `${date.getFullYear()}年${monthDay}`;
 }
 
-/** 大数紧凑展示：≥1 万用「万」，其余千分位。 */
 export function formatCount(value: number | null): string {
   if (value === null || value === undefined) return '';
   if (value >= 10000) return `${(value / 10000).toFixed(1).replace(/\.0$/, '')} 万`;

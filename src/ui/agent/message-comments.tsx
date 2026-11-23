@@ -2,7 +2,6 @@ import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn';
 import { QuoteBlock } from './quote-block';
 
-/** 用户消息附带的回复评论：被评论的引文加上评论正文。 */
 function MessageComments({
   comments,
   className,

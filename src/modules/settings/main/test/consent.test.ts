@@ -39,7 +39,6 @@ afterEach(() => {
 it('每一次接受各留一行，带应用版本与可比较的时间', () => {
   recordConsent('terms', '2026-10-15');
   recordConsent('privacy', '2026-10-15');
-  // 条款改版后重新接受：历史行不动，只追加。
   recordConsent('terms', '2027-01-01');
 
   expect(rows().map((row) => [row.document, row.revision, row.appVersion])).toEqual([

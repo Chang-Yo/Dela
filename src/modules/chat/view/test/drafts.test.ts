@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-// dela.session.drafts 持久化形状校验：损坏条目在 loadStored 丢弃，不进渲染期。
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const STORAGE_KEY = 'dela.session.drafts';

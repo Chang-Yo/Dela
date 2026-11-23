@@ -1,4 +1,3 @@
-// 设置 › 远程：已保存的 SSH 连接与实时通道状态；Dela 不保存密码与密钥，凭据由 ssh 读取。
 import { useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Cloud, Plus } from 'lucide-react';

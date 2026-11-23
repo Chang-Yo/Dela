@@ -39,7 +39,6 @@ function subagentStatus(chat: WorkspaceChat): SubagentStatus {
   return last?.interrupted ? 'failed' : last?.stopped ? 'stopped' : 'completed';
 }
 
-/** 会话身份来自 tabId（chat:{sessionId}），项目归属来自会话快照。 */
 export function ChatTab({ tabId, groupId }: { tabId: TabId; groupId: string }) {
   const sessionId = parseChatTabId(tabId);
   const source = useChatTabSource();

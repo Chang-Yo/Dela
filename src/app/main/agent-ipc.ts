@@ -82,7 +82,6 @@ async function shutdownSessions(timeoutMs: number) {
   ]);
 }
 
-/** 模型/能力配置写入后让空闲会话按新配置重建。 */
 function invalidating<T>(fn: () => T): T {
   const result = fn();
   if (result instanceof Promise) return result.finally(invalidateSessions) as T;
@@ -90,7 +89,6 @@ function invalidating<T>(fn: () => T): T {
   return result;
 }
 
-/** 搜索配置变更同时刷新会话工具与各窗口的选择器。 */
 function changingWebSearch<T>(fn: () => T): T {
   const result = invalidating(fn);
   emit(capabilitiesContract, 'webSearchChanged', undefined);

@@ -99,7 +99,6 @@ export function CodeFileCard({
   );
 }
 
-/** 工具卡片里的单次 edit：前后文本直接对比，固定高度内滚动，失败时左侧加色条。 */
 export function EditDiffCard({
   path,
   oldText,

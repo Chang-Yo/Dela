@@ -1,4 +1,3 @@
-// settings/prefs：存储值损坏时回退默认，非法输入在契约边界被拒绝。
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 

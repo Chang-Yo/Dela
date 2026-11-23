@@ -39,7 +39,6 @@ interface RunsState {
   apply: (event: RunEvent) => void;
   startViewing: (sessionId: string) => void;
   stopViewing: (sessionId: string) => void;
-  /** 会话结果已被某个视图看到：清掉终态记录（徽标消失）；运行中的状态不受影响。 */
   markSeen: (sessionId: string) => void;
 }
 

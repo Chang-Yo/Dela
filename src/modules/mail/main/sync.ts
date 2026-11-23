@@ -169,7 +169,6 @@ async function syncFolder(
        WHERE id = ?`,
     ).run(folder.id);
 
-    // 从最新一封开始预取正文，保证打开页面即可阅读。
     const updateBody = db.prepare(
       `UPDATE mail_messages
        SET body_text = ?, body_html = ?, body_version = 1, snippet = COALESCE(?, snippet)

@@ -97,7 +97,6 @@ describe('Shuiyuan notice source', () => {
     ]);
 
     await refreshNotifications();
-    // 存量互动仍进通知列表，但不弹系统桌面通知。
     expect(getNotificationState(['shuiyuan']).items).toHaveLength(2);
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
     expect(vi.mocked(systemNotifyItem).mock.calls[0]![0].id).toBe('shuiyuan:dela-user:8');

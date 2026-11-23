@@ -54,7 +54,6 @@ export function updateConfigFile(name: ConfigFileName, update: (config: JsonObje
   renameSync(temporary, path);
 }
 
-/** 取出文件里的一个对象分区（如 providers），不存在或不是对象时新建。 */
 export function sectionOf(config: JsonObject, key: string): JsonObject {
   const section = config[key];
   if (isJsonObject(section)) return section;

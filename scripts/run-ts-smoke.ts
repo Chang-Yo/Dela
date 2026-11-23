@@ -1,5 +1,3 @@
-// 把 scripts/<name>.ts 打成 CJS 放进 .tools/，再用 Electron 运行。
-// 用法：node scripts/run-ts-smoke.ts workspace-smoke | remote-smoke | runtime-smoke
 import { build } from 'vite';
 import { builtinModules, createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';

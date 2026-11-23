@@ -21,7 +21,6 @@ describe('reviewTabId / parseReviewTabId', () => {
     const tabId = reviewTabId({ kind: 'uncommitted', sessionId });
     expect(tabId).toBe(`review:${sessionId}:uncommitted`);
     expect(parseReviewTabId(tabId)).toEqual({ kind: 'uncommitted', sessionId });
-    // 轮次解析不吞掉聚合变体，反之亦然。
     expect(parseReviewTabId(reviewTabId({ kind: 'turn', sessionId, turnId, path }))).toEqual({
       kind: 'turn',
       sessionId,

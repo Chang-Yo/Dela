@@ -1,5 +1,3 @@
-// 工作区文件的主进程行为：按内容判定格式、原样读写、图片落盘与受限资源解析、
-// 移动/转换/导入项目时的身份维护（条目 UUID + 项目目录，目录原地不动）。
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -56,7 +54,6 @@ function createDb(): Database.Database {
     ...coreSchema.tables,
   ])
     db.exec(table);
-  // 归档行由各用例按需播种。
   db.exec('DELETE FROM workspace_entries');
   return db;
 }

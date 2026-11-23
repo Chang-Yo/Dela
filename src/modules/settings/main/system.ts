@@ -1,4 +1,3 @@
-// 要作用到系统或窗口的偏好：主题、页面缩放与开机启动。
 import { app, nativeTheme, type WebContents } from 'electron';
 import { hostPorts } from '../../../core/ports';
 import type { ThemePreference, ZoomPreference } from '../contract';

@@ -1,4 +1,3 @@
-// 模块清单：主进程据此注册各模块的 IPC 与后台任务。
 import type { ModuleDefinition } from './module';
 import { chatModule } from '../modules/chat';
 import { mailModule } from '../modules/mail';

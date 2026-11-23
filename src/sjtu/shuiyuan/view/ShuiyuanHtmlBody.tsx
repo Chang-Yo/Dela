@@ -30,7 +30,6 @@ function useIsDarkTheme(): boolean {
   return dark;
 }
 
-/** 水源楼层/引用正文：给了 onOpenTopic 时站内话题链接在应用内打开，其余外链走系统浏览器。 */
 export function ShuiyuanHtmlBody({
   html,
   title = '帖子正文',

@@ -129,7 +129,6 @@ it('刷新重读列表；选中文件被移除时回落到第一个', async () =
   await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="刷新改动"]')!.click());
   await settle();
   await settle();
-  // 原选中项已不在列表：回落到第一个文件，而不是停留在一个无详情的失效选择上。
   expect(host.querySelector('[aria-current="true"]')?.textContent).toContain('gone.log');
   expect(api.readUncommittedFileChange).toHaveBeenLastCalledWith({ sessionId, path: 'gone.log' });
 });

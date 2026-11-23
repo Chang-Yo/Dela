@@ -1,4 +1,3 @@
-// 快捷键纯函数：事件规范化、覆盖合并、digit 族匹配与冲突检测。
 import { describe, expect, it } from 'vitest';
 import {
   acceleratorFromEvent,

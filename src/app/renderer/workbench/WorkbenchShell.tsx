@@ -1,4 +1,3 @@
-// 工作台装配层：三个内容 Provider（chat/note/preview）、目录侧栏与 EntryDialogs 都挂在这里。
 import { useEffect, type ReactNode } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {

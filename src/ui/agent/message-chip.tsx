@@ -2,7 +2,6 @@ import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn';
 import { Chip } from './chip';
 
-/** 用户消息气泡下方的一行附件、引用或会话 chip。 */
 function MessageChips({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div

@@ -1,5 +1,3 @@
-// 会话层：Pi 消息 → WorkspaceChat 投影；会话 cwd 取库里的 cwd 列（随聊是私有目录，资料页是课程目录），
-// cwd 为 NULL 时按项目目录/工作区根解析，项目目录缺失时报错而不换目录。
 import Database from 'better-sqlite3';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
