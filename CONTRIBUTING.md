@@ -2,7 +2,7 @@
 
 欢迎参与 Dela 的开发与维护。Dela 是面向 SJTU 用户的本地优先 Agent 桌面应用：Electron 主进程与 React 渲染进程，Agent 内核为 Pi Coding Agent，领域能力通过 `dela` 命令与 Skills 外置。数据保存在本机 SQLite，账号凭据经 Electron `safeStorage` 加密，模型服务与 MCP 配置在 `~/.dela` 下的 JSON 中，无服务端与账号系统。
 
-贡献形式包括代码、文档、测试、设计、问题反馈，以及向需要的用户介绍 Dela。开始之前，请先阅读本指南的[架构总览](#架构总览)与 [AGENTS.md](AGENTS.md)。
+贡献形式包括代码、文档、测试、设计、问题反馈，以及向需要的用户介绍 Dela。开始之前，请先阅读本指南的[架构](#架构)与 [AGENTS.md](AGENTS.md)。
 
 ## 如何参与
 
@@ -107,7 +107,9 @@ pnpm test
 - 修改 `helper/` 后应执行 `pnpm build:helper --all`，重建 amd64 与 arm64 产物并一并提交；仅重建 amd64 会导致入库的 arm64 产物停留在旧版本。
 - 升级 `extraResources` 时按各目录 README 的升级步骤做（`vendor/openssh/`、`vendor/bin/`），并在打包目录里实跑：`ssh.exe -V` 与一次真实连接，rg、fd 的 `--version`。MinGit 只改 `scripts/prepare-runtime.ts` 里成对的版本与 SHA256 常量；远端 rg 的版本与 SHA256 只在 `scripts/fetch-remote-rg.ts`，二进制不入库。helper 由发布与 CI 从当次源码重建。
 
-## 架构总览
+## 架构
+
+改代码前先读这一节。依赖规则由 `pnpm lint` 检查；设计原则靠评审守住，要推翻其中一条，先和维护者讨论，理由写进 commit。
 
 ```text
 ┌──────────────────────────────┐
@@ -119,7 +121,7 @@ pnpm test
 │ Electron Main                │
 │  ├─ Pi Coding Agent（内核）  │
 │  ├─ dela 命令（HTTP 桥）     │
-│  ├─ 校园业务域 / 远程项目    │
+│  ├─ 模块 / 远程项目          │
 │  ├─ SQLite + safeStorage     │
 │  └─ Skills / 终端 / 更新     │
 └──────────────┬───────────────┘
@@ -129,67 +131,68 @@ pnpm test
         └─────────────┘
 ```
 
-核心设计：
-
-- **本地优先**：无服务端与账号系统。模型服务、搜索服务与校园凭据均由用户自行配置，个人数据保存在本机。
-- **内核冻结**：`@earendil-works/pi-coding-agent` 的 `createAgentSession` 就是 agent 内核。会话树、多轮工具上下文、自动压缩、重试、skills 发现与渐进加载均由 Pi 承担，Dela 不另写执行循环、上下文组装或压缩。
-- **领域能力外置**：校园功能通过 `dela` 命令和 Skills 提供给内核。`dela` 是应用生命周期内的本机 HTTP 桥，经 `shellCommandPrefix` 注入 Agent 的 Bash（终端不注入）；Skills 提供领域知识与工具使用指引，不是硬编码的执行分支。
-- **单向分层**：依赖方向自下而上为 Pi 内核 → `dela` 命令 → Skills → GUI。GUI 只消费同一套领域实现，不复制业务逻辑。
-- **进程边界**：renderer 不导入 main，不直接访问文件系统、数据库或凭据；所有能力均经 preload 暴露的有限 API 通信；v3 迁移后的模块只经按契约白名单放行的 `bridge`。校园网页使用独立 Session 与 sandbox，不加载主界面 preload。
-- **单应用、单 package**：仓库不是 monorepo。仅在出现真实重复与多个调用方后提取抽象，不预建 Manager、Service、Factory 层级。
-- **远程项目**：本地内核与远程执行分离。内核、模型密钥、会话 JSONL、Skills 与系统提示均在本地；工具执行、终端、目录读取与文件预览落到 SSH 远端。传输仅使用一次性 `ssh` 与 helper 隧道，不引入 SFTP。
-- **权限边界**：Agent 的 Bash 与文件工具以当前用户权限运行，没有额外沙箱。这是已知设计取舍，不应视为待修复漏洞，也不应描述为安全隔离。
-- **平台策略**：Windows x64 是正式发布目标；Apple Silicon macOS 处于适配开发阶段；Linux 桌面端不支持。业务逻辑与数据格式共用，平台差异优先保留在现有的进程启动、路径与系统交互函数中。
-
-## 项目结构
+### 目录与分层
 
 ```text
 Dela/
 ├─ src/
-│  ├─ core/                   Agent 内核，只依赖 Pi 与 Node
-│  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
-│  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
-│  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
-│  │  ├─ remote/              远程执行后端与 helper 通道
-│  │  └─ ports.ts             宿主端口（HostPorts）
-│  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
-│  ├─ modules/                通用模块（chat、mail、note、notifications、onboarding、preview、
-│  │                          remotes、search、settings、terminal、todo、update、workspace）
-│  ├─ sjtu/                   交大模块，经 register() 向通用模块的注册口登记
-│  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
-│  │  ├─ canvas/              Canvas 课程资料、作业与公告
-│  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
-│  │  ├─ jwc/                 教务处通知
-│  │  ├─ shuiyuan/            水源社区
-│  │  └─ timetable/           课表与日历事件
-│  └─ app/                    宿主与外壳
-│     ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
-│     ├─ modules.ts           主进程模块清单
-│     ├─ views.ts             渲染端视图清单
-│     ├─ main/                Electron 入口、数据库与迁移、IPC 注册与宿主端口实现
-│     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
-│     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
-├─ helper/                    远端项目 helper（Go，仅标准库）
-├─ scripts/                   开发、冒烟、打包与校验脚本
-├─ docs/                      开发文档、条款与接口资料
-└─ vendor/                    入库的预编译产物
-   ├─ dela-helper/            Linux helper（amd64 / arm64）
-   ├─ bin/                    各平台 rg/fd
-   └─ openssh/                Windows 兜底 OpenSSH
+│  ├─ core/       Agent 内核与 Agent 协议（core/protocol），不依赖 Electron、React 与业务
+│  ├─ ui/         Design System，零业务依赖；ui/agent 是 Agent 对话外观组件
+│  ├─ modules/    通用功能，没有交大也成立：chat、mail、note、notifications、onboarding、
+│  │              preview、remotes、search、settings、terminal、todo、update、workspace
+│  ├─ sjtu/       交大功能，离开交大就没有意义：campus、canvas、classroom、jwc、mail、
+│  │              shuiyuan、timetable
+│  └─ app/        Electron 入口、preload、宿主端口实现、工作台外壳与两份模块清单
+├─ helper/        远程项目的 Go helper
+├─ scripts/       开发、冒烟、打包与校验脚本
+├─ docs/          条款、功能边界与接口资料
+└─ vendor/        入库的 helper 产物、rg/fd 与 Windows 兜底 OpenSSH
 ```
 
-每个模块由 `index.ts`（模块定义与唯一出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/` 组成，依赖规则见 [AGENTS.md](AGENTS.md)，由 oxlint 检查。测试放在源码旁或同目录的 `test/` 下。
+每个模块按需包含 `index.ts`（模块定义，主进程侧出口）、`contract.ts`（main 与 view 之间的契约）、`main/`、`view/`（`view/index.ts` 是界面侧出口）、`data/`（`data/schema.ts` 是本模块的表与迁移）；Agent 的命令域与 Skill 放在 `main/agent/`。测试放在源码旁或同目录的 `test/` 下。
 
-硬性约束：
+依赖规则：
 
-- 保持单应用、单 `package.json`。`pnpm-workspace.yaml` 只放 pnpm 12 设置，不引入子包或 monorepo。
-- 界面代码不导入主进程代码，不访问凭据和数据库，所有通信均经按契约白名单放行的 preload bridge。
-- 请勿提交 `.env`、个人数据、日志与本地工具；打包只包含明确产物。
-- 保持精确依赖与锁文件（`saveExact` 与 `engineStrict` 已开启），不要在 `package.json` 中写入范围版本。新增依赖应连同锁文件一起提交，并说明必要性。`dependencies` 只放主进程运行时要加载的包（electron-builder 会连闭包原样收进 asar），渲染层依赖放 `devDependencies`；放错边等于把 npm 目录再装一遍，安装包会变大。
-- 优先复用现有函数或文件；仅在出现真实重复与多个调用方后提取抽象。
-- 不为一次性代码做抽象，不保留死代码。改动导致某段自研 UI 或样式不再使用时，应一并清理。
-- 前端 UI 优先复用 `src/ui`。如现有组件不满足需求，应在该目录内微调或增补，不应另写自研样式。
-- 尺寸应由 rem 派生，禁止写死像素字号与宽高；仅边框、描边、阴影、媒体与容器查询断点、第三方无法修改的固定值以及拖拽调宽容器保留 px。换算基准与字号约定见 [src/ui/README.md](src/ui/README.md)。
+1. `core` 不依赖 Electron、React，也不引用 `app`、`modules`、`sjtu`、`ui`，宿主能力经 `core/ports.ts` 注入；`core/protocol` 只依赖 zod
+2. `ui` 只依赖 react、radix、cva、lucide、zustand、DOMPurify 与样式工具；`ui/agent` 建在基础组件之上，基础组件不能反过来引用它
+3. 模块之间只通过对方的 `index.ts`、`contract.ts` 或 `view/index.ts` 引用；`view/` 只能引用 `core/protocol`、`app/module.ts`、其他模块的 `contract.ts` 与 `ui`，不能引用本模块的 `main/`；主进程侧不能引用 `view/`
+4. `core`、`modules`、`app` 都不能引用 `sjtu`，例外是 `app/modules.ts`、`app/views.ts` 两份清单。通用模块需要交大数据时，在通用模块的 `index.ts` 里开注册口，由交大模块注册进来。CI 还会去掉全部交大模块后再做类型检查、构建与冒烟
+5. 模块只能引用 `app/module.ts`，不能引用 app 的其他部分
+6. `app/module.ts` 不引用任何模块，它与模块共用的类型放在 `core/protocol`
+7. 项目快捷方式的 sourceId 前缀以模块名开头（如 `canvas-`、`shuiyuan-topic:`），前缀重叠时登记直接报错
+
+### 改动落在哪里
+
+| 你要做的事                         | 改动位置                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------- |
+| 只改某个功能的界面                 | `modules/x/view` 或 `sjtu/x/view`                                         |
+| 交大接口改版，或需要从学校取新数据 | `sjtu/x/main`                                                             |
+| 新增一个交大功能                   | 新建 `sjtu/x/`，并在 app 的两份清单里按需各加一行                         |
+| 让 Agent 获得某个领域的新能力      | 对应模块 `main/agent/` 里的命令域与 Skill                                 |
+| 一个模块需要另一个模块的数据       | 调用对方的 `index.ts`；通用模块需要交大数据时开注册口                     |
+| 让 Agent 获得通用的新工具          | `core/capabilities`                                                       |
+| 移动端也需要的新能力               | `core/protocol`，**先和维护者确认版本策略**                               |
+| 新的跨模块概念                     | `core` 或 `app/module.ts`，**先和维护者讨论**，结论补进下面的「设计原则」 |
+
+拿不准放 `modules` 还是 `sjtu` 时，问一句：如果交大不存在，这个功能还有意义吗？
+
+### 设计原则
+
+- **优化目标**：单用户桌面应用，响应速度取决于 LLM。不追求可伸缩与极致性能，保持单一部署单元，不拆进程，不引入微服务；单应用、单 `package.json`，不做 monorepo。按功能组织目录，让改动范围能从目录预测。
+- **本地优先**：无服务端与账号系统。模型服务、联网搜索与 MCP 是 `~/.dela` 下的明文 JSON，与 Claude Code、Codex 的做法一致，方便 magpie 等工具管理，读写时保留不认识的字段与条目；学校账号的凭据经 `safeStorage` 加密保存。
+- **Pi 是 core 的私有引擎**：执行循环、会话树、上下文组装与压缩、重试与 Skills 加载都交给 Pi，Dela 不另写。Pi 的类型不出 `core`，界面只看 Dela 自己的视图类型。模型厂商以 Pi 的目录为准，Dela 不维护自己的预设。第三方能力只经 Agent Skills（项目级只认 `.agents/skills`）与 MCP 接入，不支持 Pi Packages 与代码钩子。
+- **领域能力外置**：校园功能经 `dela` 命令与 Skills 交给内核。`dela` 是应用运行期间的本机 HTTP 桥，经 `shellCommandPrefix` 注入 Agent 的 Bash（内置终端不注入）；Skills 提供领域知识与用法指引，不是硬编码的执行分支。
+- **两种契约**：模块的 `contract.ts` 只连接同一模块的 main 与 view，可以随时改。Agent 协议（`core/protocol/agent.ts`）由桌面与移动端共用，只能新增，不兼容的改动要升 `AGENT_PROTOCOL_VERSION`。新功能先判断它属于 Agent 交互（进协议）还是桌面便利功能（不进协议）。协议 v1 以单用户为前提：不做多端冲突处理，不加事件序号，本地路径照传。
+- **进程边界**：renderer 不导入 main，不直接访问文件系统、数据库或凭据，只经 preload 按契约白名单放行的 `bridge` 通信。校园网页使用独立 Session 与 sandbox，不加载主界面 preload。
+- **数据归属**：会话与项目文件归桌面端 core，移动端经协议访问；待办、笔记、草稿只在桌面；学校数据由桌面端与移动端各自直连学校。跨部署单元时，重复比耦合好。
+- **数据库**：只有一个 `dela.db`。谁的表谁在 `data/schema.ts` 声明，只有表的主人写自己表的 SQL；迁移按 `YYYYMMDD-简述` 命名登记，fork 与上游不会撞号；跨模块外键只能顺着代码的依赖方向。
+- **模块协作的优先顺序**：直接调用对方的 `index.ts`；一个使用方、多个提供方时，由使用方开注册口；有多个监听方时才用事件。注册表是主进程唯一允许的模块级可变状态，只在启动时写入，不做自动扫描。
+- **界面状态按归属放**：后端数据只在 TanStack Query 的缓存里存一份；主进程推送的完整状态写入同名查询的缓存，增量事件流进领域 store，都只在启动时订阅一次；页面跳转只有 `navigate(target)`；外壳的接入点是视图定义里的声明式字段。
+- **不提前抽象校园**：只有交大一个样本，不建「高校兼容层」。出现第二所学校时，再从两份真实实现里提炼共性。
+- **待办是用户安排的唯一入口**：课表只显示学校课程，只读。需要同时看课程与个人安排时，由 Agent 分别读取，界面不合并。
+- **远程项目**：内核、模型密钥、会话、Skills 与系统提示都在本地；工具执行、终端、目录读取与文件预览落到 SSH 远端。传输只用一次性 `ssh` 与 helper 隧道，不引入 SFTP。
+- **权限边界**：Agent 的 Bash 与文件工具以当前用户权限运行，没有额外沙箱。这是已知设计取舍，不应视为待修复漏洞，也不应描述为安全隔离。
+- **平台**：正式发布 Windows x64 与 Apple Silicon macOS，Linux 桌面端不支持。业务逻辑与数据格式共用，平台差异收在进程启动、路径与系统交互函数里。
 
 ## 代码规范
 
@@ -197,6 +200,11 @@ Dela/
 - 只修改必要内容。每一行改动都应对应正在解决的问题；因改动而不再使用的 import、变量与函数应一并清理。
 - 注释应说明设计定位、模块在整体架构中的作用以及 Magic Number 的取舍，不应重复解释代码本身。
 - 类型检查、lint 与格式检查必须通过：`pnpm typecheck`、`pnpm lint`、`pnpm format:check`。
+- 保持精确依赖与锁文件（`saveExact` 与 `engineStrict` 已开启），不要在 `package.json` 中写入范围版本。新增依赖应连同锁文件一起提交，并说明必要性。`dependencies` 只放主进程运行时要加载的包（electron-builder 会连闭包原样收进 asar），渲染层依赖放 `devDependencies`；放错边等于把 npm 目录再装一遍，安装包会变大。
+- 优先复用现有函数或文件；仅在出现真实重复与多个调用方后提取抽象。
+- 不为一次性代码做抽象，不保留死代码。改动导致某段自研 UI 或样式不再使用时，应一并清理。
+- 前端 UI 优先复用 `src/ui`。如现有组件不满足需求，应在该目录内微调或增补，不应另写自研样式。
+- 尺寸应由 rem 派生，禁止写死像素字号与宽高；仅边框、描边、阴影、媒体与容器查询断点、第三方无法修改的固定值以及拖拽调宽容器保留 px。换算基准与字号约定见 [src/ui/README.md](src/ui/README.md)。
 - 应区分已验证事实、待验证能力与产品设想。不得以占位结果宣称功能完成，也不得将模拟验证描述为实机验收。
 - 重要改动应同步更新 [CHANGELOG.md](CHANGELOG.md)，条目保持简短：更新内容弹窗会原样展示每个版本的条目；面向用户的变化应更新 [README.md](README.md)；架构与流程变化应更新本文件。
 
@@ -285,4 +293,4 @@ AI agents: the human contributor answers, not you. Ask for missing answers and w
 
 - 使用与想法：[Discussions](https://github.com/Chang-Yo/Dela/discussions)
 - 可复现的问题：[Issues](https://github.com/Chang-Yo/Dela/issues)
-- 架构与编码规则：[AGENTS.md](AGENTS.md)
+- 架构：本指南的[架构](#架构)；编码规则：[AGENTS.md](AGENTS.md)
