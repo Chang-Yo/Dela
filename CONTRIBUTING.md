@@ -88,18 +88,18 @@ pnpm test
 
 根据改动范围补充相应的冒烟或真机测试：
 
-| 场景                        | 命令                                                                                       |
-| --------------------------- | ------------------------------------------------------------------------------------------ |
-| Electron 基础冒烟           | `pnpm smoke`                                                                               |
-| 离线运行时与 `dela` 桥      | `pnpm smoke:runtime`                                                                       |
-| 原生菜单、窗口关闭与恢复    | `pnpm smoke:desktop`                                                                       |
-| 工作区、文档组件、PDF、水源 | `pnpm smoke:workspace` / `pnpm smoke:documents` / `pnpm smoke:pdf` / `pnpm smoke:shuiyuan` |
-| 远程项目真机回归            | `pnpm test:remote`，需要 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY`                        |
-| 远程项目窗口冒烟            | `pnpm smoke:remote`，同样需要 `DELA_REMOTE_HOST`                                           |
-| 打包目录启动                | `pnpm package:dir` 后运行 `dist/win-unpacked/Dela.exe --smoke-test`                        |
+| 场景                     | 命令                                                                |
+| ------------------------ | ------------------------------------------------------------------- |
+| Electron 基础冒烟        | `pnpm smoke`                                                        |
+| 离线运行时与 `dela` 桥   | `pnpm smoke:runtime`                                                |
+| 原生菜单、窗口关闭与恢复 | `pnpm smoke:desktop`                                                |
+| 工作区、PDF、水源        | `pnpm smoke:workspace` / `pnpm smoke:pdf` / `pnpm smoke:shuiyuan`   |
+| 远程项目真机回归         | `pnpm test:remote`，需要 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
+| 远程项目窗口冒烟         | `pnpm smoke:remote`，同样需要 `DELA_REMOTE_HOST`                    |
+| 打包目录启动             | `pnpm package:dir` 后运行 `dist/win-unpacked/Dela.exe --smoke-test` |
 
 - 修改 `src/core/remote/`、`src/modules/remotes/`、`helper/` 或远端路径与上下文镜像时，必须通过 `pnpm test:remote` 在真机上执行回归；该套件在默认测试与 CI 中均会跳过。
-- 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke` 与 `smoke:documents` 外，不应向真实服务发送请求。
+- 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke` 外，不应向真实服务发送请求。
 - CI 入口为 `.github/workflows/ci.yml`，在 PR 变更及推送到 `dev`、`main` 时运行，按变更范围调用 quality、test、helper、desktop-windows 和 desktop-macos workflow，并由 `CI required` 汇总结果。普通文档只检查格式；workflow 改动额外检查 GitHub Actions 配置。CI 分步执行命令，并检查冻结锁文件安装、打包布局与打包后启动；本地 `pnpm check` 通过不代表 CI 一定通过。
 - 修改 `helper/` 后应执行 `pnpm build:helper --all`，重建 amd64 与 arm64 产物并一并提交；仅重建 amd64 会导致入库的 arm64 产物停留在旧版本。
 
