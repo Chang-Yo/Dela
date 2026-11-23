@@ -1,4 +1,4 @@
-// 聊天里「检查并发送邮件」的弹窗，由外壳注入 ChatTabSource.mailDialog。
+// 聊天里「检查并发送邮件」的弹窗，由 MailReplyActions 打开。
 import { useQuery } from '@tanstack/react-query';
 import { Dialog } from 'radix-ui';
 import { MailComposer } from './MailComposer';

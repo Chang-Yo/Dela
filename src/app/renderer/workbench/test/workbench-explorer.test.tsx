@@ -4,11 +4,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { WorkspaceEntry, WorkspaceState } from '../../../../modules/workspace/contract';
 
 // 契约客户端在模块加载时取 bridge，须先于导入视图装好；会话镜像也在加载时订阅推送。
-const { api, desktop } = vi.hoisted(() => {
+const { api, desktop, mediaStub } = vi.hoisted(() => {
   const handlers: Record<string, (input: never) => unknown> = {};
   const subscribe = () => () => {};
   const desktop = {
@@ -20,24 +20,12 @@ const { api, desktop } = vi.hoisted(() => {
     },
   } as unknown as NonNullable<typeof window.dela>;
   window.dela = desktop;
-  return { api: handlers, desktop };
-});
-import { useTreeState } from '../../navigation/store';
-import { useWorkspaceStore } from '../../../../modules/workspace/view';
-
-const mediaStub = () => ({
-  matches: false,
-  addEventListener: () => {},
-  removeEventListener: () => {},
-});
-
-let container: HTMLDivElement;
-let root: Root;
-let WorkbenchExplorer: typeof import('../WorkbenchExplorer').WorkbenchExplorer;
-let currentContainerOf: typeof import('../WorkbenchExplorer').currentContainerOf;
-
-beforeAll(async () => {
   // explorer-state 在模块求值时就调 window.matchMedia，jsdom 没有这个 API。
+  const mediaStub = () => ({
+    matches: false,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  });
   vi.stubGlobal('matchMedia', mediaStub);
   // Radix 的浮层要量尺寸；jsdom 没有 ResizeObserver。
   vi.stubGlobal(
@@ -48,8 +36,14 @@ beforeAll(async () => {
       disconnect() {}
     },
   );
-  ({ WorkbenchExplorer, currentContainerOf } = await import('../WorkbenchExplorer'));
+  return { api: handlers, desktop, mediaStub };
 });
+import { useTreeState } from '../../navigation/store';
+import { useWorkspaceStore } from '../../../../modules/workspace/view';
+import { WorkbenchExplorer, currentContainerOf } from '../WorkbenchExplorer';
+
+let container: HTMLDivElement;
+let root: Root;
 
 const remoteProject: WorkspaceEntry = {
   id: 'p-remote',

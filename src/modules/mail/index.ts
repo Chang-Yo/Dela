@@ -33,7 +33,14 @@ import {
   setMailTrashRetention,
   startMailSync,
 } from './main/api';
-import { deleteLocalDraft, listLocalDrafts, openEmailDraft, saveLocalDraft } from './main/drafts';
+import {
+  deleteLocalDraft,
+  isPreparedSent,
+  listLocalDrafts,
+  markPreparedSent,
+  openEmailDraft,
+  saveLocalDraft,
+} from './main/drafts';
 import { registerMailNotices } from './main/notice-source';
 import { attachmentResourceResolver, mailResourceResolver } from './main/resources';
 import { mailSearch } from './main/search';
@@ -82,6 +89,8 @@ export const mailModule = defineModule({
     saveDraft: saveLocalDraft,
     drafts: listLocalDrafts,
     deleteDraft: deleteLocalDraft,
+    preparedSent: isPreparedSent,
+    markPreparedSent,
     confirmDraftClose,
     setComposeActive,
     sync: startMailSync,
