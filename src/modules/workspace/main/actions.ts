@@ -1,5 +1,4 @@
 import { prepareStorage, entry, projectLocation, remoteProjectOf, workspaceFilePath } from './api';
-import { exportOfficePdf } from '../../preview';
 import {
   downloadRemoteFile,
   remoteById,
@@ -13,7 +12,6 @@ import { notifyRemoteChange } from '../../../core/remote/events';
 import { watchRemoteProject } from '../../../core/remote/watch';
 import { getLocalWorkspaceState, searchLocalWorkspace } from './local-tree';
 import { workspaceContract, type WorkspaceState } from '../contract';
-import { resourceAddressSchema } from '../../../core/capabilities/resources';
 import { dialog, shell } from 'electron';
 import { emit, hostPorts } from '../../../core/ports';
 import { watch, type FSWatcher } from 'node:fs';
@@ -111,13 +109,6 @@ export async function searchLocal(rootId: string | null, query: string) {
   } finally {
     if (searches.get(key) === controller) searches.delete(key);
   }
-}
-
-export function exportOfficePdfOf(ref: unknown) {
-  const parsed = resourceAddressSchema.parse(ref);
-  return exportOfficePdf(parsed, (progress) =>
-    emit(workspaceContract, 'officeExportProgress', { ...progress, ref: parsed }),
-  );
 }
 
 export async function pickImportFiles(): Promise<string[]> {

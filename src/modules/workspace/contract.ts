@@ -1,4 +1,4 @@
-import type { DocumentContent, ResourceAddress } from '../../core/protocol/workbench';
+import type { DocumentContent } from '../../core/protocol/workbench';
 import type { RemoteDirectoryEntry, RemotePortsState } from '../remotes/contract';
 import { workbenchLayoutSchema, type WorkbenchLayout } from './layout';
 import { z } from 'zod';
@@ -18,15 +18,6 @@ export const workspaceEntryIdSchema = z
       z.uuid().safeParse(value).success || /^(?:[a-z]:[\\/]|\\\\[^\\]+\\[^\\]+|\/)/i.test(value),
     { message: '请选择工作区文件路径或有效的条目' },
   );
-
-export interface OfficeExportProgress {
-  phase: 'preparing' | 'converting' | 'writing';
-  bytes?: number;
-}
-
-export interface OfficeExportEvent extends OfficeExportProgress {
-  ref: ResourceAddress;
-}
 
 export interface WorkspaceEntryUpdate {
   id: string;
@@ -81,7 +72,6 @@ const localPaths = z.array(z.string().min(1).max(32_767)).max(100);
 const port = z.number().int().min(1).max(65535);
 const entries = z.custom<WorkspaceEntry[]>();
 const document = z.custom<DocumentContent>();
-const resourceAddress = z.custom<ResourceAddress>();
 
 export const workspaceContract = defineContract(
   'workspace',
@@ -147,8 +137,6 @@ export const workspaceContract = defineContract(
       }),
       output: z.void(),
     },
-    exportOfficePdf: { input: resourceAddress, output: z.void() },
-    openResourceFile: { input: resourceAddress, output: z.void() },
     importFiles: { input: entryId.nullable(), output: z.void() },
     importDroppedFiles: {
       input: z.object({ parentId: entryId.nullable(), paths: localPaths.min(1) }),
@@ -200,7 +188,6 @@ export const workspaceContract = defineContract(
   },
   {
     changed: z.custom<string[]>(),
-    officeExportProgress: z.custom<OfficeExportEvent>(),
     /** 远端某个目录可能变了（工具写过文件、跑过 bash 或远端监视报告）。 */
     remoteChange: z.string(),
   },
