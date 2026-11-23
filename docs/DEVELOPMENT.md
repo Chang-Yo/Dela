@@ -264,6 +264,7 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 - `@earendil-works/*` 在 main 构建中保持 external、随 node_modules 打包进 asar；pi 系是纯 ESM，main 的 CJS 产物经动态 `import()` 加载。
 - 安装包体积：`dependencies` 只留主进程运行时要加载的包（electron-builder 会把它连闭包原样收进 asar），渲染层依赖放 devDependencies——放错边等于把 npm 目录再装一遍。
 - PDF.js 只是 renderer 的构建依赖；主进程不加载它，也不分发原生 canvas。
+- 依赖版本一律精确固定（`saveExact`），升级交给 Renovate（`.github/renovate.json`）：每周一提 PR，非大版本合并成一个、大版本各自单独；npm 包发布满 3 天才提，避开被投毒后尚未撤下的版本。
 
 **引导与条款门**：顺序是 Intro → 条款接受页 → 向导（各模块登记的步骤 → 模型 → MinerU）→ 完成动画。
 
