@@ -166,7 +166,7 @@ Dela/
 │     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
 ├─ helper/                    远程项目的 Go helper
 ├─ scripts/                   开发、冒烟、打包与校验脚本
-├─ docs/                      条款、功能边界与接口资料
+├─ docs/                      条款与功能边界
 ├─ vendor/                    入库的 helper 产物、rg/fd 与 Windows 兜底 OpenSSH
 ├─ LICENSES/                  随源码分发的第三方许可证
 ├─ assets/                    图标与品牌素材
