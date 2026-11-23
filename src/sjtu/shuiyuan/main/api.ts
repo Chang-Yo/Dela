@@ -526,7 +526,7 @@ export async function listShuiyuanTopics(
     path = `/tag/${encodeURIComponent(SHUIYUAN_FEATURED_TAG)}.json`;
   else if (feed.kind === 'tag') path = `/tag/${encodeURIComponent(feed.tag)}.json`;
   else {
-    // 类别端点需要 slug；从缓存的分类树里找，未命中时刷新结构。
+    // 类别端点需要 slug；从缓存的分类树里找，缓存按 TTL 过期刷新。
     const structure = await getShuiyuanSiteStructure();
     const category = structure.categories.find((item) => item.id === feed.categoryId);
     if (!category) throw new Error('该分类不存在，请刷新后重试');

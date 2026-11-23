@@ -43,7 +43,7 @@ export const chatContract = defineContract('chat', {
   openFile: { input: sessionFile, output: z.void() },
   readUncommittedChanges: { input: sessionId, output: z.custom<UncommittedChanges>() },
   readUncommittedFileChange: { input: sessionFile, output: z.custom<FileChangeDetail>() },
-  /** 轻探测：两次 git 调用，不扫描文件。 */
+  /** 轻探测：一次 git 调用，不扫描文件。 */
   uncommittedAvailability: {
     input: sessionId,
     output: z.custom<Pick<UncommittedChanges, 'available' | 'reason'>>(),

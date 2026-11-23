@@ -1,5 +1,5 @@
 // 远端目录 watch 的接线：渲染端报的集合 → helper 的 setWatch；helper 的事件 → notifyRemoteChange。
-// 真机行为（inotify 到底推什么、合并不合并）在 helper.test.ts 与 remote-smoke 里验。
+// 真机行为（inotify 到底推什么、合并不合并）在 helper.remote.test.ts 与 helper/watch_inotify_test.go 里验。
 import { beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({

@@ -12,7 +12,7 @@ import { useShortcuts } from './shell/shortcuts';
 import { useWorkspaceStore } from '../../modules/workspace/view';
 import './styles/globals.css';
 
-// 后端数据的唯一缓存：数据都在本机主进程，失败不重试，切回窗口不重查。
+// 后端数据的查询缓存：数据都在本机主进程，失败不重试，切回窗口不重查。
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });

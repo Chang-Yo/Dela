@@ -51,7 +51,6 @@ export { mailAttachment, readMailMessage, saveMailAttachment } from './main/api'
 export { openEmailDraft, prepareEmail } from './main/drafts';
 export { mailSearch } from './main/search';
 
-// IMAP 沿用增量同步，每五分钟检查一次。
 const REFRESH_MS = 5 * 60_000;
 
 function syncInBackground() {

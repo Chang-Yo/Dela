@@ -29,7 +29,7 @@ export function requireCanvasConfigured(state: CanvasState = getCanvasState()) {
     throw toolError('NOT_CONFIGURED', '尚未连接 Canvas（未保存访问令牌），请先在设置中连接 Canvas');
 }
 
-/** Canvas 业务错误 → 细分错误码；未识别的错误原样抛出（registry 兜底 OPERATION_FAILED）。 */
+/** Canvas 业务错误 → 细分错误码；未识别的错误原样抛出。 */
 function mapCanvasError(error: unknown): Error {
   if (error instanceof ToolError || error instanceof z.ZodError || !(error instanceof Error))
     return error instanceof Error ? error : new Error(String(error));

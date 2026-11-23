@@ -7,7 +7,7 @@ import { cn } from '../../../ui/lib/cn';
 import { useWorkbenchLayout } from './layout-store';
 import { TabGroup } from './TabGroup';
 
-// 单组宽度下限 240（与目录默认宽度一致），避免正文被挤成窄条。
+// 单组宽度下限 240，避免正文被挤成窄条。
 // 高 64 ≈ 标签栏 h-10（40px）+ 少量正文；空间不足时下限退化为容器的一半。
 const GROUP_MIN_WIDTH = 240;
 const GROUP_MIN_HEIGHT = 64;

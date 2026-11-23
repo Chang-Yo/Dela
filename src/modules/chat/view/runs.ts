@@ -25,7 +25,7 @@ function applyRunEvent(
 }
 
 /** 徽标映射：运行中实时；终态（completed/failed）保留供导航提示已产生的结果；
- *  stopped 为用户主动停止、interrupted 仅启动时写入、waiting_input 本轮不触发，均不出徽标。 */
+ *  stopped 为用户主动停止、interrupted、waiting_input 暂无发送方，均不出徽标。 */
 export function runBadge(status: RunStatus): 'running' | 'failed' | 'completed' | null {
   if (status === 'pending' || status === 'running') return 'running';
   if (status === 'completed' || status === 'failed') return status;

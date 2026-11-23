@@ -104,7 +104,7 @@ export interface ShuiyuanTopicDetail {
   readonly closed: boolean;
   readonly archetype: string;
   readonly bookmarked: boolean;
-  /** 楼层 post id 全量；`posts` 为已加载的前段。 */
+  /** 楼层 post id 全量；`posts` 为已加载的一段，不一定从头开始。 */
   readonly stream: readonly number[];
   readonly posts: readonly ShuiyuanPost[];
 }

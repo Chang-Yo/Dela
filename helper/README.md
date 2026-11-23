@@ -2,8 +2,7 @@
 
 Dela 在远端 Linux 主机上运行的常驻 runtime：远程项目的全部工具调用、目录树、预览与端口发现
 都经它执行，没有一次性 ssh 的退路。Dela 把它上传到 `~/.dela/helper/<版本>-<sha8>/` 并启动，
-再经 `ssh -L` 隧道访问；它在 Dela 整体架构里的位置与重连规则见
-[`docs/DEVELOPMENT.md`](../docs/DEVELOPMENT.md) §4，协议表在本文下方。
+再经 `ssh -L` 隧道访问；协议表在本文下方。
 
 共享 HOME 的节点可复用同一份可执行文件。每个节点将 `run.json`、`token`、`lock` 和 `helper.log` 放在版本目录下的 `runtime/<主机名>/`。
 
@@ -46,10 +45,10 @@ pnpm build:helper --all    # 同时出 linux/arm64
 
 | 方法   | 路径                                | 用途                                                            |
 | ------ | ----------------------------------- | --------------------------------------------------------------- |
-| GET    | `/v1/hello`                         | 协议版本与 helper 版本（只这两项）                              |
+| GET    | `/v1/hello`                         | 协议版本、helper 版本与主目录                                   |
 | POST   | `/v1/heartbeat`                     | 客户端保活                                                      |
 | POST   | `/v1/fs/list`                       | 列一层（带 stat）；`locate: true` 时路径不是目录也回答 `kind`   |
-| POST   | `/v1/fs/stat`                       | 批量状态（`exists`、`directory`、`readable`、size、mtime）      |
+| POST   | `/v1/fs/stat`                       | 批量状态（`exists`、`directory`、`readable`、size、modifiedAt） |
 | GET    | `/v1/fs/read?path=&offset=&length=` | 片段读取（二进制安全）                                          |
 | PUT    | `/v1/fs/write?path=&parents=1`      | 原子写（同目录临时文件 + rename）；`parents=1` 先建缺失的父目录 |
 | POST   | `/v1/fs/glob`                       | 按 glob 找文件（相对路径）                                      |

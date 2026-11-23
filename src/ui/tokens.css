@@ -1,4 +1,4 @@
-/* 整个 app 唯一的样式来源：浅色写在 :root 与 .theme-light（固定浅色作用域），深色写在 .dark。
+/* token 的主要定义处：浅色写在 :root 与 .theme-light（固定浅色作用域），深色写在 .dark。
    基于 beautiful-ui（MIT，见 LICENSES/beautiful-ui.txt）。 */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -413,7 +413,7 @@
   }
 }
 
-/* 描线长度取 --dash（用户单位）：描边按书写进度显现，随后填充淡入。 */
+/* 描线长度取 --dash（用户单位）；描边显现与填充淡入同时进行。 */
 @keyframes stroke-draw {
   from {
     fill-opacity: 0;

@@ -100,7 +100,7 @@ function listen(server: ReturnType<typeof createServer>) {
   });
 }
 
-/** WHATWG Fetch 规范的 bad-IPv4-port 列表（Node fetch 同步拒绝连接这些端口）。 */
+/** 与 Fetch 规范的 bad port 列表大体一致：Node fetch 会拒绝连接这些端口。 */
 const BLOCKED_PORTS = new Set([
   1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101, 102,
   103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427, 465,

@@ -121,7 +121,7 @@ export function MarkdownEditor({
   onChange: (text: string) => void;
   onSave: () => void;
   onScroll: (top: number) => void;
-  /* initialScroll 与 lineNumbers/ariaLabel/saveOnBlur 仅取初值：只装配于首次挂载，此后变化不生效。 */
+  /* initialScroll 与 lineNumbers/saveOnBlur 仅取初值：只装配于首次挂载，此后变化不生效。 */
   initialScroll?: () => number;
   placeholderText?: string;
   lineNumbers?: boolean;

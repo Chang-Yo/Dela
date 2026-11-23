@@ -1,4 +1,4 @@
-// 随聊的新建、发送与历史查看留在首页聊天；会话与运行状态由 sessions 管理。
+// 随聊的新建、发送与历史查看留在首页聊天；会话列表与快照由 sessions 管理。
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { agentClient } from './client';
 import type { WorkspaceChat } from '../../../core/protocol/agent';

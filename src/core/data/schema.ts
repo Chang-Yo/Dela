@@ -25,7 +25,7 @@ export const coreSchema: Schema = {
     `CREATE INDEX IF NOT EXISTS idx_sessions_visibility ON sessions(project_id, archived, pinned, updated_at DESC)`,
   ],
   migrations: {
-    // core 不指向模块的表（0025）：项目移除或降为文件夹时，由 workspace 处理名下会话。
+    // core 不指向模块的表：项目移除或降为文件夹时，由 workspace 处理名下会话。
     '20261121-drop-project-fk': (db) => {
       db.exec(`CREATE TABLE sessions_next (
         id TEXT PRIMARY KEY,

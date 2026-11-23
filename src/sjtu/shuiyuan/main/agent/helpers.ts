@@ -41,7 +41,7 @@ export function requireShuiyuanBound() {
     throw toolError('NOT_CONFIGURED', '尚未绑定水源社区，请先在设置中绑定账号后重试');
 }
 
-/** 水源业务错误 → 细分错误码；未识别的错误原样抛出（registry 兜底 OPERATION_FAILED）。 */
+/** 水源业务错误 → 细分错误码；未识别的错误原样抛出。 */
 function mapShuiyuanError(error: unknown): Error {
   if (error instanceof ToolError || error instanceof z.ZodError || !(error instanceof Error))
     return error instanceof Error ? error : new Error(String(error));

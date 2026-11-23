@@ -18,7 +18,7 @@ export type NavTarget = {
 
 export interface ModuleDefinition {
   id: string;
-  /** 本模块的表与迁移（0025），由宿主建表并记在模块 id 名下。 */
+  /** 本模块的表与迁移，由宿主建表并记在模块 id 名下。 */
   schema?: Schema;
   /** 模块内部契约的主进程实现，由 app 注册到 IPC。 */
   ipc?: Implementation;
@@ -37,7 +37,7 @@ export function defineModule(definition: ModuleDefinition): ModuleDefinition {
 /** 唯一的跳转动作；被拦下（例如写信未保存）或页面未启用时返回 false。 */
 export type Navigate = (target: NavTarget) => boolean;
 
-/** 工作台端口（0020）：标签落在哪个组、是否预览由外壳的 open-target 决定。 */
+/** 工作台端口：标签落在哪个组、是否预览由外壳的 open-target 决定。 */
 export interface Workbench {
   /** aside 放到焦点组右侧，必要时分屏。 */
   open(tab: TabId, options?: { aside?: boolean }): void;

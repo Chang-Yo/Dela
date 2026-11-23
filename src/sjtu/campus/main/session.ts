@@ -99,7 +99,7 @@ export class CampusAuthError extends Error {}
 
 /**
  * 直接消费 Chromium 响应：session.fetch 内部构造 Response 可能抛出未捕获的状态码异常。
- * 重定向一律视为登录失效；超时、断网与 408/5xx 的 `cause` 为 'transient'，由调用方决定重试。
+ * 重定向一律视为登录失效；超时、断网与 408/500/502/503/504 的 `cause` 为 'transient'，由调用方决定重试。
  */
 export function campusRequest(
   campus: Session,

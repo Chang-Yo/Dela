@@ -51,7 +51,7 @@ export function toolError(code: ToolErrorCode, message: string): ToolError {
   return new ToolError(code, message);
 }
 
-/** cached=本地缓存查询；realtime=当次联网（如 fetch_page、按需拉取的邮件正文）。 */
+/** cached=本地缓存查询；realtime=当次联网（如按需拉取的邮件正文）。 */
 export function freshness(kind: 'cached' | 'realtime', syncedAt?: string | null) {
   return { kind, ...(syncedAt ? { syncedAt } : {}) };
 }

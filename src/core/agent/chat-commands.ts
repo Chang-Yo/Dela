@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { type ChatCommandView, SESSION_COMMANDS } from '../protocol/agent';
 import { hostPorts } from '../ports';
 
-// 设置 › 插件：自定义 / 指令。名称限制为无空白字符，保证能作为触发词输入。
+// 设置 › 自定义指令：名称限制为文字、数字、下划线与短横线，保证能作为触发词输入。
 const commandName = z
   .string()
   .trim()

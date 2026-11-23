@@ -6,7 +6,7 @@ import type { UpdateReason, UpdateSnapshot, UpdateStep } from '../contract';
 import { onUpdateEvent, updateClient } from './client';
 
 // 渲染层不自行推断状态：文案与可用动作全部由快照的 phase / reason / failedAt 查表得到。
-// 主进程状态机（main/state.ts）新增阶段时只有这里要跟上，漏掉分支会被 update-view.test.ts 报错。
+// 主进程状态机（main/state.ts）新增阶段时只有这里要跟上，漏掉分支会在类型检查时报错。
 
 export type UpdateAction = UpdateStep | 'open-download';
 

@@ -38,7 +38,7 @@ Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt
 
 ## 样式
 
-- 颜色、阴影、圆角、层级与时长只用 `tokens.css` 里的通用 token，不用应用调色板（`cal-*`、`syntax-*` 等）、app 的 `palette.css`、Tailwind 原生色板和任意值。`pnpm lint` 会检查。
+- 颜色、阴影、圆角、层级与时长只用 `tokens.css` 里的通用 token，不用应用调色板（`cal-*`、`syntax-*` 等）、app 的 `palette.css`、Tailwind 原生色板和任意值。`pnpm lint` 检查 Tailwind 原生色板与常见的任意值写法，应用调色板不在其内。
 - 尺寸一律由 rem 派生，用户在设置里调字号时整体缩放。正文 `text-sm`，次要文字 `text-xs`。
 - 按钮、输入框、下拉框这类基础控件用固定的 rem 高度（如 `h-8`），保证放在同一行时对齐；rem 会随字号设置一起缩放。
 
@@ -46,6 +46,6 @@ Dela 的 Design System，fork 自 [beautiful-ui](../../LICENSES/beautiful-ui.txt
 
 邮件、通知、帖子这类别人写的 HTML 一律经 `HtmlFrame` 显示，不自己写 iframe，`pnpm lint` 会检查。
 
-- 安全规则只有一套：DOMPurify 消毒、地址只留 http(s)、严格沙箱与 CSP，调用方改不了。
+- 安全规则只有一套：DOMPurify 消毒、地址只留 http(s)、严格沙箱与 CSP，调用方没有开关可以关闭。
 - 模块的特殊需求用 `transform` 改写已消毒的文档，样式用 `stylesheet` 传入，不往组件里加专门的开关。
-- iframe 里只有一段上报脚本，报告高度、链接点击、放大图片和滚动位置，怎么处理由外层决定。
+- iframe 里只有一段脚本，上报高度、链接点击、放大图片和滚动位置，并负责图片懒加载与滚动定位，其余由外层决定。

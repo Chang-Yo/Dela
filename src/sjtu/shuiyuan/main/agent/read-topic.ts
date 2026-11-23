@@ -4,7 +4,7 @@ import { shuiyuanTopicUrl } from '../sources';
 import { freshness, tool } from '../../../../core/capabilities/domain-tools';
 import { requireShuiyuanBound, slimPost, withShuiyuanErrors } from './helpers';
 
-/** read_shuiyuan_posts 单次接受的楼层数上限（控制单次工具结果体积）。 */
+/** continuation.nextPostIds 每批的楼层数（控制单次工具结果体积）。 */
 const READ_POSTS_CHUNK = 50;
 
 export const readShuiyuanTopicTool = tool(

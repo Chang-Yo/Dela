@@ -187,7 +187,7 @@ func main() {
 		}
 		defer os.Remove(*runFile)
 	}
-	// Dela 读这一行拿到端口：格式固定，改动必须同步 Dela 侧的解析。
+	// 启动横幅只供人读（helper.log）；Dela 读的是 run-file，不解析这行。
 	fmt.Printf("DELA-HELPER port=%d pid=%d version=%s\n", bound, os.Getpid(), helperVersion)
 
 	signals := make(chan os.Signal, 1)

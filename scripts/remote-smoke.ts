@@ -81,7 +81,7 @@ app
         `等待超时：${label}\n角色：${roles}\n${errors.join('\n')}\n${await evaluate('document.body.innerText')}`,
       );
     };
-    // 同名按钮可能同时存在于多处，取可见的最后一个（与 pdf 冒烟一致）。
+    // 同名按钮可能同时存在于多处，取可见的最后一个。
     const click = (text: string) =>
       evaluate(
         `(() => {
@@ -232,7 +232,7 @@ app
       `@ 候选缺少子目录文件：${JSON.stringify(references)}`,
     );
 
-    // 远端没有文件监听：工具写文件后靠主进程广播让目录树重读，否则只能收起再展开。
+    // 工具写文件后主进程主动广播，目录树自动重读（watch 只盯展开的目录）。
     await remoteBackend(target).write.writeFile(`${root}/fresh.txt`, '新文件\n');
     await wait(
       `document.querySelector('[role="treeitem"][aria-label="fresh.txt"]') !== null`,
