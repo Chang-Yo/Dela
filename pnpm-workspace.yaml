@@ -25,3 +25,4 @@ minimumReleaseAgeExclude:
   - '@earendil-works/pi-tui@1.1.0'
   - '@mdream/js@2.0.1'
   - file-type@22.2.0
+  - office-lite@0.1.1

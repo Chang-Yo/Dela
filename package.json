@@ -88,7 +88,6 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "diff": "9.0.0",
-    "docx-preview": "0.4.1",
     "dompurify": "3.4.17",
     "electron": "44.10.1",
     "electron-builder": "26.15.3",
@@ -98,6 +97,7 @@
     "katex": "0.16.47",
     "lucide-react": "1.44.0",
     "material-icon-theme": "5.39.0",
+    "office-lite": "0.1.1",
     "oxlint": "1.82.0",
     "pdfjs-dist": "6.3.289",
     "prettier": "3.9.6",
@@ -111,7 +111,6 @@
     "use-debounce": "10.1.1",
     "vite": "8.2.2",
     "vitest": "5.0.0",
-    "xlsx": "file:vendor/xlsx/xlsx-0.20.3.tgz",
     "yauzl": "3.4.0",
     "zustand": "5.0.15"
   }

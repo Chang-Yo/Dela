@@ -17,11 +17,8 @@ import type { TabId } from '../../../core/protocol/workbench';
 const PdfReader = lazy(() =>
   import('./PdfReader').then((module) => ({ default: module.PdfReader })),
 );
-const DocxPreview = lazy(() =>
-  import('./DocxPreview').then((module) => ({ default: module.DocxPreview })),
-);
-const SheetPreview = lazy(() =>
-  import('./SheetPreview').then((module) => ({ default: module.SheetPreview })),
+const OfficePreview = lazy(() =>
+  import('./OfficePreview').then((module) => ({ default: module.OfficePreview })),
 );
 /** 模块来源优先于格式；本地文本文件与所有 Markdown 走 note: 标签，不进这里。 */
 export type PreviewBranch =
@@ -175,11 +172,7 @@ export function PreviewTab({ tabId, groupId }: { tabId: TabId; groupId: string }
       {(branch === 'docx' || branch === 'xlsx') &&
         (content.previewUrl ? (
           <Suspense fallback={<p className="p-4 text-sm text-ink-3">正在加载预览…</p>}>
-            {branch === 'docx' ? (
-              <DocxPreview key={content.previewUrl} url={content.previewUrl} />
-            ) : (
-              <SheetPreview key={content.previewUrl} url={content.previewUrl} />
-            )}
+            <OfficePreview key={content.previewUrl} url={content.previewUrl} kind={branch} />
           </Suspense>
         ) : (
           <p className="p-4 text-sm text-ink-3">正在准备预览…</p>
