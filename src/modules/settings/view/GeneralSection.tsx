@@ -7,6 +7,7 @@ import { SettingsGroup } from './SettingsGroup';
 import { settingsClient } from './client';
 import { showToast } from '../../../ui/toast';
 import { UpdateControl } from '../../update/view';
+import { MagpieControl } from '../../onboarding/view';
 import { errorMessage } from '../../../core/protocol/contract';
 
 export function GeneralSection({ navEntries }: { navEntries: ReactNode }) {
@@ -53,6 +54,7 @@ export function GeneralSection({ navEntries }: { navEntries: ReactNode }) {
         </SettingsGroup>
       </div>
       {navEntries}
+      <MagpieControl />
       <UpdateControl />
     </div>
   );

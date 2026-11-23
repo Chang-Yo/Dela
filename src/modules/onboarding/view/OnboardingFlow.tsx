@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ViewDefinition } from '../../../app/module';
 import { LlmStep } from './steps/LlmStep';
 import { DocumentStep } from './steps/DocumentStep';
+import { PluginStep } from './steps/PluginStep';
 import { ConsentStep } from './ConsentStep';
 import { IntroSequence } from './IntroSequence';
 import { WizardShell } from './WizardShell';
@@ -21,7 +22,12 @@ export function OnboardingFlow({
   onConsentDone,
   onWizardDone,
 }: OnboardingFlowProps) {
-  const wizardSteps = [...views.flatMap((view) => view.onboarding ?? []), LlmStep, DocumentStep];
+  const wizardSteps = [
+    ...views.flatMap((view) => view.onboarding ?? []),
+    LlmStep,
+    DocumentStep,
+    PluginStep,
+  ];
   const [introDone, setIntroDone] = useState(completed);
   const [step, setStep] = useState(0);
   const [consented, setConsented] = useState(false);
@@ -56,7 +62,7 @@ export function OnboardingFlow({
       step={step}
       stepCount={wizardSteps.length}
       footer={
-        lastStep ? (
+        CurrentStep === DocumentStep ? (
           <p className="text-center text-xs text-ink-3">文档只在 Agent 读取时上传到 MinerU</p>
         ) : undefined
       }
