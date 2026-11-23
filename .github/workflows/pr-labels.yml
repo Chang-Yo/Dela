@@ -1,4 +1,4 @@
-# PR 分类标签：大小按过滤后的增删行，范围按改动路径；标签由维护者预先创建。
+# PR 分类标签：大小按过滤后的增删行，范围按改动的架构层与模块；缺少的标签自动创建。
 # 公开仓库的 fork PR 在 pull_request 下只有只读 token，因此使用 pull_request_target；
 # 本 workflow 不 checkout、不执行 PR 代码，只读取 API 元数据。
 name: PR labels
@@ -37,7 +37,6 @@ jobs:
             const repo = context.repo.repo
             const issue_number = pr.number
 
-            // 标签必须预先创建；workflow 只在缺失时给出 gh label create 建议。
             const LABEL_DEFS = {
               'size/XS': {
                 color: '44CC11',
@@ -63,14 +62,12 @@ jobs:
                 color: 'EE0000',
                 description: '按新增+删除行统计 801+ 行（不含锁文件、vendor 与生成物）',
               },
-              frontend: {
-                color: '1D76DB',
-                description: '涉及 src/app/renderer 或 .tsx 的前端改动',
-              },
-              backend: {
-                color: '5319E7',
-                description: '涉及 src/app/main、src/app/preload 或 helper 的后端改动',
-              },
+              core: { color: '5319E7', description: '涉及 src/core：Agent 内核与协议' },
+              ui: { color: 'C5DEF5', description: '涉及 src/ui：Design System' },
+              app: { color: '1D76DB', description: '涉及 src/app：Electron 宿主与工作台外壳' },
+              modules: { color: '0E8A16', description: '涉及 src/modules：通用功能' },
+              sjtu: { color: 'B60205', description: '涉及 src/sjtu：交大功能' },
+              helper: { color: '006B75', description: '涉及 helper：Go 远端 helper' },
               bug: {
                 color: 'D73A4A',
                 description: "Something isn't working",
@@ -113,7 +110,7 @@ jobs:
               'size/XL',
               'size/XXL',
             ]
-            const SCOPE_LABELS = ['frontend', 'backend']
+            const AREA_LABELS = ['core', 'ui', 'app', 'modules', 'sjtu', 'helper']
             const TYPE_LABELS = [
               'bug',
               'enhancement',
@@ -125,10 +122,19 @@ jobs:
             ]
             const MANAGED_LABELS = [
               ...SIZE_LABELS,
-              ...SCOPE_LABELS,
+              ...AREA_LABELS,
               ...TYPE_LABELS,
               'documentation',
             ]
+            // 模块标签随目录增减，按前缀识别：mod:<通用模块>、sjtu:<交大模块>。
+            const MODULE_LABEL = /^(?:mod|sjtu):/
+            const labelDef = (name) => {
+              if (LABEL_DEFS[name]) return LABEL_DEFS[name]
+              const [prefix, module] = name.split(':')
+              return prefix === 'mod'
+                ? { color: 'C2E0C6', description: `涉及 src/modules/${module}` }
+                : { color: 'F9D0C4', description: `涉及 src/sjtu/${module}` }
+            }
 
             // 生成物与随改动不计入大小；文档与 CHANGELOG 属于核心内容，正常计入。
             const SIZE_IGNORES = [
@@ -138,12 +144,6 @@ jobs:
             ]
 
             const isDocs = (name) => name.startsWith('docs/') || /\.(?:md|mdx)$/i.test(name)
-            const isFrontend = (name) =>
-              name.startsWith('src/app/renderer/') || name.endsWith('.tsx')
-            const isBackend = (name) =>
-              name.startsWith('src/app/main/') ||
-              name.startsWith('src/app/preload/') ||
-              name.startsWith('helper/')
             const countsForSize = (name) =>
               !SIZE_IGNORES.some((pattern) => pattern.test(name))
 
@@ -216,9 +216,16 @@ jobs:
               targets.add('documentation')
 
             // 范围标签按“包含即打”并行叠加；docs 不参与范围判断。
-            const scopeFiles = files.filter((file) => !isDocs(file.filename))
-            if (scopeFiles.some((file) => isFrontend(file.filename))) targets.add('frontend')
-            if (scopeFiles.some((file) => isBackend(file.filename))) targets.add('backend')
+            for (const file of files) {
+              if (isDocs(file.filename)) continue
+              if (file.filename.startsWith('helper/')) targets.add('helper')
+              const match = /^src\/(core|ui|app|modules|sjtu)\/(?:([^/]+)\/)?/.exec(file.filename)
+              if (!match) continue
+              const [, layer, module] = match
+              targets.add(layer)
+              if (module && layer === 'modules') targets.add(`mod:${module}`)
+              if (module && layer === 'sjtu') targets.add(`sjtu:${module}`)
+            }
 
             // 类型优先取 closing issue 的 labels（Fixes/Closes/Resolves）；
             // Refs 只是普通引用，不构成关闭关系，不参与判断。
@@ -300,7 +307,7 @@ jobs:
 
             for (const label of currentLabels) {
               const key = label.name.toLowerCase()
-              if (!managedKeys.has(key) || targetKeys.has(key)) continue
+              if (!(managedKeys.has(key) || MODULE_LABEL.test(key)) || targetKeys.has(key)) continue
               try {
                 await github.rest.issues.removeLabel({
                   owner,
@@ -313,9 +320,18 @@ jobs:
               }
             }
 
+            for (const name of missing) {
+              try {
+                await github.rest.issues.createLabel({ owner, repo, name, ...labelDef(name) })
+              } catch (error) {
+                // 另一个 PR 的事件可能刚好创建了同名标签。
+                if (error?.status !== 422) throw error
+              }
+            }
+
             const labelsToAdd = targetNames
-              .map((name) => existingByName.get(name.toLowerCase()))
-              .filter((name) => Boolean(name) && !currentByName.has(name.toLowerCase()))
+              .map((name) => existingByName.get(name.toLowerCase()) ?? name)
+              .filter((name) => !currentByName.has(name.toLowerCase()))
             if (labelsToAdd.length) {
               await github.rest.issues.addLabels({
                 owner,
@@ -325,23 +341,8 @@ jobs:
               })
             }
 
-            if (missing.length) {
-              core.warning(
-                `Missing labels: ${missing.join(', ')}. Create them before rerunning.`,
-              )
-              const suggestions = missing.map((name) => {
-                const def = LABEL_DEFS[name]
-                return `gh label create "${name}" --repo ${owner}/${repo} --color ${def.color} --description "${def.description}"`
-              })
-              await core.summary
-                .addHeading('缺少 PR 标签', 3)
-                .addRaw('workflow 不会自动创建标签。请由维护者或协作者创建后重跑：')
-                .addCodeBlock(suggestions.join('\n'), 'bash')
-                .write()
-            }
-
             const ignored = files.filter((file) => !countsForSize(file.filename)).length
             core.info(
               `PR #${issue_number}: ${countedLines} counted lines (${ignored} ignored files) -> ${sizeLabel}; labels: ${targetNames.join(', ')}`,
             )
-            if (missing.length) core.info(`Skipped missing labels: ${missing.join(', ')}`)
+            if (missing.length) core.info(`Created labels: ${missing.join(', ')}`)
