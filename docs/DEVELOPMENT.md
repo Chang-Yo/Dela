@@ -377,7 +377,6 @@ Rulesets 无法限制 PR 发起人或来源分支，维护者需确认指向 `ma
 
 几处平台差异记住结论即可，细节在代码里：
 
-- PPTX 在 Mac 只提供「用系统默认应用打开」，不接 Keynote 或转换器；Windows 保留 PowerPoint 转换。
 - VS Code 入口先查 PATH 的 `code`，再查应用包内的 CLI；未安装时明确提示。
 - 路径归属按**路径格式**判断，不按宿主系统：Windows 盘符与 UNC 兼容大小写及两种分隔符，POSIX 逐字匹配并保留文件名里的反斜杠，避免大小写敏感卷上的不同项目相互干扰。
 - 登录启动不使用 `openAsHidden`：Windows 传 `--hidden`，Mac 读 `wasOpenedAtLogin`。Mac 开关以系统实际状态为准，待批准也算未成功。

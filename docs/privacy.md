@@ -40,7 +40,7 @@
 
 旧版单凭据文件 model-credential.bin 在升级为多提供商配置后自动删除。
 
-工作目录（默认「文档/Dela」，可在 设置 › 工作区 更改）中的文件：笔记的 Markdown 正文与其中的图片、导入的文件、从 Canvas 下载的课程文件（courses/），以及导出到「预览导出」文件夹的 PDF。
+工作目录（默认「文档/Dela」，可在 设置 › 工作区 更改）中的文件：笔记的 Markdown 正文与其中的图片、导入的文件，以及从 Canvas 下载的课程文件（courses/）。
 
 读取文档（read_document）的解析结果按文件内容缓存在系统临时目录的 dela-documents 下，包括正文 Markdown 与其中的图片，超过 7 天的缓存在下次读取时清理。
 

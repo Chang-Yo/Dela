@@ -183,7 +183,7 @@ Dela/
 ├─ helper/                    Go 远端 helper
 ├─ scripts/                   开发、冒烟、打包与校验脚本
 ├─ docs/                      开发文档、架构决策（adr/）、条款与接口资料
-├─ vendor/                    入库的 helper、搜索工具、OpenSSH 与 xlsx
+├─ vendor/                    入库的 helper、搜索工具与 OpenSSH
 ├─ LICENSES/                  随源码分发的第三方许可证
 ├─ assets/                    图标与品牌素材
 └─ build/                     打包用图标等构建资源
