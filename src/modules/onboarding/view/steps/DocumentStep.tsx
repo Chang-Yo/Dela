@@ -97,7 +97,7 @@ export function DocumentStep({ onDone }: { onDone: () => void }) {
                   busyLabel="正在验证…"
                   idleLabel="保存并开启"
                   state={state}
-                  successLabel="已开启，完成配置"
+                  successLabel="已开启，下一步"
                 />
               </form>
             ),

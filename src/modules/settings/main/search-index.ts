@@ -47,6 +47,12 @@ const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['通知', '暂停', '免打扰', '静音', 'snooze'],
   },
   {
+    id: 'magpie-plugin',
+    section: 'general',
+    title: 'magpie 插件',
+    keywords: ['通用', '插件', 'magpie', 'plugin', '模型', 'MCP'],
+  },
+  {
     id: 'check-update',
     section: 'general',
     title: '软件更新',

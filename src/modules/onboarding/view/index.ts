@@ -4,4 +4,5 @@ export { StepGuide } from './step-guide';
 export { onboardingClient } from './client';
 export { OnboardingFlow } from './OnboardingFlow';
 export { CompletionOverlay } from './CompletionOverlay';
+export { MagpieControl } from './MagpieControl';
 export { isSmokeTest, readOnboardingState } from './onboarding-state';

@@ -14,7 +14,7 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 ## Unreleased
 
 - 调整模型服务、联网搜索与 MCP 配置改存 `~/.dela/config.json` 与 `~/.dela/mcp.json`（明文 JSON，API Key 不再加密），可直接编辑或交给 [magpie](https://github.com/yetone/magpie) 等工具管理，外部修改即时生效；条目 id 改为厂商名等短名字，升级时自动迁移，备份一并包含这两个文件。
-- 新增 magpie 插件 [`magpie-agent-dela`](https://www.npmjs.com/package/magpie-agent-dela)：在 magpie 中连接 Dela 后，magpie 网关的模型、MCP 服务器与 Skills 可直接在 Dela 中使用。
+- 新增 magpie 插件 [`magpie-agent-dela`](https://www.npmjs.com/package/magpie-agent-dela)：在 magpie 中连接 Dela 后，magpie 网关的模型、MCP 服务器与 Skills 可直接在 Dela 中使用。可在引导页最后一页「可选插件」或 设置 › 通用 一键安装，未找到 magpie 时提示先安装。
 - 新增 MCP 配置支持 `${NAME}` 与 `${NAME:-默认值}` 环境变量引用，连接时展开。
 - 修复远程项目在多节点共享 HOME 时的 helper 运行状态冲突，同版本节点共用可执行文件。
 - 修复水源帖子内点链接打开其他帖子后无法返回：返回键会逐级回到原帖点链接的那一楼，切帖时不再闪出信息流。
@@ -38,7 +38,7 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 调整水源的收藏与通知页改为与私信一致的卡片列表。
 - 调整开启的开关、选中的复选框与滑块改用强调色，修复深色模式下开关开启后看不清；侧栏左上角只保留 Dela 字样。
 - 调整 preload 放行的通道名单改由主进程按已注册的契约下发（ADR 0026），移除 `app/contracts.ts`：新增或去掉模块只需改 `modules.ts` 与 `views.ts` 两份清单，preload 包体由约 114 KB 降至约 1 KB。
-- 新增内置工具「读取文档」（`read_document`）：填入自己的 MinerU Token 后，Agent 可读取 PDF、Word、PowerPoint 与 Excel，保留公式、表格与文中图片，扫描件自动改用 OCR；文档会上传到 MinerU 解析，Token 加密保存在本机，同一份文件再次读取使用本机缓存。默认关闭，可在引导页最后一步或 设置 › 内置能力 › 文档 配置，未配置时不接收文档附件。
+- 新增内置工具「读取文档」（`read_document`）：填入自己的 MinerU Token 后，Agent 可读取 PDF、Word、PowerPoint 与 Excel，保留公式、表格与文中图片，扫描件自动改用 OCR；文档会上传到 MinerU 解析，Token 加密保存在本机，同一份文件再次读取使用本机缓存。默认关闭，可在引导页或 设置 › 内置能力 › 文档 配置，未配置时不接收文档附件。
 - 移除基于 Python 与 MarkItDown 的文档读取 Skill 与「能力拓展」引导页，升级时自动删除已安装的组件。
 - 调整读取网页工具（`web_fetch`）只读取网页正文并转为 Markdown，不再处理 PDF 等文件链接；需要网上的文档时由 Agent 先下载到本机再读取。
 - 移除输入框 / 菜单中的内置快捷提示（日程、作业、邮件、资料、整理），菜单只保留会话命令与在「设置 › 快捷指令」中自建的指令。
