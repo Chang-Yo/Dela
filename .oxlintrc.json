@@ -29,7 +29,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               }
             ]
           }
@@ -85,7 +85,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               }
             ]
           }
@@ -125,7 +125,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "regex": "^(\\.\\./)+(agent|capabilities)(/|$)",
@@ -279,7 +279,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               }
             ]
           }
@@ -299,7 +299,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "group": ["**/app/*", "!**/app/module"],
@@ -354,7 +354,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "group": ["**/app/*", "!**/app/module"],
@@ -440,7 +440,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "group": ["**/core/*", "!**/core/protocol", "**/core/*/**", "!**/core/protocol/**"],
@@ -498,7 +498,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "group": ["**/core/*", "!**/core/protocol", "**/core/*/**", "!**/core/protocol/**"],
@@ -568,7 +568,7 @@
               },
               {
                 "group": ["**/sjtu/**"],
-                "message": "只有 app 的三份清单（modules、views、contracts）可以引用交大模块：通用模块需要交大数据时开注册口。"
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
               },
               {
                 "regex": "^(\\.\\./)+(core/)?(agent|capabilities)(/|$)",
@@ -580,7 +580,7 @@
       }
     },
     {
-      "files": ["src/app/modules.ts", "src/app/contracts.ts", "src/app/views.ts"],
+      "files": ["src/app/modules.ts", "src/app/views.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",

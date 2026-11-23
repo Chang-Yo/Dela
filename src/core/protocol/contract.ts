@@ -38,8 +38,16 @@ export type EventPayload<C extends Contract, K extends keyof C['events']> = z.ou
 >;
 
 export interface Bridge {
+  /** 与过程同名的事件通道（docs/adr/0017），界面据此把推送写入查询缓存。 */
+  readonly queryEvents: readonly string[];
   invoke(channel: string, input: unknown): Promise<unknown>;
   subscribe(channel: string, listener: (payload: unknown) => void): () => void;
+}
+
+/** 主进程按实际注册的契约下发给 preload 的通道名单（docs/adr/0026）。 */
+export interface ChannelManifest {
+  channels: string[];
+  events: string[];
 }
 
 export function defineContract<const P extends Procedures, const E extends Events = {}>(

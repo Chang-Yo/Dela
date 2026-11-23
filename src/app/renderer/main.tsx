@@ -1,7 +1,6 @@
 import { StrictMode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
-import { contracts } from '../contracts';
 import { views } from '../views';
 import { useUpdateState } from '../../modules/update/view';
 import { ErrorBoundary } from './shell/ErrorBoundary';
@@ -17,7 +16,8 @@ import './styles/globals.css';
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
-connectQueryEvents(queryClient, contracts, window.dela?.bridge);
+const bridge = window.dela?.bridge;
+if (bridge) connectQueryEvents(queryClient, bridge.queryEvents, bridge);
 for (const view of views) view.start?.(useNavigationStore.getState().navigate);
 useUpdateState.setState({ beforeInstall: saveWorkspace });
 void useWorkspaceStore.getState().load();

@@ -1,7 +1,7 @@
-// 从三份清单里去掉交大模块，供 CI 验证“没有交大也能构建和启动”；只在 CI 的临时副本里运行。
+// 从两份清单里去掉交大模块，供 CI 验证“没有交大也能构建和启动”；只在 CI 的临时副本里运行。
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const manifests = ['src/app/modules.ts', 'src/app/views.ts', 'src/app/contracts.ts'];
+const manifests = ['src/app/modules.ts', 'src/app/views.ts'];
 const sjtuImport = /^import \{ (\w+) \} from '\.\.\/sjtu\/.*';\s*$/;
 
 for (const file of manifests) {

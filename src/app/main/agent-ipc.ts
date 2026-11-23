@@ -12,7 +12,7 @@ import {
 } from '../../core/agent/providers';
 import { agentContract } from '../../core/protocol/agent';
 import { capabilitiesContract } from '../../core/protocol/capabilities';
-import { channelsOf, implement } from '../../core/protocol/contract';
+import { channelsOf, implement, type Contract } from '../../core/protocol/contract';
 import { llmContract } from '../../core/protocol/llm';
 import { agentProtocol } from '../../core/agent/protocol';
 import {
@@ -196,7 +196,7 @@ function onConfigFileChanged(name: ConfigFileName) {
   }
 }
 
-export function registerAgentIpc() {
+export function registerAgentIpc(): Contract[] {
   void preloadPi();
   watchConfigFiles(onConfigFileChanged);
   // 调用过协议的窗口才收得到会话事件。
@@ -215,4 +215,5 @@ export function registerAgentIpc() {
         checkWorkspaceSender(event);
         return ipc.call(name, input);
       });
+  return [agentContract, llm.contract, capabilities.contract];
 }

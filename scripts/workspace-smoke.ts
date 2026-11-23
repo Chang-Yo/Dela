@@ -16,7 +16,7 @@ import { provideHostPorts } from '../src/core/ports';
 import { electronPorts } from '../src/app/main/host-electron';
 import { closeDatabase, openDatabase } from '../src/app/main/database';
 import { modules } from '../src/app/modules';
-import { mailModule, prepareEmail } from '../src/modules/mail';
+import { prepareEmail } from '../src/modules/mail';
 import {
   canvasNextPage,
   cachedCourseFiles,
@@ -37,11 +37,7 @@ import {
   workspaceModule,
 } from '../src/modules/workspace';
 import { registerModuleIpc } from '../src/app/main/ipc';
-import { notificationsModule } from '../src/modules/notifications';
 import { previewModule } from '../src/modules/preview';
-import { remotesModule } from '../src/modules/remotes';
-import { settingsModule } from '../src/modules/settings';
-import { updateModule } from '../src/modules/update';
 import { canvasModule } from '../src/sjtu/canvas';
 import { registerAgentIpc } from '../src/app/main/agent-ipc';
 
@@ -382,19 +378,11 @@ app
       text: '不应发送的资料',
     });
 
-    registerAgentIpc();
+    const coreContracts = registerAgentIpc();
     previewModule.register?.();
     workspaceModule.register?.();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
-    registerModuleIpc([
-      workspaceModule,
-      remotesModule,
-      notificationsModule,
-      mailModule,
-      settingsModule,
-      updateModule,
-      canvasModule,
-    ]);
+    registerModuleIpc(modules, coreContracts);
     const win = new BrowserWindow({
       show: false,
       webPreferences: {

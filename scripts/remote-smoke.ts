@@ -49,8 +49,7 @@ app
     );
     await exec(target, `printf 'nested\\n' > ${root}/sub/nested.md`);
 
-    registerAgentIpc();
-    registerModuleIpc(modules);
+    registerModuleIpc(modules, registerAgentIpc());
     for (const module of modules) module.register?.();
     registerPreviewProtocol();
     ipcMain.handle('window:get-state', () => ({ maximized: false }));
