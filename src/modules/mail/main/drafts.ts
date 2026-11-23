@@ -175,15 +175,34 @@ export function prepareEmail(input: unknown) {
   };
 }
 
-export async function openEmailDraft(id: unknown): Promise<PreparedEmail> {
-  const key = z.string().uuid().parse(id);
-  if (existsSync(draftPath(key))) return openLocalDraft(key);
+function preparedRow(key: string) {
   const row = hostPorts()
     .database()
     .prepare('SELECT value FROM workspace_settings WHERE key=?')
     .get(`mail-prepared:${key}`) as { value: string } | undefined;
-  if (!row) throw new Error('草稿不存在');
-  const draft = emailDraftSchema.parse(JSON.parse(row.value));
+  return row && (JSON.parse(row.value) as { sentAt?: string });
+}
+
+export function isPreparedSent(id: unknown): boolean {
+  return Boolean(preparedRow(z.string().uuid().parse(id))?.sentAt);
+}
+
+/** Agent 准备的草稿发出后留下发送时间，聊天里的按钮据此不再允许重复发送。 */
+export function markPreparedSent(id: unknown): void {
+  const key = z.string().uuid().parse(id);
+  hostPorts()
+    .database()
+    .prepare("UPDATE workspace_settings SET value = json_set(value, '$.sentAt', ?) WHERE key=?")
+    .run(new Date().toISOString(), `mail-prepared:${key}`);
+}
+
+export async function openEmailDraft(id: unknown): Promise<PreparedEmail> {
+  const key = z.string().uuid().parse(id);
+  if (existsSync(draftPath(key))) return openLocalDraft(key);
+  const stored = preparedRow(key);
+  if (!stored) throw new Error('草稿不存在');
+  if (stored.sentAt) throw new Error('这封邮件已经发送过');
+  const draft = emailDraftSchema.parse(stored);
   const files: MailComposeFile[] = [];
   let total = 0;
   try {

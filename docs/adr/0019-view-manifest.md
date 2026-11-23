@@ -25,3 +25,7 @@
 - 侧栏入口的隐藏偏好沿用页面键，已有设置继续有效。
 - 通用模块的 view 仍可以被外壳直接引用，例如标题栏的 TODO 与通知按钮。这条清单只是交大模块的强制要求。
 - lint 规则：`modules/*/view` 与 `sjtu/*/view` 可以引用 `app/module`；`app/views.ts` 加入可引用交大模块的例外；`sjtu/*/view` 套用与 `modules/*/view` 相同的限制。
+
+## 后续修改
+
+资源相关字段（`officeRef`、`sourceTitle`、`sourceOfLink`、`library` 等）已由后来的改动收进 `sources`。视图定义新增 `chatReplyActions`：模块拿到一条助手回复的工具结果，自行决定在回复下方显示什么，例如邮件的「检查并发送邮件」。

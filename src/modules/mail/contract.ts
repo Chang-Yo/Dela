@@ -189,6 +189,8 @@ export const mailContract = defineContract(
     saveDraft: { input: z.custom<MailDraftInput>(), output: z.custom<MailDraftSummary>() },
     drafts: { input: z.string(), output: z.custom<MailDraftSummary[]>() },
     deleteDraft: { input: z.string(), output: z.void() },
+    preparedSent: { input: z.string(), output: z.boolean() },
+    markPreparedSent: { input: z.string(), output: z.void() },
     confirmDraftClose: {
       input: z.undefined(),
       output: z.custom<'save' | 'discard' | 'cancel'>(),

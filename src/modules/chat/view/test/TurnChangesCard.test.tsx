@@ -74,7 +74,12 @@ async function renderCard(sessionId2: string, turnId: string, reviewEnabled = tr
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
         <ChatTabSourceProvider
-          source={{ navigate: () => false, workbench, opensLink: () => false }}
+          source={{
+            navigate: () => false,
+            workbench,
+            opensLink: () => false,
+            replyActions: [],
+          }}
         >
           <TurnChangesCard sessionId={sessionId2} turnId={turnId} reviewEnabled={reviewEnabled} />
         </ChatTabSourceProvider>

@@ -2,7 +2,6 @@ import { useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDown,
-  ArrowUpRight,
   Bot,
   FileText,
   GitBranch,
@@ -27,7 +26,7 @@ import { chatImageToken } from '../../../core/protocol/chat-input';
 import { Button } from '../../../ui/button';
 import { openLightbox } from '../../../ui/lightbox';
 import { useMediaQuery } from '../../../ui/hooks/use-media-query';
-import type { MailDraftDialog } from './chat-source';
+import { useChatTabSource } from './chat-source';
 import { ReplyTrace } from './ToolTimeline';
 import { BackgroundTaskContext, type BackgroundTaskState } from './task-run';
 import { TaskNoticeStep } from './task-step';
@@ -203,7 +202,6 @@ function AssistantMessage({
   reviewEnabled,
   onSaveNote,
   onFork,
-  onOpenDraft,
   onRetry,
 }: {
   message: WorkspaceChat['messages'][number];
@@ -219,12 +217,11 @@ function AssistantMessage({
   onSaveNote: ((text: string) => void) | undefined;
   /** 从某个会话记录条目分支；未提供或回复没有锚点时隐藏入口。 */
   onFork: ((entryId: string) => void) | undefined;
-  /** 容器未注入邮件草稿弹窗时为 undefined，对应入口隐藏。 */
-  onOpenDraft: ((draftId: string) => void) | undefined;
   /** 仅最后一条回复可重试。 */
   onRetry: (() => void) | undefined;
 }) {
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const { replyActions } = useChatTabSource();
   const split = splitInterrupt(message.parts ?? []);
   const parts = split.parts;
   const reason = message.interrupted ? (split.reason ?? '未知错误') : null;
@@ -232,19 +229,6 @@ function AssistantMessage({
     part.type === 'tools' ? part.results.length > 0 : Boolean(part.text.trim()),
   );
   const tools = parts.flatMap((part) => (part.type === 'tools' ? part.results : []));
-  // `dela prepare_email` 经 bash 调用，输出里带 "draftId":"<uuid>"。
-  const draftIds = [
-    ...new Set(
-      tools.flatMap((result) =>
-        result.name === 'bash' &&
-        (result.input as { command?: string } | null)?.command?.includes('prepare_email')
-          ? [...(result.output?.text ?? '').matchAll(/"draftId":"([0-9a-f-]{36})"/g)].map(
-              (match) => match[1]!,
-            )
-          : [],
-      ),
-    ),
-  ];
   const content = reason
     ? parts.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n\n')
     : message.content;
@@ -274,18 +258,9 @@ function AssistantMessage({
       />
       {reason && <ErrorCard announce={Boolean(onRetry)} onRetry={onRetry} reason={reason} />}
       {message.stopped && !live && <p className="my-2 text-sm text-ink-3">已停止</p>}
-      {onOpenDraft &&
-        draftIds.map((draftId) => (
-          <Button
-            key={draftId}
-            variant="outline"
-            className="mb-2 mt-1 [&_svg]:size-3.5"
-            onClick={() => onOpenDraft(draftId)}
-          >
-            <ArrowUpRight />
-            检查并发送邮件
-          </Button>
-        ))}
+      {replyActions.map((Actions, index) => (
+        <Actions key={index} tools={tools} />
+      ))}
       {!live && turnEnd && sessionId && message.turnId && (
         <TurnChangesCard
           sessionId={sessionId}
@@ -333,7 +308,6 @@ export function ChatThread({
   onFork,
   onSidechat,
   draftKey,
-  mailDialog,
 }: {
   chat: WorkspaceChat;
   /** 选中回复文字后另起旁问；未提供时不显示入口。 */
@@ -349,16 +323,12 @@ export function ChatThread({
   onEditLast?: (text: string, comments?: ChatComment[]) => void;
   /** 从一条已完成回复分支为新会话；未提供时隐藏入口。 */
   onFork?: (entryId: string) => void;
-  /** 邮件草稿检查弹窗（容器注入）；未注入时隐藏草稿入口。 */
-  mailDialog?: MailDraftDialog;
 }) {
   const replyDraftKey = draftKey === undefined ? chat.sessionId : draftKey;
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const followBottom = useRef(false);
   const [atBottom, setAtBottom] = useState(true);
-  const [draftId, setDraftId] = useState<string | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
 
   const messages = chat.messages;
   const streaming = Boolean(chat.running);
@@ -433,7 +403,6 @@ export function ChatThread({
     };
   }, [chat.sessionId, lastUserIndex, replyStartedAt, streaming]);
 
-  const MailDialog = mailDialog;
   const handleEditLast = (text: string) => onEditLast?.(text);
   // 重试＝以最后一条用户消息原文重发（编辑重发同一路径，Pi 会话树保留失败分支）。
   const lastUser = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
@@ -533,7 +502,6 @@ export function ChatThread({
                   animate={message.startedAt !== resumedReplyAt}
                   message={message}
                   activeTool={chat.activeTool}
-                  onOpenDraft={MailDialog ? setDraftId : undefined}
                   onSaveNote={onSaveNote}
                   onFork={streaming ? undefined : onFork}
                 />
@@ -561,21 +529,6 @@ export function ChatThread({
       )}
       {replyDraftKey && (
         <ReplyCommentLayer draftKey={replyDraftKey} onSidechat={onSidechat} scrollRef={scrollRef} />
-      )}
-      {hint && (
-        <p role="status" className="absolute inset-x-0 bottom-0 px-4 pb-2 text-xs text-ink-3">
-          {hint}
-        </p>
-      )}
-      {MailDialog && draftId && (
-        <MailDialog
-          draftId={draftId}
-          onClose={() => setDraftId(null)}
-          onSent={(warning) => {
-            setDraftId(null);
-            if (warning) setHint(warning);
-          }}
-        />
       )}
     </div>
   );
