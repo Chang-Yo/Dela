@@ -1,4 +1,4 @@
-import { Minus, Plus } from 'lucide-react';
+import { Minus, MoveHorizontal, Plus } from 'lucide-react';
 import { renderDocx } from 'office-lite/docx';
 import { renderPptx } from 'office-lite/pptx';
 import { renderXlsx, type XlsxInstance } from 'office-lite/xlsx';
@@ -14,6 +14,8 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
 
+const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+
 export type OfficeKind = 'docx' | 'xlsx' | 'pptx';
 
 const kindNoun: Record<OfficeKind, string> = { docx: '文档', xlsx: '表格', pptx: '演示文稿' };
@@ -23,14 +25,20 @@ export function OfficePreview({ url, kind }: { url: string; kind: OfficeKind }) 
   const workbook = useRef<XlsxInstance | null>(null);
   const [attempt, setAttempt] = useState(0);
   const run = `${attempt}:${url}`;
-  const [result, setResult] = useState<{ run: string; error: string; sheets: string[] } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{
+    run: string;
+    error: string;
+    sheets: string[];
+    slideWidth: number;
+  } | null>(null);
   const loading = result?.run !== run;
   const error = loading ? '' : result.error;
   const sheets = loading ? [] : result.sheets;
   const [activeSheet, setActiveSheet] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  // 'fit' 与 PDF 的适合宽度一致：随面板宽度持续重算，手动缩放后退出。
+  const [zoom, setZoom] = useState<number | 'fit'>(kind === 'pptx' ? 'fit' : 1);
+  const [available, setAvailable] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
   useEffect(() => {
     const container = host.current!;
     const controller = new AbortController();
@@ -53,10 +61,14 @@ export function OfficePreview({ url, kind }: { url: string; kind: OfficeKind }) 
           });
         }
         if (signal.aborted) return instance.destroy();
+        const slideWidth = parseFloat(
+          container.querySelector<HTMLElement>('.pl-root')?.style.getPropertyValue('--pl-w') ?? '',
+        );
         setActiveSheet(0);
-        setResult({ run, error: '', sheets: sheetNames });
+        setResult({ run, error: '', sheets: sheetNames, slideWidth: slideWidth || 0 });
       } catch (cause) {
-        if (!signal.aborted) setResult({ run, error: errorMessage(cause), sheets: [] });
+        if (!signal.aborted)
+          setResult({ run, error: errorMessage(cause), sheets: [], slideWidth: 0 });
       }
     })();
     return () => {
@@ -65,8 +77,42 @@ export function OfficePreview({ url, kind }: { url: string; kind: OfficeKind }) 
       workbook.current = null;
     };
   }, [run, url, kind]);
+  const naturalWidth = kind === 'pptx' ? (result?.slideWidth ?? 0) : contentWidth;
+  const fitScale = naturalWidth > 0 && available > 0 ? clampZoom(available / naturalWidth) : 1;
+  const scale = zoom === 'fit' ? fitScale : zoom;
+  const resolve = (value: number | 'fit') => (value === 'fit' ? fitScale : value);
   const step = (direction: number) =>
-    setZoom((value) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value + direction * ZOOM_STEP)));
+    setZoom((value) => clampZoom(resolve(value) + direction * ZOOM_STEP));
+  // 可用宽度扣除滚动区内边距；docx/xlsx 的原始宽度按当前 zoom 反推，取整避免适合宽度来回抖动。
+  const observeScroller = (scroller: HTMLDivElement) => {
+    const content = scroller.firstElementChild as HTMLElement;
+    const measure = () => {
+      const style = getComputedStyle(scroller);
+      setAvailable(
+        scroller.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+      );
+      if (kind !== 'pptx')
+        setContentWidth(
+          Math.round(
+            content.getBoundingClientRect().width / (Number(getComputedStyle(content).zoom) || 1),
+          ),
+        );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroller);
+    observer.observe(content);
+    const stopPinch = pinchZoomRef(
+      (update) => setZoom((value) => update(resolve(value))),
+      MIN_ZOOM,
+      MAX_ZOOM,
+      ZOOM_STEP,
+    )(scroller);
+    return () => {
+      observer.disconnect();
+      stopPinch();
+    };
+  };
   const selectSheet = (index: number) => {
     workbook.current?.setSheet(index);
     setActiveSheet(index);
@@ -86,7 +132,16 @@ export function OfficePreview({ url, kind }: { url: string; kind: OfficeKind }) 
           size="sm"
           variant="ghost"
         >
-          {Math.round(zoom * 100)}%
+          {Math.round(scale * 100)}%
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          title="适合宽度"
+          aria-label="适合宽度"
+          onClick={() => setZoom('fit')}
+        >
+          <MoveHorizontal />
         </Button>
         <Button size="icon-sm" variant="ghost" aria-label={`放大${noun}`} onClick={() => step(1)}>
           <Plus />
@@ -94,17 +149,20 @@ export function OfficePreview({ url, kind }: { url: string; kind: OfficeKind }) 
       </div>
       <div className="relative min-h-0 flex-1">
         <div
-          ref={pinchZoomRef(setZoom, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP)}
-          className="absolute inset-0 overflow-auto overscroll-contain bg-inset [overflow-anchor:none] [scrollbar-gutter:stable]"
+          ref={observeScroller}
+          className="absolute inset-0 overflow-auto overscroll-contain bg-inset p-4 [overflow-anchor:none] [scrollbar-gutter:stable]"
         >
-          {/* 幻灯片按容器宽度重排，CSS zoom 会被抵消，改为放大容器宽度。 */}
+          {/* 幻灯片按容器宽度重排，CSS zoom 会被抵消，改为按原始页宽设容器宽度。 */}
           <div
             ref={host}
-            style={kind === 'pptx' ? { width: `${zoom * 100}%` } : { zoom }}
-            className={cn(
-              'office-preview mx-auto min-h-full p-4',
-              kind !== 'pptx' && 'w-max min-w-full',
-            )}
+            style={
+              kind !== 'pptx'
+                ? { zoom: scale }
+                : naturalWidth
+                  ? { width: scale * naturalWidth }
+                  : undefined
+            }
+            className={cn('office-preview mx-auto min-h-full', kind !== 'pptx' && 'w-max')}
           />
         </div>
         {error && (

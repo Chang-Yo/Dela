@@ -44,6 +44,14 @@ let root: Root;
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  // 适合宽度要量滚动区；jsdom 没有 ResizeObserver。
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
