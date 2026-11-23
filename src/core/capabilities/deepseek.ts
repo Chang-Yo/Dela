@@ -1,16 +1,7 @@
 // DeepSeek 官方 Search / Fetch 接口：Bearer 鉴权、按成功请求计费（5 元 / 千次，QPS 5），
-// 与 OpenAI 兼容的 chat 端点无关。Search 返回结构化网页，Fetch 返回 Markdown 正文。
+// 与 OpenAI 兼容的 chat 端点无关。Search 返回结构化网页，Fetch 只读 HTML 网页、返回 Markdown 正文。
 const BASE_URL = 'https://api.deepseek.com';
 const REQUEST_TIMEOUT_MS = 15000;
-
-export class DeepSeekError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
 
 async function post<T>(path: string, body: unknown, apiKey: string): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -25,8 +16,7 @@ async function post<T>(path: string, body: unknown, apiKey: string): Promise<T> 
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    throw new DeepSeekError(
-      response.status,
+    throw new Error(
       `DeepSeek 请求失败（HTTP ${response.status}）${detail ? `：${detail.slice(0, 200)}` : ''}`,
     );
   }
