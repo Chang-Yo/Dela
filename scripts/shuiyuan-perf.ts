@@ -166,7 +166,7 @@ app
     const preload = join(profile, 'preload.cjs');
     await writeFile(
       preload,
-      `const {contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('benchmark',{read:()=>ipcRenderer.invoke('bench:read'),report:v=>ipcRenderer.send('bench:report',v)});contextBridge.exposeInMainWorld('dela',{workspace:{onOfficeExportProgress:()=>()=>{}},bridge:{invoke:async(c,i)=>c==='shuiyuan:sourceRef'?{title:'性能基准',author:'benchmark',postsCount:${floors},snapshot:null}:c==='shuiyuan:snapshotPage'?ipcRenderer.invoke('bench:page',i):undefined,subscribe:()=>()=>{}}});`,
+      `const {contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('benchmark',{read:()=>ipcRenderer.invoke('bench:read'),report:v=>ipcRenderer.send('bench:report',v)});contextBridge.exposeInMainWorld('dela',{bridge:{invoke:async(c,i)=>c==='shuiyuan:sourceRef'?{title:'性能基准',author:'benchmark',postsCount:${floors},snapshot:null}:c==='shuiyuan:snapshotPage'?ipcRenderer.invoke('bench:page',i):undefined,subscribe:()=>()=>{}}});`,
     );
     ipcMain.handle('bench:read', async () => {
       const start = performance.now();

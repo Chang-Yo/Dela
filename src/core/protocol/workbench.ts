@@ -22,14 +22,6 @@ export interface DocumentContent {
   dueAt?: string | null;
   updatedAt?: string | null;
   revision?: string;
-  office?: { export?: OfficeExportInfo };
-}
-
-/** 已导出 PDF 与源 pptx 的关联信息；stale 表示源文件在导出后更新过。 */
-export interface OfficeExportInfo {
-  previewUrl: string;
-  title: string;
-  stale: boolean;
 }
 
 export const tabKinds = ['chat', 'note', 'preview', 'review', 'terminal'] as const;

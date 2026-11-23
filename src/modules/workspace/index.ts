@@ -20,7 +20,6 @@ import { registerSearchProvider } from '../search';
 import {
   chooseDirectory,
   downloadRemote,
-  exportOfficePdfOf,
   listRemote,
   openFile,
   openLocal,
@@ -61,7 +60,6 @@ import {
   sourceResourceResolver,
   workspaceResourceResolver,
 } from './main/read-resource';
-import { openResourceFile } from './main/resources';
 import { workspaceSource } from './main/sources';
 
 export {
@@ -130,8 +128,6 @@ export const workspaceModule = defineModule({
     projectBranch: projectGitBranch,
     projectBranches: projectGitBranches,
     switchProjectBranch: ({ id, branch }) => projectGitCheckout(id, branch),
-    exportOfficePdf: exportOfficePdfOf,
-    openResourceFile,
     importFiles: async (parentId) => {
       const paths = await pickImportFiles();
       if (paths.length) importWorkspaceFiles(parentId, paths);

@@ -169,7 +169,6 @@ ipcMain.on('contract:manifest', (event) => {
       'agent:session-update',
       'agent:session-stream',
       'agent:queue',
-      'workspace:officeExportProgress',
       'agent:run-event',
       'agent:sidechat-update',
       'agent:sidechat-stream',

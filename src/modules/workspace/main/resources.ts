@@ -1,11 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { workspaceEntryIdSchema } from '../contract';
-import {
-  resourceAddressSchema,
-  resourceResolver,
-  withResourceFile,
-} from '../../../core/capabilities/resources';
+import { resourceAddressSchema, withResourceFile } from '../../../core/capabilities/resources';
 import { entry, importWorkspaceFiles, workspaceFilePath } from './api';
 import { localFileFormat, textRevision } from './files';
 import { workspaceSource } from './sources';
@@ -15,7 +11,6 @@ import {
   imageMimeOf,
   isTextContent,
 } from '../../../core/protocol/files';
-import { hostPorts } from '../../../core/ports';
 
 export interface ResourceContent {
   title: string;
@@ -27,7 +22,7 @@ export interface ResourceContent {
   url?: string;
 }
 
-/** Agent 的资源读取不生成预览地址、不查询 Office 导出，也不枚举解析格式。 */
+/** Agent 的资源读取不生成预览地址，也不枚举解析格式。 */
 export async function readWorkspaceResource(id: string): Promise<ResourceContent> {
   const item = entry(id);
   if (item.kind === 'source' && item.sourceId)
@@ -66,16 +61,4 @@ export async function copyResourceToProject(input: unknown) {
     const [entry] = importWorkspaceFiles(parentId, [path]);
     return { ref: { type: 'workspace' as const, id: entry!.id }, entry: entry! };
   });
-}
-
-/** 邮件附件落在临时目录，启动竞态下会被清理，所以只放行有持久文件的资源。 */
-export async function openResourceFile(input: unknown): Promise<void> {
-  const parsed = resourceAddressSchema.parse(input);
-  const { path } = resourceResolver(parsed.type);
-  if (!path) throw new Error('仅支持资料文件与我的资料条目');
-  await hostPorts()
-    .desktop.open(await path(parsed))
-    .catch((error: Error) => {
-      throw new Error(`无法用系统默认程序打开：${error.message}`);
-    });
 }

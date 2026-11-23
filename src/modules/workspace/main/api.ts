@@ -19,7 +19,7 @@ import { locateRemote } from '../../../core/remote/operations';
 import { detachProjectSessions, projectSessionIds } from '../../../core/agent/session/store';
 import { collectWorkspaceSources, workspaceSource, type WorkspaceSource } from './sources';
 import { availablePath, diskName } from './disk-name';
-import { officeExportPreviewInfo, officeZipMime, readOfficeExportLink } from '../../preview';
+import { officeZipMime } from '../../preview';
 import {
   workspaceArchiveId,
   workspaceEntryIdSchema,
@@ -761,16 +761,12 @@ export async function readWorkspaceEntry(id: string): Promise<DocumentContent> {
     const previewUrl = `dela-resource://workspace/${encodeURIComponent(id)}?v=${version}`;
     if (format === 'pdf')
       return { title: item.name, format, previewUrl, mime: 'application/pdf', revision: version };
-    const office = format as 'docx' | 'xlsx' | 'pptx';
-    const link = office === 'pptx' ? readOfficeExportLink('workspace', id) : null;
-    const exported = link ? officeExportPreviewInfo(link, version) : null;
     return {
       title: item.name,
       format,
       previewUrl,
-      mime: officeZipMime[office],
+      mime: officeZipMime[format as 'docx' | 'xlsx' | 'pptx'],
       revision: version,
-      office: exported ? { export: exported } : undefined,
     };
   }
   if (stats.size > IMAGE_READ_MAX_BYTES) throw new Error('图片较大，请在外部应用中打开');

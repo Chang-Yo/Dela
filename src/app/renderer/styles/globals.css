@@ -120,18 +120,23 @@
   }
 }
 
-/* docx-preview 运行时注入 .docx-wrapper 的默认灰底与页面主题冲突；
-   页面间距交给注入样式，底色统一为透明（露出滚动容器的 bg-muted）。 */
-.docx-wrapper {
-  background: transparent !important;
+/* office-lite 自带的工作表标签与限高滚动区交给预览外壳的标签栏和滚动容器；
+   幻灯片宽度跟随缩放后的容器，不封顶于原始尺寸。 */
+.office-preview .xl-tabs {
+  display: none;
+}
+
+.office-preview .xl-scroll {
+  max-height: none;
+  overflow: visible;
+}
+
+.office-preview .pl-slide-box {
+  max-width: none;
 }
 
 .pdfViewer.dela-pdf-pages .page {
   margin-left: 0;
-}
-
-.docx-preview-host .docx-wrapper {
-  align-items: flex-start;
 }
 
 .xterm .xterm-rows .xterm-cursor-block {

@@ -8,7 +8,7 @@ import {
   noteAssetUrl,
 } from '../../../modules/workspace/contract';
 import { parseRemoteNodeId, remoteAssetUrl } from '../../../modules/remotes/contract';
-import type { DocumentContent, ResourceAddress, TabId } from '../../../core/protocol/workbench';
+import type { DocumentContent, TabId } from '../../../core/protocol/workbench';
 import {
   ChatTabSourceProvider,
   type ChatTabSource,
@@ -40,13 +40,11 @@ import { prefillNoteText, type EntryAction } from '../workspace/entry-actions';
 import { ancestorChainOf, useTreeState } from '../navigation/store';
 import { useLocalReferences, useRemoteReferences } from '../navigation/remote-references';
 import { documentTabId, useNavigationStore } from '../navigation/view';
-import { showToast } from '../../../ui/toast';
 import { currentContainerOf, WorkbenchExplorer } from './WorkbenchExplorer';
 import { openTarget } from './open-target';
 import { ErrorText } from '../../../ui/error-text';
 import { chatReplyActions, opensInApp, sources } from '../../views';
 import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
-import { errorMessage } from '../../../core/protocol/contract';
 
 function tabDocumentKey(tabId: TabId | null): string | null {
   if (!tabId) return null;
@@ -250,18 +248,9 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
         ? await workspaceClient.readSource(sourceId)
         : await workspaceClient.read(entryId!);
       const document = sourceId ? sources.of(sourceId)?.document : undefined;
-      const officeAddress: ResourceAddress | undefined =
-        content.format === 'pptx'
-          ? sourceId && !document
-            ? { type: 'source', id: sourceId }
-            : entry?.kind === 'file'
-              ? { type: 'workspace', id: entry.id }
-              : undefined
-          : undefined;
       return {
         content,
         source: sourceId && document ? { id: sourceId, document } : undefined,
-        officeAddress,
         watchesDisk: entry?.kind === 'file',
       };
     },
@@ -271,18 +260,6 @@ export function WorkbenchShell({ home }: { home?: boolean }) {
       else window.open(url);
     },
     navigate: (target) => useNavigationStore.getState().navigate(target),
-    onExported: () => {
-      void useWorkspaceStore
-        .getState()
-        .refresh()
-        .catch((cause) =>
-          showToast({
-            variant: 'error',
-            title: '刷新目录失败',
-            description: errorMessage(cause),
-          }),
-        );
-    },
   };
 
   if (!loaded && workspaceError === null && window.dela)

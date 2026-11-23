@@ -16,12 +16,7 @@ import type {
   SourceItem,
 } from '../contract';
 import { pickCourseFiles, collectCourseFileEntries } from './course-files';
-import {
-  classifyOfficeFile,
-  officeExportPreviewInfo,
-  officeZipMime,
-  readOfficeExportLink,
-} from '../../../modules/preview';
+import { classifyOfficeFile, officeZipMime } from '../../../modules/preview';
 import { loadCanvasToken, saveCanvasToken } from './credentials';
 import type { DocumentContent } from '../../../core/protocol/workbench';
 
@@ -647,10 +642,6 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
     const pdf = await isPdf(cached.path);
     const image = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(cached.mime);
     const office = pdf || image ? null : await classifyOfficeFile(cached.path);
-    const link = office === 'pptx' ? readOfficeExportLink('source', id) : null;
-    const stats = link ? await stat(cached.path) : null;
-    const exported =
-      link && stats ? officeExportPreviewInfo(link, `${stats.mtimeMs}-${stats.size}`) : null;
     const bytes = image ? new Uint8Array(await readFile(cached.path)) : undefined;
     return {
       title: source.title,
@@ -661,7 +652,6 @@ export async function readCanvasSource(id: string): Promise<DocumentContent> {
           ? `dela-resource://canvas/${encodeURIComponent(id)}?v=${encodeURIComponent(source.updatedAt ?? '')}`
           : undefined,
       mime: pdf ? 'application/pdf' : office ? officeZipMime[office] : cached.mime,
-      office: exported ? { export: exported } : undefined,
       updatedAt: source.updatedAt,
     };
   }
