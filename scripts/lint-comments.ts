@@ -1,4 +1,4 @@
-// 注释最先腐烂的是它指向的东西：文件改名、删除后，注释里的路径和 ADR 编号还在误导读者。
+// 注释最先腐烂的是它指向的东西：文件改名、删除后，注释里的路径和已删的决策编号还在误导读者。
 import { parseSync } from '@babel/core';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
