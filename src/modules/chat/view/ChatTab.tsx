@@ -4,6 +4,7 @@ import { Download, GitCompare, History, MessageCircleQuestion, SquarePen } from 
 import type { ChatComment, ChatSessionSummary, WorkspaceChat } from '../../../core/protocol/agent';
 import { chatClient } from './client';
 import { Button } from '../../../ui/button';
+import { cn } from '../../../ui/lib/cn';
 import { SubagentBanner, type SubagentStatus } from '../../../ui/agent/subagent-banner';
 import { ChatComposer } from './ChatComposer';
 import { composerContext } from './composer-context';
@@ -93,7 +94,7 @@ function ChatComposerArea({
   );
   const context = composerContext(chat, project, chatState.busy);
   return (
-    <div className="mx-auto w-full max-w-3xl shrink-0 p-3">
+    <div className={cn('mx-auto w-full shrink-0 p-3', hero ? 'max-w-3xl' : 'max-w-chat')}>
       <ChatComposer
         hero={hero}
         attachments={chatState.attachments}
@@ -290,7 +291,7 @@ function ChatSessionView({
       {subagent && (
         <SubagentBanner
           backLabel="父会话"
-          className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-1"
+          className="mx-auto w-full max-w-chat shrink-0 px-4 pb-1"
           onBack={() => openSession(subagent.parentId)}
           onStop={chatState.stop}
           status={subagentStatus(chat)}

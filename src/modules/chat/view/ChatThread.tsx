@@ -449,7 +449,7 @@ export function ChatThread({
             followBottom.current = false;
         }}
       >
-        <div ref={contentRef} className="relative mx-auto w-full max-w-3xl px-4 py-4">
+        <div ref={contentRef} className="relative mx-auto w-full max-w-chat px-4 py-4">
           <BackgroundTaskContext value={backgroundTasks}>
             {/* 消息无稳定 id，key 用 sessionId:index：依赖列表 append-only（editLast 截断重发按同索引整表替换），勿在中间插入/删除。 */}
             {messages.map((message, index) =>
