@@ -56,12 +56,13 @@ export function todoTimeLabel(time: TodoTime | null): string {
     : `${start} – ${day(localDay(time.endDate))} 全天`;
 }
 
-/** 与 [startAt, endAt) 有交集；没有时间的待办只在不限范围时入选。 */
+/** 与 [startAt, endAt) 有交集，截止时刻恰为 startAt 也算；没有时间的待办只在不限范围时入选。 */
 export function todoInRange(time: TodoTime | null, startAt?: string, endAt?: string): boolean {
   if (!startAt && !endAt) return true;
   if (!time) return false;
   const [start, end] = todoTimeRange(time);
-  return (!startAt || end >= Date.parse(startAt)) && (!endAt || start < Date.parse(endAt));
+  const from = startAt ? Date.parse(startAt) : -Infinity;
+  return (time.kind === 'due' ? end >= from : end > from) && (!endAt || start < Date.parse(endAt));
 }
 export interface TodoGroup {
   id: string;
