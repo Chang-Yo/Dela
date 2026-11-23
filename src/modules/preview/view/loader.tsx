@@ -1,11 +1,10 @@
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 import type { Navigate, SourceDocumentProps } from '../../../app/module';
-import type { DocumentContent, ResourceAddress, TabId } from '../../../core/protocol/workbench';
+import type { DocumentContent, TabId } from '../../../core/protocol/workbench';
 
 export interface LoadedDocument {
   content: DocumentContent;
   source?: { id: string; document: ComponentType<SourceDocumentProps> };
-  officeAddress?: ResourceAddress;
   watchesDisk?: boolean;
 }
 
@@ -15,7 +14,6 @@ export interface ContentLoader {
   /** 文档内链接分流：站内文件开预览标签，其余交主进程（模块认领的回应用内，否则走系统浏览器）。 */
   openLink(url: string): void;
   navigate: Navigate;
-  onExported?(tabKey: TabId): void;
 }
 
 const ContentLoaderContext = createContext<ContentLoader | null>(null);
