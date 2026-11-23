@@ -27,6 +27,7 @@ export function openAtLogin(): boolean {
     : app.getLoginItemSettings().openAtLogin;
 }
 
+// 登录启动不用 openAsHidden：Windows 传 --hidden，Mac 启动时读 wasOpenedAtLogin。
 export function setOpenAtLogin(enabled: boolean): boolean {
   if (app.isPackaged && process.platform === 'darwin') {
     app.setLoginItemSettings({ openAtLogin: enabled });

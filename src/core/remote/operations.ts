@@ -79,6 +79,8 @@ export function setContextMirrors(key: string, routes: { mirror: string; remote:
   else mirrorRoutes.set(key, routes);
 }
 
+// 路径归属按路径格式判断，不按宿主系统：Windows 盘符与 UNC 不分大小写与分隔符，
+// POSIX 逐字匹配并保留文件名里的反斜杠。
 const windowsPath = (value: string) => /^(?:[a-z]:[\\/]|\\)/i.test(value);
 const trimSlash = (value: string) =>
   (windowsPath(value) ? value.replace(/\\/g, '/') : value).replace(/\/+$/, '');

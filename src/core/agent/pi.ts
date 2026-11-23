@@ -26,7 +26,8 @@ export function loadPi(): Promise<Sdk> {
   return sdk;
 }
 
-/** Pi 的全局目录（auth/models/settings/skills/bin）：放在应用数据下，与用户的 ~/.pi 隔离。 */
+/** Pi 的全局目录（auth/models/skills 等）放应用数据下，与 ~/.pi 隔离；唯独 bin 只认
+ * PI_CODING_AGENT_DIR（Dela 不设），rg/fd 仍在 ~/.pi/agent/bin（Pi 1.1.0，2026-10）。 */
 export function piAgentDir(): string {
   return join(hostPorts().paths.userData(), 'pi');
 }

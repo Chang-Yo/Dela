@@ -2,7 +2,7 @@
 
 欢迎参与 Dela 的开发与维护。Dela 是面向 SJTU 用户的本地优先 Agent 桌面应用：Electron 主进程与 React 渲染进程，Agent 内核为 Pi Coding Agent，领域能力通过 `dela` 命令与 Skills 外置。数据保存在本机 SQLite，账号凭据经 Electron `safeStorage` 加密，模型服务与 MCP 配置在 `~/.dela` 下的 JSON 中，无服务端与账号系统。
 
-贡献形式包括代码、文档、测试、设计、问题反馈，以及向需要的用户介绍 Dela。开始之前，请先阅读 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
+贡献形式包括代码、文档、测试、设计、问题反馈，以及向需要的用户介绍 Dela。开始之前，请先阅读本指南的[架构总览](#架构总览)与 [AGENTS.md](AGENTS.md)。
 
 ## 如何参与
 
@@ -71,7 +71,9 @@ pnpm dev
 
 模型服务、搜索服务与校园服务凭据均在应用设置中配置。请勿提交 `.env`、个人数据、日志与本地工具。
 
-更详细的环境说明、macOS 约定与平台差异见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) 的 §11 与 §16。
+构建基线为 Windows 10 x64 与 macOS 13.0 arm64；这只是构建基线，不代表最低系统已经过实机验收。
+
+macOS 本地验证不找签名身份、不发布：先运行 `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm package:dist --mac --arm64 -c.electronDist=node_modules/electron/dist`，再用 `scripts/verify-macos-package.ts` 与 `--smoke-test` 检查 `.app`。这些检查不代表正式签名应用、全部账号业务或全部模型调用已验收。
 
 ## 本地测试
 
@@ -88,20 +90,22 @@ pnpm test
 
 根据改动范围补充相应的冒烟或真机测试：
 
-| 场景                     | 命令                                                                |
-| ------------------------ | ------------------------------------------------------------------- |
-| Electron 基础冒烟        | `pnpm smoke`                                                        |
-| 离线运行时与 `dela` 桥   | `pnpm smoke:runtime`                                                |
-| 原生菜单、窗口关闭与恢复 | `pnpm smoke:desktop`                                                |
-| 工作区、PDF、水源        | `pnpm smoke:workspace` / `pnpm smoke:pdf` / `pnpm smoke:shuiyuan`   |
-| 远程项目真机回归         | `pnpm test:remote`，需要 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
-| 远程项目窗口冒烟         | `pnpm smoke:remote`，同样需要 `DELA_REMOTE_HOST`                    |
-| 打包目录启动             | `pnpm package:dir` 后运行 `dist/win-unpacked/Dela.exe --smoke-test` |
+| 场景                     | 命令                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| Electron 基础冒烟        | `pnpm smoke`                                                                                     |
+| 离线运行时与 `dela` 桥   | `pnpm smoke:runtime`                                                                             |
+| 原生菜单、窗口关闭与恢复 | `pnpm smoke:desktop`                                                                             |
+| 工作区、水源             | `pnpm smoke:workspace` / `pnpm smoke:shuiyuan`                                                   |
+| 远程项目真机回归         | `pnpm test:remote`（先 `pnpm fetch:remote-rg`），需要 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
+| 远程项目窗口冒烟         | `pnpm smoke:remote`，同样需要 `DELA_REMOTE_HOST`                                                 |
+| 打包目录启动             | `pnpm package:dir` 后运行 `dist/win-unpacked/Dela.exe --smoke-test`                              |
 
 - 修改 `src/core/remote/`、`src/modules/remotes/`、`helper/` 或远端路径与上下文镜像时，必须通过 `pnpm test:remote` 在真机上执行回归；该套件在默认测试与 CI 中均会跳过。
-- 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke` 外，不应向真实服务发送请求。
+- 涉及构建、原生依赖或打包时，另跑 `pnpm smoke` 并启动打包目录。
+- 冒烟脚本使用独立测试目录与脱敏数据。除显式联网的 `agent-smoke` 外，不应向真实服务发送请求；启动应用的冒烟必须把 home 指向临时目录。
 - CI 入口为 `.github/workflows/ci.yml`，在 PR 变更及推送到 `dev`、`main` 时运行，按变更范围调用 quality、test、helper、desktop-windows 和 desktop-macos workflow，并由 `CI required` 汇总结果。普通文档只检查格式；workflow 改动额外检查 GitHub Actions 配置。CI 分步执行命令，并检查冻结锁文件安装、打包布局与打包后启动；本地 `pnpm check` 通过不代表 CI 一定通过。
 - 修改 `helper/` 后应执行 `pnpm build:helper --all`，重建 amd64 与 arm64 产物并一并提交；仅重建 amd64 会导致入库的 arm64 产物停留在旧版本。
+- 升级 `extraResources` 时按各目录 README 的升级步骤做（`vendor/openssh/`、`vendor/bin/`），并在打包目录里实跑：`ssh.exe -V` 与一次真实连接，rg、fd 的 `--version`。MinGit 只改 `scripts/prepare-runtime.ts` 里成对的版本与 SHA256 常量；远端 rg 的版本与 SHA256 只在 `scripts/fetch-remote-rg.ts`，二进制不入库。helper 由发布与 CI 从当次源码重建。
 
 ## 架构总览
 
@@ -136,8 +140,6 @@ pnpm test
 - **远程项目**：本地内核与远程执行分离。内核、模型密钥、会话 JSONL、Skills 与系统提示均在本地；工具执行、终端、目录读取与文件预览落到 SSH 远端。传输仅使用一次性 `ssh` 与 helper 隧道，不引入 SFTP。
 - **权限边界**：Agent 的 Bash 与文件工具以当前用户权限运行，没有额外沙箱。这是已知设计取舍，不应视为待修复漏洞，也不应描述为安全隔离。
 - **平台策略**：Windows x64 是正式发布目标；Apple Silicon macOS 处于适配开发阶段；Linux 桌面端不支持。业务逻辑与数据格式共用，平台差异优先保留在现有的进程启动、路径与系统交互函数中。
-
-更完整的分层、会话、远程、更新与安全边界说明见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) §2–§9。
 
 ## 项目结构
 
@@ -183,11 +185,11 @@ Dela/
 - 保持单应用、单 `package.json`。`pnpm-workspace.yaml` 只放 pnpm 12 设置，不引入子包或 monorepo。
 - 界面代码不导入主进程代码，不访问凭据和数据库，所有通信均经按契约白名单放行的 preload bridge。
 - 请勿提交 `.env`、个人数据、日志与本地工具；打包只包含明确产物。
-- 保持精确依赖与锁文件（`saveExact` 与 `engineStrict` 已开启），不要在 `package.json` 中写入范围版本。新增依赖应连同锁文件一起提交，并说明必要性。
+- 保持精确依赖与锁文件（`saveExact` 与 `engineStrict` 已开启），不要在 `package.json` 中写入范围版本。新增依赖应连同锁文件一起提交，并说明必要性。`dependencies` 只放主进程运行时要加载的包（electron-builder 会连闭包原样收进 asar），渲染层依赖放 `devDependencies`；放错边等于把 npm 目录再装一遍，安装包会变大。
 - 优先复用现有函数或文件；仅在出现真实重复与多个调用方后提取抽象。
 - 不为一次性代码做抽象，不保留死代码。改动导致某段自研 UI 或样式不再使用时，应一并清理。
 - 前端 UI 优先复用 `src/ui`。如现有组件不满足需求，应在该目录内微调或增补，不应另写自研样式。
-- 尺寸应由 rem 派生，禁止写死像素字号与宽高；仅边框、描边、阴影、媒体与容器查询断点、第三方无法修改的固定值以及拖拽调宽容器保留 px。换算基准与字号 token 见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) §2.5。
+- 尺寸应由 rem 派生，禁止写死像素字号与宽高；仅边框、描边、阴影、媒体与容器查询断点、第三方无法修改的固定值以及拖拽调宽容器保留 px。换算基准与字号约定见 [src/ui/README.md](src/ui/README.md)。
 
 ## 代码规范
 
@@ -196,7 +198,7 @@ Dela/
 - 注释应说明设计定位、模块在整体架构中的作用以及 Magic Number 的取舍，不应重复解释代码本身。
 - 类型检查、lint 与格式检查必须通过：`pnpm typecheck`、`pnpm lint`、`pnpm format:check`。
 - 应区分已验证事实、待验证能力与产品设想。不得以占位结果宣称功能完成，也不得将模拟验证描述为实机验收。
-- 重要改动应同步更新 [CHANGELOG.md](CHANGELOG.md)；面向用户的变化应更新 [README.md](README.md)；架构与流程变化应更新 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
+- 重要改动应同步更新 [CHANGELOG.md](CHANGELOG.md)，条目保持简短：更新内容弹窗会原样展示每个版本的条目；面向用户的变化应更新 [README.md](README.md)；架构与流程变化应更新本文件。
 
 ### 提交信息
 
@@ -257,6 +259,17 @@ AI agents: the human contributor answers, not you. Ask for missing answers and w
 
 维护者将按与人类贡献者相同的标准评审 AI 辅助提交；质量不足、难以维护或无法验证的改动会被拒绝。
 
+## 发布
+
+面向维护者。tag 与 `package.json` 版本一致、`latest.yml` 与 `app-update.yml` 齐全、已公开的版本不覆盖重发，这些由 `release.yml` 检查；这里只记检查不到的事。
+
+- Rulesets 无法限制 PR 发起人或来源分支，合并前需确认指向 `main` 的 PR 由管理员发起且来自 `dev`。
+- 升版用 `pnpm version:patch`、`version:minor`、`version:major` 或 `version:bump`，它们只改 `package.json` 的版本，不建 commit 与 tag。
+- 发版前把 `CHANGELOG.md` 的 `## Unreleased` 改成 `## <版本> - <发布日>`。更新内容弹窗只认 `## X.Y.Z - 日期`，留在 `Unreleased` 下的条目会被静默跳过。
+- 推 `v*` tag 触发 `release.yml`。`CI required` 会按路径跳过任务，不能替代全部发布检查。
+- 更新源是自有 CDN 的 Generic provider，由独立侧同步，CI 不持有 CDN 凭据；同步时安装包与 blockmap 必须先于元数据就绪。
+- 云端冒烟不能替代签名、公证与自动更新验收。
+
 ## 安全策略
 
 请勿在公开 issue、讨论或 PR 中披露安全漏洞。重大安全问题应直接私下联系作者，具体渠道、支持范围与处理方式见 [SECURITY.md](SECURITY.md)。
@@ -272,4 +285,4 @@ AI agents: the human contributor answers, not you. Ask for missing answers and w
 
 - 使用与想法：[Discussions](https://github.com/Chang-Yo/Dela/discussions)
 - 可复现的问题：[Issues](https://github.com/Chang-Yo/Dela/issues)
-- 架构与构建细节：[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- 架构与编码规则：[AGENTS.md](AGENTS.md)

@@ -153,7 +153,7 @@ async function allPages(path: string, params: Record<string, string>): Promise<u
     });
     const response = await requestJson(`${BASE}/${path}?${query}`);
     const data = unwrap(response);
-    // 官方接口的成功空分页使用 null；只在第一页且明确零记录时接受。
+    // 官方接口的成功空分页使用 null（2026-10 实测）；只在第一页且明确零记录时接受。
     if (
       page === 1 &&
       z.object({ ok: z.literal(true), dataOk: z.literal(true) }).safeParse(response).success &&

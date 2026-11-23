@@ -5,7 +5,7 @@ Dela 校园能力的接口资料，两部分合在一处。
 - **第一部分：Canvas 实测。** 用个人 Access Token 对 `https://oc.sjtu.edu.cn/api/v1` 实测出的结构与边界，按代码为准，不含实现承诺。实测截至 2026-09-15。
 - **第二部分：公开资料索引。** 交大开放 API、校园网络服务、交我办 / InfoPlus 与社区项目的全景索引，用来判断还需要读什么。公开可检索范围截至 2026-09-09。
 
-两部分的取舍与依据记在各自开头；产品边界与实现约定见 [DEVELOPMENT.md](DEVELOPMENT.md)。
+两部分的取舍与依据记在各自开头。
 
 ---
 
@@ -63,7 +63,7 @@ Dela 校园能力的接口资料，两部分合在一处。
 - 两种列法：`GET /courses/:id/files`（全课程平铺，含所有子文件夹文件）或 `GET /folders/:fid/files`（按文件夹）。字段一致。
 - 关键字段：`id`、`uuid`、`folder_id`、`display_name`（界面名，中文常见）、`filename`、`content-type`、`size`（字节）、`created_at`/`updated_at`/`modified_at`、`mime_class`（`pdf`/`image`/`doc`…）、`category`、`hidden`/`locked`/`unlock_at`/`lock_at`、`thumbnail_url`（实测基本为 null）、`media_entry_id`（实测 null）、`url`。
 - 实测类型分布（约 420 个文件）：**PDF 约 80% 绝对主导**，PPTX/PPT 约 10%，其余 zip、Word、LaTeX、图片、极少量 mp4。
-- 课程视频不在 files 里：走 LTI 外部工具 tab（"课堂视频新版/旧版"）。Canvas 同步至今不覆盖视频——课堂录像由独立的「课堂视频」功能按课程查询与播放（见 [DEVELOPMENT.md](DEVELOPMENT.md) §5）。
+- 课程视频不在 files 里：走 LTI 外部工具 tab（"课堂视频新版/旧版"）。Canvas 同步至今不覆盖视频——课堂录像由独立的「课堂视频」功能按课程查询与播放（见 `src/sjtu/classroom/`）。
 
 ### 6.3 下载链路
 

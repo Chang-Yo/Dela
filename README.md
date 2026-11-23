@@ -99,17 +99,16 @@ pnpm dev
 | `pnpm smoke`        | Electron 内 SQLite、React 渲染与 preload 隔离冒烟检查 |
 | `pnpm package:dist` | 生成 Windows 安装包                                   |
 
-环境搭建细节、冒烟测试与代码组织约定见 [开发文档](docs/DEVELOPMENT.md)；版本与发布流程同样在其中。
+环境搭建、冒烟测试、代码组织约定与发布流程见 [贡献指南](CONTRIBUTING.md)。
 
 ## 文档
 
 | 文档                               | 内容                               | 读者           |
 | ---------------------------------- | ---------------------------------- | -------------- |
-| [开发文档](docs/DEVELOPMENT.md)    | 架构、各子系统约定、构建与发布流程 | 贡献者（先读） |
 | [使用条款](docs/terms.md)          | 软件性质、责任划分与免责范围       | 使用者         |
 | [隐私条款](docs/privacy.md)        | 数据存放位置与联网去向             | 使用者         |
 | [更新日志](CHANGELOG.md)           | 按版本分节的变更记录               | 贡献者         |
-| [贡献指南](CONTRIBUTING.md)        | 环境准备、提交规范与协作方式       | 贡献者         |
+| [贡献指南](CONTRIBUTING.md)        | 环境准备、测试、提交规范与发布流程 | 贡献者（先读） |
 | [功能边界](docs/what-we-not-do.md) | 明确不做与需先讨论的功能           | 贡献者         |
 | [安全策略](SECURITY.md)            | 漏洞报告渠道、支持范围与安全边界   | 使用者、贡献者 |
 | [校园接口资料](docs/sjtu-apis.md)  | Canvas 实测数据结构与交大接口索引  | 贡献者         |

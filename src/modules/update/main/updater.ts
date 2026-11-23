@@ -73,6 +73,7 @@ function configureUpdater(): void {
   autoUpdater.allowPrerelease = false;
   autoUpdater.channel = 'latest';
   autoUpdater.allowDowngrade = false;
+  // 进度 100% 只表示传输完成，仍要校验。
   autoUpdater.on('download-progress', ({ percent, transferred, total }) => {
     dispatch({ type: 'download/progress', progress: percent / 100, transferred, total });
   });
@@ -127,6 +128,7 @@ export async function beginInstall(): Promise<UpdateSnapshot> {
   try {
     setPendingInstall(false);
     // 返回只表示已请求安装，不能宣称安装成功；新进程会从实际版本重新开始。
+    // quitAndInstall 会结束终端任务且无法恢复。
     autoUpdater.quitAndInstall(false, true);
     return currentState();
   } catch (error) {

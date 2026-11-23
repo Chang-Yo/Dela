@@ -10,8 +10,8 @@ export default defineConfig({
     include: ['src/**/*.remote.test.ts'],
     globalSetup: ['src/modules/remotes/main/test/remote-host.setup.ts'],
     setupFiles: ['src/core/test/host-mock.ts'],
-    // 逐个文件串行：几套用例共用同一台主机上的 helper 通道与临时目录，
-    // 并行跑会互相 closeHelper、抢 /tmp 下的固定路径。
+    // 逐个文件串行：几套用例共用同一台主机上的 helper 通道与临时目录，会互相 closeHelper、
+    // 抢 /tmp 下的固定路径；ssh 不做多路复用，并发握手太多还会被主机断开。
     fileParallelism: false,
     // 真机来回一次就是几百毫秒，单个用例自己声明的超时更宽松。
     testTimeout: 240_000,

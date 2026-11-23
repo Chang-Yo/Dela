@@ -1,4 +1,5 @@
 import { contextBridge, webUtils } from 'electron';
+// 版本号在构建时内联，升版后需重新构建。
 import { version } from '../../../package.json';
 import type { DelaApi } from './api';
 import { bridge } from './bridge';

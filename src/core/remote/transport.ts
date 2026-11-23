@@ -43,6 +43,8 @@ const CONNECT_TIMEOUT_SECONDS = 10;
 const KEEPALIVE_SECONDS = 15;
 const KEEPALIVE_COUNT_MAX = 3;
 
+// System32 里的 OpenSSH 可能是旧版（2026-10 实测 9.5p2，Program Files 为 10.0p2），
+// 排障先确认实际生效的是哪一个。
 function binaryCandidates(binary: 'ssh' | 'sftp'): string[] {
   if (process.platform === 'darwin') return [join('/usr/bin', binary)];
   const name = `${binary}.exe`;
