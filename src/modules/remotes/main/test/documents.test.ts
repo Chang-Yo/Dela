@@ -55,6 +55,9 @@ describe('远端文件预览', () => {
     const docx = await readRemoteDocument('p-1', target, '/home/u/proj/a.docx');
     expect(docx.format).toBe('docx');
     expect(docx.mime).toContain('wordprocessingml');
+    const pptx = await readRemoteDocument('p-1', target, '/home/u/proj/slides.pptx');
+    expect(pptx.format).toBe('pptx');
+    expect(pptx.mime).toContain('presentationml');
     expect(read).not.toHaveBeenCalled();
   });
 
