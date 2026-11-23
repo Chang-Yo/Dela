@@ -80,7 +80,7 @@ export const attachmentResourceResolver: ResourceResolver<{
     })
     .strict(),
   description:
-    '{"type":"attachment","messageId":<邮件 id>,"part":"<附件编号>"}：邮件附件，正文用 document-reading skill 读取',
+    '{"type":"attachment","messageId":<邮件 id>,"part":"<附件编号>"}：邮件附件，正文用 read_document 工具读取',
   read: async (ref) =>
     documentHint(ref, mailAttachment(ref.messageId, ref.part).attachment.filename, 'file'),
   withFile: (ref, consume) => withAttachmentFile(ref.messageId, ref.part, consume),

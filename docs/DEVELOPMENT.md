@@ -45,7 +45,9 @@
 - **rg/fd 落在 `~/.pi/agent/bin`，不是 `userData/pi/bin`**。bin 只认 `PI_CODING_AGENT_DIR`，Dela 不设置它。`userData/pi` 里隔离的是 auth、models、sessions 与 skills，bin 是唯一例外。
 - 搜索工具**随包分发**。Pi 自身的兜底是从 GitHub 直连下载，大陆大概率失败，所以 rg/fd 经 `extraResources` 进 `resources/bin`，启动时前插 PATH 直接命中（来源与升级见 [vendor/bin/README](../vendor/bin/README.md)）。
 
-`web_fetch` 用纯 JS `@mdream/js` 转 Markdown，不执行 JavaScript。PDF 按 MIME 或文件头识别，完整下载后交给 document-reading skill 解析——**不能把网页截断的字节当成完整 PDF**。`web_search` 由用户提供搜索服务，默认关闭；`web_fetch` 默认开启。
+`web_fetch` 用纯 JS `@mdream/js` 转 Markdown，不执行 JavaScript。它只读网页正文，Content-Type 不是文本、XML 或 JSON 时直接报错，不替 Agent 下载文件。`web_search` 由用户提供搜索服务，默认关闭；`web_fetch` 默认开启。
+
+`read_document` 把 PDF 与 Office 上传到 MinerU 精准解析（vlm，公式与表格开启，扫描件正文为空时以 OCR 重试）。图片不走 MinerU，由模型直接看，Token 由用户自备、经 `HostPorts.secrets` 加密保存，保存时校验并开启工具，未配置时默认关闭。解析结果按文件内容哈希缓存在系统临时目录，续读与重读不再上传、不耗用户额度；结果里的图片落在缓存目录，Agent 需要时用 `read` 查看。参数固定，不给用户调。GUI 的 DOCX/XLSX/PPTX 预览是**另一条独立路径**，不复用这套。
 
 ### 2.1.1 轮次文件变化与 Git 审阅
 
@@ -68,13 +70,9 @@
 
 ### 2.3 skills
 
-领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。七个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum / document-reading）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；校园相关的四个随 `src/sjtu` 下各自的模块注册，模块不登记时 skill 与命令一并缺席。
+领域知识与工具使用指引，Pi 按 Agent Skills 规范发现。六个内置 skill（shuiyuan / canvas / classroom / mail / todo / curriculum）由应用写进 `~/.dela/skills` 并作为附加 skill 目录交给 Pi；校园相关的四个随 `src/sjtu` 下各自的模块注册，模块不登记时 skill 与命令一并缺席。
 
 设置 › Skills 按来源分三组：内置、本机、每个本地项目。**开关的粒度不一样**——全局 skill 按名称记禁用，项目里的按 `SKILL.md` 绝对路径记，因为同名的可以共存且互不牵连。
-
-`document-reading` 是唯一带依赖的 skill：它需要一套独立的 Python 环境（Windows 用 Python.org embeddable，Mac 用 python-build-standalone，均为 3.12.10；uv 固定，压缩包固定 SHA256），装进 `userData/components`，不要求系统 Python、Homebrew 或管理员权限。依赖只接受 PyPI 官方 wheels 与锁定 hashes，**禁止源码构建，也禁止 Agent 自行安装**。没装组件时设置页仍列出它，但显示关闭且不注入 Pi。
-
-文档正文的读取交给外部 Python 脚本，主进程只负责取文件与工具路径，不解析 Office/PDF。输入副本与输出都在系统临时目录，用完显式释放，不写进用户项目。GUI 的 DOCX/XLSX/PPTX 预览是**另一条独立路径**，不复用这套。
 
 ### 2.3.1 第三方能力
 
@@ -126,7 +124,7 @@ Canvas 公告逐门读取在读未归档课程，并缓存为课程资料，点�
 - 会话的完整记录是 Pi JSONL，SQLite `sessions` 只是索引；renderer 看到的是 Pi 消息的投影。会话归属在创建时确定，不从当前工作台推断。
 - **会话层分四块**（`core/agent/session/`）：存储（SQLite 索引）、运行（Pi 实例与一轮执行）、投影（Pi 消息 → 界面，`<dela-meta>` 只在这里编解码）、命令（新建、分支、归档、换模型等）。后台任务与子 Agent 不引用会话，由运行层注入父会话的回调。
 - **上下文是 pull 模型**：@ 引用是会话 cwd 下文件的绝对路径，模型自主 read。引用以 token 内联在文本里，因此没有数量上限；附件是另一套 count（上限 5）。
-- **聊天文档附件**只传本地文件引用，由 document-reading skill 按需解析；二进制不按 UTF-8 注入提示词，不复制进项目。远端项目访问不到本机解析组件，发送文档附件会提示切换本机会话。
+- **聊天文档附件**只传本地文件引用，由 `read_document` 按需解析；二进制不按 UTF-8 注入提示词，不复制进项目。远端会话暂不接收文档附件，会提示切换本机会话。
 - **会话命令**（`/compact`、`/reload`、`/name`、`/new`）由 Dela 自己实现，Pi 的 slash command 只在它的终端界面里。自定义指令不许与会话命令同名。命令不是一轮对话，不写用户消息、不改标题、不记文件变化。
 - **插队**：运行中发送走 Pi 的 `steer()`，沿用本轮 turnId，改动按轮归属，改动卡片只挂在本轮最后一段回复上。Pi 已答完、Dela 还在收尾时发来的消息，等收尾结束后作为新一轮。停止与撤回都先清空 Pi 的队列，未送达的消息回到输入框。运行中不接受 / 命令。
 - **一轮执行只有一个入口** `runTurn`：用户发送、插队收尾后的新一轮与后台任务唤醒都经过它，运行状态、改动快照与完成通知才不会漏。
@@ -218,7 +216,7 @@ Agent 的 bash 工具与终端分开：固定用 bash，每条命令前拼上 de
 
 按层约定：
 
-- 模块的 IPC 由契约声明，`src/app/main/ipc.ts` 统一注册（见 §10.1）。模块的 Agent 命令域、文档读取器与资源解析器在各自的 `register()` 里登记。
+- 模块的 IPC 由契约声明，`src/app/main/ipc.ts` 统一注册（见 §10.1）。模块的 Agent 命令域与资源解析器在各自的 `register()` 里登记。
 - core 不直接 import Electron：路径、钥匙串、通知、窗口广播、图片编解码、系统对话框、网络、数据库连接与项目查询都经 `src/core/ports.ts` 的 `HostPorts`，Electron 实现在 `src/app/main/host-electron.ts`，启动时 `provideHostPorts` 注入，测试由 vitest setupFile 默认注入。模块访问数据库、存储目录和主窗口同样经 `HostPorts`；模块的 `main/` 可以直接用 Electron。决策见 ADR [0013](adr/0013-host-ports.md)、[0016](adr/0016-core-host-boundary.md)。
 - Agent 内核在 `src/core`（`agent`、`capabilities`、`remote`），由 `tsconfig.core.json` 单独做类型检查，引用 core 之外的源码会报错；它的 IPC 注册在 `src/app/main/agent-ipc.ts`。core 用到、但不属于移动端协议的视图类型放在 `core/protocol` 的独立文件里（`llm`、`capabilities`、`remote`、`changes`、`workbench`），不进 JSON Schema，也不带版本。
 - 测试与被测代码同层，放在源码旁或同目录的 `test/` 子目录。core 的测试可以引用 main 的实现做集成夹具。
@@ -267,12 +265,12 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 - 安装包体积：`dependencies` 只留主进程运行时要加载的包（electron-builder 会把它连闭包原样收进 asar），渲染层依赖放 devDependencies——放错边等于把 npm 目录再装一遍。
 - PDF.js 只是 renderer 的构建依赖；主进程不加载它，也不分发原生 canvas。
 
-**引导与条款门**：顺序是 Intro → 条款接受页 → 五步向导 → 能力拓展 → 完成动画。
+**引导与条款门**：顺序是 Intro → 条款接受页 → 向导（各模块登记的步骤 → 模型 → MinerU）→ 完成动画。
 
 - **条款门对所有人成立**，只看有没有同意标记——否则「不同意并退出」再打开就绕过去了。
 - 是否需要配置向导只看当前的完成标记，不根据已有数据库或旧版引导痕迹推断。
 - 门禁读 localStorage（同步、启动就能判），留证追加写数据库（文档名、正文顶部的日期、应用版本与时间，后两项由主进程盖章）。写失败只记日志、不拦用户；记录只追加不改写，因此「同意的是哪一版」可回溯。
-- 「能力拓展」只是首次向导的最后一步，老用户不会再看到；新能力通过 release notes 告知。
+- MinerU 是首次向导的最后一步，可跳过，老用户不会再看到；之后在 设置 › 内置能力 › 文档 配置。新能力通过 release notes 告知。
 - 「导出本机数据」只给已经有本机数据的安装。数据库用 `VACUUM INTO` 取一致快照，水源快照及其密钥不进入备份，其余文件是读取那一刻的样子；**符号链接一律跳过**——没有开发者模式时复刻链接直接 EPERM，会连累整个顶层条目一个文件都复制不出来。目标落在数据目录里面时直接拒绝。
 - 「缓存占用」统计 Chromium 缓存与水源快照缩略图，链接一律不跟，清除前后各量一次（差值为负时夹到 0）。导出本机数据跳过同一份名单。
 
@@ -294,14 +292,13 @@ Apple Silicon 则把校验后的官方 Node 解压到 `.tools/`，保留原目�
 | `pnpm smoke:runtime`                | 离线执行 Pi Bash/grep/find、真实 dela help 桥与平台工具定位   |
 | `pnpm smoke:desktop`                | 原生菜单、关闭/恢复、取消退出后终端仍存活                     |
 | `pnpm smoke:workspace`              | 工作区、模型配置与邮件草稿附件回归（macOS CI 运行）           |
-| `pnpm smoke:documents`              | Apple Silicon 文档组件真实安装与读取（显式联网、隔离数据）    |
 | `pnpm smoke:pdf` / `smoke:shuiyuan` | PDF.js 阅读器 / 水源社区回归                                  |
 | `pnpm smoke:remote`                 | 真窗口远程冒烟：需 `DELA_REMOTE_HOST`，可选 `DELA_REMOTE_KEY` |
 | `pnpm build:helper`                 | 重建远端 helper 静态二进制（`--all` 含 arm64）                |
 | `pnpm fetch:remote-rg`              | 下载上传给远端的 Linux rg 到 `.build/remote-rg`（不入库）     |
 | `pnpm package:dir` / `package:dist` | 未安装的可执行目录 / 当前平台安装产物                         |
 
-`pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`、`smoke:documents`）外不发送真实请求。
+`pnpm smoke` 之外的冒烟脚本、打包后目录的 `--smoke-test`、终端与 agent 冒烟的具体跑法，直接看 `package.json` 的 `scripts`——那里是权威。冒烟使用独立测试目录与脱敏数据，除显式标注联网的（`agent-smoke`）外不发送真实请求。
 
 ## 13. 提交前检查
 
@@ -388,14 +385,13 @@ Rulesets 无法限制 PR 发起人或来源分支，维护者需确认指向 `ma
 
 ### 16.2 跨平台取舍
 
-| 项目           | 当前处理                                                                   | 影响                                                                                         |
-| -------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 核心业务       | 单应用、同一主干与 IPC，功能共用                                           | 新增系统调用、路径假设、外部程序依赖仍需双平台回归                                           |
-| 窗口与退出     | Mac 原生按钮与导航共用一行；两端关闭都隐藏                                 | 只有真正退出才结束终端；Mac 经 Dock 唤回                                                     |
-| Shell 与环境   | 终端用用户的登录 shell；Agent 用 Mac 系统 Bash、SSH、Git，不执行登录 shell | 只写在 Zsh 初始化里的 SDK 环境终端可见、Agent 不一定可见；暂不随包引入另一套 Bash/GNU 工具链 |
-| PPTX 预览      | Mac 仅系统默认应用打开                                                     | Mac 不显示导出按钮，主进程提前拒绝转换                                                       |
-| Agent 文档读取 | 两端共用脚本与锁文件，安装器按平台选运行时                                 | 扫描件只输出页面图片，不宣称 OCR                                                             |
-| 分发与凭据     | 相同源码生成不同平台产物                                                   | 签名与公证已接入发布，Gatekeeper 首启与两版升级未验收                                        |
+| 项目         | 当前处理                                                                   | 影响                                                                                         |
+| ------------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 核心业务     | 单应用、同一主干与 IPC，功能共用                                           | 新增系统调用、路径假设、外部程序依赖仍需双平台回归                                           |
+| 窗口与退出   | Mac 原生按钮与导航共用一行；两端关闭都隐藏                                 | 只有真正退出才结束终端；Mac 经 Dock 唤回                                                     |
+| Shell 与环境 | 终端用用户的登录 shell；Agent 用 Mac 系统 Bash、SSH、Git，不执行登录 shell | 只写在 Zsh 初始化里的 SDK 环境终端可见、Agent 不一定可见；暂不随包引入另一套 Bash/GNU 工具链 |
+| PPTX 预览    | Mac 仅系统默认应用打开                                                     | Mac 不显示导出按钮，主进程提前拒绝转换                                                       |
+| 分发与凭据   | 相同源码生成不同平台产物                                                   | 签名与公证已接入发布，Gatekeeper 首启与两版升级未验收                                        |
 
 **未验收**：Mac 的实际登录启动、系统级键位冲突、多显示器与动画表现；Windows 实机、真实 SSH 与 VS Code Remote-SSH 链路。模拟的平台分支测试不能替代实机回归。
 

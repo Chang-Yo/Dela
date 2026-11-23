@@ -36,7 +36,7 @@ vi.mock('../../../../core/capabilities/command-server', () => ({
 vi.mock('../../../../core/capabilities/skills', () => ({
   builtinSkillsDirectory: () => 'C:\\skills',
   ensureBuiltinSkills: () => {},
-  effectiveDisabledSkills: () => new Set<string>(),
+  readDisabledSkills: () => new Set<string>(),
   globalSkillDirectories: () => ['C:\\skills'],
   readDisabledSkillPaths: () => new Set<string>(),
 }));
@@ -86,6 +86,7 @@ describe('远程会话环境', () => {
         'grep',
         'ls',
         'read',
+        'read_document',
         'session_read',
         'session_search',
         'web_fetch',
@@ -118,6 +119,7 @@ describe('本地会话环境', () => {
     state.remote = false;
     const options = await agentEnvironment().sessionOptions('p-local', 'E:\\proj');
     expect(names(options.customTools)).toEqual([
+      'read_document',
       'session_read',
       'session_search',
       'web_fetch',

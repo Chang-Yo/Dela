@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DeepSeekError, fetchDeepSeek, searchDeepSeek } from '../deepseek';
+import { fetchDeepSeek, searchDeepSeek } from '../deepseek';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -33,10 +33,7 @@ describe('deepseek search', () => {
       'fetch',
       vi.fn().mockResolvedValue(new Response('{"error":{"message":"limited"}}', { status: 429 })),
     );
-    const error = await searchDeepSeek('q', 3, 'k').catch((cause: unknown) => cause);
-    expect(error).toBeInstanceOf(DeepSeekError);
-    expect((error as DeepSeekError).status).toBe(429);
-    expect((error as DeepSeekError).message).toContain('429');
+    await expect(searchDeepSeek('q', 3, 'k')).rejects.toThrow('HTTP 429');
   });
 });
 

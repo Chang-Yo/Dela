@@ -8,12 +8,6 @@ import { registerWorkspaceSource } from '../sources';
 import { attachmentResourceResolver, mailResourceResolver } from '../../../mail/main/resources';
 import { registerResourceResolver } from '../../../../core/capabilities/resources';
 
-vi.mock('../../../preview', () => ({
-  DOCUMENT_SKILL: 'document-reading',
-  assertDocumentDependency: vi.fn(),
-  documentPython: () => 'component/python.exe',
-}));
-vi.mock('node:fs/promises', () => ({ mkdtemp: vi.fn(), rm: vi.fn() }));
 vi.mock('../../../mail/main/api', () => ({
   readMailMessage: vi.fn(),
   saveMailAttachment: vi.fn(),
@@ -31,7 +25,7 @@ registerResourceResolver('attachment', attachmentResourceResolver);
 
 const parentId = 'a03d4e01-ae55-4168-8572-ef88cb9f2e10';
 afterEach(() => vi.resetAllMocks());
-provideTestHostPorts({ paths: { temp: () => 'temp' } });
+provideTestHostPorts({});
 const open = () => vi.mocked(hostPorts().desktop.open);
 
 describe('copyResourceToProject', () => {

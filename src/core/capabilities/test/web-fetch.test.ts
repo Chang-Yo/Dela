@@ -1,36 +1,7 @@
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchWebPage } from '../web-fetch';
-import { provideTestHostPorts } from '../../test/host-mock';
-import { registerDocumentReader } from '../documents';
 
-const profile = vi.hoisted(() => ({ root: '' }));
-profile.root = mkdtempSync(join(tmpdir(), 'dela-web-document-'));
-provideTestHostPorts({ paths: { userData: () => profile.root, temp: () => profile.root } });
-registerDocumentReader({
-  skill: 'document-reading',
-  dependency: () => ({ status: 'ready' }),
-  verify: async () => {},
-  prepare: async (writeInput) => {
-    const job = await mkdtemp(join(profile.root, 'job-'));
-    const input = join(job, 'input');
-    await writeInput(input);
-    return {
-      jobId: basename(job),
-      python: 'component/python.exe',
-      script: 'read.py',
-      input,
-      output: join(job, 'output'),
-    };
-  },
-});
-const releaseJob = (document: { input: string }) =>
-  rm(dirname(document.input), { recursive: true, force: true });
 afterEach(() => vi.unstubAllGlobals());
-afterAll(() => rm(profile.root, { recursive: true, force: true }));
 
 describe('web_fetch', () => {
   it('保留标题、链接、表格与代码，过滤导航和脚本', async () => {
@@ -80,7 +51,7 @@ describe('web_fetch', () => {
     expect(first.truncated).toBe(false);
   });
 
-  it('纯文本保持原样，PDF 返回完整临时任务而不在主进程解析', async () => {
+  it('纯文本保持原样，不是网页的地址直接报错', async () => {
     vi.stubGlobal(
       'fetch',
       vi
@@ -93,95 +64,7 @@ describe('web_fetch', () => {
         ),
     );
     expect((await fetchWebPage('https://example.com/text')).text).toBe('普通 <文本>');
-    const pdf = await fetchWebPage('https://example.com/file.pdf');
-    expect(pdf).toMatchObject({
-      title: null,
-      text: '',
-      readable: false,
-      nextOffset: null,
-      truncated: false,
-      document: { python: 'component/python.exe', jobId: expect.stringMatching(/^job-/) },
-    });
-    expect(await readFile(pdf.document!.input, 'utf8')).toBe('%PDF-');
-    await releaseJob(pdf.document!);
-  });
-
-  it('识别分块响应中的 PDF 文件头，并保留超过网页 2 MiB 上限的完整文件', async () => {
-    const contents = Buffer.concat([
-      Buffer.from('%PDF-1.7\n'),
-      Buffer.alloc(2 * 1024 * 1024 + 10, 65),
-    ]);
-    const chunks = [contents.subarray(0, 2), contents.subarray(2, 5), contents.subarray(5)];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          new ReadableStream({
-            pull(controller) {
-              const chunk = chunks.shift();
-              if (chunk) controller.enqueue(chunk);
-              else controller.close();
-            },
-          }),
-          { headers: { 'content-type': 'application/octet-stream' } },
-        ),
-      ),
-    );
-    const pdf = await fetchWebPage('https://example.com/download');
-    expect(pdf.readable).toBe(false);
-    expect(pdf.truncated).toBe(false);
-    expect((await readFile(pdf.document!.input)).equals(contents)).toBe(true);
-    await releaseJob(pdf.document!);
-  });
-
-  it('PDF 重定向只下载一次，任务记录最终来源地址', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(null, { status: 302, headers: { location: '/download' } }),
-      )
-      .mockResolvedValueOnce(
-        new Response('%PDF-1.7', { headers: { 'content-type': 'application/pdf' } }),
-      );
-    vi.stubGlobal('fetch', fetch);
-    const pdf = await fetchWebPage('https://example.com/start');
-    expect(pdf.source.url).toBe('https://example.com/download');
-    expect(fetch).toHaveBeenCalledTimes(2);
-    await releaseJob(pdf.document!);
-  });
-
-  it('下载中断时抛出原始错误', async () => {
-    let pulls = 0;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          new ReadableStream({
-            pull(controller) {
-              if (pulls++ === 0) controller.enqueue(Buffer.from('%PDF-1.7'));
-              else controller.error(new Error('download interrupted'));
-            },
-          }),
-          { headers: { 'content-type': 'application/pdf' } },
-        ),
-      ),
-    );
-    await expect(fetchWebPage('https://example.com/file')).rejects.toThrow('download interrupted');
-  });
-
-  it('PDF 超过下载上限时明确失败', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response('%PDF-', {
-          headers: {
-            'content-type': 'application/pdf',
-            'content-length': String(128 * 1024 * 1024 + 1),
-          },
-        }),
-      ),
-    );
-    await expect(fetchWebPage('https://example.com/large')).rejects.toThrow('128 MiB');
+    await expect(fetchWebPage('https://example.com/file.pdf')).rejects.toThrow('不是网页');
   });
 
   it('普通网页仍按 2 MiB 截断并说明内容不完整', async () => {

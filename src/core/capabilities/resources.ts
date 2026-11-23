@@ -26,6 +26,16 @@ export function resourceResolver(type: string): ResourceResolver {
   return resolver;
 }
 
+export async function withResourceFile<T>(
+  source: ResourceAddress,
+  consume: (path: string) => Promise<T> | T,
+): Promise<T> {
+  const resolver = resourceResolver(source.type);
+  if (resolver.path) return consume(await resolver.path(source));
+  if (!resolver.withFile) throw new Error('该资源没有对应的文件');
+  return resolver.withFile(source, consume);
+}
+
 /** 已登记的地址写法，拼进读取命令的说明。 */
 export function resourceAddressGuide(): string {
   return [...resolvers].map(([type, resolver]) => `- ${type}：${resolver.description}`).join('\n');

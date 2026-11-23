@@ -29,7 +29,7 @@ export function documentHint(ref: ResourceAddress, title: string, format: string
     readable: false,
     totalCharacters: null,
     nextOffset: null,
-    hint: '使用 document-reading skill：先调用 dela prepare_document 获取临时文件和工具路径，再提取正文或查看页面图片；未安装时在设置 › Skills 安装文档读取组件。',
+    hint: '二进制文档用 read_document 工具读取正文，ref 原样传入；工具未开启时在 设置 › 内置能力 › 文档 配置 MinerU Token。',
   };
 }
 
@@ -118,7 +118,7 @@ export const resourceDomain = {
   commands: {
     read_resource: {
       get description() {
-        return `按资源地址读取正文，按字符分页；图片直接附图，HTML 保留原始链接标记，Office/PDF 等二进制文档返回 document-reading skill 的读取指引。可用的地址：\n${resourceAddressGuide()}`;
+        return `按资源地址读取正文，按字符分页；图片直接附图，HTML 保留原始链接标记，Office/PDF 等二进制文档返回 read_document 工具的读取指引。可用的地址：\n${resourceAddressGuide()}`;
       },
       schema: readResourceSchema,
       execute: readResource,

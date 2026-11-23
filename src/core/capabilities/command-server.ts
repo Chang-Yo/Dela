@@ -3,11 +3,11 @@ import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { enabledCommandDomains } from './commands';
-import { effectiveDisabledSkills } from './skills';
+import { readDisabledSkills } from './skills';
 
 function availableCommands() {
   return new Map(
-    enabledCommandDomains(effectiveDisabledSkills()).flatMap((domain) =>
+    enabledCommandDomains(readDisabledSkills()).flatMap((domain) =>
       Object.entries(domain.commands),
     ),
   );

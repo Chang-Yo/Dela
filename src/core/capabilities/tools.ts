@@ -2,12 +2,13 @@
 // 新建会话时作为 excludeTools 交给 Pi；read/write/edit/bash 是 agent 最小工具集，不可关闭。
 // 联网搜索默认关闭：它要求用户自备搜索服务，未注册时调用只会报错。
 // 读取网页默认开启：它不依赖任何注册，只受 web_fetch 自身的安全边界约束。
+// 读取文档默认关闭：文档要上传到 MinerU，用户保存 Token 时才开启。
 import { z } from 'zod';
 import type { AgentCapabilityView } from '../protocol/capabilities';
 import { hostPorts } from '../ports';
 
 const KEY = 'tools-disabled';
-const DEFAULT_DISABLED = ['web_search'];
+const DEFAULT_DISABLED = ['web_search', 'read_document'];
 
 const tools: Omit<AgentCapabilityView, 'enabled'>[] = [
   {
@@ -72,9 +73,16 @@ const tools: Omit<AgentCapabilityView, 'enabled'>[] = [
   {
     name: 'web_fetch',
     label: '读取网页',
-    description: '读取网页；PDF 直链交给文档读取 Skill（需安装组件）',
+    description: '读取网页正文，转为 Markdown',
     domain: 'web',
     domainLabel: '网络',
+  },
+  {
+    name: 'read_document',
+    label: '读取文档',
+    description: '上传到 MinerU 解析 PDF、Word、PowerPoint 与 Excel（需配置 MinerU Token）',
+    domain: 'document',
+    domainLabel: '文档',
   },
   {
     name: 'task',

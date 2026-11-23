@@ -30,15 +30,14 @@ import {
   listSkills,
   readSkill,
   revealSkill,
-  setGlobalSkillEnabled,
   setSkillEnabled,
   skillDirectory,
 } from '../../core/capabilities/skills';
 import {
-  DOCUMENT_SKILL,
-  cancelDocumentInstallation,
-  installDocumentDependency,
-} from '../../modules/preview';
+  hasDocumentToken,
+  removeDocumentToken,
+  saveDocumentToken,
+} from '../../core/capabilities/documents';
 import { remoteById, targetOf } from '../../modules/remotes';
 import { uploadSkillToRemote } from '../../core/remote/context';
 import { remoteProjectOf } from '../../modules/workspace';
@@ -121,18 +120,6 @@ const llm = implement(llmContract, {
 
 const capabilities = implement(capabilitiesContract, {
   listSkills: () => listSkills(),
-  installSkillDependencies: (skill) => {
-    z.literal(DOCUMENT_SKILL).parse(skill);
-    return invalidating(async () => {
-      await installDocumentDependency();
-      await setGlobalSkillEnabled(DOCUMENT_SKILL, true);
-      return listSkills();
-    });
-  },
-  cancelSkillInstallation: (skill) => {
-    z.literal(DOCUMENT_SKILL).parse(skill);
-    cancelDocumentInstallation();
-  },
   setSkillEnabled: ({ id, enabled }) => invalidating(() => setSkillEnabled(id, enabled)),
   readSkill,
   revealSkill,
@@ -146,7 +133,6 @@ const capabilities = implement(capabilitiesContract, {
         .max(100)
         .refine((value) => !/[/\\]/.test(value) && value !== '.' && value !== '..')
         .parse(found.name);
-      if (skillName === DOCUMENT_SKILL) throw new Error('文档读取组件仅在本机使用');
       const project = remoteProjectOf(remotePath);
       if (!project) throw new Error('目标不是远端项目路径');
       return uploadSkillToRemote({
@@ -168,6 +154,17 @@ const capabilities = implement(capabilitiesContract, {
     changingWebSearch(() => setBuiltinCapabilities([name], enabled)),
   setBuiltinDomain: ({ domain, enabled }) =>
     changingWebSearch(() => setBuiltinCapabilities(domainTools(domain), enabled)),
+  hasDocumentToken: () => hasDocumentToken(),
+  saveDocumentToken: (token) =>
+    invalidating(async () => {
+      await saveDocumentToken(token);
+      return setBuiltinCapabilities(['read_document'], true);
+    }),
+  removeDocumentToken: () =>
+    invalidating(() => {
+      removeDocumentToken();
+      return setBuiltinCapabilities(['read_document'], false);
+    }),
   subagentLimit: () => readSubagentLimit(),
   setSubagentLimit,
   listWebSearchEntries: () => listWebSearchEntries(),

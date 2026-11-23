@@ -38,7 +38,6 @@
     "smoke:runtime": "node scripts/run-ts-smoke.ts runtime-smoke",
     "smoke:desktop": "electron scripts/desktop-smoke.cjs",
     "smoke:workspace": "node scripts/run-ts-smoke.ts workspace-smoke",
-    "smoke:documents": "node scripts/run-ts-smoke.ts document-runtime-smoke",
     "smoke:shuiyuan": "electron scripts/shuiyuan-smoke.cjs && electron scripts/shuiyuan-auth-smoke.cjs",
     "smoke:remote": "node scripts/run-ts-smoke.ts remote-smoke",
     "prepare:runtime": "node scripts/prepare-runtime.ts"
@@ -80,6 +79,7 @@
     "@types/node": "24.9.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
+    "@types/yauzl": "3.4.0",
     "@types/yazl": "3.3.0",
     "@vitejs/plugin-react": "6.1.1",
     "@xterm/addon-fit": "0.11.0",
@@ -112,6 +112,7 @@
     "vite": "8.2.2",
     "vitest": "5.0.0",
     "xlsx": "file:vendor/xlsx/xlsx-0.20.3.tgz",
+    "yauzl": "3.4.0",
     "zustand": "5.0.15"
   }
 }

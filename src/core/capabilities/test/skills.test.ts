@@ -1,5 +1,5 @@
 // 设置页的 Skills 清单：内置与本机目录分开；每个本地项目各自成组，按 SKILL.md 路径开关，
-// 同名 Skill 互不牵连；文档读取在装好组件前不能开启。
+// 同名 Skill 互不牵连。
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -16,17 +16,10 @@ vi.mock('electron', () => ({ app: { getPath: () => home }, shell: {} }));
 
 import { provideTestHostPorts } from '../../test/host-mock';
 import { registerCommandDomain } from '../commands';
-import { registerDocumentReader } from '../documents';
-import {
-  effectiveDisabledSkills,
-  listSkills,
-  readDisabledSkillPaths,
-  readDisabledSkills,
-  setSkillEnabled,
-} from '../skills';
+import { listSkills, readDisabledSkillPaths, readDisabledSkills, setSkillEnabled } from '../skills';
 
 function registerBuiltins(register: typeof registerCommandDomain) {
-  for (const name of ['canvas', 'document-reading']) {
+  for (const name of ['canvas']) {
     const content = `---
 name: ${name}
 description: ${name} skill
@@ -41,14 +34,6 @@ description: ${name} skill
   }
 }
 registerBuiltins(registerCommandDomain);
-registerDocumentReader({
-  skill: 'document-reading',
-  dependency: () => ({ status: 'missing' }),
-  verify: async () => {},
-  prepare: async () => {
-    throw new Error('用例不准备文档');
-  },
-});
 
 function writeSkill(dir: string, name: string) {
   const path = join(dir, name, 'SKILL.md');
@@ -79,14 +64,6 @@ beforeEach(() => {
 afterAll(() => {
   rmSync(home, { recursive: true, force: true });
   rmSync(projects, { recursive: true, force: true });
-});
-
-it('writes the document skill but excludes it until its dependencies are installed', async () => {
-  const [document] = await byName('document-reading');
-  expect(document).toMatchObject({ enabled: false, dependency: { status: 'missing' } });
-  expect(effectiveDisabledSkills().has('document-reading')).toBe(true);
-  await expect(setSkillEnabled(document!.id, true)).rejects.toThrow('安装文档读取组件');
-  expect((await byName('document-reading'))[0]?.enabled).toBe(false);
 });
 
 describe('分组', () => {

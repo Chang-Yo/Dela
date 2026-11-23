@@ -1,9 +1,11 @@
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { workspaceEntryIdSchema } from '../contract';
-import { resourceAddressSchema, resourceResolver } from '../../../core/capabilities/resources';
-import type { ResourceAddress } from '../../../core/protocol/workbench';
+import {
+  resourceAddressSchema,
+  resourceResolver,
+  withResourceFile,
+} from '../../../core/capabilities/resources';
 import { entry, importWorkspaceFiles, workspaceFilePath } from './api';
 import { localFileFormat, textRevision } from './files';
 import { workspaceSource } from './sources';
@@ -14,7 +16,6 @@ import {
   isTextContent,
 } from '../../../core/protocol/files';
 import { hostPorts } from '../../../core/ports';
-import { DOCUMENT_SKILL, assertDocumentDependency, documentPython } from '../../preview';
 
 export interface ResourceContent {
   title: string;
@@ -54,61 +55,6 @@ export async function readWorkspaceResource(id: string): Promise<ResourceContent
   if (!isTextContent(bytes)) return { title: item.name, format: 'file' };
   const content = bytes.toString('utf8');
   return { title: item.name, format, text: content, revision: textRevision(content) };
-}
-
-const documentJobs = () => join(hostPorts().paths.temp(), 'dela-document-reading');
-const jobIdSchema = z.string().regex(/^job-[A-Za-z0-9]{6}$/);
-
-export async function prepareDocumentResource(ref: ResourceAddress) {
-  return prepareDocumentFile((input) => withResourceFile(ref, (path) => copyFile(path, input)));
-}
-
-export async function prepareDocumentFile(writeInput: (path: string) => Promise<void>) {
-  assertDocumentDependency();
-  const root = documentJobs();
-  await mkdir(root, { recursive: true });
-  for (const entry of await readdir(root, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !jobIdSchema.safeParse(entry.name).success) continue;
-    const path = join(root, entry.name);
-    if (Date.now() - (await stat(path)).mtimeMs > 24 * 60 * 60 * 1000)
-      await rm(path, { recursive: true, force: true });
-  }
-  const job = await mkdtemp(join(root, 'job-'));
-  try {
-    const input = join(job, 'input');
-    await writeInput(input);
-    return {
-      jobId: basename(job),
-      python: documentPython(),
-      script: join(
-        hostPorts().paths.home(),
-        '.dela',
-        'skills',
-        DOCUMENT_SKILL,
-        'scripts',
-        'read.py',
-      ),
-      input,
-      output: join(job, 'output'),
-    };
-  } catch (error) {
-    await rm(job, { recursive: true, force: true });
-    throw error;
-  }
-}
-
-export async function releaseDocumentResource(jobId: unknown): Promise<void> {
-  await rm(join(documentJobs(), jobIdSchema.parse(jobId)), { recursive: true, force: true });
-}
-
-export async function withResourceFile<T>(
-  source: ResourceAddress,
-  consume: (path: string) => Promise<T> | T,
-): Promise<T> {
-  const resolver = resourceResolver(source.type);
-  if (resolver.path) return consume(await resolver.path(source));
-  if (!resolver.withFile) throw new Error('该资源没有对应的文件');
-  return resolver.withFile(source, consume);
 }
 
 export async function copyResourceToProject(input: unknown) {

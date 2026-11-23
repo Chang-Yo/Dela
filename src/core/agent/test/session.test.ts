@@ -112,16 +112,6 @@ import { readChatAttachment, stageChatMedia } from '../media';
 import * as changes from '../changes';
 import { coreSchema } from '../../data/schema';
 import { provideTestHostPorts } from '../../test/host-mock';
-import { registerDocumentReader } from '../../capabilities/documents';
-
-registerDocumentReader({
-  skill: 'document-reading',
-  dependency: () => ({ status: 'ready' }),
-  verify: async () => {},
-  prepare: async () => {
-    throw new Error('用例不准备文档');
-  },
-});
 
 beforeAll(preloadPi);
 
@@ -174,6 +164,7 @@ beforeEach(() => {
   state.projects.clear();
   state.db = new Database(':memory:');
   state.db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  state.db.exec("INSERT INTO workspace_settings VALUES ('tools-disabled', '[]')");
   for (const table of coreSchema.tables) state.db.exec(table);
 });
 
@@ -322,7 +313,7 @@ it('sends document-only messages as file references instead of decoding binary b
     context: [],
     comments: [],
   });
-  expect(state.prompts[0]).toContain('document-reading skill');
+  expect(state.prompts[0]).toContain('read_document 工具');
   expect(state.prompts[0]).toContain(JSON.stringify(attachment.path));
   expect(state.prompts[0]).not.toContain(bytes.toString('utf8'));
   expect(response.messages[0]).toMatchObject({
@@ -349,7 +340,7 @@ it('文档附件按会话归属判断远程：本地路径落在远程项目根�
       comments: [],
     });
   await ask(newSession(null).sessionId!);
-  expect(state.prompts[0]).toContain('document-reading skill');
+  expect(state.prompts[0]).toContain('read_document 工具');
   await expect(ask(newSession('remote-project').sessionId!)).rejects.toThrow(
     '文档附件目前只支持本机会话',
   );

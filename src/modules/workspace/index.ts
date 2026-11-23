@@ -89,14 +89,7 @@ export {
   resourceDomain,
   workspaceResourceResolver,
 } from './main/read-resource';
-export {
-  prepareDocumentFile,
-  prepareDocumentResource,
-  readWorkspaceResource,
-  releaseDocumentResource,
-  withResourceFile,
-  type ResourceContent,
-} from './main/resources';
+export { readWorkspaceResource, type ResourceContent } from './main/resources';
 export { attachContextMenu } from './main/context-menu';
 export { availablePath, diskName } from './main/disk-name';
 export { localFileFormat, textRevision } from './main/files';
