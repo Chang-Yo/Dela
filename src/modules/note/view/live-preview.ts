@@ -208,6 +208,7 @@ const markClasses: Record<string, string> = {
   Strikethrough: 'cm-md-strike',
   InlineCode: 'cm-md-code',
   Link: 'cm-md-link',
+  URL: 'cm-md-link',
 };
 const marks = Object.fromEntries(
   Object.entries(markClasses).map(([name, className]) => [name, mark(className)]),
@@ -226,7 +227,6 @@ const hiddenMarks = new Set([
   'StrikethroughMark',
   'CodeMark',
   'LinkMark',
-  'URL',
   'LinkTitle',
   'QuoteMark',
 ]);
@@ -250,6 +250,17 @@ function touches(state: EditorState, from: number, to: number): boolean {
 
 type SyntaxNode = ReturnType<typeof syntaxTree>['topNode'];
 
+function shouldHideMarkup(state: EditorState, node: SyntaxNode): boolean {
+  if (node.name !== 'URL') return hiddenMarks.has(node.name);
+  if (node.parent?.name === 'LinkReference') return true;
+  const before = node.prevSibling;
+  return (
+    node.parent?.name === 'Link' &&
+    before?.name === 'LinkMark' &&
+    state.sliceDoc(before.from, before.to) === '('
+  );
+}
+
 function cellSegments(state: EditorState, cell: SyntaxNode): Segment[] {
   const pieces: { from: number; to: number; className: string }[] = [];
   const walk = (node: SyntaxNode, className: string) => {
@@ -260,7 +271,7 @@ function cellSegments(state: EditorState, cell: SyntaxNode): Segment[] {
     for (let child = node.firstChild; child; child = child.nextSibling) {
       text(pos, child.from);
       if (child.name === 'Escape') text(child.from + 1, child.to);
-      else if (!hiddenMarks.has(child.name))
+      else if (!shouldHideMarkup(state, child))
         walk(child, [className, markClasses[child.name]].filter(Boolean).join(' '));
       pos = child.to;
     }
@@ -509,7 +520,7 @@ function build(view: EditorView, resolveImage: ImageResolver): DecorationSet {
         const style = marks[name];
         if (style && node.to > node.from)
           ranges.push({ from: node.from, to: node.to, value: style });
-        if (!editing && hiddenMarks.has(name) && node.to > node.from) {
+        if (!editing && shouldHideMarkup(state, node.node) && node.to > node.from) {
           const after =
             name === 'HeaderMark' && state.sliceDoc(node.to, node.to + 1) === ' ' ? 1 : 0;
           ranges.push({ from: node.from, to: node.to + after, value: hidden });
