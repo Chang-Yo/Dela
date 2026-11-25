@@ -5,10 +5,10 @@ import { useDismissOnOutsidePointer } from '../../../ui/hooks/use-dismiss-on-out
 import { CollapsibleChevron } from '../../../ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip';
 import {
-  Cloud,
+  MessageCirclePlus,
+  Server,
   Folder,
   FolderOpen,
-  House,
   MoreHorizontal,
   Plus,
   SquarePen,
@@ -150,7 +150,7 @@ export function ProjectSessionNav({
   ) => {
     const key = project.id;
     const label = project.name;
-    const Icon = project.remoteId ? Cloud : Folder;
+    const Icon = project.remoteId ? Server : Folder;
     const accent = project.remoteId ? { color: remoteAccent(project.remoteId, 'text') } : undefined;
     const expanded = openProjects.includes(key);
     const full = fullSessionLists.includes(key);
@@ -381,8 +381,8 @@ export function ProjectSessionNav({
           onClick={onOpenGeneralChat}
           type="button"
         >
-          <House className={navIcon(generalChatActive)} strokeWidth={1.8} />
-          <span className={hidden}>首页</span>
+          <MessageCirclePlus className={navIcon(generalChatActive)} strokeWidth={1.8} />
+          <span className={hidden}>新对话</span>
         </button>
         {visibleEntries.map((item) => {
           const Icon = item.icon;

@@ -9,7 +9,6 @@ import {
   CodeXml,
   Copy,
   FolderOpen,
-  House,
   Menu,
   MessageCirclePlus,
   Minus,
@@ -387,12 +386,12 @@ export function AppShell({
                 variant="ghost"
                 size="icon-sm"
                 aria-current={view === 'home' ? 'page' : undefined}
-                aria-label="首页"
+                aria-label="新对话"
 
                 onClick={onOpenGeneralChat}
-                title="首页"
+                title="新对话"
               >
-                <House strokeWidth={1.8} />
+                <MessageCirclePlus strokeWidth={1.8} />
               </Button>
               {visibleEntries.map((item) => {
                 const Icon = item.icon;
