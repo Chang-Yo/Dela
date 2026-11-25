@@ -1,5 +1,5 @@
 // 引导的插件页与 设置 › 通用 共用的 magpie 插件安装按钮和结果提示。
-import { useMutation } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ExternalLink } from 'lucide-react';
 import { errorMessage } from '../../../core/protocol/contract';
 import { Button } from '../../../ui/button';
@@ -8,15 +8,36 @@ import { Spinner } from '../../../ui/spinner';
 import { onboardingClient } from './client';
 
 const MAGPIE_SITE = 'https://usemagpie.ai';
+const magpieKey = ['onboarding', 'magpie-plugin'];
 
 export function useMagpieInstall() {
-  return useMutation({ mutationFn: () => onboardingClient.installMagpiePlugin() });
+  const queryClient = useQueryClient();
+  const installing = useIsMutating({ mutationKey: magpieKey }) > 0;
+  const status = useQuery({
+    queryKey: magpieKey,
+    queryFn: () => onboardingClient.magpiePluginStatus(),
+    enabled: Boolean(window.dela) && !installing,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+  const mutation = useMutation({
+    mutationKey: magpieKey,
+    mutationFn: () => onboardingClient.installMagpiePlugin(),
+    onMutate: () => queryClient.cancelQueries({ queryKey: magpieKey }),
+    onSuccess: (installed) => {
+      queryClient.setQueryData(magpieKey, installed ? 'installed' : 'unavailable');
+      void queryClient.invalidateQueries({ queryKey: magpieKey });
+    },
+  });
+  return { status, mutation, installing };
 }
 
 type MagpieInstall = ReturnType<typeof useMagpieInstall>;
 
 export function MagpieInstallButton({ install }: { install: MagpieInstall }) {
-  if (install.data === true) {
+  const { status, mutation, installing } = install;
+  const busy = installing || status.isFetching;
+  if (!installing && !status.isError && status.data === 'installed') {
     return (
       <span className="flex items-center gap-1.5 text-xs text-ink-3">
         <Check className="size-4 text-success" />
@@ -28,24 +49,21 @@ export function MagpieInstallButton({ install }: { install: MagpieInstall }) {
     <Button
       size="sm"
       variant="outline"
-      disabled={install.isPending || !window.dela}
-      onClick={() => install.mutate()}
+      disabled={busy || !window.dela}
+      onClick={() => mutation.mutate()}
     >
-      {install.isPending && <Spinner />}
-      {install.isPending ? '安装中…' : install.isIdle ? '安装' : '重试'}
+      {busy && <Spinner />}
+      {busy ? '处理中…' : '安装'}
     </Button>
   );
 }
 
 export function MagpieInstallStatus({ install }: { install: MagpieInstall }) {
-  if (install.data === true) {
-    return (
-      <p className="text-xs leading-relaxed text-ink-3">
-        在 magpie 的 Agents 页面打开 Dela 即可连接。
-      </p>
-    );
-  }
-  if (install.data === false) {
+  const { status, mutation, installing } = install;
+  if (installing) return null;
+  if (status.isError) return <ErrorText>检测失败：{errorMessage(status.error)}</ErrorText>;
+  if (status.data === 'installed') return null;
+  if (status.data === 'unavailable') {
     return (
       <div className="grid gap-2">
         <ErrorText>
@@ -64,6 +82,6 @@ export function MagpieInstallStatus({ install }: { install: MagpieInstall }) {
       </div>
     );
   }
-  if (install.isError) return <ErrorText>{errorMessage(install.error)}</ErrorText>;
+  if (mutation.isError) return <ErrorText>{errorMessage(mutation.error)}</ErrorText>;
   return null;
 }

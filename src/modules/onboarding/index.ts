@@ -3,7 +3,7 @@ import { defineModule } from '../../app/module';
 import { implement } from '../../core/protocol/contract';
 import { hasConsented, readSetting, writeSetting } from '../settings';
 import { onboardingContract } from './contract';
-import { installMagpiePlugin } from './main/magpie';
+import { installMagpiePlugin, magpiePluginStatus } from './main/magpie';
 
 const completedKey = 'onboarding-completed';
 
@@ -13,5 +13,6 @@ export const onboardingModule = defineModule({
     state: () => ({ consented: hasConsented(), completed: readSetting(completedKey) === '1' }),
     complete: () => writeSetting(completedKey, '1'),
     installMagpiePlugin,
+    magpiePluginStatus,
   }),
 });
