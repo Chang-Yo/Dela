@@ -11,4 +11,8 @@ export const onboardingContract = defineContract('onboarding', {
   state: { input: z.undefined(), output: z.custom<OnboardingState>() },
   complete: { input: z.undefined(), output: z.void() },
   installMagpiePlugin: { input: z.undefined(), output: z.boolean() },
+  magpiePluginStatus: {
+    input: z.undefined(),
+    output: z.enum(['installed', 'not-installed', 'unavailable']),
+  },
 });

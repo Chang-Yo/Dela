@@ -143,7 +143,8 @@ function onEvent(id: string, entry: Live, event: AgentSessionEvent) {
     case 'tool_execution_update': {
       const step = steps.get(event.toolCallId);
       if (step) step.output = toolOutput(event.partialResult ?? {});
-      stream(id, entry);
+      if (event.toolName === 'task') publish(id);
+      else stream(id, entry);
       break;
     }
     case 'tool_execution_end': {
