@@ -519,7 +519,7 @@ export function WorkbenchExplorer({
         </div>
       </aside>
       <Resizable
-        className={cn('bg-transparent', !visible && 'hidden')}
+        className={narrow || !visible ? 'hidden' : undefined}
         label="调整目录宽度"
         // 拖拽绑定用户偏好值与原上限：渲染宽度另有视口钳制，若把钳制值当 max，
         // 窄窗下 min==max==value 会把拖拽完全锁死，还会把钳制值写回偏好。

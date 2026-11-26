@@ -312,7 +312,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_1px_minmax(0,1fr)] grid-rows-[env(titlebar-area-height,2.5rem)_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-slow ease-(--ease-out-strong)',
+        'relative grid h-dvh grid-cols-[var(--sidebar-width)_0px_auto_minmax(0,1fr)] grid-rows-[env(titlebar-area-height,2.5rem)_minmax(0,1fr)] bg-page text-ink transition-[grid-template-columns] duration-slow ease-(--ease-out-strong)',
         sidebarResizing && 'transition-none',
       )}
       style={
@@ -603,7 +603,7 @@ export function AppShell({
         <div
           className={cn(
             'flex min-h-0 flex-1 flex-col',
-            narrow ? cn('min-w-0', drawer === 'page' && 'hidden') : 'px-2',
+            narrow ? cn('min-w-0', drawer === 'page' && 'hidden') : 'pl-2',
           )}
           style={narrow ? undefined : { width: effectiveSidebarWidth }}
         >
@@ -729,9 +729,7 @@ export function AppShell({
       </aside>
       <Resizable
         className={cn(
-          'col-start-3 row-start-2 bg-transparent',
-          // 折叠/窄屏时间隔条整体隐藏（网格列为固定 1px，不影响布局）：
-          // 仅 pointer-events-none 时键盘仍可聚焦，方向键调整是看不见的假反馈。
+          'col-start-3 row-start-2 w-1 hover:before:bg-line-strong',
           (sidebarCollapsed || narrow) && 'hidden',
         )}
         label="调整侧边栏宽度"
@@ -743,11 +741,10 @@ export function AppShell({
         onResizingChange={setSidebarResizing}
         value={sidebarWidth}
       />
-      {/* 浮岛卡片：分隔线仅占 1px，拖动命中范围由 Resizable 的透明伪元素扩展。 */}
       <main
         className={cn(
-          'relative col-start-4 row-start-2 mt-1 mr-1.5 flex min-w-0 flex-col overflow-hidden rounded-t-window bg-surface shadow-hairline',
-          'max-md:mt-0 max-md:mr-0 max-md:rounded-none max-md:border-0',
+          'relative col-start-4 row-start-2 mt-1 flex min-w-0 flex-col overflow-hidden rounded-tl-window bg-surface shadow-hairline',
+          'max-md:mt-0 max-md:rounded-none max-md:border-0',
         )}
         id="app-main"
       >
