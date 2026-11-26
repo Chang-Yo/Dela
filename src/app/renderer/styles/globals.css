@@ -64,11 +64,41 @@
     line-height: 1.5;
   }
 
-  /* 仅用 ::-webkit-scrollbar 定制：同时声明 scrollbar-width/color 会让 Chromium
-     忽略伪元素样式并回退到带箭头的原生滚动条。 */
+  /* scrollbar-width/color 的非默认值会覆盖 Chromium 的滚动条伪元素样式。 */
   *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
+  }
+
+  *::-webkit-scrollbar-button:vertical:decrement:start:enabled,
+  *::-webkit-scrollbar-button:vertical:increment:end:enabled {
+    display: block;
+    height: 10px;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    color: var(--ink-3);
+    background: center / 6px 6px no-repeat padding-box
+      conic-gradient(
+        from var(--arrow-angle) at 50% var(--arrow-tip),
+        transparent,
+        currentColor 7deg 63deg,
+        transparent 70deg
+      );
+  }
+
+  *::-webkit-scrollbar-button:vertical:decrement:start {
+    --arrow-angle: 145deg;
+    --arrow-tip: -0.3px;
+  }
+
+  *::-webkit-scrollbar-button:vertical:increment:end {
+    --arrow-angle: -35deg;
+    --arrow-tip: calc(100% + 0.3px);
+  }
+
+  *::-webkit-scrollbar-button:vertical:decrement:start:enabled:hover,
+  *::-webkit-scrollbar-button:vertical:increment:end:enabled:hover {
+    color: var(--ink-2);
   }
 
   *::-webkit-scrollbar-track {
@@ -87,7 +117,7 @@
   }
 }
 
-/* 滚动容器常驻竖向滚动条槽位：轨道透明，内容增长只淡入滑块，不挤占内容宽度。
+/* 预留竖向滚动条槽位，避免内容增长时挤占内容宽度。
    例外：Radix 浮层内容容器（data-slot 以 -content 结尾）尺寸紧贴内容，排除之。 */
 .overflow-y-auto:not([data-slot$='-content']),
 .overflow-auto:not([data-slot$='-content']) {
