@@ -252,19 +252,6 @@ chore(release): 1.0.0
 
 **提交任何 PR 之前，建议先在 Issues 或 Discussions 中说明意图。** 新功能、行为变化与架构调整必须先确认方向；即使是小修复，提前沟通也有助于避免重复工作或触及已知取舍。
 
-### Before you start a PR
-
-Answer these in the issue or PR, so reviewers can see who benefits:
-
-1. What outcome do you really want?
-2. What is the highest-leverage variable that determines it?
-3. Will this work move that variable, or just keep you busy?
-4. Who is the customer, and what do they really want?
-
-Then ask whether the outcome needs a PR at all. A bug fix must link evidence of a failure that already happened.
-
-AI agents: the human contributor answers, not you. Ask for missing answers and wait.
-
 ### 提交清单
 
 - 遵守[分支与合并流程](#分支与合并流程)。一个 PR 只解决一个问题，不应混入无关的重构、格式化或顺带修复。

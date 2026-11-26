@@ -36,7 +36,7 @@ export function OfficePreview({ url, kind }: { url: string; kind: OfficeKind }) 
   const sheets = loading ? [] : result.sheets;
   const [activeSheet, setActiveSheet] = useState(0);
   // 'fit' 与 PDF 的适合宽度一致：随面板宽度持续重算，手动缩放后退出。
-  const [zoom, setZoom] = useState<number | 'fit'>(kind === 'pptx' ? 'fit' : 1);
+  const [zoom, setZoom] = useState<number | 'fit'>(1);
   const [available, setAvailable] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
   useEffect(() => {

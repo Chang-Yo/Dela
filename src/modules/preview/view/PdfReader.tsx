@@ -85,7 +85,7 @@ export function PdfReader({
     };
     eventBus.on('pagesinit', () => {
       if (disposed) return;
-      instance.currentScaleValue = 'page-width';
+      instance.currentScaleValue = '1';
       const index = Math.min(instance.pagesCount - 1, Math.floor(position.current));
       instance.currentPageNumber = index + 1;
       const page = instance.getPageView(index).div;

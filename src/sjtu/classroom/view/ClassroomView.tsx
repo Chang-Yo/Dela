@@ -141,7 +141,6 @@ function DesktopClassroomView() {
           </aside>
           {!collapsed && (
             <Resizable
-              className={cn('bg-transparent', collapsed && 'hidden')}
               label="调整课程列表宽度"
               max={SIDEBAR_MAX_WIDTH}
               min={SIDEBAR_MIN_WIDTH}

@@ -42,11 +42,11 @@ function Resizable({
       aria-valuemin={min}
       aria-valuenow={value}
       className={cn(
-        'relative touch-none bg-transparent transition-colors focus-visible:outline-none',
+        'flex shrink-0 touch-none justify-center focus-visible:outline-none before:rounded-full before:transition-colors',
         horizontal
-          ? 'cursor-ns-resize before:absolute before:inset-x-0 before:-inset-y-2.5'
-          : 'cursor-ew-resize before:absolute before:inset-y-0 before:-inset-x-2.5',
-        'hover:bg-ink-3 focus-visible:bg-accent',
+          ? 'h-2 cursor-ns-resize flex-col before:h-px'
+          : 'w-2 cursor-ew-resize before:w-px',
+        'hover:before:bg-ink-3 focus-visible:before:bg-accent',
         className,
       )}
       data-slot="resizable"

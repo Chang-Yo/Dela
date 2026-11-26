@@ -622,7 +622,7 @@ function DesktopMailView({
             ? 'grid-cols-1 grid-rows-[auto_minmax(0,1fr)]'
             : stacked
               ? 'grid-cols-[3rem_minmax(0,1fr)]'
-              : 'grid-cols-[var(--folder-width)_minmax(320px,var(--list-width))_1px_minmax(0,1fr)]',
+              : 'grid-cols-[var(--folder-width)_minmax(320px,var(--list-width))_auto_minmax(0,1fr)]',
           listResizing && 'transition-none',
         )}
         style={
@@ -765,7 +765,7 @@ function DesktopMailView({
               />
             )}
             <Resizable
-              className={stacked ? 'hidden' : 'bg-line/60'}
+              className={stacked ? 'hidden' : 'before:bg-line/60'}
               label="调整邮件列表宽度"
               max={480}
               min={320}

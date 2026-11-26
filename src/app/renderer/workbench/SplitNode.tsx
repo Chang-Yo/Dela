@@ -1,5 +1,3 @@
-// 分割节点：递归渲染纵横分屏，组间比例经 Resizable 拖拽调整；store 只产生二元 split
-// （三屏经嵌套），渲染兼容 ≥2 子节点。
 import { useState } from 'react';
 import type { LayoutNode } from '../../../modules/workspace/contract';
 import { Resizable } from '../../../ui/resizable';
@@ -67,7 +65,7 @@ export function SplitNodeView({ node, path, onNewChat }: SplitNodeProps) {
         onValueChange={(next) => {
           if (dimension > 0) setRatio(path, next / dimension);
         }}
-        className={cn('bg-line/60', vertical ? 'w-px' : 'h-px')}
+        className="before:bg-line/60"
       />
       {node.children.slice(1).map((child, index) => (
         <div
