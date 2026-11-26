@@ -11,7 +11,7 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
 - 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
-## Unreleased
+## 3.1.2 - 2026-11-26
 
 - 为竖向滚动条两端添加可点击的圆角箭头，修复分隔线遮挡相邻滚动条的问题。
 - 收紧主导航与内容区的间距，内容区右侧贴齐窗口，右上角改为直角。
