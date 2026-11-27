@@ -4,9 +4,12 @@
 
 # Working core rules
 
+## 0. Everything is a trade-off
+
 **"不要默认假设。不要隐藏困惑。呈现权衡。"**
 **每个人的想法都受限于认知，注意提醒用户的Unknown unknown。**
 **请先阅读 @README.md**
+**改代码前先读 `CONTRIBUTING.md` 的「架构」一节：分层、依赖规则、改动落点与设计原则都在那里。**
 
 ## 1. 先思考再编码
 
@@ -31,6 +34,7 @@
 
 编辑现有代码时：
 
+- 尽可能地阅读相关代码，获取足够且准确地上下文
 - 不要"改善"相邻的代码、注释或格式。
 - 不要重构没有问题的代码。
 - **与现有风格保持一致。**
@@ -50,9 +54,11 @@
 
 ## 4. 代码提交与文档维护
 
-**代码严格遵守自解释性原则，最大限度去掉注释和文档解释**
+**代码严格遵守自解释性原则，靠命名而不是注释表达意图**
 
 - 代码需要做到无注释时依然保持高水平的可读性
+- 注释只在必要时写：不超过 80 字、不超过两行，从顶层设计说清这部分的“目的”和取舍，不解释具体代码
+- 修改一个文件时，顺带删除其中不符合上一条的注释
 - 文档只负责软件设计顶层思想的阐述，不解释具体的实现细节，时刻保持文档的简洁，最大限度减少文档的更新频率
 - commit信息始终遵循提交传统和社区主流规范，不添加“第一轮”“批次”等无效工作计划信息
   - 不值得写入文档但又不应该写入注释的信息可以直接放进 commit log
@@ -65,57 +71,84 @@
 
 **在为推测性或极不可能发生的竞态或安全边缘情况增加复杂性之前，向用户解释具体的失败模式、可能性和复杂性成本，并获得他们的同意。不要为了理论上的健壮性而默默扩大范围。**
 
+测试属于易失性代码，只保留少量高信号的测试。
+
 - 提交PR之前需要在本地跑测试，并且确认测试通过
 - 更新代码后时刻检查是否需要更新相关测试，将过时的测试清理掉
-- 写新测试时应侧重于有实际意义的回归测试和行为测试，不要写无意义的测试
+- 只覆盖当前的行为契约和关键回归场景；已经验证、稳定运行的部分不需要测试
+- 不断言 className、像素、动画、文案等实现细节
+- 不写墓碑测试（断言“已删除的功能继续不存在”）；负向测试只在缺失或失败本身属于 API、安全或持久化契约时才写
 
-## 6. 其他
+## 6. React
+
+**默认不使用 `useEffect`、`useLayoutEffect`、`useInsertionEffect`。禁止把 Effect 当作修复状态异常、页面跳转、数据不更新的补丁。**
+
+只有以下场景允许使用 Effect，并优先使用项目已有的共享 hook：
+
+- 订阅浏览器原生事件，例如 resize、scroll、visibilitychange
+- 建立和清理 WebSocket、EventSource 等外部连接
+- 初始化、同步、销毁需要命令式 API 的第三方组件
+- 管理随组件生命周期启动和清理的外部定时器、观察器、订阅
+- 其他需要与 React 外部系统同步、且无法用现有机制完成的情况，**必须事先获得用户批准**
+
+其他写法：
+
+- 派生值在渲染中直接计算；需要重置状态时用 `key`；事件引起的副作用写在事件处理函数里
+- 后端数据用 TanStack Query 读取，后端推送的数据进对应领域的 store，导航用 action
+- 不手写 `useMemo`、`useCallback`（由 React Compiler 负责）；`useRef` 只用于 DOM 节点和命令式实例
+- 禁止模块级可变单例、请求计数器、`let active` 守卫、latest-value ref、用 `setTimeout` 等待渲染
+
+## 7. 界面与 Design System
+
+- 界面优先使用 `ui` 中的组件和 design token，不写 arbitrary 值，不用 Tailwind 原生色板
+- token 按用途命名，不按色相命名；缺少时新增，不借用别的用途的 token。改名或删除先征得用户同意，并在同一个提交里全局替换、同步 `scripts/lint-styles.ts`
+- 写或改 `ui` 里的组件前，先读 `src/ui/README.md` 的约定
+
+## 8. 其他
 
 - 禁止写 .mjs 文件，全部一律换为 .ts 格式
+- 优先复用社区成熟的依赖，不重复造轮子；引入新依赖前核对维护状态、许可证和体积
 
-# 文件目录
+### 目录与分层
 
-下面是 Dela 项目的基本文件结构，在修改对应的代码前应该先定位代码对应的模块位置，并阅读足够的代码来获取到足够的上下文：
-
-```
+```text
 Dela/
 ├─ src/
-│  ├─ main/                   Electron 主进程
-│  │  ├─ agent/               Pi 内核接入、工具与运行时
-│  │  ├─ canvas/              Canvas 课程资料
-│  │  ├─ documents/           文档读取与 Skill 组件
-│  │  ├─ mail/                校园邮箱与第三方 IMAP/SMTP
-│  │  ├─ migrations/          旧版用户的数据库迁移
-│  │  ├─ notifications/       通知轮询
-│  │  ├─ remotes/             远程项目与 helper 隧道
-│  │  ├─ search/              全局搜索
-│  │  ├─ settings/            设置与模型/网络配置
+│  ├─ core/                   Agent 内核，不依赖 Electron、React 与业务
+│  │  ├─ protocol/            Agent 协议、模块契约工具与桌面私有视图类型（只依赖 zod）
+│  │  ├─ agent/               Pi 接入、会话、旁问、子 Agent 与后台任务
+│  │  ├─ capabilities/        工具、Skills、MCP、联网与注册表
+│  │  ├─ remote/              远程执行后端与 helper 通道
+│  │  ├─ data/                会话表的结构与迁移
+│  │  ├─ config-files.ts      ~/.dela 下的 JSON 配置（模型服务、联网搜索、MCP）
+│  │  └─ ports.ts             宿主端口（HostPorts）
+│  ├─ ui/                     Design System（fork 自 beautiful-ui），零业务依赖
+│  │  └─ agent/               Agent 对话外观组件（消息、工具卡片、输入框）
+│  ├─ modules/                通用模块，没有交大也成立（chat、mail、note、notifications、
+│  │                          onboarding、preview、remotes、search、settings、terminal、
+│  │                          todo、update、workspace）
+│  ├─ sjtu/                   交大模块，离开交大就没有意义，经 register() 向通用模块登记
+│  │  ├─ campus/              校园统一身份认证会话（课表、课堂视频、水源共用）
+│  │  ├─ canvas/              Canvas 课程资料、作业与公告
+│  │  ├─ classroom/           课堂视频回看（v.sjtu.edu.cn）
+│  │  ├─ jwc/                 教务处通知
+│  │  ├─ mail/                交大邮箱的服务器预设，登记给通用邮件模块
 │  │  ├─ shuiyuan/            水源社区
-│  │  ├─ terminal/            内置终端与 Bash 定位
-│  │  ├─ timetable/           课表
-│  │  ├─ todo/                TODO
-│  │  ├─ update/              应用内更新
-│  │  ├─ vsjtu/               致远一号
-│  │  └─ workspace/           工作区文件
-│  ├─ preload/                contextBridge 与有限 API
-│  ├─ renderer/               React 界面
-│  │  ├─ app/                 应用外壳、主题与全局状态
-│  │  ├─ workbench/           标签工作台
-│  │  ├─ content/             聊天、笔记、预览、审阅、终端内容区
-│  │  ├─ navigation/          侧栏与导航
-│  │  ├─ sessions/            会话管理
-│  │  ├─ workspace/           工作区浏览
-│  │  ├─ features/            业务功能页（mail、settings、timetable…）
-│  │  ├─ components/          通用组件与 beautifului
-│  │  ├─ lib/                 渲染层工具
-│  │  └─ styles/              全局样式与设计 token
-│  └─ shared/                 进程间 IPC 契约与纯函数
-├─ helper/                    Go 远端 helper
+│  │  └─ timetable/           课表（只读）
+│  └─ app/                    宿主与外壳
+│     ├─ module.ts            模块与视图定义，模块唯一可引用的 app 文件
+│     ├─ modules.ts           主进程模块清单
+│     ├─ views.ts             渲染端视图清单
+│     ├─ main/                Electron 入口、数据库、旧版数据过渡、IPC 注册与宿主端口实现
+│     ├─ preload/             contextBridge 与按契约白名单放行的 bridge
+│     └─ renderer/            外壳界面：shell、workbench、navigation、workspace、settings、styles
+├─ helper/                    远程项目的 Go helper
 ├─ scripts/                   开发、冒烟、打包与校验脚本
-├─ docs/                      开发文档、条款与接口资料
-├─ vendor/                    入库的 helper、搜索工具与 OpenSSH
+├─ docs/                      条款与功能边界
+├─ vendor/                    入库的 helper 产物、rg/fd 与 Windows 兜底 OpenSSH
+├─ LICENSES/                  随源码分发的第三方许可证
 ├─ assets/                    图标与品牌素材
 └─ build/                     打包用图标等构建资源
 ```
 
-如果出现较大的代码改动，需要及时更新该目录树。
+当修改代码时应该先弄清楚你修改的代码属于哪个部分，牵涉到哪些模块。

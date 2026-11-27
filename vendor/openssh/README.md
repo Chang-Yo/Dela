@@ -2,7 +2,7 @@
 
 Dela 的远程项目优先使用系统 OpenSSH（`%WINDIR%\System32\OpenSSH\ssh.exe`，其次
 `%ProgramFiles%\OpenSSH\ssh.exe`）。系统里没有时，回退到这个目录里的客户端。
-探测顺序见 `src/main/remotes/transport.ts` 的 `binaryCandidates`。
+探测顺序见 `src/core/remote/transport.ts` 的 `binaryCandidates`。
 
 | 项目 | 值                                                                                               |
 | ---- | ------------------------------------------------------------------------------------------------ |
@@ -22,7 +22,7 @@ Dela 的远程项目优先使用系统 OpenSSH（`%WINDIR%\System32\OpenSSH\ssh.
 DH-GEX 用内置默认组，带上是死重量。
 
 不带 `sshd.exe`、`ssh-keygen.exe`、`scp.exe`、`sftp.exe`：Dela 只用 `ssh` 建连接与跑命令，
-不用 SFTP（见 `docs/DEVELOPMENT.md` §4），也不生成密钥。
+不用 SFTP（见 `CONTRIBUTING.md`「架构」的「远程项目」），也不生成密钥。
 
 ## 升级步骤
 

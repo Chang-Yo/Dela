@@ -1,0 +1,116 @@
+import { useEffect, useEffectEvent, useRef } from 'react';
+import { defaultKeymap } from '@codemirror/commands';
+import { LanguageDescription, syntaxHighlighting } from '@codemirror/language';
+import { languages } from '@codemirror/language-data';
+import { Compartment, EditorState } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers } from '@codemirror/view';
+import { search, searchKeymap } from '@codemirror/search';
+import { useEditorSettings } from './editor-settings';
+import { codeHighlightStyle } from './syntax-highlight';
+
+const viewerTheme = EditorView.theme({
+  '&': {
+    height: '100%',
+    fontSize: '0.875rem',
+    backgroundColor: 'transparent',
+  },
+  '&.cm-focused': { outline: 'none' },
+  '.cm-scroller': {
+    fontFamily: 'var(--font-mono)',
+    lineHeight: '1.625',
+    padding: '1.5rem 0',
+  },
+  '.cm-content': {
+    caretColor: 'var(--syntax-caret)',
+    margin: '0',
+    paddingRight: '1.5rem',
+    textAlign: 'left',
+  },
+  // 行号栏在横向滚动时是 sticky 的：背景必须不透明并覆盖左侧留白，否则长行会从行号下透出。
+  '.cm-gutters': {
+    borderRight: '1px solid var(--line)',
+    backgroundColor: 'var(--surface)',
+    color: 'var(--ink-3)',
+    paddingLeft: '1.5rem',
+  },
+  '.cm-lineNumbers .cm-gutterElement': { minWidth: '3ch', padding: '0 0.5rem 0 0.25rem' },
+});
+
+const wrappingConf = new Compartment();
+
+function languageForFilename(filename: string): LanguageDescription | null {
+  return LanguageDescription.matchFilename(languages, filename);
+}
+
+export function CodeViewer({
+  value,
+  filename,
+  initialScroll,
+  onScroll,
+}: {
+  value: string;
+  filename: string;
+  initialScroll: () => number;
+  onScroll: (top: number) => void;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const wordWrap = useEditorSettings((state) => state.wordWrap);
+  const reportScroll = useEffectEvent((top: number) => onScroll(top));
+
+  useEffect(() => {
+    const element = host.current!;
+    const languageConf = new Compartment();
+    const view = new EditorView({
+      parent: element,
+      state: EditorState.create({
+        doc: value,
+        extensions: [
+          // 只读仅锁事务不改 editable：保持可聚焦，搜索面板与键盘选择/复制可用。
+          EditorState.readOnly.of(true),
+          languageConf.of([]),
+          lineNumbers(),
+          wrappingConf.of(wordWrap ? EditorView.lineWrapping : []),
+          search({ top: true }),
+          keymap.of([...searchKeymap, ...defaultKeymap]),
+          viewerTheme,
+          syntaxHighlighting(codeHighlightStyle),
+        ],
+      }),
+    });
+    view.scrollDOM.scrollTop = initialScroll();
+    const handleScroll = () => reportScroll(view.scrollDOM.scrollTop);
+    view.scrollDOM.addEventListener('scroll', handleScroll);
+    viewRef.current = view;
+    const language = languageForFilename(filename);
+    if (language) {
+      void language.load().then((support) => {
+        if (viewRef.current === view) view.dispatch({ effects: languageConf.reconfigure(support) });
+      });
+    }
+    return () => {
+      view.scrollDOM.removeEventListener('scroll', handleScroll);
+      viewRef.current = null;
+      view.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: wrappingConf.reconfigure(wordWrap ? EditorView.lineWrapping : []),
+    });
+  }, [wordWrap]);
+
+  /* 聚焦刷新等外部重读后的整篇替换：保持滚动位置，不计入编辑（只读本无编辑）。 */
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current === value) return;
+    const scrollTop = view.scrollDOM.scrollTop;
+    view.dispatch({ changes: { from: 0, to: current.length, insert: value } });
+    view.scrollDOM.scrollTop = scrollTop;
+  }, [value]);
+
+  return <div ref={host} className="min-h-0 w-full flex-1 overflow-hidden" />;
+}

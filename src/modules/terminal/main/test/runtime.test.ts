@@ -1,0 +1,120 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+
+const state = vi.hoisted(() => ({ root: '', packaged: false, systemBash: true }));
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    existsSync: (path: Parameters<typeof actual.existsSync>[0]) =>
+      path === '/bin/bash' ? state.systemBash : actual.existsSync(path),
+  };
+});
+vi.mock('electron', () => ({
+  app: {
+    getPath: () => state.root,
+    getAppPath: () => state.root,
+    get isPackaged() {
+      return state.packaged;
+    },
+  },
+}));
+
+let runtime: typeof import('../mingit');
+const touch = (path: string) => {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, '');
+};
+
+beforeEach(async () => {
+  vi.resetModules();
+  state.root = mkdtempSync(join(tmpdir(), 'dela-runtime-'));
+  state.packaged = false;
+  state.systemBash = true;
+  vi.stubGlobal('process', {
+    ...process,
+    platform: 'darwin',
+    arch: 'arm64',
+    resourcesPath: join(state.root, 'resources'),
+  });
+  vi.stubEnv('PATH', '/custom/bin:/usr/bin');
+  runtime = await import('../mingit');
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  rmSync(state.root, { recursive: true, force: true });
+});
+
+describe.each(['arm64', 'x64'])('macOS 搜索工具（%s）', (arch) => {
+  it.each([false, true])('开发/打包路径选择正确，保持 PATH 顺序（packaged=%s）', (packaged) => {
+    vi.stubGlobal('process', { ...process, arch });
+    state.packaged = packaged;
+    const root = packaged ? join(process.resourcesPath, 'bin') : join(state.root, 'vendor', 'bin');
+    const tools = join(root, `darwin-${arch}`);
+    touch(join(tools, 'rg'));
+    touch(join(tools, 'fd'));
+    touch(join(root, 'rg.exe'));
+    touch(join(root, 'fd.exe'));
+    runtime.prependRuntimePath();
+    const expected = [
+      tools,
+      '/custom/bin',
+      '/usr/bin',
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/bin',
+      '/usr/sbin',
+      '/sbin',
+    ].join(':');
+    expect(process.env.PATH).toBe(expected);
+  });
+});
+
+it('macOS 不使用 Windows MinGit；缺少搜索工具时不前插 exe 目录', () => {
+  touch(join(state.root, '.build', 'mingit', 'usr', 'bin', 'bash.exe'));
+  touch(join(state.root, 'vendor', 'bin', 'rg.exe'));
+  expect(runtime.bundledBash()).toBeNull();
+  runtime.prependRuntimePath();
+  expect(process.env.PATH).not.toContain(state.root);
+});
+
+it('Windows 仍使用 MinGit cmd 和 exe 搜索工具，以分号分隔', () => {
+  vi.stubGlobal('process', { ...process, platform: 'win32' });
+  vi.stubEnv('PATH', 'C:\\Windows;C:\\custom');
+  const mingit = join(state.root, '.build', 'mingit');
+  const tools = join(state.root, 'vendor', 'bin');
+  touch(join(mingit, 'usr', 'bin', 'bash.exe'));
+  touch(join(tools, 'rg.exe'));
+  touch(join(tools, 'fd.exe'));
+  runtime.prependRuntimePath();
+  expect(process.env.PATH).toBe(`${tools};${join(mingit, 'cmd')};C:\\Windows;C:\\custom`);
+});
+
+describe('Git Bash 定位', () => {
+  beforeEach(() => {
+    vi.stubGlobal('process', { ...process, platform: 'win32' });
+    for (const name of ['ProgramFiles', 'ProgramFiles(x86)', 'LOCALAPPDATA'])
+      vi.stubEnv(name, state.root);
+  });
+
+  it('系统 Git for Windows 优先，其次随包 MinGit；都缺失时提示安装后重启', () => {
+    const bundled = join(state.root, '.build', 'mingit', 'usr', 'bin', 'bash.exe');
+    const system = join(state.root, 'Git', 'bin', 'bash.exe');
+    expect(() => runtime.locateBash()).toThrow('后重启 Dela');
+    touch(bundled);
+    expect(runtime.locateBash()).toBe(bundled);
+    touch(system);
+    expect(runtime.locateBash()).toBe(system);
+  });
+
+  it('macOS 固定使用系统 Bash，缺失时明确报错', () => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin' });
+    expect(runtime.locateBash()).toBe('/bin/bash');
+    state.systemBash = false;
+    expect(() => runtime.locateBash()).toThrow('macOS 系统 Bash');
+  });
+});

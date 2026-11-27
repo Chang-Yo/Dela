@@ -5,7 +5,7 @@ export default defineConfig({
   build: {
     target: 'chrome152',
     outDir: 'out/preload',
-    lib: { entry: 'src/preload/index.ts', formats: ['cjs'], fileName: () => 'index.cjs' },
+    lib: { entry: 'src/app/preload/index.ts', formats: ['cjs'], fileName: () => 'index.cjs' },
     rolldownOptions: { external: ['electron'] },
   },
 });

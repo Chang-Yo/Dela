@@ -1,0 +1,82 @@
+// 旁问镜像：旁问本身在主进程（不入库、关闭即丢弃），这里按主会话 id 缓存它的快照与面板折叠态，
+// 切走标签再回来面板照旧。推送与流式增量的合并方式与会话镜像相同。
+import { create } from 'zustand';
+import type { SidechatView } from '../../../core/protocol/agent';
+import { agentClient, onAgentEvent } from './client';
+import { keepToolImages } from './sessions';
+import { showToast } from '../../../ui/toast';
+import { emptyDraft, useChatDrafts } from './drafts';
+import { errorMessage } from '../../../core/protocol/contract';
+
+interface SidechatState {
+  views: Record<string, SidechatView>;
+  collapsed: Record<string, boolean>;
+  /** 已滑入过的旁问：只有新建的旁问滑入，切走标签再回来不再滑入。 */
+  entered: Record<string, boolean>;
+  put: (view: SidechatView) => void;
+  forget: (parentId: string) => void;
+  setCollapsed: (parentId: string, collapsed: boolean) => void;
+  markEntered: (parentId: string) => void;
+}
+
+export const useSidechats = create<SidechatState>((set) => ({
+  views: {},
+  collapsed: {},
+  entered: {},
+  put: (view) => set((state) => ({ views: { ...state.views, [view.parentId]: view } })),
+  forget: (parentId) =>
+    set((state) => {
+      const views = { ...state.views };
+      const collapsed = { ...state.collapsed };
+      const entered = { ...state.entered };
+      delete views[parentId];
+      delete collapsed[parentId];
+      delete entered[parentId];
+      return { views, collapsed, entered };
+    }),
+  setCollapsed: (parentId, value) =>
+    set((state) => ({ collapsed: { ...state.collapsed, [parentId]: value } })),
+  markEntered: (parentId) => set((state) => ({ entered: { ...state.entered, [parentId]: true } })),
+}));
+
+export const sidechatDraftKey = (parentId: string) => `sidechat:${parentId}`;
+
+export async function openSidechat(
+  parentId: string,
+  options: { quote?: string; prompt?: string } = {},
+) {
+  if (!window.dela) return;
+  const key = sidechatDraftKey(parentId);
+  const drafts = useChatDrafts.getState();
+  const draft = drafts.drafts[key] ?? emptyDraft;
+  if (options.quote)
+    drafts.update(key, {
+      comments: [...(draft.comments ?? []), { quote: options.quote, comment: '' }],
+    });
+  if (options.prompt) drafts.update(key, { prompt: options.prompt });
+  useSidechats.getState().setCollapsed(parentId, false);
+  try {
+    useSidechats.getState().put(await agentClient['open-sidechat']({ parentId }));
+  } catch (error) {
+    showToast({ variant: 'error', title: '打开旁问失败', description: errorMessage(error) });
+  }
+}
+
+onAgentEvent('sidechat-update', (view) => {
+  // 已关闭的旁问可能还有迟到的推送：只更新仍在镜像里的。
+  if (useSidechats.getState().views[view.parentId]) useSidechats.getState().put(view);
+});
+onAgentEvent('sidechat-stream', ({ sessionId, message, activeTool }) => {
+  const current = useSidechats.getState().views[sessionId];
+  if (!current?.running) return;
+  const last = current.messages.at(-1);
+  const replaceLast =
+    last?.role === 'assistant' &&
+    last.startedAt === message.startedAt &&
+    last.finishedAt === undefined;
+  const messages = replaceLast
+    ? [...current.messages.slice(0, -1), keepToolImages(last, message)]
+    : [...current.messages, message];
+  useSidechats.getState().put({ ...current, messages, activeTool });
+});
+onAgentEvent('sidechat-closed', ({ parentId }) => useSidechats.getState().forget(parentId));

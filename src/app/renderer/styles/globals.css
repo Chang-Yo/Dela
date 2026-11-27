@@ -1,0 +1,207 @@
+@import 'tailwindcss';
+@import 'streamdown/styles.css';
+@import '../../../ui/tokens.css';
+@import '../../../ui/base.css';
+@import './palette.css';
+@source '../../../../node_modules/streamdown/dist/*.js';
+@source '../../../modules';
+@source '../../../sjtu';
+@source '../../../ui';
+
+.dela-brand-dark {
+  display: none;
+}
+:root.dark .dela-brand-light {
+  display: none;
+}
+:root.dark .dela-brand-dark {
+  display: block;
+}
+
+@font-face {
+  font-family: 'Italianno';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../../../assets/fonts/Italianno.woff2') format('woff2');
+}
+
+/* 只为 streamdown 保留，Dela 代码不使用，换掉 Markdown 渲染器时删除。 */
+@theme inline {
+  --color-background: var(--surface);
+  --color-foreground: var(--ink);
+  --color-muted: var(--inset);
+  --color-muted-foreground: var(--ink-3);
+  --color-border: var(--line);
+  --color-sidebar: var(--page);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--surface);
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-width: 320px;
+    min-height: 100%;
+    margin: 0;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    font-synthesis: none;
+  }
+
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  /* scrollbar-width/color 的非默认值会覆盖 Chromium 的滚动条伪元素样式。 */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-button:vertical:decrement:start:enabled,
+  *::-webkit-scrollbar-button:vertical:increment:end:enabled {
+    display: block;
+    height: 10px;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    color: var(--ink-3);
+    background: center / 6px 6px no-repeat padding-box
+      conic-gradient(
+        from var(--arrow-angle) at 50% var(--arrow-tip),
+        transparent,
+        currentColor 7deg 63deg,
+        transparent 70deg
+      );
+  }
+
+  *::-webkit-scrollbar-button:vertical:decrement:start {
+    --arrow-angle: 145deg;
+    --arrow-tip: -0.3px;
+  }
+
+  *::-webkit-scrollbar-button:vertical:increment:end {
+    --arrow-angle: -35deg;
+    --arrow-tip: calc(100% + 0.3px);
+  }
+
+  *::-webkit-scrollbar-button:vertical:decrement:start:enabled:hover,
+  *::-webkit-scrollbar-button:vertical:increment:end:enabled:hover {
+    color: var(--ink-2);
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--ink) 22%, transparent);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--ink) 38%, transparent);
+  }
+}
+
+/* 预留竖向滚动条槽位，避免内容增长时挤占内容宽度。
+   例外：Radix 浮层内容容器（data-slot 以 -content 结尾）尺寸紧贴内容，排除之。 */
+.overflow-y-auto:not([data-slot$='-content']),
+.overflow-auto:not([data-slot$='-content']) {
+  overflow-y: scroll;
+}
+
+.sidebar-title {
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, black calc(100% - var(--spacing) * 6), transparent);
+}
+
+.group\/nav:hover .sidebar-title,
+.group\/nav:focus-within .sidebar-title,
+.group\/nav:has([data-state='open']) .sidebar-title {
+  mask-image: linear-gradient(
+    to right,
+    black calc(100% - var(--spacing) * 14),
+    transparent calc(100% - var(--spacing) * 12)
+  );
+}
+
+@media (width < 48rem) {
+  .group\/nav .sidebar-title {
+    mask-image: linear-gradient(
+      to right,
+      black calc(100% - var(--spacing) * 14),
+      transparent calc(100% - var(--spacing) * 12)
+    );
+  }
+}
+
+/* office-lite 自带的工作表标签与限高滚动区交给预览外壳的标签栏和滚动容器；
+   幻灯片宽度跟随缩放后的容器，不封顶于原始尺寸。 */
+.office-preview .xl-tabs {
+  display: none;
+}
+
+.office-preview .xl-scroll {
+  max-height: none;
+  overflow: visible;
+}
+
+.office-preview .pl-slide-box {
+  max-width: none;
+}
+
+.pdfViewer.dela-pdf-pages .page {
+  margin-left: 0;
+}
+
+.xterm .xterm-rows .xterm-cursor-block {
+  border-radius: 0.125rem;
+}
+
+/* streamdown 代码块行号（其 dist 内写死 text-[13px]，随包分发无法改）改用 rem，
+   否则字号调大时行号不跟随，与同块的 text-sm 正文脱节。 */
+[data-streamdown='code-block-body'] > pre > code > span::before {
+  font-size: 0.8125rem;
+}
+
+::highlight(dela-reply-comment) {
+  background-color: color-mix(in oklch, var(--accent) 24%, transparent);
+}
+
+@keyframes slide-in-right {
+  from {
+    translate: calc(100% + 0.75rem) 0;
+  }
+}
+@keyframes slide-out-right {
+  to {
+    translate: calc(100% + 0.75rem) 0;
+  }
+}
+@keyframes panel-shrink {
+  to {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+@keyframes panel-grow {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}

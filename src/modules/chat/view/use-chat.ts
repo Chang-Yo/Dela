@@ -1,0 +1,381 @@
+import { useEffect, useEffectEvent, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type {
+  ChatComment,
+  ChatMediaView,
+  ChatQueuedDraft,
+  SessionCommandName,
+  WorkspaceChat,
+} from '../../../core/protocol/agent';
+import type { LlmProviderView } from '../../../core/protocol/llm';
+import { parseSessionCommand } from '../../../core/protocol/agent';
+import {
+  CHAT_ATTACHMENT_MAX,
+  CHAT_DOCUMENT_MAX_BYTES,
+  CHAT_TEXT_ATTACHMENT_MAX_BYTES,
+  chatFileKindOfFile,
+  hasChatImages,
+  stripChatImageTokens,
+} from '../../../core/protocol/chat-input';
+import { agentClient } from './client';
+import { showToast } from '../../../ui/toast';
+import { useChatTabSource } from './chat-source';
+import { useSessions } from './sessions';
+import { isSessionViewed, useRuns } from './runs';
+import {
+  emptyDraft,
+  registerChatAttachmentCheck,
+  useChatDrafts,
+  type ChatReference,
+} from './drafts';
+import type { ReferenceSource } from './chat-source';
+import { releaseChatMedia } from './media';
+import { openSidechat } from './sidechat-store';
+import { errorMessage } from '../../../core/protocol/contract';
+
+export type { ChatReference };
+
+export function canSendInput(
+  text: string,
+  direct: boolean,
+  attachmentCount = 0,
+  commentCount = 0,
+): boolean {
+  return direct
+    ? text.trim().length > 0
+    : Boolean(text.trim() || hasChatImages(text) || attachmentCount || commentCount);
+}
+
+/** 发送失败后是否恢复输入：消息未上屏（快照里没有这条用户消息，或快照读不到）时恢复，
+ *  图片 token 留在文本里、附件暂存未被消费，可原样重发；已上屏则只报错不恢复。 */
+export function shouldRestoreDraft(fresh: WorkspaceChat | null, sentText: string): boolean {
+  if (!fresh) return true;
+  const stripped = stripChatImageTokens(sentText);
+  return !fresh.messages.some((message) => message.role === 'user' && message.content === stripped);
+}
+
+/** 输入草稿订阅只在 composer 容器层调用：打字每键仅重渲输入区，不带动消息列表。 */
+export function useChatDraft(sessionId: string) {
+  return useChatDrafts((state) => state.drafts[sessionId] ?? emptyDraft);
+}
+
+/** 单个会话的对话状态：快照经 sessions 镜像共享；草稿订阅在 useChatDraft，附件 chip 不持久化，
+ *  视图卸载即释放暂存文件。onNewChat 是 /new 命令的落点。 */
+export function useChat(
+  sessionId: string,
+  referenceSource?: ReferenceSource,
+  onNewChat?: () => void,
+) {
+  const { navigate } = useChatTabSource();
+  const chat = useSessions((state) => state.chats[sessionId] ?? null);
+  const [attachments, setAttachments] = useState<ChatMediaView[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  // 计数而非开关：插队的请求很快返回，不能把仍在等待的那一轮也算作结束。
+  const [pending, setPending] = useState(0);
+  const updateDraft = useChatDrafts((state) => state.update);
+  const clearDraft = useChatDrafts((state) => state.clear);
+  const flushReference = referenceSource?.flushReference;
+
+  const hasAttachments = attachments.length > 0;
+  useEffect(
+    () => (hasAttachments ? registerChatAttachmentCheck(() => true) : undefined),
+    [hasAttachments],
+  );
+
+  const releaseAttachments = useEffectEvent(() =>
+    releaseChatMedia(attachments.map((file) => file.id)),
+  );
+  // 运行结果已被本视图看到（挂载即看、终态到达即看）：清掉导航徽标；
+  // 视图关闭期间到达的终态保留，供导航提示「有结果需要处理」。
+  useEffect(() => {
+    useRuns.getState().startViewing(sessionId);
+    return () => {
+      useRuns.getState().stopViewing(sessionId);
+      releaseAttachments();
+    };
+  }, [sessionId]);
+
+  // 快照种子：镜像未缓存（应用启动后首次打开）时经 open-session 读取一次，不产生执行；
+  // 缓存被清（会话在别处被删）后再次尝试读取，读到「会话不存在」即就地报错。
+  useQuery({
+    queryKey: ['chat-session-seed', sessionId],
+    enabled: !chat && Boolean(window.dela),
+    queryFn: async () => {
+      try {
+        useSessions.getState().putChat(sessionId, await agentClient['open-session']({ sessionId }));
+      } catch (e) {
+        setError(errorMessage(e));
+      }
+      return null;
+    },
+  });
+
+  const busy = pending > 0 || Boolean(chat?.running);
+  const setPrompt = (text: string) => updateDraft(sessionId, { prompt: text });
+  const setComments = (comments: ChatComment[]) => updateDraft(sessionId, { comments });
+
+  // 附件暂存：与内联图片共用主进程通道，上限在主进程与这里各校验一次。
+  const addAttachmentFile = async (file: File) => {
+    if (!window.dela) throw new Error('附件仅在桌面端可用');
+    if (attachments.length >= CHAT_ATTACHMENT_MAX)
+      throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
+    const limit =
+      (await chatFileKindOfFile(file)) === 'text'
+        ? CHAT_TEXT_ATTACHMENT_MAX_BYTES
+        : CHAT_DOCUMENT_MAX_BYTES;
+    if (file.size > limit) throw new Error(`附件超过 ${limit / 1024 / 1024} MB 上限`);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const view = await agentClient['stage-media']({ name: file.name, bytes });
+    setAttachments((current) => [...current, view]);
+  };
+
+  // 已满时抛错让调用方（选择文件路径）把上限提示显示出来；重复 id 仍静默去重。
+  const addAttachmentView = (view: ChatMediaView) => {
+    if (attachments.length >= CHAT_ATTACHMENT_MAX)
+      throw new Error(`附件最多 ${CHAT_ATTACHMENT_MAX} 个`);
+    setAttachments((current) =>
+      current.some((item) => item.id === view.id) ? current : [...current, view],
+    );
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((current) => current.filter((item) => item.id !== id));
+    releaseChatMedia([id]);
+  };
+
+  // 引用即文本：删除 = 删掉 @token。运行中发送即插队（Pi 的 steer）；命令要等本轮结束。
+  const send = async (references: ChatReference[]) => {
+    // 发送时点读取草稿（不依赖渲染期闭包）：拿到的一定是最后一次按键的值。
+    const draft = useChatDrafts.getState().drafts[sessionId] ?? emptyDraft;
+    const text = draft.prompt;
+    const comments = draft.comments ?? [];
+    if (!window.dela || !canSendInput(text, false, attachments.length, comments.length)) return;
+    const requested = sessionId;
+    const command = parseSessionCommand(text);
+    if (command) {
+      if (busy) setError('运行中不能执行命令，请等待当前回答完成');
+      else if (comments.length) setError('命令不能附带评论，请先移除评论');
+      else await runCommand(command.name, command.args, text);
+      return;
+    }
+    const sentReferences = references.filter((ref) => !ref.session);
+    const sentSessions = references.flatMap((ref) =>
+      ref.session ? [{ id: ref.key, title: ref.title }] : [],
+    );
+    const sentAttachments = attachments;
+    try {
+      if (flushReference) {
+        for (const ref of sentReferences) {
+          if (ref.key.startsWith('source:')) continue;
+          await flushReference(ref.key);
+        }
+      }
+    } catch (e) {
+      showToast({ variant: 'error', title: '发送失败', description: errorMessage(e) });
+      return;
+    }
+    setPending((count) => count + 1);
+    setError(null);
+    clearDraft(requested);
+    setAttachments([]);
+    try {
+      const result = await agentClient.ask({
+        sessionId: requested,
+        text,
+        attachments: sentAttachments.map((item) => item.id),
+        context: sentReferences.map((ref) => ref.key),
+        ...(sentSessions.length ? { sessions: sentSessions } : {}),
+        comments,
+      });
+      if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
+    } catch (e) {
+      // ask 抛错前 run 的终态推送已更新镜像：结果照常写共享缓存，其他入口不受影响。
+      setError(errorMessage(e));
+      if (isSessionViewed(requested)) {
+        // 消息未上屏（未配置模型、引用读取失败等发生在持久化前）时恢复输入，避免重打。
+        const fresh = await agentClient['open-session']({ sessionId: requested }).catch(() => null);
+        if (fresh) useSessions.getState().putChat(requested, fresh);
+        if (isSessionViewed(requested) && shouldRestoreDraft(fresh, text)) {
+          updateDraft(requested, { prompt: text, comments });
+          setAttachments(sentAttachments);
+        }
+      }
+    } finally {
+      setPending((count) => Math.max(0, count - 1));
+    }
+  };
+
+  // 会话命令不发给模型；失败时恢复输入，/compact 期间算作忙，停止按钮可取消压缩。
+  const runCommand = async (name: SessionCommandName, args: string, text: string) => {
+    if (!window.dela) return;
+    const requested = sessionId;
+    if (attachments.length) {
+      setError('命令不能附带文件，请先移除附件');
+      return;
+    }
+    setError(null);
+    clearDraft(requested);
+    if (name === 'new') {
+      onNewChat?.();
+      return;
+    }
+    if (name === 'btw') {
+      void openSidechat(requested, { prompt: args });
+      return;
+    }
+    setPending((count) => count + 1);
+    try {
+      const result = await agentClient['run-command']({ sessionId: requested, name, args });
+      useSessions.getState().putChat(requested, result);
+      if (name === 'name') {
+        // 标题只在会话列表里，推送不带列表：重读一次，标签与侧栏才会换成新标题。
+        void useSessions
+          .getState()
+          .refresh(result.projectId)
+          .catch(() => {});
+        showToast({ variant: 'success', title: '已重命名' });
+      } else if (name === 'reload') {
+        showToast({
+          variant: 'success',
+          title: '已重新加载',
+          description: 'Skills、扩展与 AGENTS.md 已按最新内容加载。',
+        });
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+      if (isSessionViewed(requested)) updateDraft(requested, { prompt: text });
+    } finally {
+      setPending((count) => Math.max(0, count - 1));
+    }
+  };
+
+  // 撤回的插队消息排在输入框已有内容之前（与 Pi 终端界面一致）；视图已切走时附件无处安放，直接释放。
+  const restoreQueued = (requested: string, queued: ChatQueuedDraft | null) => {
+    if (!queued) return;
+    const current = useChatDrafts.getState().drafts[requested] ?? emptyDraft;
+    updateDraft(requested, {
+      prompt: [queued.text, current.prompt].filter((text) => text.trim()).join('\n\n'),
+      comments: [...queued.comments, ...(current.comments ?? [])],
+    });
+    if (isSessionViewed(requested)) setAttachments((list) => [...queued.attachments, ...list]);
+    else releaseChatMedia(queued.attachments.map(({ id }) => id));
+  };
+
+  const stop = () => {
+    const requested = sessionId;
+    void agentClient['cancel-run']({ sessionId: requested })
+      .then((queued) => restoreQueued(requested, queued))
+      .catch(() => {});
+  };
+
+  const withdrawQueued = () => {
+    const requested = sessionId;
+    void agentClient['withdraw-queued']({ sessionId: requested })
+      .then((queued) => restoreQueued(requested, queued))
+      .catch((e) =>
+        showToast({ variant: 'error', title: '撤回失败', description: errorMessage(e) }),
+      );
+  };
+
+  const stopTask = (taskId: string) => {
+    void agentClient['stop-task']({ sessionId, taskId }).catch((e) =>
+      showToast({ variant: 'error', title: '停止失败', description: errorMessage(e) }),
+    );
+  };
+
+  // 编辑重发说明原提问不合适，不带回原评论；重试按原消息重发，带上原评论。
+  const editLast = async (text: string, comments: ChatComment[] = []) => {
+    if (!window.dela || busy) return;
+    const requested = sessionId;
+    setPending((count) => count + 1);
+    setError(null);
+    try {
+      const result = await agentClient.ask({
+        sessionId: requested,
+        text,
+        attachments: [],
+        context: [],
+        comments,
+        replaceLastUser: true,
+      });
+      if (result.sessionId) useSessions.getState().putChat(result.sessionId, result);
+    } catch (e) {
+      if (isSessionViewed(requested))
+        showToast({ variant: 'error', title: '重新生成失败', description: errorMessage(e) });
+    } finally {
+      setPending((count) => Math.max(0, count - 1));
+    }
+  };
+
+  const optimisticChat = (patch: Partial<WorkspaceChat>) => {
+    const current = useSessions.getState().chats[sessionId];
+    if (current) useSessions.getState().putChat(sessionId, { ...current, ...patch });
+  };
+
+  const selectModel = (provider: LlmProviderView, model: string) => {
+    if (!window.dela) return;
+    optimisticChat({
+      providerId: provider.id,
+      providerName: provider.name,
+      model,
+      modelUnavailable: false,
+    });
+    void agentClient['set-model']({ sessionId, providerId: provider.id, model })
+      .then(() => refresh())
+      .catch((e) =>
+        showToast({ variant: 'error', title: '切换模型失败', description: errorMessage(e) }),
+      );
+  };
+
+  const selectEffort = (level: string) => {
+    if (!window.dela) return;
+    optimisticChat({ effort: level });
+    void agentClient['set-effort']({ sessionId, level })
+      .then(() => refresh())
+      .catch((e) =>
+        showToast({ variant: 'error', title: '切换思考强度失败', description: errorMessage(e) }),
+      );
+  };
+
+  const fork = (entryId: string) => {
+    if (!window.dela) return;
+    void agentClient
+      .fork({ sessionId, entryId })
+      .then((forked) => {
+        useSessions.getState().putChat(forked.sessionId!, forked);
+        navigate({ page: 'chat', projectId: forked.projectId, sessionId: forked.sessionId! });
+      })
+      .catch((e) =>
+        showToast({ variant: 'error', title: '分支失败', description: errorMessage(e) }),
+      );
+  };
+
+  const refresh = () => {
+    if (!window.dela) return;
+    void agentClient['open-session']({ sessionId })
+      .then((value) => useSessions.getState().putChat(sessionId, value))
+      .catch(() => {});
+  };
+
+  return {
+    chat,
+    busy,
+    setPrompt,
+    setComments,
+    attachments,
+    addAttachmentFile,
+    addAttachmentView,
+    removeAttachment,
+    error,
+    clearError: () => setError(null),
+    send,
+    stop,
+    withdrawQueued,
+    stopTask,
+    editLast,
+    selectModel,
+    selectEffort,
+    fork,
+    refresh,
+  };
+}

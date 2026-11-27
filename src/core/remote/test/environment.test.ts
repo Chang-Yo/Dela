@@ -1,0 +1,50 @@
+// 受限环境诊断的分类规则：纯字符串进、文案出，离线可测。
+// 诊断脚本（diagnoseEnvironment）要真远端才能跑，这里不覆盖。
+import { describe, expect, it } from 'vitest';
+
+import { classifyEnvironment } from '../helper';
+
+const line = (pairs: Record<string, string>) =>
+  Object.entries(pairs)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('|');
+
+describe('受限环境诊断分类', () => {
+  it('noexec 挂载点：点名 noexec', () => {
+    expect(
+      classifyEnvironment(
+        line({
+          mount: 'rw,noexec,relatime',
+          writable: 'yes',
+          selinux: 'absent',
+          direct: 'exit-126',
+        }),
+      ),
+    ).toContain('noexec');
+  });
+
+  it('只读挂载：只读优先于执行被拒', () => {
+    expect(
+      classifyEnvironment(
+        line({ mount: 'ro,relatime', writable: 'no', selinux: 'absent', direct: 'exit-126' }),
+      ),
+    ).toContain('只读');
+  });
+
+  it('SELinux Enforcing 且直接执行失败：点名 SELinux', () => {
+    expect(
+      classifyEnvironment(
+        line({ mount: 'rw', writable: 'yes', selinux: 'Enforcing', direct: 'exit-126' }),
+      ),
+    ).toContain('SELinux');
+  });
+
+  it('执行没被拦（--version 能跑）不硬编原因：返回 null 让原始错误说话', () => {
+    expect(
+      classifyEnvironment(
+        line({ mount: 'rw', writable: 'yes', selinux: 'Enforcing', direct: 'ok' }),
+      ),
+    ).toBeNull();
+    expect(classifyEnvironment('')).toBeNull();
+  });
+});

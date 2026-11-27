@@ -29,20 +29,27 @@ const (
 	searchMaxCtx   = 20
 	// 单行文本上限：压缩过的 js 一行几 MB，原样回传会撑爆响应。
 	searchLineLimit = 500
-	// 跳过超过这个大小的文件（Go 遍历时）：rg 默认也不会把它们当文本看。
+	// 仅 Go 回退遍历用：跳过超过这个大小的文件，rg 后端不受此限。
 	searchFileLimit = 16 << 20
 	searchTimeout   = 60 * time.Second
 )
 
 var skippedDirs = map[string]bool{".git": true, "node_modules": true}
 
-// rgPath 在每次请求时查：远端用户可能中途装上 rg，helper 又会常驻一小时。
+// bundledRg 是 Dela 随 helper 上传的 rg（--rg）：远端没装 rg 也能按 .gitignore 搜索。
+var bundledRg string
+
+// rgPath 在每次请求时查：随包的 rg 被删了就退回 PATH，远端用户也可能中途装上 rg，helper 又会常驻一小时。
 func rgPath() string {
-	found, err := exec.LookPath("rg")
-	if err != nil {
-		return ""
+	for _, name := range []string{bundledRg, "rg"} {
+		if name == "" {
+			continue
+		}
+		if found, err := exec.LookPath(name); err == nil {
+			return found
+		}
 	}
-	return found
+	return ""
 }
 
 // globPattern 与 Pi 的 find 语义一致：不含 `/` 的模式匹配任意深度的文件名。

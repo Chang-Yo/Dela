@@ -63,7 +63,11 @@ jobs:
           node scripts/ci-smoke.ts "Electron and native dependencies" pnpm smoke
           node scripts/ci-smoke.ts "Agent runtime" pnpm smoke:runtime
           node scripts/ci-smoke.ts "Desktop behavior" pnpm smoke:desktop
+          node scripts/ci-smoke.ts "Shuiyuan authorization window" pnpm exec electron scripts/shuiyuan-auth-smoke.cjs
+          node scripts/ci-smoke.ts "Workspace behavior" pnpm smoke:workspace
           node scripts/ci-smoke.ts "Terminal behavior" pnpm exec electron scripts/terminal-smoke.cjs
+      - name: Fetch remote rg
+        run: pnpm fetch:remote-rg
       - name: Package application directory
         if: ${{ !inputs.archives }}
         run: pnpm exec electron-builder --dir --mac --arm64 --publish never -c.electronDist=node_modules/electron/dist
@@ -80,6 +84,7 @@ jobs:
         run: |
           node scripts/ci-smoke.ts "Packaged Electron and native dependencies" "$PACKAGED_APP/Contents/MacOS/Dela" --smoke-test
           node scripts/ci-smoke.ts "Packaged desktop behavior" pnpm smoke:desktop "$PACKAGED_APP/Contents/Resources/app.asar"
+          node scripts/ci-smoke.ts "Packaged shuiyuan authorization window" pnpm exec electron scripts/shuiyuan-auth-smoke.cjs "$PACKAGED_APP/Contents/Resources/app.asar"
           node scripts/ci-smoke.ts "Packaged terminal behavior" pnpm exec electron scripts/terminal-smoke.cjs "$PACKAGED_APP/Contents/Resources/app.asar"
       - uses: actions/upload-artifact@v6
         if: inputs.archives

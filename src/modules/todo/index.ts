@@ -1,0 +1,54 @@
+// 待办：个人待办与外部作业来源（经 registerTaskSource 注册）的同步，状态以 todo:state 推送。
+import { defineModule } from '../../app/module';
+import { registerCommandDomain } from '../../core/capabilities/commands';
+import { implement } from '../../core/protocol/contract';
+import { registerSearchProvider } from '../search';
+import { todoContract } from './contract';
+import { todoSchema } from './data/schema';
+import { todoDomain } from './main/agent';
+import { todoSearch } from './main/search';
+import { getTodoState, markTodoRead, refreshTodos, removeTodo, saveTodo } from './main/store';
+
+export {
+  getTodoState,
+  markTodoRead,
+  onTaskNotice,
+  onTodoChange,
+  publishTodoState,
+  refreshTodos,
+  registerTaskSource,
+  removeTodo,
+  saveTodo,
+  todoNotifications,
+  type SourceTask,
+  type TaskNotice,
+  type TaskSource,
+} from './main/store';
+export { todoInRange, todoSyncedAt, todoSyncError } from './contract';
+
+const REFRESH_MS = 15 * 60_000;
+
+function syncInBackground() {
+  void refreshTodos().catch((error: unknown) => console.error('TODO sync failed', error));
+}
+
+export const todoModule = defineModule({
+  id: 'todo',
+  schema: todoSchema,
+  ipc: implement(todoContract, {
+    state: getTodoState,
+    refresh: refreshTodos,
+    save: saveTodo,
+    remove: removeTodo,
+    markRead: markTodoRead,
+  }),
+  register() {
+    registerCommandDomain(todoDomain);
+    registerSearchProvider(todoSearch);
+  },
+  start() {
+    syncInBackground();
+    const timer = setInterval(syncInBackground, REFRESH_MS);
+    return () => clearInterval(timer);
+  },
+});

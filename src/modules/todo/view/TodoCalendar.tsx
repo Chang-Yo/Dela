@@ -1,0 +1,194 @@
+import { useState } from 'react';
+import type { TodoItem } from '../contract';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/popover';
+import { cn } from '../../../ui/lib/cn';
+import { calendarColorStyle } from '../../../ui/lib/calendar-colors';
+import { dateKey, formatMonthDay, weekDays } from '../../../ui/lib/dates';
+import { groupTodosByDay, monthGridDays, todoCalendarColor, todoChipTime } from './todo-calendar';
+
+function TodoChip({ item, onOpen }: { item: TodoItem; onOpen: (item: TodoItem) => void }) {
+  const done = item.status === 'done';
+  const time = todoChipTime(item.time);
+  const group = item.group?.label ?? '个人待办';
+  return (
+    <button
+      type="button"
+      aria-label={`打开 ${item.title}，${group}${time ? `，${time}` : ''}${done ? '，已完成' : ''}`}
+      className={cn(
+        'flex h-5 min-w-0 items-center gap-1 rounded px-1.5 text-left text-xs transition-opacity duration-fast hover:opacity-80 @max-[320px]:h-2 @max-[320px]:w-2 @max-[320px]:rounded-full @max-[320px]:overflow-hidden @max-[320px]:p-0',
+        done && 'opacity-60',
+      )}
+      onClick={() => onOpen(item)}
+      onMouseDown={(event) => event.stopPropagation()}
+      style={calendarColorStyle(todoCalendarColor(item))}
+      title={`${group} · ${item.title}${time ? ` · ${time}` : ''}`}
+    >
+      {time ? (
+        <span className="shrink-0 tabular-nums opacity-70 @max-[520px]:hidden">{time}</span>
+      ) : null}
+      <span className={cn('truncate font-medium', done && 'line-through')}>{item.title}</span>
+    </button>
+  );
+}
+
+function DayOverflow({
+  date,
+  items,
+  onOpen,
+}: {
+  date: Date;
+  items: readonly TodoItem[];
+  onOpen: (item: TodoItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        className="flex h-5 items-center rounded-chip px-1.5 text-left text-xs text-ink-3 outline-none transition-colors duration-fast hover:bg-hover-strong hover:text-ink focus-visible:ring-3 focus-visible:ring-accent-tint"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        +{items.length - 3}
+        <span className="@max-[320px]:hidden"> 更多</span>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-60">
+        <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-ink-3">{formatMonthDay(date)}</p>
+        <ul className="grid gap-0.5 p-1">
+          {items.map((item) => {
+            const done = item.status === 'done';
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex w-full min-w-0 items-start gap-1.5 rounded px-1.5 py-1 text-left text-xs transition-opacity hover:opacity-80',
+                    done && 'opacity-60',
+                  )}
+                  onClick={() => {
+                    setOpen(false);
+                    onOpen(item);
+                  }}
+                  style={calendarColorStyle(todoCalendarColor(item))}
+                >
+                  <span className="shrink-0 tabular-nums opacity-70">
+                    {todoChipTime(item.time)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn('block truncate font-medium', done && 'line-through')}
+                      title={item.title}
+                    >
+                      {item.title}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs opacity-70">
+                      {item.group?.label ?? '个人待办'}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function TodoCalendar({
+  items,
+  month,
+  onOpenItem,
+  onCreate,
+}: {
+  items: readonly TodoItem[];
+  month: Date;
+  onOpenItem: (item: TodoItem) => void;
+  /** 单击一天或拖过几天，起止都是当天零点。 */
+  onCreate: (start: Date, end: Date) => void;
+}) {
+  const grouped = groupTodosByDay(items);
+  const days = monthGridDays(month);
+  const todayKey = dateKey(new Date());
+  const [drag, setDrag] = useState<{ anchor: Date; current: Date } | null>(null);
+  const range = drag
+    ? drag.anchor <= drag.current
+      ? [drag.anchor, drag.current]
+      : [drag.current, drag.anchor]
+    : null;
+
+  return (
+    <section aria-label="待办日历" className="@container">
+      <div className="grid grid-cols-7 border-b">
+        {weekDays.map((day) => (
+          <div className="px-2 py-2 text-center text-xs text-ink-3 @max-[320px]:px-1" key={day}>
+            {day}
+          </div>
+        ))}
+      </div>
+      {/* 松开鼠标总落在某个日格上；移出网格视为放弃，因此不需要监听整个窗口。 */}
+      <div className="grid select-none grid-cols-7" onMouseLeave={() => setDrag(null)}>
+        {days.map((date) => {
+          const key = dateKey(date);
+          const dayItems = grouped.get(key) ?? [];
+          const currentMonth =
+            date.getMonth() === month.getMonth() && date.getFullYear() === month.getFullYear();
+          const today = key === todayKey;
+          const selected = !!range && date >= range[0]! && date <= range[1]!;
+          return (
+            <div
+              aria-current={today ? 'date' : undefined}
+              aria-label={`${date.getMonth() + 1}月${date.getDate()}日${
+                dayItems.length ? `，${dayItems.length} 个待办` : ''
+              }`}
+              className={cn(
+                // 用 div + role 是为了能嵌套待办按钮，button 里不能再放交互元素。
+                'flex min-h-24 flex-col border-b border-line p-1.5 text-left transition-colors duration-base hover:bg-hover @max-[320px]:min-h-16 @max-[320px]:p-1',
+                !currentMonth && 'bg-inset text-ink-3',
+                selected && 'bg-accent-tint',
+              )}
+              key={key}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onCreate(date, date);
+                }
+              }}
+              onMouseDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                setDrag({ anchor: date, current: date });
+              }}
+              onMouseEnter={() => {
+                if (drag) setDrag({ ...drag, current: date });
+              }}
+              onMouseUp={() => {
+                if (!range) return;
+                setDrag(null);
+                onCreate(range[0]!, range[1]!);
+              }}
+            >
+              <span
+                className={cn(
+                  'mb-1 grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium',
+                  today && 'bg-ink text-surface',
+                )}
+              >
+                {date.getDate()}
+              </span>
+              <span className="grid min-w-0 gap-0.5">
+                {dayItems.slice(0, 3).map((item) => (
+                  <TodoChip item={item} key={item.id} onOpen={onOpenItem} />
+                ))}
+                {dayItems.length > 3 ? (
+                  <DayOverflow date={date} items={dayItems} onOpen={onOpenItem} />
+                ) : null}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}

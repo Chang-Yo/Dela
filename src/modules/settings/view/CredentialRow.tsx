@@ -1,0 +1,57 @@
+import type { ComponentType, ReactNode } from 'react';
+import { cn } from '../../../ui/lib/cn';
+
+export function CredentialRow({
+  children,
+  connected,
+  description,
+  icon: Icon,
+  name,
+  settingId,
+  status,
+}: {
+  children: ReactNode;
+  connected: boolean;
+  description?: string;
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  name: string;
+  settingId: string;
+  status: string;
+}) {
+  return (
+    <li
+      className="flex items-center justify-between gap-4 border-b py-3 last:border-0 max-md:items-start"
+      data-setting-id={settingId}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-card bg-fill">
+          <Icon className="size-4 text-ink-3" strokeWidth={1.8} />
+        </span>
+        <div className="grid min-w-0 gap-0.5">
+          <strong className="text-sm">{name}</strong>
+          {description && (
+            <span className="truncate text-xs text-ink-3" title={description}>
+              {description}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          className={cn(
+            'flex min-w-18 max-w-40 items-center gap-1.5 text-xs max-md:min-w-0',
+            connected ? 'text-ink' : 'text-ink-3',
+          )}
+          title={status}
+        >
+          <span
+            aria-hidden="true"
+            className={cn('size-1.5 shrink-0 rounded-full', connected ? 'bg-success' : 'bg-ink-3')}
+          />
+          <span className="truncate">{status}</span>
+        </span>
+        {children}
+      </div>
+    </li>
+  );
+}

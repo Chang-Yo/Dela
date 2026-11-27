@@ -5,17 +5,23 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { locateBash } from '../src/main/terminal';
-import { prependRuntimePath } from '../src/main/terminal/mingit';
-import { locateSsh } from '../src/main/remotes/transport';
-import { loadPi } from '../src/main/agent/pi';
-import { closeDomainBridge, domainBridge } from '../src/main/agent/environment';
-import { COMMAND_BRIDGE } from '../src/main/agent/commands';
-import { closeDatabase } from '../src/main/database';
+import { locateBash, prependRuntimePath } from '../src/modules/terminal';
+import { locateSsh } from '../src/core/remote/transport';
+import { loadPi } from '../src/core/agent/pi';
+import { closeDomainBridge, domainBridge } from '../src/core/agent/environment';
+import { COMMAND_BRIDGE } from '../src/core/capabilities/command-server';
+import { closeDatabase, openDatabase } from '../src/app/main/database';
+import { modules } from '../src/app/modules';
+import { provideHostPorts } from '../src/core/ports';
+import { electronPorts } from '../src/app/main/host-electron';
+import { previewModule } from '../src/modules/preview';
+import { todoModule } from '../src/modules/todo';
+import { workspaceModule } from '../src/modules/workspace';
 
 const root = resolve('.');
 const profile = mkdtempSync(join(tmpdir(), 'dela-runtime-中文-'));
-app.setAppPath(root);
+// setAppPath 是 Electron 未写进类型的内部接口，让打包后的随包路径指回仓库。
+(app as typeof app & { setAppPath(path: string): void }).setAppPath(root);
 for (const name of ['userData', 'documents', 'home'] as const) app.setPath(name, profile);
 // 隔离 Pi 的二进制缓存，禁用缺少工具时的联网下载，确保测试命中随包工具。
 process.env.PI_CODING_AGENT_DIR = join(profile, 'pi');
@@ -33,6 +39,11 @@ const timeout = setTimeout(() => app.exit(1), 30000);
 app.whenReady().then(async () => {
   let exitCode = 1;
   try {
+    provideHostPorts(electronPorts);
+    openDatabase(modules);
+    todoModule.register?.();
+    workspaceModule.register?.();
+    previewModule.register?.();
     prependRuntimePath();
     const tools = join(
       root,

@@ -1,0 +1,147 @@
+import { htmlToMarkdown } from '@mdream/js';
+import { clean } from '@mdream/js/clean';
+import { extractionPlugin, filterPlugin } from '@mdream/js/plugins';
+import { fetchDeepSeek } from './deepseek';
+
+// 抓取的站点没有官方契约；使用桌面 Chrome UA，降低被判定为机器人的概率。
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const REQUEST_TIMEOUT_MS = 15000;
+const PAGE_BYTE_LIMIT = 2 * 1024 * 1024;
+const MAX_REDIRECTS = 5;
+// 单次返回的字符数；超出部分经 offset 续读，分页本身不截断。
+const TEXT_LIMIT = 20000;
+
+interface Page {
+  url: URL;
+  title: string | null;
+  contentType: string;
+  text: string;
+  truncated: boolean;
+}
+
+export async function fetchWebPage(rawUrl: string, offset = 0, deepseek?: { apiKey: string }) {
+  const fetchedAt = new Date().toISOString();
+  const url = httpUrl(rawUrl);
+  let page: Page | null = null;
+  if (deepseek) {
+    try {
+      const { title, text } = await fetchDeepSeek(url.toString(), deepseek.apiKey);
+      if (text.trim()) page = { url, title, contentType: 'text/markdown', text, truncated: false };
+    } catch {
+      // 注册了 DeepSeek 也不该让抓取失去可用性：取不到正文（404）或临时故障时回退本地抓取。
+    }
+  }
+  page ??= await fetchDirectly(url);
+  const fullText = page.text.replace(/\r\n/g, '\n');
+  const nextOffset = offset + TEXT_LIMIT < fullText.length ? offset + TEXT_LIMIT : null;
+  const notes = [
+    page.truncated && '页面超过 2MB 读取上限，内容可能不完整',
+    nextOffset !== null &&
+      `正文共 ${fullText.length} 字符，本次返回第 ${offset}–${nextOffset} 字符；传 offset=${nextOffset} 续读`,
+  ].filter(Boolean);
+  return {
+    source: { url: page.url.toString(), fetchedAt },
+    title: page.title,
+    contentType: page.contentType,
+    text: fullText.slice(offset, offset + TEXT_LIMIT),
+    totalCharacters: fullText.length,
+    nextOffset,
+    truncated: page.truncated,
+    ...(notes.length ? { note: notes.join('；') } : {}),
+  };
+}
+
+async function fetchDirectly(start: URL): Promise<Page> {
+  let url = start;
+  let response: Response;
+  for (let hop = 0; ; hop += 1) {
+    response = await fetch(url, {
+      redirect: 'manual',
+      headers: {
+        'user-agent': BROWSER_UA,
+        accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const location =
+      response.status >= 300 && response.status < 400 ? response.headers.get('location') : null;
+    if (!location) break;
+    await response.body?.cancel();
+    if (hop >= MAX_REDIRECTS) throw new Error('网页重定向次数过多');
+    url = httpUrl(new URL(location, url).toString());
+  }
+  if (!response.ok) throw new Error(`网页请求失败（HTTP ${response.status}）`);
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType && !/^text\/|[/+](?:xml|json)\b/i.test(contentType)) {
+    await response.body?.cancel();
+    throw new Error(`该地址不是网页（${contentType}），需要文件时请自行下载`);
+  }
+  const { bytes, truncated } = await readCapped(response);
+  const charset = /charset=([\w-]+)/i.exec(contentType)?.[1];
+  let source: string;
+  try {
+    source = new TextDecoder(charset).decode(bytes);
+  } catch {
+    source = new TextDecoder().decode(bytes);
+  }
+  const isMarkup = /text\/html|application\/xhtml/i.test(contentType) || !contentType;
+  const { title, text } = isMarkup
+    ? htmlToPage(source, url.toString())
+    : { title: null, text: source };
+  return { url, title, contentType: contentType || 'text/html', text, truncated };
+}
+
+function httpUrl(raw: string): URL {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    throw new Error('不是有效的 URL');
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('只支持 http(s) 地址');
+  return url;
+}
+
+async function readCapped(response: Response): Promise<{ bytes: Uint8Array; truncated: boolean }> {
+  if (!response.body)
+    return { bytes: new Uint8Array(await response.arrayBuffer()), truncated: false };
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  let truncated = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (length + value.length > PAGE_BYTE_LIMIT) {
+      chunks.push(value.subarray(0, PAGE_BYTE_LIMIT - length));
+      truncated = true;
+      await reader.cancel().catch(() => {});
+      break;
+    }
+    chunks.push(value);
+    length += value.length;
+  }
+  return { bytes: Buffer.concat(chunks), truncated };
+}
+
+function htmlToPage(html: string, origin: string): { title: string | null; text: string } {
+  let title: string | null = null;
+  // 不用 minimal 的正文启发式与 Tailwind 过滤，避免无标题或定位布局的正文被误删。
+  const text = htmlToMarkdown(html, {
+    origin,
+    clean: clean(),
+    plugins: [
+      extractionPlugin({
+        title: (element) => {
+          title = element.textContent.trim() || null;
+        },
+      }),
+      filterPlugin({
+        exclude: ['nav', 'footer', 'script', 'style', 'noscript', 'svg', 'template'],
+      }),
+    ],
+  });
+  return { title, text };
+}

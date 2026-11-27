@@ -1,0 +1,75 @@
+# 手动触发的 SignPath 测试签名；正式发布的 Windows 安装包尚未配置 Authenticode 签名
+# （2026-10 记录）。SHA-512 只验证文件与元数据一致，不能替代发布者签名。
+name: Test-sign Windows installer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  helper:
+    uses: ./.github/workflows/helper.yml
+    with:
+      ref: ${{ github.sha }}
+
+  windows:
+    needs: [test, helper]
+    uses: ./.github/workflows/desktop-windows.yml
+    with:
+      helper: true
+      archives: true
+      upload-installer: true
+
+  sign:
+    needs: windows
+    runs-on: windows-2022
+    timeout-minutes: 65
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Submit installer to SignPath
+        uses: signpath/github-action-submit-signing-request@4a84eb4ad763290f059275786f2deed97c2c672b # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: Dela
+          signing-policy-slug: test-signing
+          github-artifact-id: ${{ needs.windows.outputs.installer-artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+      - name: Verify installer signature on the temporary Windows runner
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem signed/Dela-*-win-x64.exe -File)
+          if ($installers.Count -ne 1) { throw 'Expected one signed Dela installer' }
+          $path = $installers[0].FullName
+          Write-Host 'Reading embedded installer certificate'
+          $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+            [System.Security.Cryptography.X509Certificates.X509Certificate]::CreateFromSignedFile($path)
+          )
+          if ($certificate.Subject -eq $certificate.Issuer) {
+            Write-Host "Trusting test certificate on the temporary runner: $($certificate.Thumbprint)"
+            $store = [System.Security.Cryptography.X509Certificates.X509Store]::new('Root', 'LocalMachine')
+            $store.Open('ReadWrite')
+            try { $store.Add($certificate) } finally { $store.Close() }
+          }
+          Write-Host 'Checking the Windows installer signature'
+          $signature = Get-AuthenticodeSignature -LiteralPath $path
+          if ($signature.Status -ne 'Valid') { throw $signature.StatusMessage }
+          Write-Host "Verified signer $($certificate.Subject) ($($certificate.Thumbprint))"
+      - name: Save test-signed installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-signed-windows-installer
+          path: signed/Dela-*-win-x64.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

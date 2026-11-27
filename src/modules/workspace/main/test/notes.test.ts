@@ -1,0 +1,601 @@
+import Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, isAbsolute, join } from 'node:path';
+
+const state = vi.hoisted(() => ({ root: '', execFile: vi.fn() }));
+vi.mock('node:child_process', () => ({ execFile: state.execFile }));
+
+import { workspaceArchiveId } from '../../contract';
+import {
+  createWorkspaceEntry,
+  linkProjectFolder,
+  readWorkspaceEntry,
+  removeWorkspaceEntry,
+  resolveWorkspaceAsset,
+  saveNoteImage,
+  saveWorkspaceNote,
+  updateWorkspaceEntry,
+  getWorkspaceState,
+  entry,
+  workspaceFilePath,
+} from '../api';
+import { registerWorkspaceSource } from '../sources';
+import { coreSchema } from '../../../../core/data/schema';
+import { remotesModule } from '../../../remotes';
+import { workspaceSchema } from '../../data/schema';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import {
+  getLocalWorkspaceState,
+  listLocalDirectory,
+  localEntryAncestors,
+  searchLocalWorkspace,
+} from '../local-tree';
+
+const PNG: Uint8Array = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+
+function createDb(): Database.Database {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  for (const table of [
+    ...remotesModule.schema!.tables,
+    ...workspaceSchema.tables,
+    ...coreSchema.tables,
+  ])
+    db.exec(table);
+  db.exec('DELETE FROM workspace_entries');
+  return db;
+}
+
+function insertFileEntry(db: Database.Database, path: string, kind: 'file') {
+  const id = crypto.randomUUID();
+  db.prepare(
+    'INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, ?, ?, NULL, ?, NULL, ?)',
+  ).run(id, path.split(/[\\/]/).pop()!, kind, path, new Date().toISOString());
+  return id;
+}
+
+const workspaceRoot = () => join(state.root, 'Dela', 'workspace');
+const localPathOf = (id: string) => entry(id).path!;
+
+let db: Database.Database;
+
+beforeEach(() => {
+  state.execFile.mockImplementation((_command, _args, _options, callback) => {
+    callback(new Error('not a repository'), '', '');
+    return { stdin: { on() {}, end() {} } };
+  });
+  state.root = mkdtempSync(join(tmpdir(), 'dela-notes-'));
+  provideTestHostPorts({
+    paths: { documents: () => state.root, storage: () => join(state.root, 'Dela') },
+    database: () => db,
+  });
+  db = createDb();
+});
+
+afterEach(() => {
+  rmSync(state.root, { recursive: true, force: true });
+});
+
+describe('磁盘工作区', () => {
+  it('批量读取 Git 忽略规则，保留反向规则与已跟踪文件，隐藏内部元数据', async () => {
+    const git = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+    state.execFile.mockImplementation(git.execFile);
+    const project = createWorkspaceEntry({ parentId: null, name: 'repo', kind: 'project' });
+    const cwd = localPathOf(project.id);
+    git.execFileSync('git', ['init', '--quiet', cwd]);
+    writeFileSync(join(cwd, 'tracked.log'), 'tracked');
+    git.execFileSync('git', ['add', 'tracked.log'], { cwd });
+    writeFileSync(join(cwd, '.gitignore'), '*.log\n!keep.log\nbuild/\n');
+    for (const name of ['ignored.log', 'keep.log', '.env', '.DS_Store', 'Thumbs.db'])
+      writeFileSync(join(cwd, name), '');
+    mkdirSync(join(cwd, 'build'));
+    writeFileSync(join(cwd, 'build', 'output.txt'), '');
+    const items = await listLocalDirectory(project.id);
+    expect(items.find((item) => item.name === 'ignored.log')?.gitIgnored).toBe(true);
+    expect(items.find((item) => item.name === 'build')?.gitIgnored).toBe(true);
+    expect(items.find((item) => item.name === 'keep.log')?.gitIgnored).toBe(false);
+    expect(items.find((item) => item.name === 'tracked.log')?.gitIgnored).toBe(false);
+    expect(items.map((item) => item.name)).toEqual(expect.arrayContaining(['.env', '.gitignore']));
+    expect(items.some((item) => ['.git', '.DS_Store', 'Thumbs.db'].includes(item.name))).toBe(
+      false,
+    );
+    expect((await listLocalDirectory(join(cwd, 'build')))[0]?.gitIgnored).toBe(true);
+    writeFileSync(join(cwd, '.gitignore'), '');
+    expect(
+      (await listLocalDirectory(project.id)).find((item) => item.name === 'ignored.log')
+        ?.gitIgnored,
+    ).toBe(false);
+  });
+  it('目录概览不扫描项目后代，逐层加载与独立搜索保留深层文件', async () => {
+    const project = createWorkspaceEntry({ parentId: null, name: 'large', kind: 'project' });
+    const deep = join(localPathOf(project.id), 'src', 'nested');
+    mkdirSync(deep, { recursive: true });
+    const file = join(deep, 'needle.ts');
+    writeFileSync(file, 'export {};');
+    const overview = await getLocalWorkspaceState();
+    expect(overview.entries.some((item) => item.id === project.id)).toBe(true);
+    expect(overview.entries.some((item) => item.path === deep || item.path === file)).toBe(false);
+    const first = await listLocalDirectory(project.id);
+    expect(first.map((item) => item.name)).toEqual(['src']);
+    expect(first[0]?.parentId).toBe(project.id);
+    const found = await searchLocalWorkspace(project.id, 'needle');
+    expect(found.map((item) => item.path)).toEqual([
+      localPathOf(project.id),
+      join(localPathOf(project.id), 'src'),
+      deep,
+      file,
+    ]);
+    expect((await searchLocalWorkspace(project.id, '')).some((item) => item.path === file)).toBe(
+      true,
+    );
+    const ancestors = await localEntryAncestors(file);
+    expect(ancestors.map((item) => item.path)).toEqual([
+      localPathOf(project.id),
+      join(localPathOf(project.id), 'src'),
+      deep,
+      file,
+    ]);
+    expect(ancestors.map((item) => item.parentId)).toEqual([
+      null,
+      project.id,
+      join(localPathOf(project.id), 'src'),
+      deep,
+    ]);
+    const controller = new AbortController();
+    controller.abort();
+    expect(await searchLocalWorkspace(project.id, 'needle', controller.signal)).toEqual([]);
+  });
+
+  it('外部创建的文件可发现、打开与保存，无需数据库条目或笔记身份', async () => {
+    const project = createWorkspaceEntry({ parentId: null, name: '磁盘项目', kind: 'project' });
+    const folder = join(localPathOf(project.id), 'shell-folder');
+    mkdirSync(folder);
+    const path = join(folder, 'shell.md');
+    writeFileSync(path, '# shell');
+    expect(getWorkspaceState().entries.find((item) => item.id === path)).toMatchObject({
+      parentId: folder,
+      kind: 'file',
+    });
+    const content = await readWorkspaceEntry(path);
+    saveWorkspaceNote(path, '# edited', content.revision!);
+    expect(readFileSync(path, 'utf8')).toBe('# edited');
+    expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 1 });
+  });
+
+  it('新建普通文件返回路径，重命名返回已有视图的路径映射', () => {
+    const note = createWorkspaceEntry({
+      parentId: null,
+      name: '普通.md',
+      kind: 'file',
+      text: 'file',
+    });
+    expect(note.id).toBe(join(workspaceRoot(), '普通.md'));
+    const result = updateWorkspaceEntry(note.id, { name: '新名.md' });
+    expect(result).toEqual({
+      id: join(workspaceRoot(), '新名.md'),
+      fromPath: note.id,
+      toPath: join(workspaceRoot(), '新名.md'),
+    });
+    expect(existsSync(note.id)).toBe(false);
+    expect(readFileSync(result.id, 'utf8')).toBe('file');
+    expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 0 });
+  });
+});
+
+describe('按内容判定格式（无扩展名白名单）', () => {
+  const write = (name: string, data: string | Uint8Array) => {
+    const path = join(workspaceRoot(), name);
+    mkdirSync(workspaceRoot(), { recursive: true });
+    writeFileSync(path, data);
+    return path;
+  };
+
+  it('点文件与无后缀文本可编辑；无后缀二进制与非 UTF-8 文本不当文本打开', async () => {
+    expect(await readWorkspaceEntry(write('.env', 'KEY=1\n'))).toMatchObject({
+      format: 'text',
+      text: 'KEY=1\n',
+    });
+    expect(await readWorkspaceEntry(write('build', 'make all'))).toMatchObject({ format: 'text' });
+    const binary = await readWorkspaceEntry(write('core', Uint8Array.from([0x7f, 0x45, 0, 1])));
+    expect(binary.format).toBe('binary');
+    expect(binary.text).toBeUndefined();
+    // GBK「中文」：不是合法 UTF-8，按 UTF-8 读进来再写回会把它写坏。
+    const gbk = write('gbk.txt', Uint8Array.from([0xd6, 0xd0, 0xce, 0xc4]));
+    expect((await readWorkspaceEntry(gbk)).format).toBe('binary');
+    expect(() => saveWorkspaceNote(gbk, 'x', 'any')).toThrow('只有文本文件可以编辑');
+  });
+
+  it('超过 1 MB 只读头部且不可保存；超过 50 MB 不读内容', async () => {
+    const big = write('big.log', 'a'.repeat(1024 * 1024 + 10));
+    const content = await readWorkspaceEntry(big);
+    expect(content).toMatchObject({ format: 'text', readOnly: true, truncated: true });
+    expect(content.text).toHaveLength(1024 * 1024);
+    expect(() => saveWorkspaceNote(big, 'x', content.revision!)).toThrow('只能只读查看');
+  });
+
+  it('保存只写用户给的文本：CRLF 与 BOM 原样保留，原地覆写不换掉文件', async () => {
+    const original = '﻿a\r\nb\r\n';
+    const edited = '﻿a\r\nc\r\n';
+    const path = write('win.txt', original);
+    const link = join(state.root, 'hardlink.txt');
+    linkSync(path, link);
+    const before = await readWorkspaceEntry(path);
+    expect(before.text).toBe(original);
+    saveWorkspaceNote(path, edited, before.revision!);
+    expect(readFileSync(path, 'utf8')).toBe(edited);
+    // 硬链接仍指向同一份内容：说明是原地覆写，没有 rename 出一个新文件。
+    expect(readFileSync(link, 'utf8')).toBe(edited);
+    expect(statSync(path).ino).toBe(statSync(link).ino);
+    expect(existsSync(`${path}.tmp`)).toBe(false);
+  });
+});
+
+describe('移动中断后的恢复', () => {
+  const pending = (from: string, to: string) =>
+    db
+      .prepare("INSERT OR REPLACE INTO workspace_settings VALUES ('workspace-pending-move', ?)")
+      .run(JSON.stringify({ from, to, id: to, name: '新位置', parentId: null, kind: 'folder' }));
+  const pendingMove = () =>
+    db.prepare("SELECT value FROM workspace_settings WHERE key='workspace-pending-move'").get();
+
+  it('磁盘已改名、数据库未提交：启动时补完移动并清除标记', () => {
+    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
+    const from = join(localPathOf(project.id), '旧位置');
+    const to = join(localPathOf(project.id), '新位置');
+    mkdirSync(to);
+    pending(from, to);
+    expect(() => getWorkspaceState()).not.toThrow();
+    expect(pendingMove()).toBeUndefined();
+  });
+
+  it('磁盘尚未改名：放弃标记，原目录保留', () => {
+    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
+    const from = join(localPathOf(project.id), '旧位置');
+    mkdirSync(from);
+    pending(from, join(localPathOf(project.id), '新位置'));
+    getWorkspaceState();
+    expect(pendingMove()).toBeUndefined();
+    expect(existsSync(from)).toBe(true);
+  });
+
+  it('两端都在或都不在：无法判断，拒绝继续修改文件', () => {
+    const project = createWorkspaceEntry({ parentId: null, name: '项目', kind: 'project' });
+    const from = join(localPathOf(project.id), '旧位置');
+    const to = join(localPathOf(project.id), '新位置');
+    mkdirSync(from);
+    mkdirSync(to);
+    pending(from, to);
+    expect(() => getWorkspaceState()).toThrow(/文件移动尚未恢复/);
+  });
+});
+
+describe('createWorkspaceEntry', () => {
+  it('文件名原样落盘，不补扩展名：无后缀与点文件都能新建', async () => {
+    for (const name of ['log', '.env', 'Makefile', 'demo.cpp']) {
+      const created = createWorkspaceEntry({ parentId: null, name, kind: 'file', text: 'x' });
+      expect(created).toMatchObject({ name, kind: 'file', id: join(workspaceRoot(), name) });
+      expect(await readWorkspaceEntry(created.id)).toMatchObject({ format: 'text', text: 'x' });
+    }
+    const note = createWorkspaceEntry({
+      parentId: null,
+      name: '会议.md',
+      kind: 'file',
+      text: '# 内容',
+    });
+    expect((await readWorkspaceEntry(note.id)).format).toBe('markdown');
+  });
+
+  it('名称里的 / 与 \\ 是路径分隔符：逐级建文件夹，已有文件夹复用', async () => {
+    const created = createWorkspaceEntry({ parentId: null, name: 'aaa/bbb.md', kind: 'file' });
+    expect(created).toMatchObject({
+      id: join(workspaceRoot(), 'aaa', 'bbb.md'),
+      name: 'bbb.md',
+      parentId: join(workspaceRoot(), 'aaa'),
+    });
+    createWorkspaceEntry({ parentId: null, name: 'aaa\\ccc.md', kind: 'file' });
+    expect(existsSync(join(workspaceRoot(), 'aaa', 'ccc.md'))).toBe(true);
+    createWorkspaceEntry({ parentId: null, name: 'x/y/z/', kind: 'folder' });
+    expect(statSync(join(workspaceRoot(), 'x', 'y', 'z')).isDirectory()).toBe(true);
+  });
+
+  it('重名报错不改名；. 与 .. 段拒绝；中间段撞上文件时报错', () => {
+    createWorkspaceEntry({ parentId: null, name: 'a.md', kind: 'file' });
+    expect(() => createWorkspaceEntry({ parentId: null, name: 'a.md', kind: 'file' })).toThrow(
+      '「a.md」已存在',
+    );
+    expect(existsSync(join(workspaceRoot(), 'a (2).md'))).toBe(false);
+    expect(() =>
+      createWorkspaceEntry({ parentId: null, name: '../escape.md', kind: 'file' }),
+    ).toThrow('路径段');
+    expect(() => createWorkspaceEntry({ parentId: null, name: 'p/./q', kind: 'folder' })).toThrow(
+      '路径段',
+    );
+    expect(existsSync(join(state.root, 'Dela', 'escape.md'))).toBe(false);
+    expect(() => createWorkspaceEntry({ parentId: null, name: 'a.md/b', kind: 'file' })).toThrow(
+      '不是文件夹',
+    );
+  });
+
+  it('source 引用行的 local_path 是容器目录去重键，不改变该目录的条目身份', () => {
+    const folder = createWorkspaceEntry({ parentId: null, name: '资料夹', kind: 'folder' });
+    db.prepare(
+      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, '实验要求', 'source', 'assignment:4', ?, NULL, ?)",
+    ).run(crypto.randomUUID(), folder.id, new Date().toISOString());
+    expect(entry(folder.id).kind).toBe('folder');
+    // 同容器继续创建内容不受影响（source 行曾把容器误判成 source 而拒绝操作）。
+    const note = createWorkspaceEntry({
+      parentId: folder.id,
+      name: '笔记.md',
+      kind: 'file',
+      text: '',
+    });
+    expect(isAbsolute(note.id)).toBe(true);
+  });
+});
+
+describe('资料来源条目', () => {
+  const fake = {
+    prefix: 'fake:',
+    validate: vi.fn((sourceId: string) => {
+      if (sourceId === 'fake:missing') throw new Error('资料不存在');
+    }),
+    added: vi.fn(),
+    collect: vi.fn(async () => {}),
+    preview: vi.fn(async () => ({ title: '来源', format: 'text' as const, text: '正文' })),
+    read: vi.fn(),
+  };
+  registerWorkspaceSource(fake);
+
+  it('没有模块认领的来源（对应校园服务未启用）给出产品错误', async () => {
+    expect(() =>
+      createWorkspaceEntry({ parentId: null, name: '课件', kind: 'source', sourceId: 'file:1' }),
+    ).toThrow('该资料暂不可用');
+    const id = crypto.randomUUID();
+    db.prepare(
+      "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES (?, NULL, '课件', 'source', 'file:1', ?, NULL, 'now')",
+    ).run(id, workspaceRoot());
+    await expect(readWorkspaceEntry(id)).rejects.toThrow('该资料暂不可用');
+    await expect(workspaceFilePath(id)).rejects.toThrow('该资料暂不可用');
+  });
+});
+
+describe('归档文件夹', () => {
+  const archivePath = () => join(workspaceRoot(), '归档');
+  const seedArchive = () =>
+    db
+      .prepare(
+        "INSERT INTO workspace_entries (id, parent_id, name, kind, source_id, local_path, remote_id, updated_at) VALUES ('00000000-0000-4000-8000-000000000001', NULL, '归档', 'folder', NULL, NULL, NULL, '2026-10-07T00:00:00.000Z')",
+      )
+      .run();
+
+  it('首次访问落定归档文件夹并持久化路径；重复访问不重建，条目列表不含归档行自身', () => {
+    seedArchive();
+    const state = getWorkspaceState();
+    expect(entry(workspaceArchiveId).path).toBe(archivePath());
+    expect(existsSync(archivePath())).toBe(true);
+    expect(state.entries.find((item) => item.id === workspaceArchiveId)).toBeUndefined();
+    // 重复访问不重建：路径不变；只有 local_path 悬空时才重新落定。
+    getWorkspaceState();
+    expect(entry(workspaceArchiveId).path).toBe(archivePath());
+    rmSync(archivePath(), { recursive: true, force: true });
+    db.prepare('UPDATE workspace_entries SET local_path=? WHERE id=?').run(
+      join(workspaceRoot(), '已丢失'),
+      workspaceArchiveId,
+    );
+    getWorkspaceState();
+    expect(entry(workspaceArchiveId).path).toBe(archivePath());
+  });
+});
+
+describe('saveNoteImage / resolveWorkspaceAsset', () => {
+  it('图片写入笔记目录 assets/，返回正斜杠相对路径，重名自动加序号', () => {
+    const note = createWorkspaceEntry({
+      parentId: null,
+      name: '带图笔记.md',
+      kind: 'file',
+      text: '',
+    });
+    expect(saveNoteImage(note.id, '截图.png', PNG)).toBe('assets/截图.png');
+    expect(saveNoteImage(note.id, '截图.png', PNG)).toBe('assets/截图 (2).png');
+    const resolved = resolveWorkspaceAsset(note.id, 'assets/截图.png');
+    expect(resolved.mime).toBe('image/png');
+    expect(existsSync(resolved.path)).toBe(true);
+    expect(saveNoteImage(note.id, 'my pic (1).png', PNG)).toBe('assets/my pic (1).png');
+    const spaced = resolveWorkspaceAsset(note.id, 'assets/my pic (1).png');
+    expect(spaced.mime).toBe('image/png');
+    expect(existsSync(spaced.path)).toBe(true);
+  });
+
+  it('拒绝越界路径、非图片扩展名与非 Markdown 文件', () => {
+    const note = createWorkspaceEntry({ parentId: null, name: '笔记.md', kind: 'file', text: '' });
+    expect(() => resolveWorkspaceAsset(note.id, '../逃逸.png')).toThrow('资源路径超出文档目录');
+    expect(() => resolveWorkspaceAsset(note.id, 'assets/notes.txt')).toThrow('不支持的图片格式');
+    expect(() => saveNoteImage(note.id, 'a.exe', PNG)).toThrow('不支持的图片格式');
+
+    const sourceDir = join(state.root, '来源');
+    mkdirSync(sourceDir);
+    writeFileSync(join(sourceDir, '外部.png'), PNG);
+    const importedId = insertFileEntry(db, join(sourceDir, '外部.png'), 'file');
+    expect(() => saveNoteImage(importedId, 'a.png', PNG)).toThrow('只有 Markdown 文件可以插入图片');
+    // 导入文件以自身目录为基准解析相对图片；向上跳出该目录的引用被拒绝。
+    expect(resolveWorkspaceAsset(importedId, '外部.png').mime).toBe('image/png');
+    writeFileSync(join(state.root, '逃逸.png'), PNG);
+    expect(() => resolveWorkspaceAsset(importedId, '../逃逸.png')).toThrow('资源路径超出文档目录');
+  });
+});
+
+describe('笔记移动携带图片', () => {
+  it('移动到其他目录后图片按原相对路径可用，正文不改写', () => {
+    const folderA = createWorkspaceEntry({ parentId: null, name: 'A', kind: 'folder' });
+    const folderB = createWorkspaceEntry({ parentId: null, name: 'B', kind: 'folder' });
+    const note = createWorkspaceEntry({
+      parentId: folderA.id,
+      name: '移动笔记.md',
+      kind: 'file',
+      text: '![图](assets/fig.png)\n',
+    });
+    saveNoteImage(note.id, 'fig.png', PNG);
+
+    const move = updateWorkspaceEntry(note.id, { parentId: folderB.id });
+    const moved = move.toPath!;
+    expect(dirname(moved)).toBe(localPathOf(folderB.id));
+    expect(readFileSync(moved, 'utf8')).toBe('![图](assets/fig.png)\n');
+    expect(existsSync(join(localPathOf(folderB.id), 'assets', 'fig.png'))).toBe(true);
+    expect(existsSync(join(localPathOf(folderA.id), 'assets', 'fig.png'))).toBe(true);
+    expect(resolveWorkspaceAsset(moved, 'assets/fig.png').mime).toBe('image/png');
+  });
+
+  it('URI 编码的引用（空格、括号、中文）按解码后的文件名携带', () => {
+    const folderA = createWorkspaceEntry({ parentId: null, name: 'A', kind: 'folder' });
+    const folderB = createWorkspaceEntry({ parentId: null, name: 'B', kind: 'folder' });
+    const note = createWorkspaceEntry({
+      parentId: folderA.id,
+      name: '编码.md',
+      kind: 'file',
+      text: '![x](assets/%E6%88%AA%E5%9B%BE%20%281%29.png)\n',
+    });
+    saveNoteImage(note.id, '截图 (1).png', PNG);
+    const moved = updateWorkspaceEntry(note.id, { parentId: folderB.id }).toPath!;
+    expect(existsSync(join(dirname(moved), 'assets', '截图 (1).png'))).toBe(true);
+  });
+});
+
+describe('saveWorkspaceNote 外部冲突', () => {
+  it('revision 与磁盘不一致时拒绝保存且不改文件；一致时写入并返回新 revision', async () => {
+    const note = createWorkspaceEntry({
+      parentId: null,
+      name: '冲突笔记.md',
+      kind: 'file',
+      text: 'v1',
+    });
+    const before = await readWorkspaceEntry(note.id);
+
+    expect(() => saveWorkspaceNote(note.id, '被覆盖的内容', 'stale')).toThrow('外部修改');
+    expect(readFileSync(localPathOf(note.id), 'utf8')).toBe('v1');
+
+    const next = saveWorkspaceNote(note.id, 'v2', before.revision!);
+    expect(readFileSync(localPathOf(note.id), 'utf8')).toBe('v2');
+    expect(next).not.toBe(before.revision);
+  });
+});
+
+describe('folder↔project 转换', () => {
+  it('升格生成条目 UUID 并记录项目目录；转换伴随重命名时项目目录跟随移动，降格回到路径身份、名下会话转为随聊', () => {
+    const folder = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'folder' });
+    expect(isAbsolute(folder.id)).toBe(true);
+    const promoted = updateWorkspaceEntry(folder.id, { kind: 'project' });
+    expect(promoted.id).not.toBe(folder.id);
+    expect(
+      db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(promoted.id),
+    ).toEqual({ path: folder.id });
+    expect(entry(folder.id)).toMatchObject({ id: promoted.id, kind: 'project' });
+
+    updateWorkspaceEntry(promoted.id, { name: '毕业设计' });
+    expect(existsSync(join(workspaceRoot(), '毕业设计'))).toBe(true);
+    expect(
+      db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(promoted.id),
+    ).toEqual({ path: join(workspaceRoot(), '毕业设计') });
+
+    db.prepare(
+      "INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES ('s1', ?, 'f', 'now', 'now')",
+    ).run(promoted.id);
+    const demoted = updateWorkspaceEntry(promoted.id, { name: '归档课题', kind: 'folder' });
+    expect(db.prepare("SELECT project_id FROM sessions WHERE id='s1'").pluck().get()).toBeNull();
+    expect(existsSync(join(workspaceRoot(), '归档课题'))).toBe(true);
+    expect(isAbsolute(demoted.id)).toBe(true);
+    expect(demoted.id).toBe(join(workspaceRoot(), '归档课题'));
+    expect(
+      db.prepare('SELECT 1 FROM workspace_entries WHERE id=?').get(promoted.id),
+    ).toBeUndefined();
+    expect(entry(demoted.id).kind).toBe('folder');
+  });
+
+  it('移除项目删除条目行与名下会话，目录保留', async () => {
+    const directory = join(state.root, '课题目录');
+    mkdirSync(directory);
+    const project = linkProjectFolder(directory);
+    const iso = '2026-09-29T00:00:00.000Z';
+    for (const archived of [0, 1])
+      db.prepare(
+        'INSERT INTO sessions (id, project_id, file, archived, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      ).run(crypto.randomUUID(), project.id, '', archived, iso, iso);
+    await removeWorkspaceEntry(project.id);
+    expect(db.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT count(*) AS n FROM workspace_entries').get()).toEqual({ n: 0 });
+    expect(existsSync(directory)).toBe(true);
+    // 重新导入同一目录得到全新身份，不接回历史。
+    const reborn = linkProjectFolder(directory);
+    expect(reborn.id).not.toBe(project.id);
+    expect(db.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+  });
+
+  it('移除带子项目的父项目被拒绝，子项目登记与会话保留', async () => {
+    const parent = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'project' });
+    const child = createWorkspaceEntry({ parentId: parent.id, name: '子课题', kind: 'project' });
+    db.prepare(
+      'INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).run(crypto.randomUUID(), child.id, '', 'now', 'now');
+    await expect(removeWorkspaceEntry(parent.id)).rejects.toThrow('子课题');
+    expect(entry(child.id).kind).toBe('project');
+    expect(db.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 1 });
+  });
+
+  it('降格带子项目的父项目被拒绝，子项目登记与会话保留', () => {
+    const parent = createWorkspaceEntry({ parentId: null, name: '课题', kind: 'project' });
+    const child = createWorkspaceEntry({ parentId: parent.id, name: '子课题', kind: 'project' });
+    db.prepare(
+      'INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ).run(crypto.randomUUID(), child.id, '', 'now', 'now');
+    expect(() => updateWorkspaceEntry(parent.id, { kind: 'folder' })).toThrow('子课题');
+    expect(entry(child.id).kind).toBe('project');
+    expect(db.prepare('SELECT count(*) AS n FROM sessions').get()).toEqual({ n: 1 });
+  });
+});
+
+describe('导入已有文件夹作为项目', () => {
+  const external = () => join(state.root, 'external', '我的代码');
+
+  beforeEach(() => {
+    mkdirSync(external(), { recursive: true });
+    writeFileSync(join(external(), 'README.md'), '# 我的代码');
+  });
+
+  it('目录留在原处，登记为项目并连同子文件出现在工作区状态里', () => {
+    const project = linkProjectFolder(external());
+    expect(project).toMatchObject({
+      name: '我的代码',
+      kind: 'project',
+      parentId: null,
+      path: external(),
+    });
+    expect(isAbsolute(project.id)).toBe(false);
+    expect(
+      db.prepare('SELECT local_path AS path FROM workspace_entries WHERE id=?').get(project.id),
+    ).toEqual({ path: external() });
+    const entries = getWorkspaceState().entries;
+    expect(entries.find((item) => item.id === project.id)).toMatchObject({ kind: 'project' });
+    expect(entries.find((item) => item.id === join(external(), 'README.md'))).toMatchObject({
+      parentId: project.id,
+      kind: 'file',
+    });
+  });
+
+  it('拒绝文件、不存在的目录与工作区根目录本身', () => {
+    expect(() => linkProjectFolder(join(external(), 'README.md'))).toThrow('请选择一个文件夹');
+    expect(() => linkProjectFolder(join(state.root, 'missing'))).toThrow('请选择一个文件夹');
+    mkdirSync(workspaceRoot(), { recursive: true });
+    expect(() => linkProjectFolder(workspaceRoot())).toThrow('工作区目录');
+  });
+});

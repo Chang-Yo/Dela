@@ -95,27 +95,26 @@ let notifications = [
 const listCalls = [];
 
 const routes = {
-  'workspace:get-state': () => ({ entries: [], directory: '' }),
-  'canvas:get-state': () => ({ connected: false, courses: [], items: [] }),
+  'workspace:state': () => ({ entries: [], directory: '' }),
+  'canvas:state': () => ({ connected: false, courses: [], items: [] }),
   'window:get-state': () => ({ maximized: false }),
-  'settings:get-theme': () => 'light',
-  'settings:get-zoom': () => 1,
-  'settings:get-font-size': () => 16,
+  'settings:theme': () => 'light',
+  'settings:zoom': () => 1,
+  'settings:fontSize': () => 16,
   // 应用壳启动时读取的跨域通道：给出未配置 / 默认值，让界面安静装载。
-  'settings:get-experiments': () => ({ master: true, shuiyuan: true, videoDownload: true }),
-  'settings:get-keybindings': () => ({}),
-  'layout:get': () => null,
-  'layout:save': () => null,
-  'session:list': () => [],
+  'settings:keybindings': () => ({}),
+  'workspace:layout': () => null,
+  'workspace:saveLayout': () => null,
+  'agent:list-sessions': () => [],
   'remotes:list': () => [],
-  'notifications:get-state': () => ({
+  'notifications:state': () => ({
     items: [],
     totalCount: 0,
     unreadCount: 0,
     snoozedUntil: null,
-    refresh: { mail: null, shuiyuan: null, todo: null },
+    refresh: {},
   }),
-  'update:get-state': () => ({
+  'update:state': () => ({
     phase: 'idle',
     currentVersion: '0.0.0',
     version: null,
@@ -126,8 +125,9 @@ const routes = {
     detail: null,
     failedAt: null,
   }),
-  'shuiyuan:get-state': () => ({ connected: true, username: 'tester', boundAt: iso(1000) }),
-  'shuiyuan:site-structure': () => ({
+  'contract:subscribe': () => null,
+  'shuiyuan:state': () => ({ connected: true, username: 'tester', boundAt: iso(1000) }),
+  'shuiyuan:siteStructure': () => ({
     categories: [
       {
         id: 1,
@@ -144,23 +144,46 @@ const routes = {
       { name: '转载', topicCount: 3 },
     ],
   }),
-  'shuiyuan:get-counts': () => ({
+  'shuiyuan:counts': () => ({
     notifications: notifications.filter((n) => !n.read).length,
     messages: 1,
   }),
-  'shuiyuan:list-topics': (_event, feed, moreUrl) => {
+  'shuiyuan:topics': (_event, { feed, moreUrl }) => {
     listCalls.push(JSON.stringify({ feed, moreUrl: moreUrl ?? null }));
     if (feed?.kind === 'search') return searchPage;
     return moreUrl ? pageTwo : pageOne;
   },
-  'shuiyuan:get-topic': (_event, id) => (id === 101 ? detail : { ...detail, id }),
-  'shuiyuan:list-notifications': () => notifications,
-  'shuiyuan:mark-notifications-read': () => {
+  'shuiyuan:topic': (_event, { id }) => (id === 101 ? detail : { ...detail, id }),
+  'shuiyuan:notifications': () => notifications,
+  'shuiyuan:markNotificationsRead': () => {
     notifications = notifications.map((item) => ({ ...item, read: true }));
     return null;
   },
 };
 for (const [name, handler] of Object.entries(routes)) ipcMain.handle(name, handler);
+// preload 按主进程下发的名单放行；事件是界面启动与水源页会订阅的那些。
+ipcMain.on('contract:manifest', (event) => {
+  event.returnValue = {
+    channels: Object.keys(routes),
+    events: [
+      'agent:session-update',
+      'agent:session-stream',
+      'agent:queue',
+      'agent:run-event',
+      'agent:sidechat-update',
+      'agent:sidechat-stream',
+      'agent:sidechat-closed',
+      'remotes:helperState',
+      'remotes:setupProgress',
+      'classroom:downloadEnded',
+      'shuiyuan:openTopic',
+      'shuiyuan:snapshotEnded',
+      'notifications:open',
+      'update:state',
+      'workspace:changed',
+    ],
+  };
+});
 
 app
   .whenReady()
@@ -204,7 +227,6 @@ app
       "[...document.querySelectorAll('aside[aria-label=\\\"主导航\\\"] nav[aria-label=功能入口] button')].find(b => b.textContent.includes('水源'))",
     );
 
-    // 信息流：表头、两个主题行、类别色点、未读徽标。
     await wait(
       "document.body.innerText.includes('置顶公告帖') && document.body.innerText.includes('考试经验分享帖')",
     );
@@ -245,7 +267,6 @@ app
       'manual load-more button should be replaced by auto pagination',
     );
 
-    // 阅读页推入：返回按钮、楼层 iframe、标题。
     await click(
       "[...document.querySelectorAll('button')].find(b => b.textContent.includes('置顶公告帖'))",
     );
@@ -259,16 +280,13 @@ app
       'content stays inside iframe',
     );
 
-    // 引用按钮：展开回复器并插入引用文本。
     await click('document.querySelector(\'[aria-label=\\"引用第 1 楼\\"]\')');
     await wait("document.querySelector('.cm-content')");
     assert.match(await evaluate("document.querySelector('.cm-content').innerText"), /楼主/);
 
-    // 返回信息流。
     await click('document.querySelector(\'[aria-label=\\"返回信息流\\"]\')');
     await wait("document.body.innerText.includes('考试经验分享帖')");
 
-    // 通知：未读点、全部已读后消失。
     await click("document.querySelector('header button[title=通知]')");
     await wait("document.body.innerText.includes('点赞人')");
     assert.ok(
@@ -283,7 +301,6 @@ app
       "![...document.querySelectorAll('button')].some(b => b.textContent.includes('全部标为已读'))",
     );
 
-    // 搜索：输入后 400ms 防抖切换到搜索 feed。
     await evaluate(`(() => {
       const input = document.querySelector('input[aria-label=搜索水源]');
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;

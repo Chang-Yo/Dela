@@ -2,7 +2,15 @@ name: Desktop windows validation
 
 on:
   workflow_call:
+    outputs:
+      installer-artifact-id:
+        description: GitHub artifact containing the unsigned Windows installer
+        value: ${{ jobs.windows.outputs.installer-artifact-id }}
     inputs:
+      upload-installer:
+        description: Upload the installer for a signing request
+        type: boolean
+        default: false
       helper:
         description: Download helper binaries built in this run
         required: true
@@ -18,6 +26,8 @@ permissions:
 jobs:
   windows:
     name: Check win-x64
+    outputs:
+      installer-artifact-id: ${{ steps.upload-installer.outputs.artifact-id }}
     runs-on: windows-2022
     timeout-minutes: 30
     defaults:
@@ -54,7 +64,9 @@ jobs:
           name: windows-build
           path: out
       - name: Prepare bundled runtime
-        run: pnpm prepare:runtime
+        run: |
+          pnpm prepare:runtime
+          pnpm fetch:remote-rg
       - name: Smoke test runtime
         run: pnpm smoke:runtime
       - name: Package application directory
@@ -67,7 +79,19 @@ jobs:
         run: |
           cmp vendor/dela-helper/dela-helper-linux-amd64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-amd64
           cmp vendor/dela-helper/dela-helper-linux-arm64 dist/win-unpacked/resources/dela-helper/dela-helper-linux-arm64
+          cmp .build/remote-rg/rg-linux-amd64 dist/win-unpacked/resources/remote-rg/rg-linux-amd64
+          cmp .build/remote-rg/rg-linux-arm64 dist/win-unpacked/resources/remote-rg/rg-linux-arm64
       - name: Smoke test packaged app
         env:
           PACKAGED_EXECUTABLE: dist/win-unpacked/Dela.exe
         run: '"$PACKAGED_EXECUTABLE" --smoke-test'
+      - name: Upload unsigned installer
+        if: inputs.upload-installer
+        id: upload-installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: unsigned-windows-installer
+          path: dist/Dela-*-win-x64.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

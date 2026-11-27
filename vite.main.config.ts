@@ -42,9 +42,9 @@ export default defineConfig({
     outDir: 'out/main',
     lib: {
       entry: {
-        index: 'src/main/bootstrap.ts',
-        app: 'src/main/index.ts',
-        'render-worker': 'src/main/notifications/notice-subscriptions/render-worker.ts',
+        index: 'src/app/main/bootstrap.ts',
+        app: 'src/app/main/index.ts',
+        'render-worker': 'src/modules/notifications/main/notice-subscriptions/render-worker.ts',
       },
       formats: ['cjs'],
       fileName: (_, name) => `${name}.cjs`,

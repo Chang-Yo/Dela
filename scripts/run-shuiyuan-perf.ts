@@ -47,7 +47,7 @@ await build({
                 'JSON.stringify({ ...p, id: i + 1 })',
               );
             }
-            if (id.replaceAll('\\', '/').endsWith('/src/main/shuiyuan/snapshot-files.ts'))
+            if (id.replaceAll('\\', '/').endsWith('/src/sjtu/shuiyuan/main/snapshot-files.ts'))
               return `import { writeFile } from 'node:fs/promises';
                 export const writeSnapshotBytes = writeFile;
                 export const encryptSnapshotBytes = (data) => Buffer.from(data);
@@ -57,7 +57,7 @@ await build({
                   const index = await readShuiyuanSnapshotIndex(id);
                   return index ? { index } : null;
                 }`;
-            if (id.replaceAll('\\', '/').endsWith('/src/main/shuiyuan/snapshot.ts'))
+            if (id.replaceAll('\\', '/').endsWith('/src/sjtu/shuiyuan/main/snapshot.ts'))
               return readFile('.tools/shuiyuan-perf/stage2/snapshot.ts', 'utf8');
           },
         },

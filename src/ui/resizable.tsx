@@ -1,0 +1,122 @@
+import { useRef, useState, type ComponentProps } from 'react';
+import { cn } from './lib/cn';
+
+type ResizableProps = Omit<ComponentProps<'div'>, 'onChange' | 'defaultValue'> & {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  orientation?: 'vertical' | 'horizontal';
+  onValueChange: (value: number) => void;
+  onResizingChange?: (resizing: boolean) => void;
+  defaultValue?: number;
+};
+
+function Resizable({
+  label,
+  value,
+  min,
+  max,
+  orientation = 'vertical',
+  onValueChange,
+  onResizingChange,
+  defaultValue,
+  className,
+  ...props
+}: ResizableProps) {
+  const start = useRef<{ pointerId: number; position: number; size: number } | null>(null);
+  const horizontal = orientation === 'horizontal';
+
+  const clamp = (size: number) => Math.min(max, Math.max(min, size));
+  const finishPointer = () => {
+    if (!start.current) return;
+    start.current = null;
+    onResizingChange?.(false);
+  };
+
+  return (
+    <div
+      aria-label={label}
+      aria-orientation={orientation}
+      aria-valuemax={max}
+      aria-valuemin={min}
+      aria-valuenow={value}
+      className={cn(
+        'flex shrink-0 touch-none justify-center focus-visible:outline-none before:rounded-full before:transition-colors',
+        horizontal
+          ? 'h-2 cursor-ns-resize flex-col before:h-px'
+          : 'w-2 cursor-ew-resize before:w-px',
+        'hover:before:bg-ink-3 focus-visible:before:bg-accent',
+        className,
+      )}
+      data-slot="resizable"
+      onKeyDown={(event) => {
+        if (event.key === 'Home') {
+          event.preventDefault();
+          onValueChange(min);
+          return;
+        }
+        if (event.key === 'End') {
+          event.preventDefault();
+          onValueChange(max);
+          return;
+        }
+        const positive = horizontal ? event.key === 'ArrowDown' : event.key === 'ArrowRight';
+        const negative = horizontal ? event.key === 'ArrowUp' : event.key === 'ArrowLeft';
+        if (!positive && !negative) return;
+        event.preventDefault();
+        onValueChange(clamp(value + (positive ? 20 : -20)));
+      }}
+      onDoubleClick={() => {
+        if (defaultValue !== undefined) onValueChange(clamp(defaultValue));
+      }}
+      onLostPointerCapture={finishPointer}
+      onPointerCancel={finishPointer}
+      onPointerDown={(event) => {
+        if (!event.isPrimary || event.button !== 0) return;
+        start.current = {
+          pointerId: event.pointerId,
+          position: horizontal ? event.clientY : event.clientX,
+          size: value,
+        };
+        onResizingChange?.(true);
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const begin = start.current;
+        if (!begin || !event.isPrimary || event.pointerId !== begin.pointerId) return;
+        const position = horizontal ? event.clientY : event.clientX;
+        onValueChange(clamp(begin.size + (position - begin.position)));
+      }}
+      onPointerUp={(event) => {
+        if (!event.isPrimary || event.pointerId !== start.current?.pointerId) return;
+        if (event.currentTarget.hasPointerCapture(event.pointerId))
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        finishPointer();
+      }}
+      role="separator"
+      tabIndex={0}
+      {...props}
+    />
+  );
+}
+
+/** 持久化的面板宽度：拖动中只改本地值，拖动结束或键盘调整时才调用 commit。 */
+function useResizableWidth(stored: number, commit: (width: number) => void) {
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const [resizing, setResizing] = useState(false);
+  return {
+    width: dragWidth ?? stored,
+    resizing,
+    onValueChange: (width: number) => (resizing ? setDragWidth(width) : commit(width)),
+    onResizingChange: (next: boolean) => {
+      setResizing(next);
+      if (!next && dragWidth !== null) {
+        commit(dragWidth);
+        setDragWidth(null);
+      }
+    },
+  };
+}
+
+export { Resizable, useResizableWidth };

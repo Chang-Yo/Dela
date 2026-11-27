@@ -1,0 +1,148 @@
+import { useState, type FormEvent } from 'react';
+import { Button } from '../../../ui/button';
+import { Input } from '../../../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
+import { errorMessage } from '../../../core/protocol/contract';
+import { workspaceClient, useWorkspaceStore } from '../../../modules/workspace/view';
+import { showToast } from '../../../ui/toast';
+import { SHUIYUAN_SOURCE_PREFIX } from '../contract';
+import { shuiyuanClient } from './use-shuiyuan';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '../../../ui/dialog';
+import { Field } from '../../../ui/field';
+
+const LARGE_TOPIC_POSTS = 1000;
+
+/** Radix Select 的 Item 不接受空串值，「我的内容」（根）用哨兵表示。 */
+const ROOT_SELECT_VALUE = '__root__';
+
+export function AddToProjectDialog({
+  open,
+  onClose,
+  topicId,
+  topicTitle,
+}: {
+  open: boolean;
+  onClose: () => void;
+  topicId: number | null;
+  topicTitle: string;
+}) {
+  const entries = useWorkspaceStore((state) => state.workspace.entries);
+  const refresh = useWorkspaceStore((state) => state.refresh);
+  const [target, setTarget] = useState('');
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setErrorLocal] = useState<string | null>(null);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy || topicId === null) return;
+    setBusy(true);
+    setErrorLocal(null);
+    const addToProject = async () => {
+      const ref = await shuiyuanClient.addSourceRef(topicId);
+      if (
+        ref.snapshot?.status !== 'done' &&
+        (ref.postsCount ?? 0) > LARGE_TOPIC_POSTS &&
+        !window.confirm(
+          `该帖子有 ${ref.postsCount} 楼，保存快照（含原图）需要较长时间并占用较多磁盘空间。继续添加？`,
+        )
+      )
+        return;
+      let parentId: string | null = target || null;
+      if (target === '__new__') {
+        if (!name.trim()) throw new Error('请填写项目名称');
+        parentId = (
+          await workspaceClient.create({
+            name: name.trim(),
+            parentId: null,
+            kind: 'project',
+          })
+        ).id;
+      }
+      await workspaceClient.create({
+        name: topicTitle,
+        parentId,
+        kind: 'source',
+        sourceId: `${SHUIYUAN_SOURCE_PREFIX}${topicId}`,
+      });
+      await refresh();
+      if (ref.snapshot?.status !== 'done')
+        showToast({
+          variant: 'neutral',
+          title: '正在保存快照',
+          description: '完成后可在项目中查看全部楼层',
+        });
+      onClose();
+      setTarget('');
+      setName('');
+    };
+    try {
+      await addToProject();
+    } catch (reason) {
+      setErrorLocal(errorMessage(reason));
+    }
+    setBusy(false);
+  };
+
+  const containers = entries.filter((entry) => entry.kind === 'folder' || entry.kind === 'project');
+
+  return (
+    <Dialog onOpenChange={(next) => (next ? undefined : onClose())} open={open}>
+      <DialogContent scroll>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <DialogTitle>添加到项目</DialogTitle>
+            <DialogDescription>
+              引用「{topicTitle || '该帖子'}」并在本地保存全帖快照（含原图），原帖保持在水源不变。
+            </DialogDescription>
+          </div>
+          <DialogClose />
+        </div>
+        <form className="mt-4 grid gap-4" onSubmit={(event) => void submit(event)}>
+          <Field label="位置">
+            <Select
+              onValueChange={(value) => setTarget(value === ROOT_SELECT_VALUE ? '' : value)}
+              value={target === '' ? ROOT_SELECT_VALUE : target}
+            >
+              <SelectTrigger aria-label="目标文件夹" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ROOT_SELECT_VALUE}>我的内容</SelectItem>
+                {containers.map((entry) => (
+                  <SelectItem key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__new__">新建项目…</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          {target === '__new__' ? (
+            <Field label="名称">
+              <Input
+                aria-label="新项目名称"
+                autoComplete="off"
+                onChange={(event) => setName(event.target.value)}
+                required
+                value={name}
+              />
+            </Field>
+          ) : null}
+          {error ? <p className="text-xs text-danger">{error}</p> : null}
+          <div className="flex justify-end">
+            <Button disabled={busy} type="submit">
+              {busy ? '添加中…' : '添加'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

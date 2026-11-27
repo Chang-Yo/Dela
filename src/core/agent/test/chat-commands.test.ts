@@ -1,0 +1,24 @@
+import { DatabaseSync } from 'node:sqlite';
+import { beforeEach, expect, it } from 'vitest';
+import { provideTestHostPorts } from '../../test/host-mock';
+import { listChatCommands, saveChatCommand } from '../chat-commands';
+
+let database: DatabaseSync;
+provideTestHostPorts({ database: () => database as never });
+
+beforeEach(() => {
+  database = new DatabaseSync(':memory:');
+  database.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+});
+
+it('rejects custom commands named after a session command, in any case', () => {
+  expect(() => saveChatCommand({ name: 'compact', prompt: '总结一下' })).toThrow(
+    '/compact 是内置命令，请换一个名称',
+  );
+  expect(() => saveChatCommand({ name: 'New', prompt: '开新对话' })).toThrow('内置命令');
+  const saved = saveChatCommand({ name: '周报', prompt: '汇总本周' });
+  expect(() => saveChatCommand({ id: saved.id, name: 'reload', prompt: '汇总本周' })).toThrow(
+    '内置命令',
+  );
+  expect(listChatCommands().map((command) => command.name)).toEqual(['周报']);
+});

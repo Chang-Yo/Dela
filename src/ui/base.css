@@ -1,0 +1,35 @@
+@layer base {
+  * {
+    border-color: var(--line);
+    outline-color: color-mix(in oklch, var(--accent) 50%, transparent);
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  button:focus-visible,
+  textarea:focus-visible,
+  input:focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--accent) 60%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .animate-spin {
+    animation-duration: 1s !important;
+  }
+}

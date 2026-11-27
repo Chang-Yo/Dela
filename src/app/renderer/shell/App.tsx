@@ -1,0 +1,298 @@
+import { useEffect, useState } from 'react';
+import { useQueries, useQuery } from '@tanstack/react-query';
+import { AppShell } from './AppShell';
+import { ErrorBoundary } from './ErrorBoundary';
+import {
+  CompletionOverlay,
+  OnboardingFlow,
+  isSmokeTest,
+  readOnboardingState,
+} from '../../../modules/onboarding/view';
+import { SettingsPage } from '../settings';
+import { ReleaseNotesDialog, UpdatePrompt } from '../../../modules/update/view';
+import { GlobalSearchDialog } from '../../../modules/search/view';
+import type { ChatSessionSummary } from '../../../core/protocol/agent';
+import type { SearchHit } from '../../../modules/search/contract';
+import type { NavTarget, PageDrawer } from '../../module';
+import { pages, views } from '../../views';
+import type { NavSessionSummary } from '../navigation/ProjectSessionNav';
+import { useRuns, useSessions, updateSession, onAgentEvent } from '../../../modules/chat/view';
+import { closeTabEverywhere, useWorkbenchLayout } from '../workbench/layout-store';
+import { walkGroups } from '../workbench/layout-schema';
+import { importFromDialog } from '../workspace/entry-actions';
+import { useNoteDrafts } from '../../../modules/note/view';
+import { useWorkspaceStore } from '../../../modules/workspace/view';
+import { showToast } from '../../../ui/toast';
+import { useNavigationStore } from '../navigation/view';
+import { useMobileDrawer } from './mobile-drawer';
+import { useNotificationCounts } from '../../../modules/notifications/view';
+import { useAppearance } from './theme';
+import { WorkbenchShell } from '../workbench/WorkbenchShell';
+import { errorMessage } from '../../../core/protocol/contract';
+
+/** 通用池会话不入项目树，但仍预热镜像：会话标签标题与通用聊天定位都读它。 */
+function useSessionNavData(): { sessionsByProject: Record<string, NavSessionSummary[]> } {
+  const lists = useSessions((state) => state.lists);
+  // 选择器必须返回稳定引用（useSyncExternalStore 的 getSnapshot 缓存要求），过滤放渲染期。
+  const entries = useWorkspaceStore((state) => state.workspace.entries);
+  const projects = entries.filter((entry) => entry.kind === 'project');
+  const projectIds = projects.map((project) => project.id);
+  useQueries({
+    queries: [null, ...projectIds].map((id) => ({
+      queryKey: ['chat', 'session-list', id],
+      queryFn: () =>
+        useSessions
+          .getState()
+          .refresh(id)
+          .then(() => null),
+      staleTime: Infinity,
+    })),
+  });
+  const toSummaries = (list: ChatSessionSummary[]): NavSessionSummary[] =>
+    list.map((session) => ({
+      id: session.id,
+      title: session.title,
+      updatedAt: session.updatedAt,
+      pinned: session.pinned,
+    }));
+  const sessionsByProject: Record<string, NavSessionSummary[]> = {};
+  for (const project of projects)
+    sessionsByProject[project.id] = toSummaries(lists[project.id] ?? []);
+  return { sessionsByProject };
+}
+
+function ModulePage({ target, drawer }: { target: NavTarget; drawer: PageDrawer | null }) {
+  const Page = pages.of(target.page)!.component;
+  const navigate = useNavigationStore((state) => state.navigate);
+  return <Page drawer={drawer} navigate={navigate} target={target} />;
+}
+
+export default function App() {
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [drawerSlot, setDrawerSlot] = useState<HTMLElement | null>(null);
+  const mobileDrawer = useMobileDrawer((state) => state.drawer);
+  const setMobileDrawer = useMobileDrawer((state) => state.setDrawer);
+  // 首次启动引导：flow 期间主界面不渲染；completion 时主界面已挂载、完成动画叠在其上渐隐。
+  // 读到引导状态前什么都不渲染，避免老用户闪过引导页。
+  const onboarding = useQuery({
+    queryKey: ['onboarding'],
+    queryFn: readOnboardingState,
+    enabled: !isSmokeTest,
+  });
+  const [stage, setLaunchStage] = useState<'flow' | 'completion' | 'app'>();
+  // 条款门对所有人成立，只看有没有同意标记；否则「不同意并退出」再打开就绕过去了。
+  const launchStage =
+    stage ??
+    (isSmokeTest || onboarding.data?.consented ? 'app' : onboarding.data ? 'flow' : undefined);
+  const appVisible = launchStage === 'app' || launchStage === 'completion';
+
+  const view = useNavigationStore((state) => state.view);
+  const projectId = useNavigationStore((state) => state.projectId);
+  const canBack = useNavigationStore((state) => state.backStack.length > 0);
+  const canForward = useNavigationStore((state) => state.forwardStack.length > 0);
+  const target = useNavigationStore((state) => state.target);
+
+  const { theme, zoom, fontSize, changeTheme, changeZoom, changeFontSize } = useAppearance();
+  const notifications = useNotificationCounts();
+  const { sessionsByProject } = useSessionNavData();
+  const homeSessionId = useNavigationStore((state) => state.generalChat?.sessionId ?? null);
+  const workbenchSessionId = useWorkbenchLayout((state) => {
+    const group = walkGroups(state.root).find((node) => node.id === state.focus);
+    const active = group?.active;
+    return active?.startsWith('chat:') ? active.slice('chat:'.length) : null;
+  });
+  const activeSessionId =
+    view === 'home' ? homeSessionId : view === 'workbench' ? workbenchSessionId : null;
+  // 通用池里据此互斥高亮「通用聊天」与「资料」。
+  const activeTabIsChat = useWorkbenchLayout((state) => {
+    const group = walkGroups(state.root).find((node) => node.id === state.focus);
+    return group?.active?.startsWith('chat:') ?? false;
+  });
+
+  useEffect(() => {
+    return onAgentEvent('session-update', ({ sessionId, chat }) => {
+      if (chat.running) return;
+      const store = useWorkspaceStore.getState();
+      // 会话终态后的后台自动刷新失败不打扰用户（浮窗只留给用户主动的动作），仅留诊断线索。
+      void store.refresh().catch(console.error);
+      for (const [id, draft] of Object.entries(useNoteDrafts.getState().drafts)) {
+        if (draft.text === draft.saved)
+          void useNoteDrafts.getState().acquire(id, true).catch(console.error);
+      }
+      // 首条消息会给会话命名：终态时重读所属池的列表镜像，标题才不陈旧。
+      const lists = useSessions.getState().lists;
+      for (const [pool, list] of Object.entries(lists)) {
+        if (list.some((session) => session.id === sessionId)) {
+          void useSessions
+            .getState()
+            .refresh(pool === 'general' ? null : pool)
+            .catch(() => {});
+          break;
+        }
+      }
+    });
+  }, []);
+
+  // 未保存笔记的退出守卫（草稿自动保存有 600ms 防抖窗口）。
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (
+        Object.values(useNoteDrafts.getState().drafts).some((draft) => draft.text !== draft.saved)
+      )
+        event.preventDefault();
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => window.removeEventListener('beforeunload', beforeUnload);
+  }, []);
+
+  useEffect(() => {
+    return window.dela?.window.onTrayAction((action) => {
+      const navigation = useNavigationStore.getState();
+      if (action === 'new-chat') navigation.openGeneralChat(true);
+      else if (action === 'new-project') navigation.newProject();
+      else if (action === 'open-settings') navigation.navigate('settings');
+    });
+  }, []);
+
+  // 全局搜索入口交给 AppShell 的快捷键派发（Ctrl/⌘+K 可改键）；此处只守卫引导阶段：
+  // completion 遮罩期间打开会落在遮罩之下并抢占输入焦点。
+  const openSearch = () => {
+    if (launchStage !== 'app') return;
+    setMobileDrawer(null);
+    setSearchOpen(true);
+  };
+
+  const finishCompletion = () => setLaunchStage('app');
+
+  const importFiles = () => {
+    importFromDialog(view === 'workbench' ? useNavigationStore.getState().projectId : null);
+  };
+
+  // 已在通用池时与「通用聊天」对称：把焦点让给已有的文档标签；没有则保持现状。
+  const openSources = () => {
+    const navigation = useNavigationStore.getState();
+    if (navigation.view !== 'workbench' || navigation.projectId !== null) {
+      void navigation.openProject('');
+      return;
+    }
+    const layout = useWorkbenchLayout.getState();
+    const docTab = walkGroups(layout.root)
+      .flatMap((group) => group.tabs)
+      .find((tab) => tab.startsWith('note:') || tab.startsWith('preview:'));
+    if (docTab) layout.openTab(docTab);
+  };
+
+  const openSearchResult = (result: SearchHit) => {
+    useNavigationStore.getState().navigate(result.target);
+  };
+
+  return (
+    <>
+      {appVisible && (
+        <AppShell
+          canBack={canBack}
+          canForward={canForward}
+          mobileDrawer={mobileDrawer}
+          onBack={() => void useNavigationStore.getState().goBack()}
+          onForward={() => void useNavigationStore.getState().goForward()}
+          onMobileDrawerChange={setMobileDrawer}
+          onDrawerSlot={setDrawerSlot}
+          onNavigate={(next) => void useNavigationStore.getState().navigate(next)}
+          onZoomChange={(next) =>
+            void changeZoom(next).catch((cause) =>
+              showToast({
+                variant: 'error',
+                title: '调整缩放失败',
+                description: errorMessage(cause),
+              }),
+            )
+          }
+          view={view}
+          zoom={zoom}
+          projectId={projectId}
+          onOpenProject={(id) => void useNavigationStore.getState().openProject(id)}
+          onNewProject={() => void useNavigationStore.getState().newProject()}
+          onImportFiles={importFiles}
+          onSearch={openSearch}
+          onOpenSources={openSources}
+          activeTabIsChat={activeTabIsChat}
+          notificationCount={notifications.count}
+          todoUnreadCount={notifications.todoUnread}
+          sessionsByProject={sessionsByProject}
+          runBadge={(sessionId) => useRuns.getState().bySession[sessionId]?.status ?? null}
+          activeSessionId={activeSessionId}
+          onDeleteSession={async (sessionId) => {
+            await updateSession(sessionId, { archived: true });
+            closeTabEverywhere(`chat:${sessionId}`);
+          }}
+          onOpenSession={(sessionId) => {
+            const lists = useSessions.getState().lists;
+            let owner: string | null = null;
+            for (const [pool, list] of Object.entries(lists)) {
+              if (list.some((session) => session.id === sessionId)) {
+                owner = pool === 'general' ? null : pool;
+                break;
+              }
+            }
+            void useNavigationStore.getState().openChat(sessionId, owner);
+          }}
+          onOpenGeneralChat={() => void useNavigationStore.getState().openGeneralChat(false)}
+          onNavigateBusiness={(id) =>
+            void useNavigationStore.getState().navigate({ page: id } as NavTarget)
+          }
+        >
+          <div
+            className="flex min-h-0 flex-1 animate-view-in flex-col motion-reduce:animate-none"
+            // home 与工作台共用装配壳和 key：打开项目或资料时复用宿主，避免整壳重挂。
+            key={view === 'home' || view === 'workbench' ? 'workspace' : view}
+          >
+            <ErrorBoundary title="此视图遇到错误">
+              {(view === 'workbench' || view === 'home') && (
+                <WorkbenchShell home={view === 'home'} />
+              )}
+              {target && (
+                <ModulePage
+                  drawer={
+                    mobileDrawer === 'page' && drawerSlot
+                      ? { container: drawerSlot, close: () => setMobileDrawer(null) }
+                      : null
+                  }
+                  target={target}
+                />
+              )}
+              {view === 'settings' && (
+                <SettingsPage
+                  fontSize={fontSize}
+                  onFontSizeChange={changeFontSize}
+                  onThemeChange={changeTheme}
+                  onZoomChange={changeZoom}
+                  theme={theme}
+                  zoom={zoom}
+                />
+              )}
+            </ErrorBoundary>
+          </div>
+        </AppShell>
+      )}
+      {appVisible && (
+        <GlobalSearchDialog
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          onSelect={openSearchResult}
+        />
+      )}
+      {launchStage === 'flow' && (
+        <OnboardingFlow
+          views={views}
+          completed={onboarding.data?.completed ?? false}
+          onConsentDone={() => setLaunchStage('app')}
+          onWizardDone={() => setLaunchStage('completion')}
+        />
+      )}
+      {/* 下载完成的确认弹窗挂在应用层：下载在后台跑完时，用户可能已经离开设置页。 */}
+      {appVisible && <UpdatePrompt />}
+      {launchStage === 'app' && !isSmokeTest && <ReleaseNotesDialog />}
+      {launchStage === 'completion' && <CompletionOverlay onFinished={finishCompletion} />}
+    </>
+  );
+}

@@ -1,5 +1,6 @@
 name: CI
 
+# 入口不能用顶层路径过滤：文档 PR 不触发 CI 的话，必需检查 `CI required` 会一直 Pending。
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
@@ -33,6 +34,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # 新增运行时入口或资源目录时同步更新下面的 filters：路径分流可能遗漏隐含的平台依赖。
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
@@ -73,13 +75,13 @@ jobs:
               - 'helper/**'
               - 'vendor/dela-helper/**'
               - 'scripts/**'
-              - 'src/main/*'
-              - 'src/main/terminal/**'
-              - 'src/main/remotes/**'
-              - 'src/main/documents/**'
-              - 'src/main/update/**'
-              - 'src/preload/**'
-              - 'src/shared/**'
+              - 'src/app/main/**'
+              - 'src/core/remote/**'
+              - 'src/modules/terminal/**'
+              - 'src/modules/remotes/**'
+              - 'src/modules/preview/**'
+              - 'src/modules/update/**'
+              - 'src/app/preload/**'
               - 'vendor/bin/*'
             windows:
               - 'vendor/openssh/**'
@@ -107,6 +109,8 @@ jobs:
     with:
       ref: ${{ github.sha }}
 
+  # helper 被选中时 windows 与 macos 任务必须等它成功并取当次产物，
+  # 不能因为 helper 合理跳过就跳过平台任务。
   windows:
     needs: [changes, test, helper]
     if: >-
@@ -131,6 +135,7 @@ jobs:
       helper: ${{ needs.changes.outputs.helper == 'true' }}
       archives: ${{ needs.changes.outputs.archives == 'true' }}
 
+  # 始终汇总：被选中的必须成功，未选中的必须 skipped。
   required:
     name: CI required
     if: always()

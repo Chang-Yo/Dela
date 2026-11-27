@@ -6,7 +6,7 @@ GitHub Releases 直连下载，大陆网络下大概率失败，失败后工具�
 因此随包带上，主进程启动时把平台对应目录前插进 PATH，pi 的 PATH 探测会直接命中，
 不再触发下载。Windows 使用本目录（打包后为 `resources/bin`），macOS 使用
 `darwin-arm64` 或 `darwin-x64` 子目录（打包后为 `resources/bin/darwin-<arch>`）。接线见
-`src/main/terminal/mingit.ts` 的 `prependRuntimePath()`。
+`src/modules/terminal/main/mingit.ts` 的 `prependRuntimePath()`。
 
 | 工具   | 版本   | 来源                                                                                                       | 发布物 SHA256                                                      |
 | ------ | ------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |

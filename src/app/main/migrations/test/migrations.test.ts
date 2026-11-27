@@ -1,0 +1,678 @@
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import Database from 'better-sqlite3';
+import { afterEach, beforeEach, expect, it } from 'vitest';
+import { runMigrations, UnsupportedDataVersionError } from '..';
+
+// 明文「加密」：只验证迁移读写的内容，不依赖系统钥匙串。
+const seal = {
+  encrypt: (text: string) => Buffer.from(text),
+  decrypt: (data: Buffer) => data.toString(),
+};
+
+let userData: string;
+const dbPath = () => join(userData, 'dela.db');
+const configPath = () => join(userData, 'llm-providers.bin');
+
+function v6Database() {
+  const db = new Database(dbPath());
+  db.exec(`CREATE TABLE sessions (id TEXT PRIMARY KEY, project_id TEXT, cwd TEXT,
+    file TEXT NOT NULL, title TEXT NOT NULL DEFAULT '新对话',
+    message_count INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0,
+    pinned INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+  db.prepare("INSERT INTO sessions (id, file, created_at, updated_at) VALUES (?, '', '', '')").run(
+    's1',
+  );
+  db.pragma('user_version = 6');
+  db.close();
+}
+
+const v6Config = {
+  activeId: 'p2',
+  providers: [
+    { id: 'p1', name: 'A', baseUrl: 'https://a', apiKey: 'ka', models: ['a1'], model: 'a1' },
+    {
+      id: 'p2',
+      name: 'B',
+      baseUrl: 'https://b',
+      apiKey: 'kb',
+      models: ['b1', 'b2'],
+      model: 'b2',
+      modelConfigs: { b2: { effortLevels: ['low', 'high'], effort: 'high' } },
+      presetId: null,
+    },
+  ],
+};
+
+beforeEach(() => {
+  userData = mkdtempSync(join(tmpdir(), 'dela-migrate-'));
+});
+afterEach(() => rmSync(userData, { recursive: true, force: true }));
+
+it('v6→v7：旧会话回填使用中的模型，配置去掉全局选择并全部启用', () => {
+  v6Database();
+  writeFileSync(configPath(), seal.encrypt(JSON.stringify(v6Config)));
+  expect(runMigrations({ userData, home: userData, seal }, 7)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(7);
+  expect(db.prepare('SELECT provider_id, model, effort FROM sessions').get()).toEqual({
+    provider_id: 'p2',
+    model: 'b2',
+    effort: 'high',
+  });
+  db.close();
+  const config = JSON.parse(readFileSync(configPath(), 'utf8'));
+  expect(config).not.toHaveProperty('activeId');
+  expect(
+    config.providers.map((p: Record<string, unknown>) => [p.id, p.enabled, 'model' in p]),
+  ).toEqual([
+    ['p1', true, false],
+    ['p2', true, false],
+  ]);
+  expect(config.providers[1].modelConfigs.b2.effort).toBe('high');
+  expect(readdirSync(userData).filter((name) => name.endsWith('.migrating'))).toEqual([]);
+});
+
+it('配置解不开时只加列，会话留空等用户选择', () => {
+  v6Database();
+  writeFileSync(configPath(), 'garbage');
+  runMigrations({ userData, home: userData, seal: { ...seal, decrypt: () => '{' } }, 7);
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT provider_id, model FROM sessions').get()).toEqual({
+    provider_id: null,
+    model: null,
+  });
+  db.close();
+  expect(readFileSync(configPath(), 'utf8')).toBe('garbage');
+});
+
+it('某一步失败时数据库与配置都还原到迁移前', () => {
+  v6Database();
+  writeFileSync(configPath(), seal.encrypt(JSON.stringify(v6Config)));
+  const before = readFileSync(configPath());
+  const failing = {
+    ...seal,
+    encrypt: () => {
+      throw new Error('keychain locked');
+    },
+  };
+  expect(() => runMigrations({ userData, home: userData, seal: failing }, 7)).toThrow(
+    'keychain locked',
+  );
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(6);
+  expect(() => db.prepare('SELECT provider_id FROM sessions').get()).toThrow();
+  db.close();
+  expect(readFileSync(configPath())).toEqual(before);
+});
+
+it('迁到 v17 后补建缺失的表并记下各模块的起点，过渡过的库不再迁移', () => {
+  const before = new Database(dbPath());
+  before.exec(
+    'CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT NOT NULL, data TEXT NOT NULL)',
+  );
+  before.pragma('user_version = 17');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal })).toBe(0);
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(18);
+  expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'sessions'").get()).toBeTruthy();
+  expect(
+    db.prepare("SELECT name FROM schema_migrations WHERE module = 'notifications'").pluck().all(),
+  ).toEqual(['baseline']);
+  db.close();
+  expect(runMigrations({ userData, home: userData, seal })).toBe(0);
+});
+
+it('新安装与当前版本不迁移；缺少中间步骤的旧版本明确拒绝', () => {
+  expect(runMigrations({ userData, home: userData, seal }, 7)).toBe(0);
+  const db = new Database(dbPath());
+  db.pragma('user_version = 5');
+  db.close();
+  expect(() => runMigrations({ userData, home: userData, seal }, 7)).toThrow(
+    UnsupportedDataVersionError,
+  );
+  expect(existsSync(dbPath())).toBe(true);
+});
+
+it('v7→v8：保留原通知与已读状态，允许教务处与 Canvas 来源，水源引用补快照状态列', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE IF NOT EXISTS shuiyuan_topics (
+    topic_id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    excerpt TEXT,
+    category_name TEXT,
+    author TEXT,
+    posts_count INTEGER,
+    added_at TEXT NOT NULL
+  );
+CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan')),
+    account_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    read_at TEXT,
+    source_unread INTEGER NOT NULL DEFAULT 1,
+    href TEXT NOT NULL
+  );
+CREATE INDEX IF NOT EXISTS idx_notifications_account_source_created
+    ON notifications (account_key, source, created_at DESC);
+CREATE TABLE IF NOT EXISTS notification_refreshes (
+    source TEXT NOT NULL CHECK(source IN ('mail', 'shuiyuan')),
+    account_key TEXT NOT NULL,
+    last_success_at TEXT,
+    error TEXT,
+    PRIMARY KEY (source, account_key)
+  );
+    INSERT INTO notifications VALUES ('old', 'mail', 'student', '原通知', '', '2026-10-01', '2026-10-02', 1, '{}');
+    INSERT INTO notification_refreshes VALUES ('mail', 'student', '2026-10-01', NULL);
+    INSERT INTO shuiyuan_topics (topic_id, title, url, added_at) VALUES (1, '旧引用', 'u', '2026-10-01');`);
+  before.pragma('user_version = 7');
+  before.close();
+  expect(runMigrations({ userData, home: userData, seal }, 8)).toBe(1);
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(8);
+  expect(db.prepare('SELECT title, read_at, category, count FROM notifications').get()).toEqual({
+    title: '原通知',
+    read_at: '2026-10-02',
+    category: null,
+    count: 1,
+  });
+  expect(db.prepare('SELECT last_success_at FROM notification_refreshes').get()).toEqual({
+    last_success_at: '2026-10-01',
+  });
+  db.prepare(
+    "INSERT INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href) VALUES ('new', 'jwc', 'students', '新通知', '', '2026-11-01', NULL, 1, '{}')",
+  ).run();
+  db.prepare("INSERT INTO notification_refreshes VALUES ('jwc', 'students', NULL, NULL)").run();
+  db.prepare(
+    "INSERT INTO notifications (id, source, account_key, title, created_at, href) VALUES ('c', 'canvas', 'owner', '公告', '2026-11-01', '{}')",
+  ).run();
+  db.prepare("INSERT INTO notification_refreshes VALUES ('canvas', 'owner', NULL, NULL)").run();
+  expect(
+    db
+      .prepare('SELECT title, snapshot_status, snapshot_at, snapshot_error FROM shuiyuan_topics')
+      .get(),
+  ).toEqual({ title: '旧引用', snapshot_status: null, snapshot_at: null, snapshot_error: null });
+  expect(() =>
+    db.prepare("UPDATE shuiyuan_topics SET snapshot_status = 'unknown'").run(),
+  ).toThrow();
+  expect(db.pragma('integrity_check', { simple: true })).toBe('ok');
+  expect(db.prepare("SELECT name FROM sqlite_master WHERE name LIKE '%_v7'").all()).toEqual([]);
+  db.close();
+  expect(runMigrations({ userData, home: userData, seal }, 8)).toBe(0);
+});
+
+it('v8→v9：会话表补 parent_id，原有会话都是顶层会话', () => {
+  v6Database();
+  const before = new Database(dbPath());
+  before.pragma('user_version = 8');
+  before.close();
+  expect(runMigrations({ userData, home: userData, seal }, 9)).toBe(1);
+  const db = new Database(dbPath());
+  expect(db.pragma('user_version', { simple: true })).toBe(9);
+  expect(db.prepare('SELECT id, parent_id FROM sessions').all()).toEqual([
+    { id: 's1', parent_id: null },
+  ]);
+  db.close();
+});
+
+it('v9→v10：删掉 Pi packages 与试验功能的残留，其余设置与文档组件保留', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    INSERT INTO workspace_settings VALUES ('pi-packages', '[]'), ('pi-packages-enabled', '1'),
+      ('prompts-disabled', '[]'), ('experimental-shuiyuan', '0'), ('theme', 'dark'),
+      ('capabilities-onboarding-completed', '1');`);
+  before.pragma('user_version = 9');
+  before.close();
+  const removed = ['components/node', 'pi/npm', 'pi/git', 'pi/tmp/extensions'];
+  const kept = ['components/document-reading/1', 'pi/sessions/a', 'pi/skills/b'];
+  for (const dir of [...removed, ...kept])
+    mkdirSync(join(userData, dir, 'inner'), { recursive: true });
+  writeFileSync(join(userData, 'pi', 'mcp.log'), '');
+
+  expect(runMigrations({ userData, home: userData, seal }, 10)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'theme' }]);
+  db.close();
+  const present = [...removed, 'pi/mcp.log'].filter((path) => existsSync(join(userData, path)));
+  expect(present).toEqual([]);
+  expect(kept.every((dir) => existsSync(join(userData, dir, 'inner')))).toBe(true);
+});
+
+it('v10→v11：指向内置厂商的配置换成 piProvider 并只留目录模型，其余转为自定义', () => {
+  const before = new Database(dbPath());
+  before.pragma('user_version = 10');
+  before.close();
+  const provider = { apiKey: 'k', enabled: true };
+  writeFileSync(
+    configPath(),
+    seal.encrypt(
+      JSON.stringify({
+        providers: [
+          {
+            ...provider,
+            id: 'ds',
+            name: 'DeepSeek',
+            baseUrl: 'https://api.deepseek.com/',
+            models: ['deepseek-v4-pro', 'deepseek-chat'],
+            modelConfigs: { 'deepseek-v4-pro': { effortLevels: ['high'], effort: 'max' } },
+            presetId: 'deepseek',
+          },
+          {
+            ...provider,
+            id: 'mm',
+            name: 'MiniMax',
+            baseUrl: 'https://api.minimaxi.com/v1',
+            models: ['MiniMax-M3'],
+            presetId: 'minimax',
+          },
+          {
+            ...provider,
+            id: 'old',
+            name: '智谱',
+            baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+            models: ['glm-4.7'],
+            presetId: 'zhipu-coding',
+          },
+          {
+            ...provider,
+            id: 'zy',
+            name: '致远一号',
+            baseUrl: 'https://models.sjtu.edu.cn/api/v1',
+            models: ['qwen'],
+            presetId: 'zhiyuan',
+          },
+        ],
+      }),
+    ),
+  );
+
+  expect(runMigrations({ userData, home: userData, seal }, 11)).toBe(1);
+
+  const { providers } = JSON.parse(readFileSync(configPath(), 'utf8'));
+  expect(providers.map((p: Record<string, unknown>) => 'presetId' in p)).toEqual([
+    false,
+    false,
+    false,
+    false,
+  ]);
+  expect(providers[0]).toMatchObject({
+    piProvider: 'deepseek',
+    baseUrl: 'https://api.deepseek.com',
+    models: ['deepseek-v4-pro'],
+    modelConfigs: { 'deepseek-v4-pro': { effortLevels: ['none', 'high', 'max'], effort: 'max' } },
+  });
+  expect(providers[1]).toMatchObject({
+    piProvider: 'minimax-cn',
+    baseUrl: 'https://api.minimaxi.com/anthropic',
+    modelConfigs: { 'MiniMax-M3': { effort: 'medium' } },
+  });
+  expect(providers[2]).toMatchObject({ piProvider: null, models: ['glm-4.7'] });
+  expect(providers[3]).toMatchObject({ piProvider: null, apiKey: 'k' });
+});
+
+it('v11→v12：MCP 配置连同 env 移进加密文件并标为 stdio，数据库不再留明文', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+  const server = {
+    id: 'm1',
+    name: 'gh',
+    command: 'npx',
+    args: ['-y'],
+    env: { TOKEN: 's' },
+    enabled: true,
+  };
+  before
+    .prepare("INSERT INTO workspace_settings VALUES ('mcp-servers', ?), ('theme', 'dark')")
+    .run(JSON.stringify([server]));
+  before.pragma('user_version = 11');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 12)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'theme' }]);
+  db.close();
+  expect(JSON.parse(readFileSync(join(userData, 'mcp-servers.bin'), 'utf8'))).toEqual([
+    { ...server, transport: 'stdio' },
+  ]);
+});
+
+it('v12→v13：模型服务、联网搜索与 MCP 移进 ~/.dela 的 JSON，id 换成可读名字，已有的键不覆盖', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE sessions (id TEXT PRIMARY KEY, provider_id TEXT);
+    INSERT INTO sessions VALUES ('a', 'p1'), ('b', 'p2'), ('c', NULL);`);
+  const search = { id: 's1', name: 'Brave', provider: 'brave', apiKey: 'kb' };
+  before
+    .prepare("INSERT INTO workspace_settings VALUES ('web-search-api', ?), ('theme', 'dark')")
+    .run(JSON.stringify({ providers: [search], selectedId: 's1' }));
+  before.pragma('user_version = 12');
+  before.close();
+  const provider = {
+    id: 'p1',
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'kd',
+    models: ['chat', 'reasoner'],
+    modelConfigs: { reasoner: { effort: 'high' } },
+    piProvider: 'deepseek',
+    enabled: false,
+  };
+  const relay = { ...provider, id: 'p2', name: '中转', baseUrl: 'https://api.siliconflow.cn/v1' };
+  writeFileSync(
+    configPath(),
+    seal.encrypt(
+      JSON.stringify({
+        providers: [provider, { ...provider, id: 'p3' }, { ...relay, piProvider: null }],
+      }),
+    ),
+  );
+  writeFileSync(
+    join(userData, 'mcp-servers.bin'),
+    seal.encrypt(
+      JSON.stringify([
+        {
+          id: 'm1',
+          name: 'gh',
+          enabled: true,
+          transport: 'stdio',
+          command: 'npx',
+          args: [],
+          env: {},
+        },
+        { id: 'm2', name: 'web', enabled: false, transport: 'http', url: 'https://x', headers: {} },
+      ]),
+    ),
+  );
+  const dela = join(userData, '.dela');
+  mkdirSync(dela);
+  const magpie = { name: 'Magpie', baseUrl: 'http://127.0.0.1:3425/v1', apiKey: 'm', models: {} };
+  writeFileSync(join(dela, 'config.json'), JSON.stringify({ providers: { magpie } }));
+
+  expect(runMigrations({ userData, home: userData, seal }, 13)).toBe(1);
+
+  const deepseek = {
+    name: 'DeepSeek',
+    vendor: 'deepseek',
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'kd',
+    enabled: false,
+    models: { chat: {}, reasoner: { effort: 'high' } },
+  };
+  const config = JSON.parse(readFileSync(join(dela, 'config.json'), 'utf8'));
+  expect(config).toEqual({
+    providers: {
+      magpie,
+      deepseek,
+      siliconflow: { ...deepseek, name: '中转', vendor: undefined, baseUrl: relay.baseUrl },
+    },
+    webSearch: {
+      selected: 'brave',
+      services: { brave: { name: 'Brave', provider: 'brave', apiKey: 'kb' } },
+    },
+  });
+  expect(JSON.parse(readFileSync(join(dela, 'mcp.json'), 'utf8'))).toEqual({
+    mcpServers: {
+      gh: { command: 'npx', args: [], env: {} },
+      web: { type: 'http', url: 'https://x', headers: {}, disabled: true },
+    },
+  });
+  expect(readdirSync(userData).filter((name) => name.endsWith('.bin'))).toEqual([]);
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT key FROM workspace_settings').all()).toEqual([{ key: 'theme' }]);
+  // p3 与 p1 内容相同，沿用同一项：重跑迁移也是这样，不会多出一份。
+  expect(db.prepare('SELECT provider_id FROM sessions ORDER BY id').pluck().all()).toEqual([
+    'deepseek',
+    'siliconflow',
+    null,
+  ]);
+  db.close();
+});
+
+it('v12→v13：~/.dela/config.json 已写坏时不改它，旧的加密文件保留', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE sessions (id TEXT PRIMARY KEY, provider_id TEXT);`);
+  before.pragma('user_version = 12');
+  before.close();
+  writeFileSync(configPath(), seal.encrypt(JSON.stringify({ providers: [] })));
+  mkdirSync(join(userData, '.dela'));
+  writeFileSync(join(userData, '.dela', 'config.json'), '{ broken');
+
+  runMigrations({ userData, home: userData, seal }, 13);
+
+  expect(readFileSync(join(userData, '.dela', 'config.json'), 'utf8')).toBe('{ broken');
+  expect(existsSync(configPath())).toBe(true);
+});
+
+it('v13→v14：没存 SMTP 参数的早期交大账号补上交大服务器，第三方账号不变', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, address TEXT NOT NULL,
+    imap_host TEXT NOT NULL, imap_port INTEGER NOT NULL, smtp_host TEXT, smtp_port INTEGER);
+    INSERT INTO mail_accounts VALUES
+      (1, 'me@sjtu.edu.cn', 'mail.sjtu.edu.cn', 993, NULL, NULL),
+      (2, 'me@example.com', 'imap.example.com', 143, 'smtp.example.com', 587);`);
+  before.pragma('user_version = 13');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 14)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT smtp_host, smtp_port FROM mail_accounts ORDER BY id').all()).toEqual([
+    { smtp_host: 'mail.sjtu.edu.cn', smtp_port: 465 },
+    { smtp_host: 'smtp.example.com', smtp_port: 587 },
+  ]);
+  db.close();
+});
+
+it('v14→v15：Canvas 资料 id 加上 canvas- 前缀，存着它的地方一起改，其他模块的 id 不动', () => {
+  const draft = (address: object) =>
+    JSON.stringify({
+      to: ['a@example.com'],
+      subject: '',
+      text: '',
+      attachments: [address, { type: 'workspace', id: '/tmp/a.pdf' }],
+    });
+  const layout = (id: string) => JSON.stringify({ root: { tabs: [`preview:source:${id}`] } });
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE canvas_courses (id INTEGER PRIMARY KEY, data TEXT NOT NULL, items TEXT NOT NULL DEFAULT '[]');
+    CREATE TABLE canvas_sources (id TEXT PRIMARY KEY, course_id INTEGER NOT NULL, data TEXT NOT NULL);
+    CREATE TABLE workspace_entries (id TEXT PRIMARY KEY, kind TEXT NOT NULL, source_id TEXT);
+    CREATE TABLE notifications (id TEXT PRIMARY KEY, source TEXT NOT NULL, href TEXT NOT NULL);
+    INSERT INTO canvas_sources VALUES ('assignment:4', 12, '{"id":"assignment:4","kind":"assignment"}');
+    INSERT INTO workspace_entries VALUES ('e1', 'source', 'discussion:12:7'),
+      ('e2', 'source', 'shuiyuan-topic:9'), ('e3', 'folder', NULL);
+    INSERT INTO notifications VALUES ('canvas:owner:discussion:12:7', 'canvas', '{"kind":"canvas","sourceId":"discussion:12:7"}'),
+      ('mail:1', 'mail', '{"kind":"mail","messageId":1}');`);
+  before.prepare("INSERT INTO canvas_courses VALUES (12, '{}', ?)").run(
+    JSON.stringify([
+      { id: '12:files', parentId: null, sourceId: null, name: 'file: 课件' },
+      { id: '12:files/file:3', parentId: '12:files', sourceId: 'file:3', name: 'a.pdf' },
+      { id: 'assignment:4:submission', parentId: 'assignment:4', sourceId: null, name: '提交' },
+      { id: 'module-item:8', parentId: 'module:2', sourceId: 'page:12:intro', name: '介绍' },
+    ]),
+  );
+  const insert = before.prepare('INSERT INTO workspace_settings VALUES (?, ?)');
+  insert.run('preview-export:canvas:file:1', '{"path":"a.pdf"}');
+  insert.run('preview-export:workspace:abc', '{"path":"b.pdf"}');
+  insert.run('email-draft:1', draft({ type: 'canvas', id: 'file:1' }));
+  insert.run('layout:_general', layout('file:1'));
+  insert.run('layout:p1', layout('shuiyuan-topic:9'));
+  before.pragma('user_version = 14');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 15)).toBe(1);
+
+  const db = new Database(dbPath());
+  expect(db.prepare('SELECT id, data FROM canvas_sources').get()).toEqual({
+    id: 'canvas-assignment:4',
+    data: '{"id":"canvas-assignment:4","kind":"assignment"}',
+  });
+  expect(
+    JSON.parse(db.prepare('SELECT items FROM canvas_courses').pluck().get() as string),
+  ).toEqual([
+    { id: '12:files', parentId: null, sourceId: null, name: 'file: 课件' },
+    {
+      id: '12:files/canvas-file:3',
+      parentId: '12:files',
+      sourceId: 'canvas-file:3',
+      name: 'a.pdf',
+    },
+    {
+      id: 'canvas-assignment:4:submission',
+      parentId: 'canvas-assignment:4',
+      sourceId: null,
+      name: '提交',
+    },
+    {
+      id: 'canvas-module-item:8',
+      parentId: 'module:2',
+      sourceId: 'canvas-page:12:intro',
+      name: '介绍',
+    },
+  ]);
+  expect(db.prepare('SELECT source_id FROM workspace_entries ORDER BY id').pluck().all()).toEqual([
+    'canvas-discussion:12:7',
+    'shuiyuan-topic:9',
+    null,
+  ]);
+  expect(db.prepare('SELECT id, href FROM notifications ORDER BY id').all()).toEqual([
+    {
+      id: 'canvas:owner:canvas-discussion:12:7',
+      href: '{"kind":"canvas","sourceId":"canvas-discussion:12:7"}',
+    },
+    { id: 'mail:1', href: '{"kind":"mail","messageId":1}' },
+  ]);
+  expect(db.prepare('SELECT key, value FROM workspace_settings ORDER BY key').all()).toEqual([
+    { key: 'email-draft:1', value: draft({ type: 'source', id: 'canvas-file:1' }) },
+    { key: 'layout:_general', value: layout('canvas-file:1') },
+    { key: 'layout:p1', value: layout('shuiyuan-topic:9') },
+    { key: 'preview-export:source:canvas-file:1', value: '{"path":"a.pdf"}' },
+    { key: 'preview-export:workspace:abc', value: '{"path":"b.pdf"}' },
+  ]);
+  db.close();
+});
+
+it('v15→v16：待办状态换成 open/done/unknown，Canvas 的说法与课程并入 statusLabel、group，同步进度带上来源', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT NOT NULL, data TEXT NOT NULL, read_at TEXT, notice_at TEXT);`);
+  const insert = before.prepare('INSERT INTO todo_items (id, owner, data) VALUES (?, ?, ?)');
+  insert.run(
+    'canvas:o:12:4',
+    'o',
+    JSON.stringify({
+      id: 'canvas:o:12:4',
+      source: 'canvas',
+      title: '作业',
+      status: 'graded',
+      courseId: 12,
+      courseCode: 'CS1',
+      courseName: '操作系统',
+      assignmentId: 4,
+      description: '<p>要求</p>',
+      submittedAt: '2026-09-20T00:00:00.000Z',
+    }),
+  );
+  insert.run(
+    'p1',
+    'local',
+    JSON.stringify({ id: 'p1', source: 'personal', title: '个人', status: 'completed' }),
+  );
+  before
+    .prepare('INSERT INTO workspace_settings VALUES (?, ?)')
+    .run('todo-sync:o', JSON.stringify({ syncedAt: null, error: null, courses: [12] }));
+  before.pragma('user_version = 15');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 16)).toBe(1);
+
+  const db = new Database(dbPath());
+  const data = db.prepare('SELECT data FROM todo_items ORDER BY id').pluck().all() as string[];
+  expect(data.map((value) => JSON.parse(value))).toEqual([
+    {
+      id: 'canvas:o:12:4',
+      source: 'canvas',
+      title: '作业',
+      status: 'done',
+      statusLabel: '已批改',
+      completedAt: '2026-09-20T00:00:00.000Z',
+      group: { id: '12', label: '操作系统' },
+      bodyHtml: '<p>要求</p>',
+    },
+    { id: 'p1', source: 'personal', title: '个人', status: 'done', completedAt: null },
+  ]);
+  expect(db.prepare('SELECT key, value FROM workspace_settings').all()).toEqual([
+    {
+      key: 'todo-sync:canvas:o',
+      value: JSON.stringify({ syncedAt: null, error: null, groups: ['12'] }),
+    },
+  ]);
+  db.close();
+});
+
+it('v16→v17：截止改为三选一的时间，课表日程并入个人待办，同一天成时段、跨天成全天', () => {
+  const before = new Database(dbPath());
+  before.exec(`CREATE TABLE todo_items (id TEXT PRIMARY KEY, owner TEXT NOT NULL, data TEXT NOT NULL, read_at TEXT, notice_at TEXT);
+    CREATE TABLE calendar_events (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
+      start_at TEXT NOT NULL, end_at TEXT NOT NULL, location TEXT, color TEXT, created_at TEXT NOT NULL);`);
+  const insert = before.prepare("INSERT INTO todo_items (id, owner, data) VALUES (?, 'local', ?)");
+  insert.run(
+    'a',
+    JSON.stringify({ id: 'a', title: '有截止', dueAt: '2026-11-03T15:59:00.000Z', calendar: true }),
+  );
+  insert.run('b', JSON.stringify({ id: 'b', title: '无截止', dueAt: null, calendar: false }));
+  const at = (day: number, hour: number) => new Date(2026, 10, day, hour).toISOString();
+  const event = before.prepare(
+    "INSERT INTO calendar_events (title, start_at, end_at, location, color, created_at) VALUES (?, ?, ?, ?, ?, 'c')",
+  );
+  event.run('组会', at(3, 9), at(3, 10), '电院 3-200', 'teal');
+  event.run('出差', at(4, 9), at(6, 0), null, 'unknown');
+  before.pragma('user_version = 16');
+  before.close();
+
+  expect(runMigrations({ userData, home: userData, seal }, 17)).toBe(1);
+
+  const db = new Database(dbPath());
+  const items = (db.prepare('SELECT data FROM todo_items').pluck().all() as string[]).map(
+    (value) => JSON.parse(value) as Record<string, unknown>,
+  );
+  expect(items.slice(0, 2)).toEqual([
+    { id: 'a', title: '有截止', time: { kind: 'due', at: '2026-11-03T15:59:00.000Z' } },
+    { id: 'b', title: '无截止', time: null },
+  ]);
+  expect(items.slice(2)).toMatchObject([
+    {
+      source: 'personal',
+      title: '组会',
+      notes: '地点：电院 3-200',
+      time: { kind: 'span', start: at(3, 9), end: at(3, 10) },
+      status: 'open',
+      color: 'teal',
+    },
+    { title: '出差', time: { kind: 'allDay', startDate: '2026-11-04', endDate: '2026-11-05' } },
+  ]);
+  expect(items[3]).not.toHaveProperty('color');
+  expect(
+    db.prepare("SELECT name FROM sqlite_master WHERE name = 'calendar_events'").get(),
+  ).toBeUndefined();
+  db.close();
+});

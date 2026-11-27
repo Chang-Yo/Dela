@@ -8,5 +8,597 @@
     "react/refs": "off",
     "react/use-memo": "off"
   },
-  "ignorePatterns": ["src/renderer/components/ui/beautifului/**"]
+  "overrides": [
+    {
+      "files": ["src/{core,modules,sjtu,ui,app}/**"],
+      "rules": {
+        "react/set-state-in-effect": "error",
+        "react/refs": "error"
+      }
+    },
+    {
+      "files": ["src/{core,modules,app}/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/app/module.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/**", "**/sjtu/**"],
+                "message": "app/module.ts 不引用任何模块：它与模块共用的类型放在 core/protocol。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/core/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "electron",
+                  "electron/**",
+                  "react",
+                  "react/**",
+                  "react-dom",
+                  "react-dom/**"
+                ],
+                "message": "core 只依赖 Pi 与 Node：宿主能力经端口注入，界面在模块的 view/ 里。"
+              },
+              {
+                "group": [
+                  "**/main",
+                  "**/main/**",
+                  "**/preload/**",
+                  "**/renderer/**",
+                  "**/shared/**",
+                  "**/app/**",
+                  "**/modules/**",
+                  "**/ui/**"
+                ],
+                "message": "core 不认识具体业务：在 core/capabilities 开注册表，由模块注册进来。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/core/remote/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "electron",
+                  "electron/**",
+                  "react",
+                  "react/**",
+                  "react-dom",
+                  "react-dom/**"
+                ],
+                "message": "core 只依赖 Pi 与 Node：宿主能力经端口注入，界面在模块的 view/ 里。"
+              },
+              {
+                "group": [
+                  "**/main",
+                  "**/main/**",
+                  "**/preload/**",
+                  "**/renderer/**",
+                  "**/shared/**",
+                  "**/app/**",
+                  "**/modules/**",
+                  "**/ui/**"
+                ],
+                "message": "core 不认识具体业务：在 core/capabilities 开注册表，由模块注册进来。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "regex": "^(\\.\\./)+(agent|capabilities)(/|$)",
+                "message": "远程执行后端不能依赖 Agent：只暴露 RemoteBackend，Pi 工具适配在 core/agent/remote-tools。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/core/protocol/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*", "**", "!zod", "!./*"],
+                "message": "core/protocol 只依赖 zod：桌面 React 与移动端共用协议，不能带入 core 其他部分或宿主依赖。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/ui/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["./agent", "./agent/**"],
+                "message": "ui 基础组件不能引用 ui/agent：依赖方向是 ui/agent → ui 基础组件，反过来不行。"
+              },
+              {
+                "group": [
+                  "*",
+                  "**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!radix-ui",
+                  "!radix-ui/**",
+                  "!class-variance-authority",
+                  "!lucide-react",
+                  "!clsx",
+                  "!tailwind-merge",
+                  "!dompurify",
+                  "!vitest",
+                  "!zustand",
+                  "!./*",
+                  "!./hooks/*",
+                  "!./lib/*"
+                ],
+                "message": "ui 只依赖 react、radix、cva、lucide、zustand、DOMPurify 与样式工具，零业务依赖：业务组件放在模块的 view/ 里，ui 只引用 src/ui 内的 ./ 文件（含 ./hooks、./lib）。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/ui/agent/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "*",
+                  "**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!radix-ui",
+                  "!radix-ui/**",
+                  "!class-variance-authority",
+                  "!lucide-react",
+                  "!clsx",
+                  "!tailwind-merge",
+                  "!vitest",
+                  "!./*",
+                  "!../*",
+                  "!../hooks/*",
+                  "!../lib/*"
+                ],
+                "message": "ui/agent 在 ui 基础组件之上组合 Agent 外观，只能引用同目录的 ./ 文件与上一级 ui 基础组件、hooks、lib（../x），不依赖业务、store 与协议类型。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/ui/{hooks,lib}/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "*",
+                  "**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!radix-ui",
+                  "!radix-ui/**",
+                  "!class-variance-authority",
+                  "!lucide-react",
+                  "!clsx",
+                  "!tailwind-merge",
+                  "!dompurify",
+                  "!vitest",
+                  "!./*",
+                  "!../hooks/*",
+                  "!../lib/*"
+                ],
+                "message": "ui/hooks 与 ui/lib 只能引用同目录的 ./ 文件以及 ../hooks、../lib，不能依赖组件、ui/agent 与业务。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/core/**/test/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "electron",
+                  "electron/**",
+                  "react",
+                  "react/**",
+                  "react-dom",
+                  "react-dom/**"
+                ],
+                "message": "core 的测试可以用宿主实现做集成夹具，但不能依赖 Electron 与界面。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/modules/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "group": ["**/app/*", "!**/app/module"],
+                "message": "模块只能引用 app/module.ts。"
+              },
+              {
+                "group": [
+                  "../../main/**",
+                  "../../../main/**",
+                  "../../../../main/**",
+                  "../../preload/**",
+                  "../../../preload/**",
+                  "../../../../preload/**"
+                ],
+                "message": "模块不能引用旧主进程与 preload 的内部实现。"
+              },
+              {
+                "group": [
+                  "../*/main/**",
+                  "../*/data/**",
+                  "../*/view",
+                  "../*/view/**",
+                  "../../*/main/**",
+                  "../../*/data/**",
+                  "../../*/view",
+                  "../../*/view/**",
+                  "./view",
+                  "./view/**",
+                  "../view",
+                  "../view/**"
+                ],
+                "message": "模块之间只通过对方的 index.ts 或 contract.ts 引用；主进程侧不能引用 view。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/modules/{mail,workspace,chat,remotes,terminal,settings,update}/index.ts",
+        "src/modules/{mail,workspace,chat,remotes,terminal,settings,update}/main/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "group": ["**/app/*", "!**/app/module"],
+                "message": "模块只能引用 app/module.ts。"
+              },
+              {
+                "group": ["**/preload/**", "**/renderer/**"],
+                "message": "模块主进程侧不能引用 preload 与渲染端。"
+              },
+              {
+                "group": [
+                  "../*/view",
+                  "../*/view/**",
+                  "./view",
+                  "./view/**",
+                  "../view",
+                  "../view/**"
+                ],
+                "message": "主进程侧不能引用 view。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/sjtu/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/modules/*/main/**",
+                  "**/modules/*/view/*",
+                  "**/modules/*/data/**",
+                  "**/sjtu/*/main/**",
+                  "**/sjtu/*/view/*",
+                  "**/sjtu/*/data/**"
+                ],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/app/*", "!**/app/module"],
+                "message": "模块只能引用 app/module.ts。"
+              },
+              {
+                "group": [
+                  "../*/main/**",
+                  "../*/data/**",
+                  "../*/view",
+                  "../*/view/**",
+                  "../../*/main/**",
+                  "../../*/data/**",
+                  "../../*/view",
+                  "../../*/view/**",
+                  "./view",
+                  "./view/**",
+                  "../view",
+                  "../view/**",
+                  "!../../main/**",
+                  "!../../../main/**",
+                  "!../../data/**"
+                ],
+                "message": "模块之间只通过对方的 index.ts 或 contract.ts 引用；主进程侧不能引用 view。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/{modules,sjtu}/*/view/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "group": ["**/core/*", "!**/core/protocol", "**/core/*/**", "!**/core/protocol/**"],
+                "message": "view 只能引用 core/protocol。"
+              },
+              {
+                "group": [
+                  "**/app/**",
+                  "!**/app/module",
+                  "../../main/**",
+                  "../../../main/**",
+                  "../../../../main/**",
+                  "../../preload/**",
+                  "../../../preload/**",
+                  "../../../../preload/**",
+                  "**/modules/*/index",
+                  "**/modules/*",
+                  "!**/modules/*/contract",
+                  "**/shared/**",
+                  "**/renderer/**"
+                ],
+                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui。"
+              },
+              {
+                "group": [
+                  "..",
+                  "../index",
+                  "../main/**",
+                  "../data/**",
+                  "../../main/**",
+                  "../../*",
+                  "../../*/index",
+                  "../../*/main/**",
+                  "../../*/data/**",
+                  "../../*/view/*",
+                  "@/**"
+                ],
+                "message": "view 不能引用本模块主进程侧，也只能经 contract.ts 或 view/index.ts 引用其他模块。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/{modules,sjtu}/*/view/test/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "group": ["**/core/*", "!**/core/protocol", "**/core/*/**", "!**/core/protocol/**"],
+                "message": "view 只能引用 core/protocol。"
+              },
+              {
+                "group": [
+                  "**/app/**",
+                  "!**/app/module",
+                  "../../main/**",
+                  "../../../main/**",
+                  "../../../../main/**",
+                  "../../preload/**",
+                  "../../../preload/**",
+                  "../../../../preload/**",
+                  "**/modules/*/index",
+                  "**/modules/*",
+                  "!**/modules/*/contract",
+                  "**/shared/**",
+                  "**/renderer/**"
+                ],
+                "message": "view 只能引用 core/protocol、app/module、模块契约与 src/ui。"
+              },
+              {
+                "group": [
+                  "../..",
+                  "../../index",
+                  "../../main/**",
+                  "../../data/**",
+                  "../../../*/main/**",
+                  "../../../*/data/**",
+                  "../../../*/view/*"
+                ],
+                "message": "view 不能引用本模块主进程侧，也只能经 contract.ts 或 view/index.ts 引用其他模块。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["scripts/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/modules/remotes/main/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/modules/*/main/**", "**/modules/*/view/*", "**/modules/*/data/**"],
+                "message": "模块之间只通过对方的 index.ts、contract.ts 或 view/index.ts 引用。"
+              },
+              {
+                "group": ["**/sjtu/**"],
+                "message": "只有 app 的两份清单（modules、views）可以引用交大模块：通用模块需要交大数据时开注册口。"
+              },
+              {
+                "regex": "^(\\.\\./)+(core/)?(agent|capabilities)(/|$)",
+                "message": "远程执行后端不能依赖 Agent：只暴露 RemoteBackend，Pi 工具适配在 core/agent/remote-tools。"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/app/modules.ts", "src/app/views.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/modules/*/main/**",
+                  "**/modules/*/view/*",
+                  "**/modules/*/data/**",
+                  "**/sjtu/*/*/**"
+                ],
+                "message": "清单只引用模块的 index.ts 或 contract.ts。"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

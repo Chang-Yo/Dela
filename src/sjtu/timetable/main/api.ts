@@ -1,0 +1,358 @@
+import type { WebContents } from 'electron';
+import { z } from 'zod';
+import { hostPorts } from '../../../core/ports';
+import {
+  semesterSchema,
+  type TimetableLesson,
+  type TimetableResult,
+  type TimetableState,
+} from '../contract';
+import { fetchGraduateTimetable } from './graduate';
+import { lessonOccurrences } from './schedule';
+import {
+  CampusAuthError,
+  campusRequest,
+  flushCampusSession,
+  getCampusSession,
+  openCampusLoginWindow,
+} from '../../campus';
+
+const CAMPUS_ORIGIN = 'https://i.sjtu.edu.cn';
+const LOGIN_URL = `${CAMPUS_ORIGIN}/jaccountlogin`;
+const TIMETABLE_URL = `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkb.html?gnmkdm=N2151`;
+
+const rawLessonSchema = z
+  .object({
+    cdmc: z.string().optional(),
+    jc: z.string().optional(),
+    jcs: z.string().optional(),
+    jxb_id: z.string().optional(),
+    jxbmc: z.string().optional(),
+    kch: z.string().optional(),
+    kch_id: z.string().optional(),
+    kcmc: z.string().optional(),
+    xf: z.string().optional(),
+    xkbz: z.string().optional(),
+    xm: z.string().optional(),
+    xqj: z.string().optional(),
+    xqmc: z.string().optional(),
+    zcd: z.string().optional(),
+  })
+  .passthrough();
+
+const responseSchema = z
+  .object({
+    kbList: z.array(rawLessonSchema),
+    rqazcList: z.array(z.unknown()).optional(),
+  })
+  .passthrough();
+
+type LessonRow = {
+  id: number;
+  semester: string;
+  course_code: string;
+  course_name: string;
+  class_name: string | null;
+  teacher: string | null;
+  campus: string | null;
+  classroom: string | null;
+  weekday: number;
+  start_period: number;
+  end_period: number;
+  periods_text: string;
+  weeks_text: string;
+  week_numbers: string;
+  credits: number | null;
+  note: string | null;
+};
+
+export function parseSemesterStart(values: readonly unknown[] | undefined): string | null {
+  const dates = (values ?? [])
+    .flatMap((value) => {
+      const text = typeof value === 'string' ? value : (JSON.stringify(value) ?? '');
+      return text.match(/20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}/g) ?? [];
+    })
+    .map((value) => {
+      const [year, month, day] = value.split(/[-/.]/).map(Number);
+      if (!year || !month || !day) return null;
+      const date = new Date(year, month - 1, day);
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day)
+        return null;
+      return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day
+        .toString()
+        .padStart(2, '0')}`;
+    })
+    .filter((value): value is string => value !== null)
+    .sort();
+  return dates[0] ?? null;
+}
+
+export function currentSemester(now = new Date()): string {
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  if (month >= 9) return `${year}-${year + 1}-1`;
+  if (month <= 2) return `${year - 1}-${year}-1`;
+  if (month <= 7) return `${year - 1}-${year}-2`;
+  return `${year - 1}-${year}-3`;
+}
+
+function syncRow(
+  semester: string,
+): { last_synced_at: string; semester_start: string | null } | undefined {
+  return hostPorts()
+    .database()
+    .prepare('SELECT last_synced_at, semester_start FROM timetable_sync WHERE semester = ?')
+    .get(semester) as { last_synced_at: string; semester_start: string | null } | undefined;
+}
+
+function semesterParams(semester: string): { xnm: string; xqm: string } {
+  const parsed = semesterSchema.safeParse(semester);
+  if (!parsed.success) throw new Error('学期格式无效');
+  const [year, , term] = parsed.data.split('-');
+  const termCodes: Record<string, string> = { '1': '3', '2': '12', '3': '16' };
+  return { xnm: year!, xqm: termCodes[term!]! };
+}
+
+function parsePeriods(value: string | undefined): { start: number; end: number; text: string } {
+  const numbers = (value ?? '').match(/\d+/g)?.map(Number) ?? [];
+  const start = numbers[0] ?? 1;
+  const end = numbers.at(-1) ?? start;
+  return {
+    start: Math.min(20, Math.max(1, start)),
+    end: Math.min(20, Math.max(start, end)),
+    text: value?.trim() || `${start}-${end}节`,
+  };
+}
+
+export function parseWeekNumbers(value: string | undefined): number[] {
+  if (!value) return [];
+  const odd = /单/.test(value);
+  const even = /双/.test(value);
+  const result = new Set<number>();
+  for (const part of value.replace(/[周()（）单双]/g, '').split(/[,，、]/)) {
+    const numbers = part.match(/\d+/g)?.map(Number) ?? [];
+    if (numbers.length === 0) continue;
+    const start = numbers[0]!;
+    const end = numbers[1] ?? start;
+    for (let week = start; week <= end && week <= 30; week += 1) {
+      if ((odd && week % 2 === 0) || (even && week % 2 === 1)) continue;
+      result.add(week);
+    }
+  }
+  return [...result].sort((a, b) => a - b);
+}
+
+function mapRow(row: LessonRow): TimetableLesson {
+  let weekNumbers: number[] = [];
+  try {
+    const parsed: unknown = JSON.parse(row.week_numbers);
+    if (Array.isArray(parsed))
+      weekNumbers = parsed.filter((week): week is number => Number.isInteger(week));
+  } catch {
+    // Keep the cached lesson visible even if a future schema changes the stored value.
+  }
+  return {
+    id: row.id,
+    semester: row.semester,
+    courseCode: row.course_code,
+    courseName: row.course_name,
+    className: row.class_name,
+    teacher: row.teacher,
+    campus: row.campus,
+    classroom: row.classroom,
+    weekday: row.weekday,
+    startPeriod: row.start_period,
+    endPeriod: row.end_period,
+    periodsText: row.periods_text,
+    weeksText: row.weeks_text,
+    weekNumbers,
+    credits: row.credits,
+    note: row.note,
+  };
+}
+
+export function openLoginWindow(sender: WebContents): Promise<TimetableResult> {
+  return openCampusLoginWindow({
+    sender,
+    title: '登录教学信息服务网',
+    url: LOGIN_URL,
+    reached: (url) =>
+      (url.startsWith('https://i.sjtu.edu.cn/') || url.startsWith('http://i.sjtu.edu.cn/')) &&
+      !url.includes('/jaccountlogin'),
+    probe: async () => {
+      await fetchTimetable(currentSemester());
+      await flushCampusSession();
+    },
+  });
+}
+
+async function fetchTimetable(semester: string) {
+  const { xnm, xqm } = semesterParams(semester);
+  const body = new URLSearchParams({ xnm, xqm, kzlx: 'ck', xsdm: '' });
+  const text = await campusRequest(await getCampusSession(), TIMETABLE_URL, {
+    service: '课表',
+    loginError: '登录已失效，请重新登录',
+    loginStatus: 901,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      Referer: `${CAMPUS_ORIGIN}/kbcx/xskbcx_cxXsgrkbIndex.html?gnmkdm=N2151`,
+    },
+    body: body.toString(),
+  });
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    throw new Error('课表接口没有返回预期的数据，请重新登录后再试');
+  }
+  const parsed = responseSchema.safeParse(payload);
+  if (!parsed.success) throw new Error('课表返回了无法识别的数据');
+  return parsed.data;
+}
+
+// 研究生在教学信息服务网能登录但课表为空，此时改读研究生教学信息平台。
+async function fetchTimetableData(semester: string) {
+  const data = await fetchTimetable(semester);
+  if (data.kbList.length === 0) {
+    const graduate = await fetchGraduateTimetable(semester);
+    if (graduate.lessons.length === 0)
+      throw new Error('本科和研究生课表均为空，请确认学期；原有课表不会被清除');
+    return graduate;
+  }
+  const lessons = data.kbList.flatMap((raw, index) => {
+    const courseName = raw.kcmc?.trim();
+    const weekday = Number(raw.xqj);
+    if (!courseName || !Number.isInteger(weekday) || weekday < 1 || weekday > 7) return [];
+    const periods = parsePeriods(raw.jcs || raw.jc);
+    const weeksText = raw.zcd?.trim() || '周次未提供';
+    const credits = raw.xf ? Number(raw.xf) : null;
+    return [
+      {
+        semester,
+        sourceId: raw.jxb_id || raw.kch_id || `${raw.kch ?? courseName}-${index}`,
+        courseCode: raw.kch?.trim() || '',
+        courseName,
+        className: raw.jxbmc?.trim() || null,
+        teacher: raw.xm?.trim() || null,
+        campus: raw.xqmc?.trim() || null,
+        classroom: raw.cdmc?.trim() || null,
+        weekday,
+        startPeriod: periods.start,
+        endPeriod: periods.end,
+        periodsText: raw.jc?.trim() || periods.text,
+        weeksText,
+        weekNumbers: JSON.stringify(parseWeekNumbers(raw.zcd)),
+        credits: Number.isFinite(credits) ? credits : null,
+        note: raw.xkbz?.trim() || null,
+      },
+    ];
+  });
+  if (lessons.length === 0) throw new Error('课表没有有效课程，原有课表不会被清除');
+  return { lessons, semesterStart: parseSemesterStart(data.rqazcList) };
+}
+
+export async function syncTimetable(semester: string): Promise<TimetableResult> {
+  try {
+    const { lessons, semesterStart } = await fetchTimetableData(semester);
+    await flushCampusSession();
+
+    const db = hostPorts().database();
+    const insert = db.prepare(
+      `INSERT INTO timetable_lessons
+       (semester, source_id, course_code, course_name, class_name, teacher, campus, classroom,
+        weekday, start_period, end_period, periods_text, weeks_text, week_numbers, credits, note)
+       VALUES (@semester, @sourceId, @courseCode, @courseName, @className, @teacher, @campus,
+        @classroom, @weekday, @startPeriod, @endPeriod, @periodsText, @weeksText, @weekNumbers,
+        @credits, @note)`,
+    );
+    const syncedAt = new Date().toISOString();
+    db.transaction(() => {
+      db.prepare('DELETE FROM timetable_lessons WHERE semester = ?').run(semester);
+      for (const lesson of lessons) insert.run(lesson);
+      db.prepare(
+        `INSERT INTO timetable_sync (semester, last_synced_at, semester_start) VALUES (?, ?, ?)
+         ON CONFLICT(semester) DO UPDATE SET
+           last_synced_at = excluded.last_synced_at,
+           semester_start = COALESCE(excluded.semester_start, timetable_sync.semester_start)`,
+      ).run(semester, syncedAt, semesterStart);
+    })();
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      ...(error instanceof CampusAuthError ? { reason: 'auth' as const } : {}),
+    };
+  }
+}
+
+export function listLessons(semester: string): TimetableLesson[] {
+  const rows = hostPorts()
+    .database()
+    .prepare(
+      `SELECT * FROM timetable_lessons WHERE semester = ?
+       ORDER BY weekday, start_period, course_name`,
+    )
+    .all(semester) as LessonRow[];
+  return rows.map(mapRow);
+}
+
+export const scheduleQuerySchema = z
+  .object({
+    semester: semesterSchema.optional(),
+    startAt: z.string().datetime(),
+    endAt: z.string().datetime(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      Date.parse(value.endAt) > Date.parse(value.startAt) &&
+      Date.parse(value.endAt) - Date.parse(value.startAt) <= 366 * 86400000,
+    '查询范围必须为正数且不超过一年',
+  );
+
+export function querySchedule(input: unknown) {
+  const args = scheduleQuerySchema.parse(input);
+  const semester = args.semester ?? currentSemester();
+  const row = syncRow(semester);
+  const courses = lessonOccurrences(
+    listLessons(semester),
+    row?.semester_start ?? null,
+    args.startAt,
+    args.endAt,
+  );
+  const warnings = [...courses.warnings];
+  if (!row?.last_synced_at) warnings.push('该学期课表尚未同步');
+  return {
+    semester,
+    timezone: 'Asia/Shanghai',
+    items: courses.items.sort((a, b) => a.startAt.localeCompare(b.startAt)),
+    coverage: {
+      courseSyncedAt: row?.last_synced_at || null,
+      complete: warnings.length === 0,
+      warnings,
+    },
+  };
+}
+
+export function getTimetableState(semester = currentSemester()): TimetableState {
+  const row = syncRow(semester);
+  return {
+    semester,
+    lastSyncedAt: row?.last_synced_at || null,
+    semesterStart: row?.semester_start ?? null,
+  };
+}
+
+export function setSemesterStart(semester: string, value: string) {
+  // 手动补设学期日期时可能还没有同步记录，先落到空串以满足 NOT NULL。
+  hostPorts()
+    .database()
+    .prepare(
+      `INSERT INTO timetable_sync (semester, last_synced_at, semester_start) VALUES (?, '', ?)
+       ON CONFLICT(semester) DO UPDATE SET semester_start = excluded.semester_start`,
+    )
+    .run(semester, value);
+}

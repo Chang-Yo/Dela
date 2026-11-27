@@ -106,6 +106,10 @@ for (const arch of ['amd64', 'arm64']) {
     readFileSync(join(resources, 'dela-helper', name)),
     readFileSync(join(root, 'vendor/dela-helper', name)),
   );
+  assert.deepEqual(
+    readFileSync(join(resources, 'remote-rg', `rg-linux-${arch}`)),
+    readFileSync(join(root, '.build/remote-rg', `rg-linux-${arch}`)),
+  );
 }
 if (!process.argv.includes('--dir')) {
   const prefix = join(resolve(bundle, '../..'), `Dela-${version}-mac-${process.arch}`);
