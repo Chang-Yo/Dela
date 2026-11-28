@@ -1,6 +1,6 @@
 # 通用官网公告订阅框架
 
-关联 [Issue #185](https://github.com/Chang-Yo/Dela/issues/185)。用户输入公开 URL，确认要订阅的栏目后，保存规则并发现新增公告。解析核心位于 `src/modules/notifications/main/notice-subscriptions/`，通过 `src/modules/notifications/main/notices.ts` 宿主适配层接入 Dela 通知中心与通知页订阅管理（受试验功能开关控制）；内置教务处通知保留独立开关及正文、验证码附件能力。登录、验证码、自动分页及 #127 的兴趣筛选和 TODO 联动不在通用订阅范围内。
+关联 [Issue #185](https://github.com/Chang-Yo/Dela/issues/185)。用户输入公开 URL，确认要订阅的栏目后，保存规则并发现新增公告。官网订阅模块位于 `src/sjtu/notice-subscriptions/`，通过 `registerNoticeSource` 接入 Dela 通知中心，并登记通知页订阅管理与设置入口（受试验功能开关控制）；内置教务处通知保留独立开关及正文、验证码附件能力。登录、验证码、自动分页及 #127 的兴趣筛选和 TODO 联动不在通用订阅范围内。
 
 框架首先服务消息源接入开发者，复用已确认的规则，通过 v3 通知来源注册接入，目标是让学生像关注公众号一样自主选择官网消息源，减少信息差。专用解析器仍由开发者独立实现，再通过宿主适配层汇入通知中心。
 

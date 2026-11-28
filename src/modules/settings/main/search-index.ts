@@ -23,12 +23,6 @@ const settingsSearchItems: SettingsSearchItem[] = [
     keywords: ['通用', '自启动', '开机', '启动', 'login', 'auto'],
   },
   {
-    id: 'experimental-notice-subscriptions',
-    section: 'notifications',
-    title: '通用公告订阅',
-    keywords: ['试验功能', '官网公告', 'RSS', 'Atom', '订阅'],
-  },
-  {
     id: 'message-alerts',
     section: 'notifications',
     title: '新消息提醒',

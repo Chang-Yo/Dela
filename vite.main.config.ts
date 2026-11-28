@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
@@ -22,6 +22,8 @@ function prepareMacosIcons(outputDirectory: string) {
   }
 }
 
+const noticeWorker = 'src/sjtu/notice-subscriptions/main/render-worker.ts';
+
 export default defineConfig({
   envDir: false,
   plugins: [
@@ -41,11 +43,13 @@ export default defineConfig({
     target: 'node24',
     outDir: 'out/main',
     lib: {
-      entry: {
-        index: 'src/app/main/bootstrap.ts',
-        app: 'src/app/main/index.ts',
-        'render-worker': 'src/modules/notifications/main/notice-subscriptions/render-worker.ts',
-      },
+      entry: existsSync(noticeWorker)
+        ? {
+            index: 'src/app/main/bootstrap.ts',
+            app: 'src/app/main/index.ts',
+            'render-worker': noticeWorker,
+          }
+        : { index: 'src/app/main/index.ts' },
       formats: ['cjs'],
       fileName: (_, name) => `${name}.cjs`,
     },

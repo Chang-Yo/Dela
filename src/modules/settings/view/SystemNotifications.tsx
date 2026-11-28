@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BellOff } from 'lucide-react';
 import type { TaskNotificationPrefs } from '../contract';
-import {
-  notificationsClient,
-  useNotificationState,
-  useNotificationSubscriptions,
-} from '../../notifications/view';
+import { notificationsClient, useNotificationState } from '../../notifications/view';
 import { Button } from '../../../ui/button';
 import { Switch } from '../../../ui/switch';
 import { SettingRow } from './SettingRow';
@@ -44,7 +40,6 @@ export function SystemNotifications() {
   const task = taskQuery.data;
   const loadError = messageAlertsQuery.error ?? taskQuery.error;
   const snoozedUntil = useNotificationState().data?.snoozedUntil ?? null;
-  const subscriptions = useNotificationSubscriptions();
   const [busy, setBusy] = useState(false);
 
   // 浏览器预览没有 preload，只维护选择态；桌面端经主进程持久化。
@@ -104,32 +99,10 @@ export function SystemNotifications() {
     setBusy(false);
   };
 
-  const toggleNoticeSubscriptions = async (enabled: boolean) => {
-    setBusy(true);
-    try {
-      await notificationsClient.setNoticeSubscriptionsEnabled(enabled);
-      await subscriptions.refetch();
-    } catch (cause) {
-      showToast({ variant: 'error', title: '保存失败', description: errorMessage(cause) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     // 导语只对本组成立，跟着组标题放在容器上方（容器底色承担分组边界）；
     // 「关闭≠停止收集」是防止用户以为关掉后会漏掉通知中心里的消息。
     <div className="grid gap-2">
-      <SettingsGroup title="试验功能">
-        <SettingRow settingId="experimental-notice-subscriptions" title="通用公告订阅">
-          <Switch
-            aria-label="通用公告订阅"
-            checked={subscriptions.data?.experimental ?? false}
-            disabled={!subscriptions.data || busy}
-            onCheckedChange={(next) => void toggleNoticeSubscriptions(next)}
-          />
-        </SettingRow>
-      </SettingsGroup>
       <SettingsGroup
         description="关闭只停用桌面弹窗，通知中心仍会收集。"
         settingId="system-notifications"
