@@ -26,7 +26,6 @@ import {
   notifyFailure,
   openNotification,
   useNotificationState,
-  useNotificationSubscriptions,
 } from './use-notifications';
 
 type Kinds = Record<string, NoticeKind>;
@@ -140,9 +139,6 @@ export function notificationsPage(kinds: Kinds) {
 
 function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kinds }) {
   const all = Object.keys(kinds);
-  const builtIn = useNotificationSubscriptions().data;
-  const hasSubscriptions =
-    Boolean(builtIn?.length) || Object.values(kinds).some((kind) => kind.subscriptions);
   const [showSubscriptions, setShowSubscriptions] = useState(false);
   const hidden = useNotificationSourceFilter((store) => store.hidden);
   const toggleSource = useNotificationSourceFilter((store) => store.toggleSource);
@@ -186,16 +182,14 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          {hasSubscriptions ? (
-            <Button
-              aria-expanded={showSubscriptions}
-              onClick={() => setShowSubscriptions(!showSubscriptions)}
-              size="sm"
-              variant="ghost"
-            >
-              订阅管理
-            </Button>
-          ) : null}
+          <Button
+            aria-expanded={showSubscriptions}
+            onClick={() => setShowSubscriptions(!showSubscriptions)}
+            size="sm"
+            variant="ghost"
+          >
+            订阅管理
+          </Button>
           <Button
             aria-label="刷新通知"
             disabled={loading}
@@ -274,19 +268,12 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
       </header>
 
       {showSubscriptions ? (
-        <SubscriptionsPanel>
-          {Object.entries(kinds).map(([source, { subscriptions: Panel }]) =>
-            Panel ? (
-              <Panel
-                key={source}
-                onViewNotices={() => {
-                  showOnly(source, all);
-                  setShowSubscriptions(false);
-                }}
-              />
-            ) : null,
-          )}
-        </SubscriptionsPanel>
+        <SubscriptionsPanel
+          onViewNotices={() => {
+            showOnly('notice', all);
+            setShowSubscriptions(false);
+          }}
+        />
       ) : null}
 
       {state?.snoozedUntil ? (

@@ -1,4 +1,5 @@
 // 通知中心的渲染端出口：页面由清单汇总各模块的来源后生成，铃铛计数给外壳用。
+import { Globe } from 'lucide-react';
 import { defineView, type NoticeKind } from '../../../app/module';
 import { subscribe } from '../../../core/protocol/contract';
 import { notificationsContract } from '../contract';
@@ -9,13 +10,14 @@ export {
   notificationsClient,
   useNotificationCounts,
   useNotificationState,
+  useNotificationSubscriptions,
 } from './use-notifications';
 
 export function notificationsView(kinds: Record<string, NoticeKind>) {
   return defineView({
     pages: {
       notifications: {
-        component: notificationsPage(kinds),
+        component: notificationsPage({ ...kinds, notice: { label: '官网公告', icon: Globe } }),
       },
     },
     start(navigate) {

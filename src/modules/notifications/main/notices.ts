@@ -1,35 +1,31 @@
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { fetchNoticePage } from './fetch';
+import { fetchNoticePage } from './notice-subscriptions/fetch';
 import {
   analyzeNoticePage,
   extractNoticeEntries,
   validateNoticeUrl,
   type NoticeAnalysis,
-} from './parser';
-import { renderNoticePage } from './render';
-import { subscriptionStateSchema, updateSubscription, type SubscriptionState } from './state';
-import { hostPorts } from '../../../core/ports';
+} from './notice-subscriptions/parser';
+import { renderNoticePage } from './notice-subscriptions/render';
 import {
-  deleteNotificationAccount,
+  subscriptionStateSchema,
+  updateSubscription,
+  type SubscriptionState,
+} from './notice-subscriptions/state';
+import { hostPorts } from '../../../core/ports';
+import { readSetting, writeSetting } from '../../settings';
+import type { NoticePreview, NoticeSubscription } from '../contract';
+import {
   findBuiltInSubscription,
-  insertNotificationIfAbsent,
-  notificationAccountSummaries,
-  saveNotificationRefresh,
   systemNotifyItem,
   type NoticeSource,
   type StoredNotice,
-} from '../../../modules/notifications';
-import { readSetting, writeSetting } from '../../../modules/settings';
-import {
-  WEBSITE_NOTICE_SOURCE,
-  WEBSITE_SUBSCRIPTIONS_SETTING,
-  type NoticePreview,
-  type NoticeSubscription,
-} from '../contract';
+} from './store';
 
 const prefix = 'notice-subscription:';
+const experimentKey = 'experimental-notice-subscriptions';
 let enableGeneration = 0;
 
 let pendingPreview: {
@@ -42,12 +38,12 @@ let pendingPreview: {
 } | null = null;
 
 export function noticeSubscriptionsEnabled(): boolean {
-  return readSetting(WEBSITE_SUBSCRIPTIONS_SETTING) !== '0';
+  return readSetting(experimentKey) !== '0';
 }
 
 export function setNoticeSubscriptionsEnabled(enabled: boolean): void {
   if (enabled === noticeSubscriptionsEnabled()) return;
-  writeSetting(WEBSITE_SUBSCRIPTIONS_SETTING, enabled ? '1' : '0');
+  writeSetting(experimentKey, enabled ? '1' : '0');
   enableGeneration++;
   pendingPreview = null;
 }
@@ -108,7 +104,31 @@ export function noticeSubscriptionIds(): string[] {
 }
 
 export function listNoticeSubscriptions(): NoticeSubscription[] {
-  const { counts, refreshes } = notificationAccountSummaries(WEBSITE_NOTICE_SOURCE);
+  const db = hostPorts().database();
+  const counts = new Map(
+    (
+      db
+        .prepare(
+          `SELECT account_key, COUNT(*) AS total,
+        SUM(read_at IS NULL AND source_unread = 1) AS unread
+        FROM notifications WHERE source = 'notice' GROUP BY account_key`,
+        )
+        .all() as {
+        account_key: string;
+        total: number;
+        unread: number;
+      }[]
+    ).map((row) => [row.account_key, row]),
+  );
+  const refreshes = new Map(
+    (
+      db
+        .prepare(
+          "SELECT account_key, last_success_at, error FROM notification_refreshes WHERE source = 'notice'",
+        )
+        .all() as { account_key: string; last_success_at: string | null; error: string | null }[]
+    ).map((row) => [row.account_key, row]),
+  );
   return storedRows().map(({ id, value }) => {
     const state = parseSubscription(value);
     const refresh = refreshes.get(id);
@@ -119,9 +139,9 @@ export function listNoticeSubscriptions(): NoticeSubscription[] {
         label: '损坏的订阅',
         pageUrl: '',
         acquisition: 'http',
-        lastSuccessAt: refresh?.lastSuccessAt ?? null,
-        entryCount: count?.entryCount ?? 0,
-        unreadCount: count?.unreadCount ?? 0,
+        lastSuccessAt: refresh?.last_success_at ?? null,
+        entryCount: count?.total ?? 0,
+        unreadCount: count?.unread ?? 0,
         error: refresh?.error ?? '订阅状态损坏，请移除后重新添加',
       };
     }
@@ -130,9 +150,9 @@ export function listNoticeSubscriptions(): NoticeSubscription[] {
       label: displayNoticeSource(state.rule.label, state.rule.pageUrl),
       pageUrl: state.rule.pageUrl,
       acquisition: state.acquisition ?? 'http',
-      lastSuccessAt: refresh?.lastSuccessAt ?? state.checkedAt,
-      entryCount: count?.entryCount ?? 0,
-      unreadCount: count?.unreadCount ?? 0,
+      lastSuccessAt: refresh?.last_success_at ?? state.checkedAt,
+      entryCount: count?.total ?? 0,
+      unreadCount: count?.unread ?? 0,
       error: refresh?.error ?? null,
     };
   });
@@ -216,19 +236,26 @@ export function addNoticeSubscription(token: string, index: number): void {
       `${prefix}${id}`,
       JSON.stringify(saved),
     );
+    const insert = db.prepare(`INSERT OR IGNORE INTO notifications
+      (id, source, account_key, title, body, created_at, read_at, source_unread, href)
+      VALUES (?, 'notice', ?, ?, ?, ?, ?, 1, ?)`);
     entries.forEach((entry, entryIndex) => {
-      insertNotificationIfAbsent(
-        WEBSITE_NOTICE_SOURCE,
-        id,
+      insert.run(
         `notice:${id}:${entry.id}`,
+        id,
         entry.title,
         sourceLabel,
         entryCreatedAt(entry.publishedAt, saved.checkedAt, entryIndex),
-        { kind: WEBSITE_NOTICE_SOURCE, url: entry.url, publishedAt: entry.publishedAt },
         saved.checkedAt,
+        JSON.stringify({ kind: 'notice', url: entry.url, publishedAt: entry.publishedAt }),
       );
     });
-    saveNotificationRefresh(WEBSITE_NOTICE_SOURCE, id, null, saved.checkedAt);
+    db.prepare(
+      `INSERT INTO notification_refreshes (source, account_key, last_success_at, error)
+       VALUES ('notice', ?, ?, NULL)
+       ON CONFLICT(source, account_key) DO UPDATE SET
+         last_success_at = excluded.last_success_at, error = NULL`,
+    ).run(id, saved.checkedAt);
   })();
   pendingPreview = null;
 }
@@ -238,8 +265,22 @@ export function removeNoticeSubscription(id: string): void {
   const db = hostPorts().database();
   db.transaction(() => {
     db.prepare('DELETE FROM workspace_settings WHERE key = ?').run(`${prefix}${id}`);
-    deleteNotificationAccount(WEBSITE_NOTICE_SOURCE, id);
+    db.prepare("DELETE FROM notifications WHERE source = 'notice' AND account_key = ?").run(id);
+    db.prepare(
+      "DELETE FROM notification_refreshes WHERE source = 'notice' AND account_key = ?",
+    ).run(id);
   })();
+}
+
+function saveNoticeError(id: string, error: string): void {
+  hostPorts()
+    .database()
+    .prepare(
+      `INSERT INTO notification_refreshes (source, account_key, last_success_at, error)
+       VALUES ('notice', ?, NULL, ?)
+       ON CONFLICT(source, account_key) DO UPDATE SET error = excluded.error`,
+    )
+    .run(id, error);
 }
 
 async function refreshNotice(id: string, force: boolean): Promise<void> {
@@ -251,7 +292,7 @@ async function refreshNotice(id: string, force: boolean): Promise<void> {
   const db = hostPorts().database();
   const previous = parseSubscription(value);
   if (!previous) {
-    saveNotificationRefresh(WEBSITE_NOTICE_SOURCE, id, '订阅状态损坏，请移除后重新添加');
+    saveNoticeError(id, '订阅状态损坏，请移除后重新添加');
     return;
   }
   if (!force && Date.now() < Date.parse(previous.checkedAt) + 20 * 60_000) return;
@@ -269,44 +310,45 @@ async function refreshNotice(id: string, force: boolean): Promise<void> {
     const sourceLabel = displayNoticeSource(previous.rule.label, previous.rule.pageUrl);
     const added: StoredNotice[] = [];
     db.transaction(() => {
+      const insert = db.prepare(`INSERT OR IGNORE INTO notifications
+        (id, source, account_key, title, body, created_at, read_at, source_unread, href)
+        VALUES (?, 'notice', ?, ?, ?, ?, NULL, 1, ?)`);
       update.newEntries.forEach((entry, index) => {
         const item: StoredNotice = {
           id: `notice:${id}:${entry.id}`,
-          source: WEBSITE_NOTICE_SOURCE,
+          source: 'notice',
           title: entry.title,
-          href: { kind: WEBSITE_NOTICE_SOURCE, url: entry.url, publishedAt: entry.publishedAt },
+          href: { kind: 'notice', url: entry.url, publishedAt: entry.publishedAt },
         };
-        const inserted = insertNotificationIfAbsent(
-          item.source,
-          id,
+        const result = insert.run(
           item.id,
+          id,
           item.title,
           sourceLabel,
           entryCreatedAt(entry.publishedAt, nextState.checkedAt, index),
-          item.href,
+          JSON.stringify(item.href),
         );
-        if (inserted) added.push(item);
+        if (result.changes > 0) added.push(item);
       });
       db.prepare('INSERT OR REPLACE INTO workspace_settings (key, value) VALUES (?, ?)').run(
         `${prefix}${id}`,
         JSON.stringify(nextState),
       );
-      saveNotificationRefresh(WEBSITE_NOTICE_SOURCE, id, null, nextState.checkedAt);
+      db.prepare(
+        `INSERT INTO notification_refreshes (source, account_key, last_success_at, error)
+         VALUES ('notice', ?, ?, NULL)
+         ON CONFLICT(source, account_key) DO UPDATE SET
+           last_success_at = excluded.last_success_at, error = NULL`,
+      ).run(id, nextState.checkedAt);
     })();
     for (const item of added) systemNotifyItem(item, sourceLabel);
   } catch (error) {
-    if (isCurrent()) {
-      saveNotificationRefresh(
-        WEBSITE_NOTICE_SOURCE,
-        id,
-        error instanceof Error ? error.message : String(error),
-      );
-    }
+    if (isCurrent()) saveNoticeError(id, error instanceof Error ? error.message : String(error));
   }
 }
 
 export const websiteNoticeSource: NoticeSource = {
-  id: WEBSITE_NOTICE_SOURCE,
+  id: 'notice',
   account: () => (noticeSubscriptionsEnabled() ? noticeSubscriptionIds() : null),
   refresh: refreshNotice,
   link: ({ url, publishedAt }) => {

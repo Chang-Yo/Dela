@@ -76,7 +76,6 @@ export interface ViewDefinition {
   settings?: {
     credentials?: ComponentType<{ navigate: Navigate }>;
     storage?: ComponentType;
-    notifications?: ComponentType;
   };
   /** 首启向导中本模块的一步，完成或跳过后调用 onDone。 */
   onboarding?: ComponentType<{ onDone: () => void }>;
@@ -136,7 +135,6 @@ export interface SourceDocumentProps {
 export interface NoticeKind {
   label: string;
   icon: ComponentType<{ className?: string }>;
-  subscriptions?: ComponentType<{ onViewNotices: () => void }>;
 }
 
 export function defineView(definition: ViewDefinition): ViewDefinition {

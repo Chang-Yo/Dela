@@ -18,7 +18,6 @@ import { canvasView } from '../sjtu/canvas/view';
 import { classroomView } from '../sjtu/classroom/view';
 import { jwcView } from '../sjtu/jwc/view';
 import { sjtuMailView } from '../sjtu/mail/view';
-import { websiteSubscriptionsView } from '../sjtu/notice-subscriptions/view';
 import { shuiyuanView } from '../sjtu/shuiyuan/view';
 import { timetableView } from '../sjtu/timetable/view';
 
@@ -31,7 +30,6 @@ const moduleViews = [
   shuiyuanView,
   canvasView,
   jwcView,
-  websiteSubscriptionsView,
 ];
 
 export const views: ViewDefinition[] = [

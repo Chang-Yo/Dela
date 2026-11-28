@@ -9,7 +9,6 @@ import {
 } from '../../todo';
 import {
   notificationsContract,
-  type BuiltInSubscription,
   type NotificationCategory,
   type NotificationItem,
   type NotificationState,
@@ -59,7 +58,7 @@ export function registerNoticeSource(source: NoticeSource): void {
   noticeSources.set(source.id, source);
 }
 
-export function listBuiltInSubscriptions(): BuiltInSubscription[] {
+export function listBuiltInSubscriptions() {
   return [...noticeSources.values()].flatMap(({ id, subscription }) =>
     subscription
       ? [{ id, label: subscription.label, url: subscription.url, enabled: subscription.enabled() }]
@@ -222,12 +221,8 @@ export function publishNotificationState(): NotificationState {
   return state;
 }
 
-export function saveNotificationRefresh(
-  source: string,
-  key: string,
-  error: string | null,
-  checkedAt = new Date().toISOString(),
-): void {
+export function saveNotificationRefresh(source: string, key: string, error: string | null): void {
+  const now = new Date().toISOString();
   database()
     .prepare(
       `INSERT INTO notification_refreshes (source, account_key, last_success_at, error) VALUES (?, ?, ?, ?)
@@ -235,38 +230,7 @@ export function saveNotificationRefresh(
          last_success_at = CASE WHEN excluded.error IS NULL THEN excluded.last_success_at ELSE notification_refreshes.last_success_at END,
          error = excluded.error`,
     )
-    .run(source, key, error === null ? checkedAt : null, error);
-}
-
-export function notificationAccountSummaries(source: string) {
-  const counts = database()
-    .prepare(
-      `SELECT account_key AS key, COUNT(*) AS entryCount,
-       SUM(read_at IS NULL AND source_unread = 1) AS unreadCount
-       FROM notifications WHERE source = ? GROUP BY account_key`,
-    )
-    .all(source) as { key: string; entryCount: number; unreadCount: number }[];
-  const refreshes = database()
-    .prepare(
-      `SELECT account_key AS key, last_success_at AS lastSuccessAt, error
-       FROM notification_refreshes WHERE source = ?`,
-    )
-    .all(source) as { key: string; lastSuccessAt: string | null; error: string | null }[];
-  return {
-    counts: new Map(counts.map(({ key, ...count }) => [key, count])),
-    refreshes: new Map(refreshes.map(({ key, ...refresh }) => [key, refresh])),
-  };
-}
-
-export function deleteNotificationAccount(source: string, key: string): void {
-  const db = database();
-  db.transaction(() => {
-    db.prepare('DELETE FROM notifications WHERE source = ? AND account_key = ?').run(source, key);
-    db.prepare('DELETE FROM notification_refreshes WHERE source = ? AND account_key = ?').run(
-      source,
-      key,
-    );
-  })();
+    .run(source, key, error === null ? now : null, error);
 }
 
 export function upsertNotification(
@@ -325,17 +289,13 @@ export function insertNotificationIfAbsent(
   body: string,
   createdAt: string,
   href: object,
-  readAt: string | null = null,
-): boolean {
-  const result = database()
+): void {
+  database()
     .prepare(
       `INSERT OR IGNORE INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?)`,
     )
-    .run(id, source, accountKey, title, body, createdAt, readAt, JSON.stringify(href)) as {
-    changes: number;
-  };
-  return result.changes > 0;
+    .run(id, source, accountKey, title, body, createdAt, JSON.stringify(href));
 }
 
 export function storedNotice(
