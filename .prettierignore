@@ -1,6 +1,5 @@
 node_modules/
 .tools/
-experiments/notice-subscriptions/
 out/
 dist/
 coverage/
