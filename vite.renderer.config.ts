@@ -1,8 +1,7 @@
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
-import babel from '@rolldown/plugin-babel';
-import react, { reactCompilerPreset } from '@vitejs/plugin-react';
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -65,8 +64,7 @@ export default defineConfig({
       },
     },
     tailwindcss(),
-    react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    react({ compiler: true }),
     {
       name: 'development-csp',
       apply: 'serve',

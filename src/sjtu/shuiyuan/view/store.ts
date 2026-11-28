@@ -3,7 +3,10 @@ import { create } from 'zustand';
 import type { ShuiyuanFeed, ShuiyuanTopicSummary } from '../contract';
 
 export type ListSelection =
-  ShuiyuanFeed | { kind: 'bookmarks' } | { kind: 'messages' } | { kind: 'notifications' };
+  | ShuiyuanFeed
+  | { kind: 'bookmarks' }
+  | { kind: 'messages' }
+  | { kind: 'notifications' };
 
 export type Reading = { topicId: number; postNumber: number | null };
 

@@ -1,0 +1,22 @@
+{
+  "singleQuote": true,
+  "semi": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "endOfLine": "lf",
+  "proseWrap": "preserve",
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "node_modules/",
+    ".tools/",
+    "out/",
+    "dist/",
+    "coverage/",
+    "pnpm-lock.yaml",
+    ".env*",
+    "*.mobileconfig",
+    "scripts/*.ps1",
+    "src/core/protocol/agent.schema.json"
+  ]
+}

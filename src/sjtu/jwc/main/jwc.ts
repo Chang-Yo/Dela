@@ -83,7 +83,8 @@ export async function refreshJwc(force = false): Promise<void> {
   const generation = subscriptionGeneration;
   const db = hostPorts().database();
   const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(syncKey) as
-    { value: string } | undefined;
+    | { value: string }
+    | undefined;
   const previous: JwcSync | null = saved ? JSON.parse(saved.value) : null;
   const initialSync = !previous;
   if (

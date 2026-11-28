@@ -42,7 +42,15 @@ export async function updateEntry(
 }
 
 export type EntryAction =
-  'folder' | 'project' | 'note' | 'rename' | 'move' | 'remove' | 'promote' | 'import' | 'archive';
+  | 'folder'
+  | 'project'
+  | 'note'
+  | 'rename'
+  | 'move'
+  | 'remove'
+  | 'promote'
+  | 'import'
+  | 'archive';
 
 export const runEntryWork = async (work: () => Promise<void>) => {
   try {

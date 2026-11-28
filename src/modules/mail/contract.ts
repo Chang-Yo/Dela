@@ -75,7 +75,8 @@ export interface MailState {
 }
 
 export type MailResult =
-  { readonly ok: true; readonly warning?: string } | { readonly ok: false; readonly error: string };
+  | { readonly ok: true; readonly warning?: string }
+  | { readonly ok: false; readonly error: string };
 
 /** 邮箱服务器参数，SSL/TLS 固定开启；常用邮箱的预设由其他模块在界面端登记。 */
 export interface MailServerConfig {
