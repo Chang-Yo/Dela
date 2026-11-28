@@ -44,7 +44,8 @@ const STREAM_IDLE_MS = 90_000;
 
 /** helper 推回来的目录事件：change 是「这几层要重读」，reset 是「丢过事件，整片重读」。 */
 export type WatchEvent =
-  { type: 'change'; id: string; paths: string[] } | { type: 'reset'; id: string; reason: string };
+  | { type: 'change'; id: string; paths: string[] }
+  | { type: 'reset'; id: string; reason: string };
 
 function helperArch(machine: string): 'amd64' | 'arm64' | null {
   if (machine === 'x86_64' || machine === 'amd64') return 'amd64';

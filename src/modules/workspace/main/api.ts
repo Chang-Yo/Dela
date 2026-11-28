@@ -519,7 +519,8 @@ export function createWorkspaceEntry(input: WorkspaceCreateInput): WorkspaceEntr
         `SELECT ${entryColumns} FROM workspace_entries WHERE (local_path=? OR (local_path IS NULL AND parent_id IS ?)) AND source_id=? AND kind='source'`,
       )
       .get(containerPath(parsed.parentId), parsed.parentId, parsed.sourceId) as
-      WorkspaceEntry | undefined;
+      | WorkspaceEntry
+      | undefined;
     if (duplicate) return duplicate;
   }
   if (parsed.kind === 'folder' || parsed.kind === 'file')

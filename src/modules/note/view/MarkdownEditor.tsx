@@ -46,7 +46,9 @@ const editorTheme = EditorView.theme({
 });
 
 type ResolvedLanguage =
-  { kind: 'markdown' } | { kind: 'code'; language: LanguageDescription } | { kind: 'text' };
+  | { kind: 'markdown' }
+  | { kind: 'code'; language: LanguageDescription }
+  | { kind: 'text' };
 
 const languageConf = new Compartment();
 const placeholderConf = new Compartment();

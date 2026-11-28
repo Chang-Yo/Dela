@@ -21,7 +21,8 @@ export const canvasNoticeSource: NoticeSource = {
     // 按课程记录首次成功同步：新学期新增课程的存量公告与首次同步一样只进列表，不弹系统通知。
     const knownKey = `canvas-announcement-courses:${key}`;
     const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(knownKey) as
-      { value: string } | undefined;
+      | { value: string }
+      | undefined;
     const known = new Set<number>(saved ? JSON.parse(saved.value) : []);
     const errors: string[] = [];
     const existing = existingNotifications('canvas', key);

@@ -7,7 +7,8 @@ export interface SseFrame {
 }
 
 export type ScriptedResponse =
-  { kind: 'sse'; frames: SseFrame[] } | { kind: 'status'; status: number; json?: unknown };
+  | { kind: 'sse'; frames: SseFrame[] }
+  | { kind: 'status'; status: number; json?: unknown };
 
 export interface RecordedRequest {
   method: string;

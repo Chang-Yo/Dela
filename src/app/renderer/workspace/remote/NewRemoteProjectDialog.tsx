@@ -47,7 +47,8 @@ const NEW_CONNECTION = '__new__';
 const configValue = (alias: string) => `config:${alias}`;
 
 type Mode =
-  { kind: 'browse' } | { kind: 'form'; connection?: RemoteConnection; initial?: RemoteDraft };
+  | { kind: 'browse' }
+  | { kind: 'form'; connection?: RemoteConnection; initial?: RemoteDraft };
 
 const draftOf = (connection: RemoteConnection): RemoteDraft => ({
   label: connection.label,

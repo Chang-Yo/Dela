@@ -70,7 +70,8 @@ function syncMailNotices(recordSuccess: boolean): void {
   const unseen: string[] = [];
   for (const notice of storedNotifications('mail', key)) {
     const message = findMessage.get((notice.href as { messageId: number }).messageId ?? null) as
-      { seen: number } | undefined;
+      | { seen: number }
+      | undefined;
     if (!message) gone.push(notice.id);
     else if (message.seen === 1) seen.push(notice.id);
     else unseen.push(notice.id);
