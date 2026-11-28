@@ -61,7 +61,7 @@ export function SettingsView({
               zoom={zoom}
             />
           )}
-          {section === 'notifications' && <NotificationsSection />}
+          {section === 'notifications' && <NotificationsSection views={views} />}
           {section === 'storage' && <StorageSection views={views} />}
           {shellSections[section]}
           {section === 'connections' && <ConnectionsSection navigate={navigate} views={views} />}

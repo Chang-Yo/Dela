@@ -5,21 +5,11 @@ import { onTaskNotice, onTodoChange } from '../todo';
 import { notificationsContract } from './contract';
 import { notificationsSchema } from './data/schema';
 import {
-  addNoticeSubscription,
-  listNoticeSubscriptions,
-  noticeSubscriptionsEnabled,
-  previewNoticeSubscription,
-  removeNoticeSubscription,
-  setNoticeSubscriptionsEnabled,
-  websiteNoticeSource,
-} from './main/notices';
-import {
   listBuiltInSubscriptions,
   markAllNotificationsRead,
   markNotificationRead,
   notificationState,
   publishNotificationState,
-  registerNoticeSource,
   refreshNotifications,
   setBuiltInSubscription,
   setNotificationSnooze,
@@ -28,10 +18,13 @@ import {
 import { messageAlertsEnabled, setMessageAlerts, showMessageNotice } from './main/system';
 
 export {
+  deleteNotificationAccount,
   deleteNotifications,
   existingNotifications,
+  findBuiltInSubscription,
   insertNotificationIfAbsent,
   markNotificationsRead,
+  notificationAccountSummaries,
   publishNotificationState,
   registerNoticeSource,
   saveNotificationRefresh,
@@ -64,34 +57,15 @@ export const notificationsModule = defineModule({
     markRead: markNotificationRead,
     markAllRead: markAllNotificationsRead,
     setSnooze: setNotificationSnooze,
-    subscriptions: () => ({
-      experimental: noticeSubscriptionsEnabled(),
-      builtIn: listBuiltInSubscriptions(),
-      notices: noticeSubscriptionsEnabled() ? listNoticeSubscriptions() : [],
-    }),
-    setNoticeSubscriptionsEnabled: (enabled) => {
-      setNoticeSubscriptionsEnabled(enabled);
-      return publishNotificationState();
-    },
+    subscriptions: listBuiltInSubscriptions,
     setBuiltInSubscription: ({ id, enabled }) => {
       setBuiltInSubscription(id, enabled);
-      return publishNotificationState();
-    },
-    previewNoticeSubscription: ({ url, sampleTitle, render }) =>
-      previewNoticeSubscription(url, sampleTitle, render),
-    addNoticeSubscription: ({ token, candidate }) => {
-      addNoticeSubscription(token, candidate);
-      return publishNotificationState();
-    },
-    removeNoticeSubscription: (id) => {
-      removeNoticeSubscription(id);
       return publishNotificationState();
     },
     messageAlerts: messageAlertsEnabled,
     setMessageAlerts,
   }),
   register() {
-    registerNoticeSource(websiteNoticeSource);
     onTaskNotice((notice) => {
       const item = todoItem(notice);
       showMessageNotice(item.id, item.title, '', item.target);

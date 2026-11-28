@@ -1,28 +1,30 @@
 import Database from 'better-sqlite3';
 import { readFileSync } from 'node:fs';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { provideTestHostPorts } from '../../../core/test/host-mock';
-import { notificationsModule } from '..';
-import type { NotificationState, NotificationSubscriptions } from '../contract';
-import { fetchNoticePage } from '../main/notice-subscriptions/fetch';
-import { renderNoticePage } from '../main/notice-subscriptions/render';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { provideTestHostPorts } from '../../../../core/test/host-mock';
+import {
+  findBuiltInSubscription,
+  notificationsModule,
+  registerNoticeSource,
+  systemNotifyItem,
+} from '../../../../modules/notifications';
+import type {
+  BuiltInSubscription,
+  NotificationState,
+} from '../../../../modules/notifications/contract';
+import { websiteSubscriptionsModule } from '../..';
+import type { WebsiteSubscriptions } from '../../contract';
+import { fetchNoticePage } from '../fetch';
+import { renderNoticePage } from '../render';
 import {
   displayNoticeSource,
   entryCreatedAt,
   previewNoticeSubscription,
   setNoticeSubscriptionsEnabled,
-} from '../main/notices';
-import {
-  findBuiltInSubscription,
-  markAllNotificationsRead,
-  notificationState as getNotificationState,
-  refreshNotifications,
-  registerNoticeSource,
-  systemNotifyItem,
-} from '../main/store';
+} from '../notices';
 
 vi.mock('electron', () => ({}));
-vi.mock('../../todo', () => ({
+vi.mock('../../../../modules/todo', () => ({
   getTodoState: () => ({}),
   todoNotifications: () => [],
   todoSyncedAt: () => null,
@@ -31,25 +33,31 @@ vi.mock('../../todo', () => ({
   onTodoChange: vi.fn(),
   onTaskNotice: vi.fn(),
 }));
-vi.mock('../main/store', async (load) => ({
-  ...(await load<typeof import('../main/store')>()),
+vi.mock('../../../../modules/notifications', async (load) => ({
+  ...(await load<typeof import('../../../../modules/notifications')>()),
   systemNotifyItem: vi.fn(),
 }));
-vi.mock('../main/notice-subscriptions/fetch', () => ({ fetchNoticePage: vi.fn() }));
-vi.mock('../main/notice-subscriptions/render', () => ({ renderNoticePage: vi.fn() }));
+vi.mock('../fetch', () => ({ fetchNoticePage: vi.fn() }));
+vi.mock('../render', () => ({ renderNoticePage: vi.fn() }));
 
 const refreshJwc = vi.fn(async (_account: string, _force: boolean) => {});
 const jwcUrl = 'https://jwc.sjtu.edu.cn/index/mxxsdtz.htm';
 
-const call = <T>(method: string, input?: unknown) =>
+const callNotifications = <T>(method: string, input?: unknown) =>
   notificationsModule.ipc!.call(method, input) as T;
+const callSubscriptions = <T>(method: string, input?: unknown) =>
+  websiteSubscriptionsModule.ipc!.call(method, input) as T;
+const refresh = () => callNotifications<Promise<NotificationState>>('refresh');
+const getNotificationState = () => callNotifications<NotificationState>('state');
+const markAllNotificationsRead = (sources: string[]) =>
+  callNotifications<Promise<NotificationState>>('markAllRead', sources);
 const confirmNoticeSubscription = (token: string, candidate: number) =>
-  call<NotificationState>('addNoticeSubscription', { token, candidate });
+  callSubscriptions<NotificationState>('addNoticeSubscription', { token, candidate });
 const deleteNoticeSubscription = (id: string) =>
-  call<NotificationState>('removeNoticeSubscription', id);
-const getNotificationSubscriptions = () => call<NotificationSubscriptions>('subscriptions');
+  callSubscriptions<NotificationState>('removeNoticeSubscription', id);
+const getNotificationSubscriptions = () => callSubscriptions<WebsiteSubscriptions>('subscriptions');
 const setJwcSubscribed = (enabled: boolean) =>
-  call<NotificationState>('setBuiltInSubscription', { id: 'jwc', enabled });
+  callNotifications<NotificationState>('setBuiltInSubscription', { id: 'jwc', enabled });
 
 const sampleHtmlBefore = `<!doctype html>
 <html>
@@ -83,13 +91,17 @@ const sampleHtmlAfter = `<!doctype html>
 describe('notice subscriptions host adapter', () => {
   let db: Database.Database;
 
+  beforeAll(() => {
+    notificationsModule.register?.();
+    websiteSubscriptionsModule.register?.();
+  });
+
   beforeEach(() => {
     db = new Database(':memory:');
     db.exec('CREATE TABLE workspace_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     for (const statement of notificationsModule.schema!.tables) db.exec(statement);
     provideTestHostPorts({ database: () => db });
     vi.clearAllMocks();
-    notificationsModule.register?.();
     let subscribed = true;
     registerNoticeSource({
       id: 'jwc',
@@ -149,8 +161,7 @@ describe('notice subscriptions host adapter', () => {
     const homepageUrl = 'https://www.si.sjtu.edu.cn/';
     const listUrl =
       'https://www.si.sjtu.edu.cn/content/news-list?menuIds=2,8,18&params=5&singlePage=1';
-    const fixture = (name: string) =>
-      readFileSync(new URL(`../main/notice-subscriptions/test/fixtures/${name}`, import.meta.url));
+    const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url));
     vi.mocked(fetchNoticePage).mockResolvedValueOnce({
       url: homepageUrl,
       body: fixture('innovation-home.html'),
@@ -204,7 +215,7 @@ describe('notice subscriptions host adapter', () => {
       charset: 'utf-8',
       fetchedAt: '2026-11-14T09:00:00.000Z',
     });
-    const state = await refreshNotifications(true);
+    const state = await refresh();
     expect(fetchNoticePage).not.toHaveBeenCalled();
     expect(renderNoticePage).toHaveBeenCalledTimes(2);
     expect(state.unreadCount).toBe(1);
@@ -247,7 +258,7 @@ describe('notice subscriptions host adapter', () => {
       fetchedAt: '2026-11-14T09:00:00.000Z',
     });
 
-    const stateAfterRefresh = await refreshNotifications(true);
+    const stateAfterRefresh = await refresh();
     expect(systemNotifyItem).toHaveBeenCalledTimes(1);
     expect(systemNotifyItem).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -307,7 +318,7 @@ describe('notice subscriptions host adapter', () => {
         fetchedAt: '2026-11-14T09:00:00.000Z',
       });
 
-    const state = await refreshNotifications(true);
+    const state = await refresh();
     expect(state.refresh.notice?.error).toContain('HTTP 502');
     expect(state.refresh.notice?.lastSuccessAt).toBe('2026-11-14T09:00:00.000Z');
     expect(state.unreadCount).toBe(1);
@@ -357,7 +368,7 @@ describe('notice subscriptions host adapter', () => {
             }),
         );
 
-      const refreshing = refreshNotifications(true);
+      const refreshing = refresh();
       await vi.waitFor(() => expect(fetchNoticePage).toHaveBeenCalledTimes(1));
       for (const subscription of subscriptions) deleteNoticeSubscription(subscription.id);
       if (outcome === 'success') {
@@ -410,7 +421,7 @@ describe('notice subscriptions host adapter', () => {
             }),
         );
 
-      const refreshing = refreshNotifications(true);
+      const refreshing = refresh();
       await vi.waitFor(() => expect(fetchNoticePage).toHaveBeenCalledTimes(1));
       setNoticeSubscriptionsEnabled(false);
       if (outcome === 'success') {
@@ -444,12 +455,15 @@ describe('notice subscriptions host adapter', () => {
     expect(getNotificationState().items.map((item) => item.id)).toEqual(['jwc:991']);
 
     const disabledState = await setJwcSubscribed(false);
+    expect(callNotifications<BuiltInSubscription[]>('subscriptions')).toEqual([
+      { id: 'jwc', label: '教务处', url: jwcUrl, enabled: false },
+    ]);
     expect(disabledState.items).toEqual([]);
-    await refreshNotifications(true);
+    await refresh();
     expect(refreshJwc).not.toHaveBeenCalled();
 
     const reenabledState = await setJwcSubscribed(true);
-    await refreshNotifications(true);
+    await refresh();
     expect(refreshJwc).toHaveBeenCalledWith('students', true);
     expect(reenabledState.items).toHaveLength(1);
     expect(reenabledState.items[0]?.readAt).toBe('2026-11-02T00:00:00.000Z');

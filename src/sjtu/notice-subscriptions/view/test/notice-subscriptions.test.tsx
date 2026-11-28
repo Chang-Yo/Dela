@@ -4,20 +4,22 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Globe } from 'lucide-react';
-import type { NoticePreview, NotificationState, NotificationSubscriptions } from '../../contract';
-import { useNotificationSourceFilter } from '../source-filter';
-import { notificationsPage } from '../NotificationsView';
+import type { NotificationState } from '../../../../modules/notifications/contract';
+import { notificationsView } from '../../../../modules/notifications/view';
+import type { NoticePreview, WebsiteSubscriptions } from '../../contract';
+import { websiteSubscriptionsView } from '..';
 
-const { invoke } = vi.hoisted(() => {
+const { invoke, subscribe } = vi.hoisted(() => {
   const invoke = vi.fn();
-  vi.stubGlobal('dela', { bridge: { invoke } });
-  return { invoke };
+  const subscribe = vi.fn(() => () => {});
+  vi.stubGlobal('dela', { bridge: { invoke, subscribe } });
+  return { invoke, subscribe };
 });
 
-const NotificationsPage = notificationsPage({
-  notice: { label: '官网公告', icon: Globe },
+const NotificationsPage = notificationsView({
+  ...websiteSubscriptionsView.notices,
   jwc: { label: '教务处', icon: Globe },
-});
+}).pages.notifications!.component;
 
 const preview: NoticePreview = {
   token: 'preview-token',
@@ -53,7 +55,7 @@ const emptyState: NotificationState = {
   snoozedUntil: null,
   refresh: {},
 };
-const getSubscriptions = vi.fn<() => Promise<NotificationSubscriptions>>();
+const getSubscriptions = vi.fn<() => Promise<WebsiteSubscriptions>>();
 const getState = vi.fn(async (_input: unknown) => emptyState);
 const addNoticeSubscription = vi.fn(async (_input: unknown) => emptyState);
 const removeNoticeSubscription = vi.fn(async (_input: unknown) => emptyState);
@@ -64,21 +66,22 @@ let client: QueryClient;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useNotificationSourceFilter.setState({ hidden: [] });
-  getSubscriptions.mockResolvedValue({ experimental: true, builtIn: [], notices: [] });
-  vi.stubGlobal('dela', { bridge: { invoke } });
+  getSubscriptions.mockResolvedValue({ experimental: true, notices: [] });
+  vi.stubGlobal('dela', { bridge: { invoke, subscribe } });
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   invoke.mockImplementation((channel: string, input: unknown) => {
     switch (channel) {
       case 'notifications:subscriptions':
+        return [];
+      case 'websiteSubscriptions:subscriptions':
         return getSubscriptions();
       case 'notifications:state':
         return getState(input);
-      case 'notifications:previewNoticeSubscription':
+      case 'websiteSubscriptions:previewNoticeSubscription':
         return previewNoticeSubscription(input);
-      case 'notifications:addNoticeSubscription':
+      case 'websiteSubscriptions:addNoticeSubscription':
         return addNoticeSubscription(input);
-      case 'notifications:removeNoticeSubscription':
+      case 'websiteSubscriptions:removeNoticeSubscription':
         return removeNoticeSubscription(input);
       default:
         throw new Error(channel);
@@ -101,14 +104,14 @@ async function renderPreview() {
   await act(async () => {
     root.render(
       <QueryClientProvider client={client}>
-        <NotificationsPage navigate={() => true} />
+        <NotificationsPage target={{}} drawer={null} navigate={() => true} />
       </QueryClientProvider>,
     );
   });
   await act(async () => button('订阅管理').click());
   await act(async () => {
     await client.fetchQuery({
-      queryKey: ['notifications', 'state', 'subscriptions'],
+      queryKey: ['notifications', 'state', 'websiteSubscriptions'],
       queryFn: () => getSubscriptions(),
     });
   });
@@ -230,33 +233,6 @@ it('blocks confirmation for no matches and restores the complete preview when th
   expect(button('订阅所选栏目').disabled).toBe(false);
 });
 
-it('shows subscription counts and opens collected notices', async () => {
-  getSubscriptions.mockResolvedValue({
-    experimental: true,
-    builtIn: [],
-    notices: [
-      {
-        id: 'saved-notice',
-        label: '学院动态 News · school.example',
-        pageUrl: preview.pageUrl,
-        acquisition: 'http',
-        lastSuccessAt: new Date().toISOString(),
-        error: null,
-        entryCount: 5,
-        unreadCount: 1,
-      },
-    ],
-  });
-  await renderPreview();
-  const savedSubscription = button('移除').parentElement!;
-  expect(savedSubscription.textContent).toContain('已收集 5 条 · 1 条未读');
-
-  await act(async () => button('查看订阅公告').click());
-  expect(useNotificationSourceFilter.getState().hidden).toEqual(['jwc']);
-  expect(getState).toHaveBeenCalledWith(['notice']);
-  expect(container.querySelector('section[aria-label="订阅管理"]')).toBeNull();
-});
-
 it('reports subscription success and reloads counts when notification state changes', async () => {
   await renderPreview();
   await act(async () => button('订阅所选栏目').click());
@@ -321,7 +297,6 @@ it('clears the saved feedback and entry point when the last subscription is remo
   await renderPreview();
   getSubscriptions.mockResolvedValue({
     experimental: true,
-    builtIn: [],
     notices: [
       {
         id: 'saved-notice',
@@ -338,7 +313,7 @@ it('clears the saved feedback and entry point when the last subscription is remo
   await act(async () => button('订阅所选栏目').click());
   expect(container.querySelector('section[aria-label="订阅管理"] [role="status"]')).not.toBeNull();
 
-  getSubscriptions.mockResolvedValue({ experimental: true, builtIn: [], notices: [] });
+  getSubscriptions.mockResolvedValue({ experimental: true, notices: [] });
   await act(async () => button('移除').click());
   await act(async () => button('确认移除').click());
   expect(removeNoticeSubscription).toHaveBeenCalledExactlyOnceWith('saved-notice');
@@ -346,4 +321,29 @@ it('clears the saved feedback and entry point when the last subscription is remo
   expect(
     [...container.querySelectorAll('button')].some((item) => item.textContent === '查看订阅公告'),
   ).toBe(false);
+});
+
+it('shows subscription counts and opens collected notices', async () => {
+  getSubscriptions.mockResolvedValue({
+    experimental: true,
+    notices: [
+      {
+        id: 'saved-notice',
+        label: '学院动态 News · school.example',
+        pageUrl: preview.pageUrl,
+        acquisition: 'http',
+        lastSuccessAt: new Date().toISOString(),
+        error: null,
+        entryCount: 5,
+        unreadCount: 1,
+      },
+    ],
+  });
+  await renderPreview();
+  const savedSubscription = button('移除').parentElement!;
+  expect(savedSubscription.textContent).toContain('已收集 5 条 · 1 条未读');
+
+  await act(async () => button('查看订阅公告').click());
+  expect(getState).toHaveBeenCalledWith(['notice']);
+  expect(container.querySelector('section[aria-label="订阅管理"]')).toBeNull();
 });
