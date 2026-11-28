@@ -170,7 +170,8 @@ async function drainQueue(): Promise<void> {
         'SELECT title, snapshot_status AS status, snapshot_error AS error FROM shuiyuan_topics WHERE topic_id = ?',
       )
       .get(topicId) as
-      { title: string; status: 'done' | 'failed'; error: string | null } | undefined;
+      | { title: string; status: 'done' | 'failed'; error: string | null }
+      | undefined;
     if (ended) emit(shuiyuanContract, 'snapshotEnded', { topicId, ...ended });
   }
 }

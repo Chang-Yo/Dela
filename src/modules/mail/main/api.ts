@@ -367,7 +367,8 @@ export async function markAllMailSeen(): Promise<MailResult> {
     let group = byFolder.get(row.folder_id);
     if (!group) {
       const folder = db.prepare('SELECT path FROM mail_folders WHERE id = ?').get(row.folder_id) as
-        { path: string } | undefined;
+        | { path: string }
+        | undefined;
       if (!folder) continue;
       group = { uids: [], ids: [], path: folder.path };
       byFolder.set(row.folder_id, group);
@@ -417,7 +418,8 @@ export function deleteMailMessage(messageId: unknown): MailResult {
   const row = db
     .prepare('SELECT id, folder_id, seen, deleted_at FROM mail_messages WHERE id = ?')
     .get(parsed.data) as
-    { id: number; folder_id: number; seen: number; deleted_at: string | null } | undefined;
+    | { id: number; folder_id: number; seen: number; deleted_at: string | null }
+    | undefined;
   if (!row || row.deleted_at !== null) return { ok: false, error: '邮件不存在' };
   inTransaction(db, () => {
     db.prepare('UPDATE mail_messages SET deleted_at = ? WHERE id = ?').run(
@@ -444,7 +446,8 @@ export function restoreMailMessage(messageId: unknown): MailResult {
   const row = db
     .prepare('SELECT id, folder_id, seen, deleted_at FROM mail_messages WHERE id = ?')
     .get(parsed.data) as
-    { id: number; folder_id: number; seen: number; deleted_at: string | null } | undefined;
+    | { id: number; folder_id: number; seen: number; deleted_at: string | null }
+    | undefined;
   if (!row) return { ok: false, error: '邮件不存在' };
   const folder = db.prepare('SELECT id FROM mail_folders WHERE id = ?').get(row.folder_id);
   if (!folder) return { ok: false, error: '原文件夹已不存在，无法恢复' };

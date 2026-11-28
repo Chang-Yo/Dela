@@ -44,7 +44,8 @@ export function listRemotes(): RemoteConnection[] {
 
 export function remoteById(id: string): RemoteConnection {
   const row = hostPorts().database().prepare('SELECT * FROM remotes WHERE id=?').get(id) as
-    RemoteRow | undefined;
+    | RemoteRow
+    | undefined;
   if (!row) throw new Error('远程连接不存在');
   return fromRow(row);
 }

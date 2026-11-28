@@ -1,7 +1,13 @@
 // 桌面私有的远端通道视图：不进入 Agent 协议的 JSON Schema，也不带版本。
 
 export type RemoteSetupStep =
-  'probe' | 'upload' | 'verify' | 'start' | 'tunnel' | 'handshake' | 'ready';
+  | 'probe'
+  | 'upload'
+  | 'verify'
+  | 'start'
+  | 'tunnel'
+  | 'handshake'
+  | 'ready';
 
 export interface RemoteSetupProgress {
   step: RemoteSetupStep;

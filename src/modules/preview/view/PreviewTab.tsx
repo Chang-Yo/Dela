@@ -21,7 +21,15 @@ const OfficePreview = lazy(() =>
 );
 /** 模块来源优先于格式；本地文本文件与所有 Markdown 走 note: 标签，不进这里。 */
 export type PreviewBranch =
-  'source' | 'html' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'text' | 'binary';
+  | 'source'
+  | 'html'
+  | 'pdf'
+  | 'image'
+  | 'docx'
+  | 'xlsx'
+  | 'pptx'
+  | 'text'
+  | 'binary';
 
 function previewBranchOf(doc: LoadedDocument): PreviewBranch {
   if (doc.source) return 'source';

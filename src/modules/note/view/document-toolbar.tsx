@@ -71,9 +71,8 @@ export function DocumentToolbar({
             保存中…
           </>
         ) : dirty ? (
-          '未保存'
-        ) : /* 正常态不常驻「已保存」图标：长期占位无信息增量；失败详情由 NoteTab 错误条承载。 */
-        null}
+          '未保存' /* 正常态不常驻「已保存」图标：长期占位无信息增量；失败详情由 NoteTab 错误条承载。 */
+        ) : null}
       </span>
       {markdown && (
         <Button

@@ -2,7 +2,14 @@
 // 纯字符串/字节实现：renderer 也要用，不能引 node:path / Buffer。
 
 export type FileFormat =
-  'markdown' | 'text' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'pptx' | 'binary';
+  | 'markdown'
+  | 'text'
+  | 'pdf'
+  | 'image'
+  | 'docx'
+  | 'xlsx'
+  | 'pptx'
+  | 'binary';
 
 export const TEXT_EDIT_MAX_BYTES = 1024 * 1024;
 export const TEXT_PREVIEW_MAX_BYTES = 50 * 1024 * 1024;

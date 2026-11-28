@@ -198,7 +198,8 @@ const folderPaths = (db: Database.Database) =>
 const setting = (db: Database.Database, key: string) =>
   (
     db.prepare('SELECT value FROM workspace_settings WHERE key=?').get(key) as
-      { value: string } | undefined
+      | { value: string }
+      | undefined
   )?.value;
 
 const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();

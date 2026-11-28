@@ -430,7 +430,8 @@ export async function syncCanvasCourseTrees(): Promise<CanvasState> {
 export function archiveCanvasCourse(id: number, archived: boolean): CanvasState {
   const db = hostPorts().database();
   const rowById = db.prepare('SELECT data FROM canvas_courses WHERE id=?').get(id) as
-    { data: string } | undefined;
+    | { data: string }
+    | undefined;
   if (!rowById) throw new Error('课程不存在，请刷新课程列表');
   const course: CanvasCourse = { ...JSON.parse(rowById.data), archived };
   db.prepare('UPDATE canvas_courses SET data=? WHERE id=?').run(JSON.stringify(course), id);
@@ -521,7 +522,8 @@ async function downloadFile(source: StoredSource): Promise<{ path: string; mime:
   const db = hostPorts().database();
   const cacheKey = `canvas-file:${key}`;
   const cached = db.prepare('SELECT value FROM workspace_settings WHERE key=?').get(cacheKey) as
-    { value: string } | undefined;
+    | { value: string }
+    | undefined;
   const dir = sourceDirectory(source);
   if (cached && existsSync(cached.value)) {
     // availablePath treats our own cached file as a collision. Reusing a file
