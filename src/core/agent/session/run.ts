@@ -15,7 +15,7 @@ import { remoteBackend } from '../../remote/operations';
 import * as changes from '../changes';
 import { agentEnvironment } from '../environment';
 import { chatAttachmentView, releaseChatAttachments } from '../media';
-import { openPiSession } from '../pi';
+import { openPiSession, rewindLastUser } from '../pi';
 import { taskTool, type SubagentResult } from '../subagent';
 import { backgroundTools, stopAllTasks, type TaskNotice, type TaskParent } from '../tasks';
 import { live, liveSteps, type Live, type Run } from './live';
@@ -353,24 +353,18 @@ export async function askSession(id: string, input: ChatAskInput): Promise<Works
     input,
     row(id).project_id,
   );
-  if (input.replaceLastUser) {
-    const branch = entry.session.sessionManager.getBranch();
-    const lastUser = [...branch]
-      .reverse()
-      .find((item) => item.type === 'message' && item.message.role === 'user');
-    if (!lastUser) throw new Error('没有可编辑的消息');
-    if (lastUser.parentId) entry.session.sessionManager.branch(lastUser.parentId);
-    else entry.session.sessionManager.resetLeaf();
-    entry.session.agent.state.messages =
-      entry.session.sessionManager.buildSessionContext().messages;
-  }
   if (row(id).title === '新对话')
     storeTitle(
       id,
       userText || comments[0]?.comment || comments[0]?.quote || attachments[0]?.name || '图片请求',
     );
-  await runTurn(id, entry, turnId, input.attachments, () =>
-    entry.session.prompt(prompt, images.length ? { images } : undefined),
+  await runTurn(
+    id,
+    entry,
+    turnId,
+    input.attachments,
+    () => entry.session.prompt(prompt, images.length ? { images } : undefined),
+    input.replaceLastUser,
   );
   return snapshot(id);
 }
@@ -385,6 +379,7 @@ async function runTurn(
   turnId: string,
   attachments: string[],
   start: () => Promise<void>,
+  replaceLastUser = false,
 ): Promise<TurnStatus> {
   const meta = row(id);
   const child = meta.parent_id !== null;
@@ -418,6 +413,7 @@ async function runTurn(
         },
       );
     // 只看本轮新产生的回复：扩展命令可能一条消息都不发，不能拿上一轮的结果来判本轮成败。
+    if (replaceLastUser) await rewindLastUser(entry.session);
     const priorCount = entry.session.messages.length;
     if (run.cancelled) status = 'stopped';
     else await start();

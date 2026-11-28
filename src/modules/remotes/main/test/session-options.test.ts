@@ -9,7 +9,6 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('electron', () => ({ app: { getPath: () => 'C:\\data' } }));
-vi.mock('../../../../core/remote/operations', () => ({ remoteBackend: () => ({}) }));
 vi.mock('../../../../core/agent/remote-tools', () => ({
   remoteTools: async (_cwd: string, _backend: unknown): Promise<ToolDefinition[]> =>
     ['read', 'write', 'edit', 'bash', 'ls', 'find', 'grep'].map((name) => ({
@@ -95,6 +94,7 @@ describe('远程会话环境', () => {
       ].sort(),
     );
     expect(options.commandPrefix).toBeUndefined();
+    expect(options.mapToolPath?.('C:\\root\\proj\\notes.md')).toBe('/root/proj/notes.md');
     expect(options.appendSystemPrompt.join('\n')).toContain('远端项目目录：/root/proj');
     expect(options.appendSystemPrompt.join('\n')).not.toContain('dela help');
   });

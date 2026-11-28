@@ -2,7 +2,7 @@
 import { join } from 'node:path';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { hostPorts } from '../ports';
-import { remoteBackend } from '../remote/operations';
+import { remoteBackend, remotePath } from '../remote/operations';
 import { syncRemoteContext } from '../remote/context';
 import { COMMAND_BRIDGE, startDomainBridge } from '../capabilities/command-server';
 import { commandPrompt } from '../capabilities/commands';
@@ -88,6 +88,7 @@ export function agentEnvironment() {
             ...shared,
           ],
           shellPath: hostPorts().paths.bash(),
+          mapToolPath: remotePath,
           // 远端会话不挂内置 skills（正文教 dela 命令，远端没有），只加载镜像里的远端技能。
           skillPaths: context.skillPaths,
           globalSkillDirs: [
