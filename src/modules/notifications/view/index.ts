@@ -13,7 +13,11 @@ export {
 
 export function notificationsView(kinds: Record<string, NoticeKind>) {
   return defineView({
-    pages: { notifications: { component: notificationsPage(kinds) } },
+    pages: {
+      notifications: {
+        component: notificationsPage(kinds),
+      },
+    },
     start(navigate) {
       // 主进程已唤起并聚焦窗口，这里沿用通知列表的跳转与已读。
       subscribe(notificationsContract, window.dela?.bridge, 'open', ({ id, target }) =>

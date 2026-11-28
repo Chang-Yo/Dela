@@ -9,7 +9,11 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 每个版本一个扁平列表，也不另写摘要。
 - 每个条目尽量使用动词开头，比如新增，修复，优化等等
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
-- 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
+- 架构、边界与开发流程见 [贡献指南](CONTRIBUTING.md)。
+
+## Unreleased
+
+- 在通知中心新增通用官网公告订阅（试验功能），支持公开网页、RSS/Atom 栏目和动态页面预览，教务处通知可独立启停。
 
 ## Unreleased
 

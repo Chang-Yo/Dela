@@ -29,6 +29,8 @@ output/playwright/
 *.sqlite
 *.sqlite-*
 *.log
+# Local notice experiments and evidence.
+experiments/notice-subscriptions/
 .DS_Store
 Thumbs.db
 .idea/
@@ -37,4 +39,5 @@ Thumbs.db
 .zcode/
 .zcodeignore
 .pi/
+.serena/
 .playwright*/

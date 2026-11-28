@@ -1,6 +1,7 @@
 # pnpm 12 project settings only; no child packages or monorepo.
 saveExact: true
 engineStrict: true
+verifyDepsBeforeRun: error
 strictPeerDependencies: true
 allowBuilds:
   # pi-agent-core 传递依赖：仅用 OpenAI 兼容路径，不触发这些包的安装脚本；

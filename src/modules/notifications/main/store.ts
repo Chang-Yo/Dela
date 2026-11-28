@@ -9,6 +9,7 @@ import {
 } from '../../todo';
 import {
   notificationsContract,
+  type BuiltInSubscription,
   type NotificationCategory,
   type NotificationItem,
   type NotificationState,
@@ -19,8 +20,15 @@ import { armSystemNotifications, NOTIFICATIONS_SNOOZE_KEY, showMessageNotice } f
 /** 通知来源（邮件及各模块登记的服务）。待办内置；未注册的来源不刷新，其旧通知也不显示。 */
 export interface NoticeSource {
   id: string;
-  /** 当前账号键，未登录时为 null；换账号后旧账号的通知不再显示。 */
-  account(): string | null;
+  /** 仅显示当前账号或订阅的通知。 */
+  account(): string | readonly string[] | null;
+  subscription?: {
+    label: string;
+    url: string;
+    enabled(): boolean;
+    setEnabled(enabled: boolean): void;
+    matches(url: URL, label?: string): boolean;
+  };
   /** 抛出的错误记为该来源的刷新错误；成功时由来源自行调用 saveNotificationRefresh。 */
   refresh(account: string, force: boolean): Promise<void>;
   /** 解释来源自己写入的 href；返回 null 的行视为损坏，不显示。 */
@@ -34,6 +42,7 @@ export interface NoticeSource {
 export interface NoticeLink {
   target: NotificationTarget;
   group?: string;
+  publishedAt?: string | null;
 }
 
 export interface StoredNotice {
@@ -48,6 +57,27 @@ let activeRefresh: Promise<NotificationState> | null = null;
 
 export function registerNoticeSource(source: NoticeSource): void {
   noticeSources.set(source.id, source);
+}
+
+export function listBuiltInSubscriptions(): BuiltInSubscription[] {
+  return [...noticeSources.values()].flatMap(({ id, subscription }) =>
+    subscription
+      ? [{ id, label: subscription.label, url: subscription.url, enabled: subscription.enabled() }]
+      : [],
+  );
+}
+
+export function setBuiltInSubscription(id: string, enabled: boolean): void {
+  const subscription = noticeSources.get(id)?.subscription;
+  if (!subscription) throw new Error('内置订阅不存在');
+  subscription.setEnabled(enabled);
+}
+
+export function findBuiltInSubscription(rawUrl: string, label?: string): string | undefined {
+  const url = URL.parse(rawUrl);
+  if (!url) return undefined;
+  return [...noticeSources.values()].find(({ subscription }) => subscription?.matches(url, label))
+    ?.subscription?.label;
 }
 
 interface NotificationRow {
@@ -68,17 +98,17 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function currentAccounts(): Map<string, string> {
-  const accounts = new Map<string, string>();
-  for (const source of noticeSources.values()) {
+function currentAccounts(): Array<[string, string]> {
+  return [...noticeSources.values()].flatMap((source): Array<[string, string]> => {
     try {
-      const key = source.account();
-      if (key) accounts.set(source.id, key);
+      const account = source.account();
+      const keys = typeof account === 'string' ? [account] : (account ?? []);
+      return keys.filter(Boolean).map((key) => [source.id, key]);
     } catch {
       // 损坏的凭据视同未登录，不能连带隐藏其他来源的通知。
+      return [];
     }
-  }
-  return accounts;
+  });
 }
 
 export function todoItem(notice: TaskNotice): NotificationItem {
@@ -109,11 +139,11 @@ export function systemNotifyItem(notice: StoredNotice, body = ''): void {
 export function notificationState(sources?: readonly string[]): NotificationState {
   const db = database();
   const accounts = currentAccounts();
-  const active = [...accounts].filter(([source]) => !sources || sources.includes(source));
+  const active = accounts.filter(([source]) => !sources || sources.includes(source));
   const where = active.length
-    ? active.map(() => '(source = ? AND account_key = ?)').join(' OR ')
+    ? '(source, account_key) IN (SELECT value ->> 0, value ->> 1 FROM json_each(?))'
     : '0';
-  const bindings = active.flat();
+  const bindings = active.length ? [JSON.stringify(active)] : [];
   const rows = db
     .prepare(
       `SELECT id, source, title, body, created_at, read_at, href, category, count FROM notifications
@@ -133,6 +163,7 @@ export function notificationState(sources?: readonly string[]): NotificationStat
           title: row.title,
           body: row.body,
           createdAt: row.created_at,
+          ...(link.publishedAt !== undefined ? { publishedAt: link.publishedAt } : {}),
           readAt: row.read_at,
           target: link.target,
           group: link.group ?? null,
@@ -161,7 +192,15 @@ export function notificationState(sources?: readonly string[]): NotificationStat
         'SELECT last_success_at, error FROM notification_refreshes WHERE source = ? AND account_key = ?',
       )
       .get(source, key) as { last_success_at: string | null; error: string | null } | undefined;
-    refresh[source] = { lastSuccessAt: row?.last_success_at ?? null, error: row?.error ?? null };
+    const previous = refresh[source];
+    const lastSuccessAt = row?.last_success_at ?? null;
+    refresh[source] = {
+      lastSuccessAt:
+        previous?.lastSuccessAt && (!lastSuccessAt || previous.lastSuccessAt > lastSuccessAt)
+          ? previous.lastSuccessAt
+          : lastSuccessAt,
+      error: previous?.error ?? row?.error ?? null,
+    };
   }
   const todos = !sources || sources.includes('todo') ? todoNotifications().map(todoItem) : [];
   const todoState = getTodoState();
@@ -183,8 +222,12 @@ export function publishNotificationState(): NotificationState {
   return state;
 }
 
-export function saveNotificationRefresh(source: string, key: string, error: string | null): void {
-  const now = new Date().toISOString();
+export function saveNotificationRefresh(
+  source: string,
+  key: string,
+  error: string | null,
+  checkedAt = new Date().toISOString(),
+): void {
   database()
     .prepare(
       `INSERT INTO notification_refreshes (source, account_key, last_success_at, error) VALUES (?, ?, ?, ?)
@@ -192,7 +235,38 @@ export function saveNotificationRefresh(source: string, key: string, error: stri
          last_success_at = CASE WHEN excluded.error IS NULL THEN excluded.last_success_at ELSE notification_refreshes.last_success_at END,
          error = excluded.error`,
     )
-    .run(source, key, error === null ? now : null, error);
+    .run(source, key, error === null ? checkedAt : null, error);
+}
+
+export function notificationAccountSummaries(source: string) {
+  const counts = database()
+    .prepare(
+      `SELECT account_key AS key, COUNT(*) AS entryCount,
+       SUM(read_at IS NULL AND source_unread = 1) AS unreadCount
+       FROM notifications WHERE source = ? GROUP BY account_key`,
+    )
+    .all(source) as { key: string; entryCount: number; unreadCount: number }[];
+  const refreshes = database()
+    .prepare(
+      `SELECT account_key AS key, last_success_at AS lastSuccessAt, error
+       FROM notification_refreshes WHERE source = ?`,
+    )
+    .all(source) as { key: string; lastSuccessAt: string | null; error: string | null }[];
+  return {
+    counts: new Map(counts.map(({ key, ...count }) => [key, count])),
+    refreshes: new Map(refreshes.map(({ key, ...refresh }) => [key, refresh])),
+  };
+}
+
+export function deleteNotificationAccount(source: string, key: string): void {
+  const db = database();
+  db.transaction(() => {
+    db.prepare('DELETE FROM notifications WHERE source = ? AND account_key = ?').run(source, key);
+    db.prepare('DELETE FROM notification_refreshes WHERE source = ? AND account_key = ?').run(
+      source,
+      key,
+    );
+  })();
 }
 
 export function upsertNotification(
@@ -251,13 +325,17 @@ export function insertNotificationIfAbsent(
   body: string,
   createdAt: string,
   href: object,
-): void {
-  database()
+  readAt: string | null = null,
+): boolean {
+  const result = database()
     .prepare(
       `INSERT OR IGNORE INTO notifications (id, source, account_key, title, body, created_at, read_at, source_unread, href)
-       VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
     )
-    .run(id, source, accountKey, title, body, createdAt, JSON.stringify(href));
+    .run(id, source, accountKey, title, body, createdAt, readAt, JSON.stringify(href)) as {
+    changes: number;
+  };
+  return result.changes > 0;
 }
 
 export function storedNotice(
@@ -324,12 +402,13 @@ export function refreshNotifications(force = false): Promise<NotificationState> 
     const accounts = currentAccounts();
     await Promise.all(
       [...noticeSources.values()].map(async (source) => {
-        const key = accounts.get(source.id);
-        if (!key) return;
-        try {
-          await source.refresh(key, force);
-        } catch (error) {
-          saveNotificationRefresh(source.id, key, errorText(error));
+        for (const [id, key] of accounts) {
+          if (source.id !== id) continue;
+          try {
+            await source.refresh(key, force);
+          } catch (error) {
+            saveNotificationRefresh(id, key, errorText(error));
+          }
         }
       }),
     );
@@ -347,9 +426,9 @@ function markNotificationRowsRead(id: string | null, accounts: Array<[string, st
   database()
     .prepare(
       `UPDATE notifications SET read_at = COALESCE(read_at, ?) WHERE (? IS NULL OR id = ?)
-       AND (${accounts.map(() => '(source = ? AND account_key = ?)').join(' OR ')})`,
+       AND (source, account_key) IN (SELECT value ->> 0, value ->> 1 FROM json_each(?))`,
     )
-    .run(new Date().toISOString(), id, id, ...accounts.flat());
+    .run(new Date().toISOString(), id, id, JSON.stringify(accounts));
 }
 
 export async function markNotificationRead(id: string): Promise<NotificationState> {
@@ -360,7 +439,10 @@ export async function markNotificationRead(id: string): Promise<NotificationStat
   const row = database()
     .prepare('SELECT source, account_key FROM notifications WHERE id = ?')
     .get(id) as { source: string; account_key: string } | undefined;
-  if (!row || currentAccounts().get(row.source) !== row.account_key)
+  if (
+    !row ||
+    !currentAccounts().some(([source, key]) => source === row.source && key === row.account_key)
+  )
     return publishNotificationState();
   try {
     await noticeSources.get(row.source)?.markRead?.(id, row.account_key);
@@ -375,9 +457,7 @@ export async function markAllNotificationsRead(
   sources?: readonly string[],
 ): Promise<NotificationState> {
   if (!sources || sources.includes('todo')) markTodoRead(null);
-  const accounts = [...currentAccounts()].filter(
-    ([source]) => !sources || sources.includes(source),
-  );
+  const accounts = currentAccounts().filter(([source]) => !sources || sources.includes(source));
   const marked = await Promise.all(
     accounts.map(async ([source, key]): Promise<Array<[string, string]>> => {
       try {

@@ -4,10 +4,12 @@ import { create } from 'zustand';
 interface SourceFilterState {
   hidden: readonly string[];
   toggleSource: (source: string, all: readonly string[]) => void;
+  showOnly: (source: string, all: readonly string[]) => void;
 }
 
 export const useNotificationSourceFilter = create<SourceFilterState>()((set) => ({
   hidden: [],
+  showOnly: (source, all) => set({ hidden: all.filter((value) => value !== source) }),
   toggleSource: (source, all) =>
     set(({ hidden }) => {
       if (hidden.includes(source)) return { hidden: hidden.filter((value) => value !== source) };

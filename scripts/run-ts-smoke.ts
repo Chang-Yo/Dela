@@ -49,7 +49,14 @@ await build({
       fileName: () => `${name}.cjs`,
     },
     rolldownOptions: {
-      external: ['electron', 'better-sqlite3', ...smoke.external, ...builtinModules, /^node:/],
+      external: [
+        'electron',
+        'better-sqlite3',
+        'cheerio',
+        ...smoke.external,
+        ...builtinModules,
+        /^node:/,
+      ],
     },
   },
 });

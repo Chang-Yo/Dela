@@ -178,23 +178,36 @@ describe('module schemas', () => {
     old.exec(`
       INSERT INTO workspace_entries (id, name, kind, updated_at) VALUES ('p1', '课题', 'project', 'now');
       INSERT INTO sessions (id, project_id, file, created_at, updated_at) VALUES ('s1', 'p1', 'f', 'now', 'now');
-      INSERT INTO notifications (id, source, account_key, title, created_at, href)
-        VALUES ('n1', 'mail', 'a', '新邮件', 'now', 'x');
-      INSERT INTO notification_refreshes (source, account_key) VALUES ('jwc', 'a');
+      INSERT INTO notifications (id, source, account_key, title, created_at, read_at, source_unread, href)
+        VALUES ('n1', 'jwc', 'students', '历史通知', '2026-11-01', '2026-11-02', 0, '{}');
+      INSERT INTO notification_refreshes (source, account_key, last_success_at, error)
+        VALUES ('jwc', 'students', '2026-11-03', '旧刷新错误');
     `);
     old.close();
 
     const db = openDatabase(modules);
     expect(db.prepare("SELECT project_id FROM sessions WHERE id='s1'").pluck().get()).toBe('p1');
-    expect(db.prepare("SELECT title FROM notifications WHERE id='n1'").pluck().get()).toBe(
-      '新邮件',
-    );
-    expect(db.prepare('SELECT source FROM notification_refreshes').pluck().all()).toEqual(['jwc']);
+    const legacyNotice =
+      "SELECT source, account_key, title, read_at, source_unread FROM notifications WHERE id='n1'";
+    const previousNotice = {
+      source: 'jwc',
+      account_key: 'students',
+      title: '历史通知',
+      read_at: '2026-11-02',
+      source_unread: 0,
+    };
+    expect(db.prepare(legacyNotice).get()).toEqual(previousNotice);
+    expect(db.prepare('SELECT * FROM notification_refreshes').get()).toEqual({
+      source: 'jwc',
+      account_key: 'students',
+      last_success_at: '2026-11-03',
+      error: '旧刷新错误',
+    });
     expect(db.pragma('foreign_key_list(sessions)')).toEqual([]);
     db.exec(`
       INSERT INTO notifications (id, source, account_key, title, created_at, href)
-        VALUES ('n2', 'todo', 'a', '待办', 'now', 'x');
-      INSERT INTO notification_refreshes (source, account_key) VALUES ('todo', 'a');
+        VALUES ('n2', 'notice', 'subscription', '官网公告', 'now', '{}');
+      INSERT INTO notification_refreshes (source, account_key) VALUES ('notice', 'subscription');
     `);
     expect(
       db
@@ -207,5 +220,10 @@ describe('module schemas', () => {
         'idx_notifications_account_source_created',
       ]),
     );
+    const reopened = openDatabase(modules);
+    expect(reopened.prepare(legacyNotice).get()).toEqual(previousNotice);
+    expect(reopened.prepare("SELECT source FROM notifications WHERE id='n2'").get()).toEqual({
+      source: 'notice',
+    });
   });
 });

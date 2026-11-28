@@ -16,7 +16,10 @@ vi.mock('../../../../modules/notifications', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../modules/notifications')>()),
   systemNotifyItem: vi.fn(),
 }));
-vi.mock('node:fs/promises', () => ({ writeFile: vi.fn() }));
+vi.mock('node:fs/promises', async (load) => ({
+  ...(await load<typeof import('node:fs/promises')>()),
+  writeFile: vi.fn(),
+}));
 
 import { app, dialog } from 'electron';
 import { writeFile } from 'node:fs/promises';
@@ -27,6 +30,7 @@ import {
   getJwcNotice,
   getJwcCaptcha,
   downloadJwcAttachment,
+  jwcNoticeSource,
 } from '../jwc';
 
 let db: Database.Database;
@@ -70,6 +74,32 @@ it('识别两种文章地址、日期、摘要与真实下页地址', () => {
   });
   expect(result.next).toBe(`${origin}/index/mxxsdtz/98.htm`);
   expect(() => parseJwcList('<html>维护中</html>', origin)).toThrow('未能读取');
+});
+
+it('关闭教务处时丢弃已经发出的刷新，重新开启后继续原有同步', async () => {
+  const subscription = jwcNoticeSource.subscription!;
+  expect(subscription.matches(new URL(`${origin}/index/mxxsdtz/98.htm`))).toBe(true);
+  expect(subscription.matches(new URL(`${origin}/xwtg/tztg.htm`))).toBe(false);
+
+  let finish!: (response: Response) => void;
+  request.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const refreshing = refreshJwc(true);
+  subscription.setEnabled(false);
+  expect(jwcNoticeSource.account()).toBeNull();
+  subscription.setEnabled(true);
+  finish(page(list(row(1))));
+  await refreshing;
+  expect(db.prepare('SELECT id FROM notifications').all()).toEqual([]);
+  expect(db.prepare('SELECT source FROM notification_refreshes').all()).toEqual([]);
+
+  request.mockResolvedValueOnce(page(list(row(1))));
+  await refreshJwc(true);
+  expect(db.prepare('SELECT id FROM notifications').all()).toEqual([{ id: 'jwc:1' }]);
 });
 
 it('学校列表中的公众号外链沿用学校文章 ID，不阻断其他通知', () => {

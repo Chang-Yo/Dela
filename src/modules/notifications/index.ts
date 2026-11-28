@@ -5,21 +5,26 @@ import { onTaskNotice, onTodoChange } from '../todo';
 import { notificationsContract } from './contract';
 import { notificationsSchema } from './data/schema';
 import {
+  listBuiltInSubscriptions,
   markAllNotificationsRead,
   markNotificationRead,
   notificationState,
   publishNotificationState,
   refreshNotifications,
+  setBuiltInSubscription,
   setNotificationSnooze,
   todoItem,
 } from './main/store';
 import { messageAlertsEnabled, setMessageAlerts, showMessageNotice } from './main/system';
 
 export {
+  deleteNotificationAccount,
   deleteNotifications,
   existingNotifications,
+  findBuiltInSubscription,
   insertNotificationIfAbsent,
   markNotificationsRead,
+  notificationAccountSummaries,
   publishNotificationState,
   registerNoticeSource,
   saveNotificationRefresh,
@@ -52,6 +57,11 @@ export const notificationsModule = defineModule({
     markRead: markNotificationRead,
     markAllRead: markAllNotificationsRead,
     setSnooze: setNotificationSnooze,
+    subscriptions: listBuiltInSubscriptions,
+    setBuiltInSubscription: ({ id, enabled }) => {
+      setBuiltInSubscription(id, enabled);
+      return publishNotificationState();
+    },
     messageAlerts: messageAlertsEnabled,
     setMessageAlerts,
   }),

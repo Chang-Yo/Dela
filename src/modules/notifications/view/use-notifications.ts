@@ -19,6 +19,14 @@ export function useNotificationState() {
   });
 }
 
+export function useNotificationSubscriptions() {
+  return useQuery({
+    queryKey: ['notifications', 'state', 'subscriptions'],
+    queryFn: () => notificationsClient.subscriptions(),
+    enabled: Boolean(window.dela?.bridge),
+  });
+}
+
 /** 铃铛的未读数受暂停影响；TODO 新消息数不受影响，暂停只静音铃铛。 */
 export function useNotificationCounts() {
   const { data } = useNotificationState();

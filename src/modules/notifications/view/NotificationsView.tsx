@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Bell, BellOff, Check, CheckCheck, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { Navigate, NoticeKind } from '../../../app/module';
@@ -20,11 +20,13 @@ import { Badge } from '../../../ui/badge';
 import type { NotificationItem } from '../contract';
 import { groupNotifications, likeGroupSummary } from './group-notifications';
 import { useNotificationSourceFilter } from './source-filter';
+import { SubscriptionsPanel } from './SubscriptionsPanel';
 import {
   notificationsClient,
   notifyFailure,
   openNotification,
   useNotificationState,
+  useNotificationSubscriptions,
 } from './use-notifications';
 
 type Kinds = Record<string, NoticeKind>;
@@ -81,6 +83,12 @@ function NotificationRow({
   onOpen: () => void;
   onMarkRead: () => void;
 }) {
+  const time =
+    item.publishedAt === null
+      ? '日期未知'
+      : item.publishedAt && /^\d{4}-\d{2}-\d{2}$/.test(item.publishedAt)
+        ? item.publishedAt
+        : formatTime(item.publishedAt ?? item.createdAt, now);
   return (
     <article className="relative rounded-card transition-colors duration-base hover:bg-hover">
       <button
@@ -102,7 +110,7 @@ function NotificationRow({
             {summary}
           </span>
           <span className="mt-2 block text-xs tabular-nums text-ink-3">
-            {kinds[item.source]?.label ?? item.source} · {formatTime(item.createdAt, now)}
+            {kinds[item.source]?.label ?? item.source} · {time}
           </span>
         </span>
         {unread ? badge : null}
@@ -132,8 +140,13 @@ export function notificationsPage(kinds: Kinds) {
 
 function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kinds }) {
   const all = Object.keys(kinds);
+  const builtIn = useNotificationSubscriptions().data;
+  const hasSubscriptions =
+    Boolean(builtIn?.length) || Object.values(kinds).some((kind) => kind.subscriptions);
+  const [showSubscriptions, setShowSubscriptions] = useState(false);
   const hidden = useNotificationSourceFilter((store) => store.hidden);
   const toggleSource = useNotificationSourceFilter((store) => store.toggleSource);
+  const showOnly = useNotificationSourceFilter((store) => store.showOnly);
   const sources = all.filter((source) => !hidden.includes(source));
   const filtered = sources.length < all.length;
   const allState = useNotificationState();
@@ -173,6 +186,16 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1">
+          {hasSubscriptions ? (
+            <Button
+              aria-expanded={showSubscriptions}
+              onClick={() => setShowSubscriptions(!showSubscriptions)}
+              size="sm"
+              variant="ghost"
+            >
+              订阅管理
+            </Button>
+          ) : null}
           <Button
             aria-label="刷新通知"
             disabled={loading}
@@ -249,6 +272,22 @@ function NotificationsView({ navigate, kinds }: { navigate: Navigate; kinds: Kin
           </DropdownMenu>
         </div>
       </header>
+
+      {showSubscriptions ? (
+        <SubscriptionsPanel>
+          {Object.entries(kinds).map(([source, { subscriptions: Panel }]) =>
+            Panel ? (
+              <Panel
+                key={source}
+                onViewNotices={() => {
+                  showOnly(source, all);
+                  setShowSubscriptions(false);
+                }}
+              />
+            ) : null,
+          )}
+        </SubscriptionsPanel>
+      ) : null}
 
       {state?.snoozedUntil ? (
         <div className="mt-4 flex items-start gap-2 rounded-card border border-line bg-inset px-4 py-3 text-sm text-ink-3">

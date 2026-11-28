@@ -10,12 +10,15 @@ import {
   systemNotifyItem,
   type NoticeSource,
 } from '../../../modules/notifications';
+import { readSetting, writeSetting } from '../../../modules/settings';
 import type { JwcNotice } from '../contract';
 
 const origin = 'https://jwc.sjtu.edu.cn';
 const listUrl = `${origin}/index/mxxsdtz.htm`;
 const syncKey = 'jwc-sync';
+const subscribedKey = 'jwc-subscribed';
 const accountKey = 'students';
+let subscriptionGeneration = 0;
 let nextCheckAt = 0;
 const notices = new Map<string, JwcNotice>();
 let challenge: { token: string; url: string; name: string; cookie: string } | null = null;
@@ -71,7 +74,13 @@ export function parseJwcList(html: string, pageUrl: string) {
   return { items, next: next ? new URL(next, pageUrl).href : null };
 }
 
+function isSubscribed(): boolean {
+  return readSetting(subscribedKey) !== '0';
+}
+
 export async function refreshJwc(force = false): Promise<void> {
+  if (!isSubscribed()) return;
+  const generation = subscriptionGeneration;
   const db = hostPorts().database();
   const saved = db.prepare('SELECT value FROM workspace_settings WHERE key = ?').get(syncKey) as
     | { value: string }
@@ -90,6 +99,7 @@ export async function refreshJwc(force = false): Promise<void> {
     if (previous?.etag) headers['If-None-Match'] = previous.etag;
     if (previous?.modified) headers['If-Modified-Since'] = previous.modified;
     const response = await fetch(listUrl, { headers, signal: AbortSignal.timeout(20_000) });
+    if (generation !== subscriptionGeneration) return;
     const sync: JwcSync = previous ?? {
       seen: [],
       etag: null,
@@ -100,6 +110,7 @@ export async function refreshJwc(force = false): Promise<void> {
     if (response.status !== 304) {
       if (!response.ok) throw new Error(`教务处请求失败（${response.status}）`);
       let page = parseJwcList(await response.text(), listUrl);
+      if (generation !== subscriptionGeneration) return;
       const candidates = [...page.items];
       let cutoff: Date | null = null;
       if (initialSync) {
@@ -117,6 +128,7 @@ export async function refreshJwc(force = false): Promise<void> {
           const older = await fetch(pageUrl, { signal: AbortSignal.timeout(20_000) });
           if (!older.ok) throw new Error(`教务处历史通知请求失败（${older.status}）`);
           page = parseJwcList(await older.text(), pageUrl);
+          if (generation !== subscriptionGeneration) return;
           candidates.push(...page.items);
         }
       }
@@ -150,6 +162,7 @@ export async function refreshJwc(force = false): Promise<void> {
     })();
     if (!initialSync) for (const item of added) systemNotifyItem(item);
   } catch (error) {
+    if (generation !== subscriptionGeneration) return;
     saveNotificationRefresh(
       'jwc',
       accountKey,
@@ -253,7 +266,27 @@ export async function downloadJwcAttachment(
 
 export const jwcNoticeSource: NoticeSource = {
   id: 'jwc',
-  account: () => accountKey,
+  account: () => (isSubscribed() ? accountKey : null),
+  subscription: {
+    label: '教务处',
+    url: listUrl,
+    enabled: isSubscribed,
+    setEnabled(enabled) {
+      if (enabled === isSubscribed()) return;
+      writeSetting(subscribedKey, enabled ? '1' : '0');
+      subscriptionGeneration++;
+      nextCheckAt = 0;
+    },
+    matches(url, label) {
+      if (!['http:', 'https:'].includes(url.protocol) || url.hostname !== 'jwc.sjtu.edu.cn')
+        return false;
+      return (
+        url.pathname === '/index/mxxsdtz.htm' ||
+        /^\/index\/mxxsdtz\/\d+\.htm$/.test(url.pathname) ||
+        (label?.includes('面向学生的通知') ?? false)
+      );
+    },
+  },
   refresh: (_account, force) => refreshJwc(force),
   // 教务处官网的通知在应用内阅读，转载到外部网站的交给浏览器。
   link: ({ url }, id) =>
