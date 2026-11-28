@@ -1,6 +1,8 @@
 /** Pi Coding Agent 接线：内核就是 pi-coding-agent SDK；这里只做加载、提供商注册与按 cwd 建会话，工具与会话树仍归 Pi。 */
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import type {
   AgentSession,
   FileEntry,
@@ -209,6 +211,23 @@ export interface OpenSessionInput {
   disabledTools: string[];
   /** 每个工具执行前等待它完成，用于先拍完本轮的目录快照再动文件。 */
   beforeTool?: () => Promise<void> | undefined;
+  mapToolPath?: (absolutePath: string) => string;
+}
+
+/** 与 Pi 文件工具接受的路径写法对齐；远端项目再映射到 helper 实际访问的路径。 */
+function toolFilePath(input: string, cwd: string, mapPath?: OpenSessionInput['mapToolPath']) {
+  let path = input.replace(/^@/, '').replace(/[\u00a0\u2000-\u200a\u202f\u205f\u3000]/g, ' ');
+  if (process.platform === 'win32' && !path.includes('\\'))
+    path = path.replace(/^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/|$)/i, '$1:/');
+  if (
+    path === '~' ||
+    path.startsWith('~/') ||
+    (process.platform === 'win32' && path.startsWith('~\\'))
+  )
+    path = join(homedir(), path.slice(2));
+  if (path.startsWith('file://')) path = fileURLToPath(path);
+  const absolute = isAbsolute(path) ? resolve(path) : resolve(cwd, path);
+  return mapPath ? mapPath(absolute) : absolute;
 }
 
 export async function openPiSession(input: OpenSessionInput): Promise<AgentSession> {
@@ -230,9 +249,26 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     noPromptTemplates: true,
     noThemes: true,
     // 内联扩展不受 noExtensions 限制，由 Dela 自己提供。
-    extensionFactories: input.beforeTool
-      ? [(api) => void api.on('tool_call', async () => void (await input.beforeTool!()))]
-      : [],
+    extensionFactories: [
+      (api) => {
+        const readFiles = new Set<string>();
+        const fileKey = (path: string, cwd: string) => toolFilePath(path, cwd, input.mapToolPath);
+        api.on('session_compact', () => readFiles.clear());
+        api.on('session_tree', () => readFiles.clear());
+        api.on('tool_result', (event, ctx) => {
+          if (event.toolName === 'read' && !event.isError && typeof event.input.path === 'string')
+            readFiles.add(fileKey(event.input.path, ctx.cwd));
+        });
+        api.on('tool_call', async (event, ctx) => {
+          if (
+            pi.isToolCallEventType('edit', event) &&
+            !readFiles.has(fileKey(event.input.path, ctx.cwd))
+          )
+            return { block: true, reason: "File hasn't been read yet" };
+          await input.beforeTool?.();
+        });
+      },
+    ],
     additionalSkillPaths: input.skillPaths,
     appendSystemPrompt: input.appendSystemPrompt,
     ...(input.agentsFilesOverride ? { agentsFilesOverride: input.agentsFilesOverride } : {}),
@@ -270,6 +306,15 @@ export async function openPiSession(input: OpenSessionInput): Promise<AgentSessi
     excludeTools: input.disabledTools,
   });
   return session;
+}
+
+export async function rewindLastUser(session: AgentSession): Promise<void> {
+  const history = session.sessionManager;
+  const user = history
+    .getBranch()
+    .findLast((entry) => entry.type === 'message' && entry.message.role === 'user');
+  if (!user) throw new Error('没有可编辑的消息');
+  await session.navigateTree(user.id);
 }
 
 export async function forkSessionFile(file: string, cwd: string, entryId: string): Promise<string> {
