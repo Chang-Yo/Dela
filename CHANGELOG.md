@@ -11,6 +11,10 @@ Dela 遵循 [语义化版本规范 2.0.0](https://semver.org/lang/zh-CN/)。请�
 - 不应该将每条 commit 记录都写入CHANGELOG,这里不是 commit 记录清单，而是同时面向开发者和用户的更新文档
 - 架构、边界与开发流程见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
+## Unreleased
+
+- 改用 Oxfmt 检查代码格式，并使用 Oxc 编译 React 页面。Windows 本地实测，页面生产构建耗时从约 17 秒降至 4 秒。
+
 ## 3.1.2 - 2026-11-26
 
 - 为竖向滚动条两端添加可点击的圆角箭头，修复分隔线遮挡相邻滚动条的问题。
